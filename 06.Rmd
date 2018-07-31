@@ -1,0 +1,801 @@
+---
+title: "Chapter 06. Inferring a Binomial Probability via Exact Mathematical Analysis"
+author: "A Solomon Kurz"
+date: "`r format(Sys.Date())`"
+output:
+  github_document
+---
+
+# (PART) ALL THE FUNDAMENTALS APPLIED TO INFERRING A BINOMIAL PROBABILITY {-}
+
+Kruschke wrote:
+
+> In the next few chapters, we will develop all the foundational concepts and methods of Bayesian data analysis, which are applied to the simplest type of data. Because of the simplicity of the data, we can focus on the Bayesian methods and scaffold the concepts clearly and efficiently. The subsequent part of the book applies the methods developed in this part to more complex data structures.
+
+He put it well. I have nothing to add.
+
+# Inferring a Binomial Probability via Exact Mathematical Analysis
+
+"Bayes' rule is merely the mathematical relation between the prior allocation of credibility and the posterior reallocation of credibility conditional on data" (pp. 99--100).
+
+## The likelihood function: The Bernoulli distribution
+
+If you follow equation 6.2 closely, here is how we might express it in R.
+
+```{r}
+Bernoulli_likelihood <- function(theta, data) {
+  # theta = success probability parameter ranging from 0 to 1
+  # data = the vector of data (i.e., a series of 0s and 1s)
+  N   <- length(data)
+  z   <- sum(data)
+  return(theta^z * (1 - theta)^(N - sum(data)))
+  }
+```
+
+This will come in handy in just a bit.
+
+## A description of credibilities: The beta distribution
+
+### Specifying a beta prior.
+
+Before we make Figure 6.1, we'll need some data.
+
+```{r, fig.width = 6, fig.height = 6, warning = F, message = F}
+library(tidyverse)
+
+d <-
+  tibble(x = seq(from = 0, to = 1, length.out = 1e3) %>% 
+         rep(., times = 25)) %>% 
+  group_by(x) %>% 
+  mutate(shape1 = rep(c(.1, 1:4), times = 5),
+         shape2 = rep(c(.1, 1:4), each = 5)) %>% 
+  mutate(a = paste("a =", shape1),
+         b = paste("b =", shape2)) %>% 
+  ungroup() %>% 
+  mutate(exemplar = rep(1:1e3, each = 25))
+
+head(d)
+```
+
+Now we're ready: Figure 6.1.
+
+```{r, fig.width = 6, fig.height = 6, warning = F, message = F}
+d %>% 
+  
+  ggplot(aes(x = x, group = exemplar)) +
+  geom_line(aes(y = dbeta(x, shape1 = shape1, shape2 = shape2)),
+            color = "grey50", size = 1.25) +
+  scale_x_continuous(breaks = c(0, .5, 1)) +
+  coord_cartesian(ylim = 0:3) +
+  labs(x = expression(theta),
+       y = expression(paste("p(", theta, "|a, b)"))) +
+  theme(panel.grid = element_blank()) +
+  facet_grid(b~a)
+```
+
+We'll use the same process for Figure 6.2 and create the data, first.
+
+```{r}
+d <-
+  tibble(x = seq(from = 0, to = 1, length.out = 1e3) %>% 
+         rep(., times = 4)) %>% 
+  group_by(x) %>% 
+  mutate(shape1 = c(5.6, 17.6, 5, 17),
+         shape2 = c(1.4, 4.4, 2, 5)) %>% 
+  mutate(a = paste("a =", shape1),
+         b = paste("b =", shape2),
+         kappa = rep(c("kappa = 7", "kappa = 22"), times = 2),
+         mu_omega = rep(c("mu = 0.8", "omega = 0.8"), each = 2)) %>% 
+  mutate(kappa = factor(kappa, levels = c("kappa = 7", "kappa = 22"))) %>% 
+  ungroup() 
+
+head(d)
+```
+
+Here's Figure 6.2.
+
+```{r, fig.width = 6, fig.height = 4}
+d %>%
+
+  ggplot(aes(x = x)) +
+  geom_vline(xintercept = .8, color = "white") +
+  geom_line(aes(y = dbeta(x, shape1 = shape1, shape2 = shape2)),
+            color = "grey50", size = 1.25) +
+  scale_x_continuous(breaks = c(0, .8, 1)) +
+  coord_cartesian(ylim = 0:5) +
+  labs(x = expression(theta),
+       y = expression(paste("p(", theta, "|a, b)"))) +
+  theme(panel.grid = element_blank()) +
+  facet_grid(mu_omega~kappa)
+```
+
+From lines 264 to 290 in his "DBDA2E-utilities.R" file, Kruschke's `betaABfrom...()` functions are as follows:
+
+```{r}
+# Shape parameters from central tendency and scale:
+
+betaABfromMeanKappa <- function(mean, kappa) {
+  if (mean <= 0 | mean >= 1) stop("must have 0 < mean < 1")
+  if (kappa <= 0) stop("kappa must be > 0")
+  a <- mean * kappa
+  b <- (1.0 - mean) * kappa
+  return(list(a = a, b = b))
+}
+
+betaABfromModeKappa <- function(mode, kappa) {
+  if (mode <= 0 | mode >= 1) stop("must have 0 < mode < 1")
+  if (kappa <= 2) stop("kappa must be > 2 for mode parameterization")
+  a <- mode * (kappa - 2) + 1
+  b <- (1.0 - mode) * (kappa - 2) + 1
+  return(list(a = a, b = b))
+}
+
+betaABfromMeanSD <- function(mean, sd) {
+  if (mean <= 0 | mean >= 1) stop("must have 0 < mean < 1")
+  if (sd <= 0) stop("sd must be > 0")
+  kappa <- mean * (1 - mean)/sd^2 - 1
+  if (kappa <= 0) stop("invalid combination of mean and sd")
+  a <- mean * kappa
+  b <- (1.0 - mean) * kappa
+  return(list(a = a, b = b))
+}
+```
+
+Here's how they work:
+
+```{r}
+betaABfromMeanKappa(mean = .25, kappa = 4)
+betaABfromModeKappa(mode = .25, kappa = 4)
+betaABfromMeanSD(mean = .5, sd = .1)
+```
+
+```{r}
+beta_param <- betaABfromModeKappa(mode = .25, kappa = 4)
+
+beta_param$a
+beta_param$b
+```
+
+## The posterior beta
+
+### Posterior is compromise of prior and likelihood.
+
+Here are the mean calculations from the last paragraph on page 134.
+
+```{r}
+N <- 10
+z <- 1
+a <- 5
+b <- 5
+
+(proportion_heads <- z/N)
+(prior_mean <- a/(a + b))
+(posterior_mean <- (z + a)/(N + a + b))
+```
+
+In order to make the plots for Figure 6.3, we'll want to compute the prior, likelihood, and posterior density values across a densely-packed range of $\theta$ values. 
+
+```{r}
+trial_data <- c(rep(0, 9), 1)
+
+d <-
+  tibble(theta = seq(from = 0, to = 1, length.out = 100)) %>% 
+  mutate(`Prior (beta)`           = dbeta(theta, 
+                                          shape1 = a, 
+                                          shape2 = b),
+         `Likelihood (Bernoulli)` = Bernoulli_likelihood(theta = theta, 
+                                                         data = trial_data),
+         `Posterior (beta)`       = dbeta(theta, 
+                                          shape1 = 6, 
+                                          shape2 = 14))
+
+glimpse(d)
+```
+
+To make things easier on ourselves, we'll also make two additional data objects to annotate the plots with lines and text.
+
+```{r}
+# the data for the in-plot lines
+line_tibble <-
+  tibble(theta = c(.212 + .008, .788 - .008, 
+                   .114 + .004, .497 - .005),
+         value = rep(c(.51, .66), each = 2),
+         xintercept = c(.212, .788, .114, .497),
+         key = rep(c("Prior (beta)", "Posterior (beta)"), each = 2)) %>% 
+  mutate(key = factor(key, levels = c("Prior (beta)", "Likelihood (Bernoulli)", "Posterior (beta)")))
+  
+# the data for the annotation
+text_tibble <-
+  tibble(theta = c(.5, .3),
+         value = c(.8, 1.125),
+         label = "95% HDI",
+         key = c("Prior (beta)", "Posterior (beta)")) %>% 
+  mutate(key = factor(key, levels = c("Prior (beta)", "Likelihood (Bernoulli)", "Posterior (beta)")))
+```
+
+Finally, here's our Figure 6.3.
+
+```{r, fig.width = 6, fig.height = 5}
+d %>% 
+  gather(key, value, -theta) %>% 
+  mutate(key = factor(key, levels = c("Prior (beta)", "Likelihood (Bernoulli)", "Posterior (beta)"))) %>% 
+  
+  ggplot(aes(x = theta)) +
+  geom_ribbon(aes(ymin = 0, ymax = value),
+              fill = "grey67") +
+  geom_vline(data = line_tibble,
+             aes(xintercept = xintercept), 
+             linetype = 2, color = "grey92") +
+  geom_line(data = line_tibble,
+            aes(y = value),
+            arrow = arrow(length = unit(.15,"cm"), 
+                          ends = "both", 
+                          type = "closed"),
+            color = "grey92") +
+  geom_text(data = text_tibble,
+            aes(y = value, label = label),
+            color = "grey92") +
+  labs(x = expression(theta),
+       y = NULL) +
+  facet_wrap(~key, scales = "free_y", ncol = 1) +
+  theme(panel.grid = element_blank())
+```
+
+## Examples
+
+### Prior knowledge expressed as a beta distribution.
+
+Here are the results Kruschke reported in the first paragraph of this subsection.
+
+```{r}
+beta_param <- betaABfromModeKappa(mode = .5, kappa = 500)
+
+beta_param$a
+beta_param$b
+```
+
+Confusingly, it appears Kruschke switched from `dbeta(250, 250)` in the prose to `dbeta(100, 100)` in Figure 6.4.a. So it goes...
+
+```{r, fig.width = 4.5, fig.height = 2}
+beta_param <- betaABfromModeKappa(mode = .5, kappa = 200)
+
+beta_param$a
+beta_param$b
+
+ggplot(data = tibble(x = seq(from = 0, to = 1, by = .001)),
+       aes(x = x)) +
+  geom_ribbon(aes(ymin = 0,
+                  ymax = dbeta(x, 
+                               shape1 = beta_param$a, 
+                               shape2 = beta_param$b)),
+              fill = "grey75") +
+  geom_ribbon(data = tibble(x = seq(from = .5 - .069, to = .5 + .069, by = .001)),
+              aes(ymin = 0,
+                  ymax = dbeta(x, 
+                               shape1 = beta_param$a, 
+                               shape2 = beta_param$b)),
+              fill = "grey67") +
+  geom_line(data = tibble(x = c(.5 - .069 + .005, .5 + .069 - .005),
+                          y = 1.7),
+            aes(x = x, y = y),
+            arrow = arrow(length = unit(.15,"cm"), 
+                          ends = "both", 
+                          type = "closed"),
+            color = "grey92") +
+  annotate("text", x = .5, y = 3.5, 
+           label = "95% HDI", color = "grey0") +
+  coord_cartesian(ylim = 0:12) +
+  labs(title = "Prior (beta)",
+       x = expression(theta),
+       y = expression(paste("dbeta(", theta, "|100, 100)"))) +
+  theme(panel.grid = element_blank())
+```
+
+Here are our a and b parameters for Kruschke's free throw example
+
+```{r}
+beta_param <- betaABfromModeKappa(mode = .75, kappa = 25)
+
+beta_param$a
+beta_param$b
+```
+
+Behold Figure 6.4.b. 
+
+```{r, fig.width = 4.5, fig.height = 2}
+ggplot(data = tibble(x = seq(from = 0, to = 1, by = .001)),
+       aes(x = x)) +
+  geom_ribbon(aes(ymin = 0,
+                  ymax = dbeta(x, 
+                               shape1 = beta_param$a, 
+                               shape2 = beta_param$b)),
+              fill = "grey75") +
+  geom_ribbon(data = tibble(x = seq(from = .558, to = .892, by = .001)),
+              aes(ymin = 0,
+                  ymax = dbeta(x, 
+                               shape1 = beta_param$a, 
+                               shape2 = beta_param$b)),
+              fill = "grey67") +
+  geom_line(data = tibble(x = c(.558 + .005, .892 - .005),
+                          y = .75),
+            aes(x = x, y = y),
+            arrow = arrow(length = unit(.15,"cm"), 
+                          ends = "both", 
+                          type = "closed"),
+            color = "grey92") +
+  annotate("text", x = .73, y = 1.5, 
+           label = "95% HDI", color = "grey92") +
+  coord_cartesian(ylim = 0:6) +
+  labs(title = "Prior (beta)",
+       x = expression(theta),
+       y = expression(paste("dbeta(", theta, "|18.25, 6.75)"))) +
+  theme(panel.grid = element_blank())
+```
+
+But we can be a little more organized and plot the top row of Figure 6.4 all at once. 
+
+```{r, fig.width = 10, fig.height = 2}
+# the data for the in-plot lines
+line_tibble <-
+  tibble(theta = c(.431 + .005, .569 - .005, 
+                   .558 + .005, .892 - .005),
+         value = rep(c(1.9, .8), each = 2),
+         xintercept = c(.431, .569, 
+                        .558, .892),
+         exemplar = rep(c("dbeta(theta, 100, 100)", "dbeta(theta, 18.25, 6.75)"), each = 2)) %>%
+  mutate(exemplar = factor(exemplar, levels = c("dbeta(theta, 100, 100)", "dbeta(theta, 18.25, 6.75)", "dbeta(theta, 1, 1)")))
+  
+# the data for the annotation
+text_tibble <-
+  tibble(theta = c(.5, .735),
+         value = c(3.6, 1.45),
+         label = "95% HDI",
+         exemplar = c("dbeta(theta, 100, 100)", "dbeta(theta, 18.25, 6.75)")) %>%
+  mutate(exemplar = factor(exemplar, levels = c("dbeta(theta, 100, 100)", "dbeta(theta, 18.25, 6.75)", "dbeta(theta, 1, 1)")))
+
+# our main data tibble
+tibble(theta = seq(from = 0, to = 1, length.out = 100) %>% rep(., times = 3),
+       a = rep(c(100, 18.25, 1), each = 100),
+       b = rep(c(100, 6.75, 1), each = 100)) %>% 
+  mutate(exemplar = ifelse(a == 18.25, str_c("dbeta(theta, ", a, ", ", b, ")"),
+                           str_c("dbeta(theta, ", a %>% round(0), ", ", b %>% round(0), ")")),
+         density = dbeta(theta, shape1 = a, shape2 = b)) %>% 
+  mutate(exemplar = factor(exemplar, levels = c("dbeta(theta, 100, 100)", "dbeta(theta, 18.25, 6.75)", "dbeta(theta, 1, 1)"))) %>% 
+  
+  # finally, the plot code!
+  ggplot(aes(x = theta)) +
+  geom_ribbon(aes(ymin = 0, ymax = density),
+              size = 0, fill = "grey67") +
+  geom_vline(data = line_tibble,
+             aes(xintercept = xintercept), 
+             linetype = 2, color = "grey92") +
+  geom_line(data = line_tibble,
+            aes(y = value),
+            arrow = arrow(length = unit(.15,"cm"), 
+                          ends = "both", 
+                          type = "closed"),
+            color = "grey92") +
+  geom_text(data = text_tibble,
+            aes(y = value, label = label),
+            color = "grey0") +
+  labs(title = "Prior (beta)", 
+       x = expression(theta), 
+       y = expression(paste("p(", theta, ")"))) +
+  theme(panel.grid = element_blank()) +
+  facet_wrap(~exemplar, scales = "free_y", ncol = 3)
+```
+
+If you look closely, you'll notice the middle row is the same for each column. So we'll just plot it once.
+
+```{r, fig.width = 3.5, fig.height = 2}
+N <- 20
+z <- 17
+
+trial_data <- c(rep(0, times = N - z), rep(1, times = z))
+
+tibble(theta = seq(from = 0, to = 1, length.out = 100)) %>% 
+  mutate(likelihood = Bernoulli_likelihood(theta = theta,
+                                           data = trial_data)) %>% 
+  
+  ggplot(aes(x = theta)) +
+  geom_ribbon(aes(ymin = 0, ymax = likelihood),
+              size = 0, fill = "grey67") +
+  labs(title = "Likelihood (Bernoulli)",
+       subtitle = "This is the same for all 3 exemplars, so\nthere's no need to plot this thrice.",
+       x = expression(theta),
+       y = expression(paste("p(D|", theta, ")"))) +
+  theme(panel.grid = element_blank())
+
+```
+
+The bottom row:
+
+```{r, fig.width = 10, fig.height = 2}
+# the data for the in-plot lines
+line_tibble <-
+  tibble(theta = c(.466 + .005, .597 - .005, 
+                   .663 + .004, .897 - .005,
+                   .660 + .005, .959 - .003),
+         value = rep(c(1.9, 1.1, .85), each = 2),
+         xintercept = c(.466, .597, 
+                        .663, .897,
+                        .660, .959),
+         exemplar = rep(c("dbeta(theta, 117, 103)", "dbeta(theta, 35.25, 9.75)", "dbeta(theta, 18, 4)"), each = 2)) %>% 
+  mutate(exemplar = factor(exemplar, levels = c("dbeta(theta, 117, 103)", "dbeta(theta, 35.25, 9.75)", "dbeta(theta, 18, 4)")))
+  
+# the data for the annotation
+text_tibble <-
+  tibble(theta = c(.532, .78, .82),
+         value = c(3.5, 2, 1.6),
+         label = "95% HDI",
+         exemplar = c("dbeta(theta, 117, 103)", "dbeta(theta, 35.25, 9.75)", "dbeta(theta, 18, 4)")) %>%
+  mutate(exemplar = factor(exemplar, levels = c("dbeta(theta, 117, 103)", "dbeta(theta, 35.25, 9.75)", "dbeta(theta, 18, 4)")))
+
+# our main data tibble
+tibble(theta = seq(from = 0, to = 1, length.out = 100) %>% rep(., times = 3),
+       a = rep(c(117, 35.25, 18), each = 100),
+       b = rep(c(103, 9.75, 4), each = 100)) %>% 
+  mutate(exemplar = ifelse(a == 35.25, str_c("dbeta(theta, ", a, ", ", b, ")"),
+                           str_c("dbeta(theta, ", a %>% round(0), ", ", b %>% round(0), ")")),
+         density = dbeta(theta, shape1 = a, shape2 = b)) %>% 
+  mutate(exemplar = factor(exemplar, levels = c("dbeta(theta, 117, 103)", "dbeta(theta, 35.25, 9.75)", "dbeta(theta, 18, 4)"))) %>% 
+  
+  # the plot
+  ggplot(aes(x = theta)) +
+  geom_ribbon(aes(ymin = 0, ymax = density),
+              size = 0, fill = "grey67") +
+  geom_vline(data = line_tibble,
+             aes(xintercept = xintercept), 
+             linetype = 2, color = "grey92") +
+  geom_line(data = line_tibble,
+            aes(y = value),
+            arrow = arrow(length = unit(.15,"cm"), 
+                          ends = "both", 
+                          type = "closed"),
+            color = "grey92") +
+  geom_text(data = text_tibble,
+            aes(y = value, label = label),
+            color = "grey0") +
+  labs(title = "Posterior (beta)", 
+       x = expression(theta), 
+       y = expression(paste("p(", theta, "|D)"))) +
+  theme(panel.grid = element_blank()) +
+  facet_wrap(~exemplar, scales = "free_y", ncol = 3)
+```
+
+### Prior knowledge that cannot be expressed as a beta distribution.
+
+For kicks, we'll do this one the way in the text, first, and then in a more tidyverse sort of way.
+
+```{r, fig.width = 4, fig.height = 6}
+theta <- seq(0, 1, length = 1000)  # Fine teeth for Theta.
+# Two triangular peaks on a small non-zero floor:
+p_theta <-
+  c(rep(1, 200), 
+    seq(1, 100, length = 50), 
+    seq(100, 1, length = 50), 
+    rep(1, 200)) %>% 
+  rep(., times = 2)
+
+p_theta <- p_theta/sum(p_theta)    # Make p_theta sum to 1.0
+```
+
+Here's Kruschke's `BernGrid()` code in all its glory.
+
+```{r}
+BernGrid = function( Theta , pTheta , Data , plotType=c("Points","Bars")[2] ,
+                     showCentTend=c("Mean","Mode","None")[3] ,
+                     showHDI=c(TRUE,FALSE)[2] , HDImass=0.95 ,
+                     showpD=c(TRUE,FALSE)[2] , nToPlot=length(Theta) ) {
+  # Theta is vector of values between 0 and 1.
+  # pTheta is prior probability mass at each value of Theta
+  # Data is vector of 0's and 1's.
+  
+  # Check for input errors:
+  if ( any( Theta > 1 | Theta < 0 ) ) {
+    stop("Theta values must be between 0 and 1")
+  }
+  if ( any( pTheta < 0 ) ) {
+    stop("pTheta values must be non-negative")
+  }
+  if ( !isTRUE(all.equal( sum(pTheta) , 1.0 )) )  {
+    stop("pTheta values must sum to 1.0")
+  }
+  if ( !all( Data == 1 | Data == 0 ) ) {
+    stop("Data values must be 0 or 1")
+  }
+  
+  # Create summary values of Data
+  z = sum( Data ) # number of 1's in Data
+  N = length( Data ) 
+
+  # Compute the Bernoulli likelihood at each value of Theta:
+  pDataGivenTheta = Theta^z * (1-Theta)^(N-z)
+  # Compute the evidence and the posterior via Bayes' rule:
+  pData = sum( pDataGivenTheta * pTheta )
+  pThetaGivenData = pDataGivenTheta * pTheta / pData
+  
+  # Plot the results.
+  layout( matrix( c( 1,2,3 ) ,nrow=3 ,ncol=1 ,byrow=FALSE ) ) # 3x1 panels
+  par( mar=c(3,3,1,0) , mgp=c(2,0.7,0) , mai=c(0.5,0.5,0.3,0.1) ) # margins
+  cexAxis = 1.33
+  cexLab = 1.75
+  # convert plotType to notation used by plot:
+  if ( plotType=="Points" ) { plotType="p" }
+  if ( plotType=="Bars" ) { plotType="h" }
+  dotsize = 5 # how big to make the plotted dots
+  barsize = 5 # how wide to make the bar lines    
+  # If the comb has a zillion teeth, it's too many to plot, so plot only a
+  # thinned out subset of the teeth.
+  nteeth = length(Theta)
+  if ( nteeth > nToPlot ) {
+    thinIdx = round( seq( 1, nteeth , length=nteeth ) )
+  } else { 
+    thinIdx = 1:nteeth 
+  }
+
+  # Plot the prior.
+  yLim = c(0,1.1*max(c(pTheta,pThetaGivenData)))
+  plot( Theta[thinIdx] , pTheta[thinIdx] , type=plotType , 
+        pch="." , cex=dotsize , lwd=barsize ,
+        xlim=c(0,1) , ylim=yLim , cex.axis=cexAxis ,
+        xlab=bquote(theta) , ylab=bquote(p(theta)) , cex.lab=cexLab ,
+        main="Prior" , cex.main=1.5 , col="skyblue" )
+  if ( showCentTend != "None" ) {
+    if ( showCentTend == "Mean" ) {
+      meanTheta = sum( Theta * pTheta ) 
+      if ( meanTheta > .5 ) {
+         textx = 0 ; textadj = c(0,1)
+      } else {
+        textx = 1 ; textadj = c(1,1)
+      }
+      text( textx , yLim[2] ,
+            bquote( "mean=" * .(signif(meanTheta,3)) ) ,
+            cex=2.0 , adj=textadj )
+    }
+    if ( showCentTend == "Mode" ) {
+      modeTheta = Theta[ which.max( pTheta ) ]
+      if ( modeTheta > .5 ) {
+        textx = 0 ; textadj = c(0,1)
+      } else {
+        textx = 1 ; textadj = c(1,1)
+      }
+      text( textx , yLim[2] ,
+            bquote( "mode=" * .(signif(modeTheta,3)) ) ,
+            cex=2.0 , adj=textadj )
+    }
+  }
+  
+  # Mark the highest density interval. HDI points are not thinned in the plot.
+  if ( showHDI ) {
+    HDIinfo = HDIofGrid( pTheta , credMass=HDImass )
+    points( Theta[ HDIinfo$indices ] , 
+            rep( HDIinfo$height , length( HDIinfo$indices ) ) , 
+            pch="-" , cex=1.0 )
+    text( mean( Theta[ HDIinfo$indices ] ) , HDIinfo$height ,
+          bquote( .(100*signif(HDIinfo$mass,3)) * "% HDI" ) ,
+          adj=c(0.5,-1.5) , cex=1.5 )
+    # Mark the left and right ends of the waterline. 
+    # Find indices at ends of sub-intervals:
+    inLim = HDIinfo$indices[1] # first point
+    for ( idx in 2:(length(HDIinfo$indices)-1) ) {
+      if ( ( HDIinfo$indices[idx] != HDIinfo$indices[idx-1]+1 ) | # jumps on left, OR
+             ( HDIinfo$indices[idx] != HDIinfo$indices[idx+1]-1 ) ) { # jumps on right
+        inLim = c(inLim,HDIinfo$indices[idx]) # include idx
+      }
+    }
+    inLim = c(inLim,HDIinfo$indices[length(HDIinfo$indices)]) # last point
+    # Mark vertical lines at ends of sub-intervals:
+    for ( idx in inLim ) {
+      lines( c(Theta[idx],Theta[idx]) , c(-0.5,HDIinfo$height) , type="l" , lty=2 , 
+             lwd=1.5 )
+      text( Theta[idx] , HDIinfo$height , bquote(.(round(Theta[idx],3))) ,
+            adj=c(0.5,-0.1) , cex=1.2 )
+    }
+  }
+  
+  # Plot the likelihood: p(Data|Theta)
+  plot( Theta[thinIdx] , pDataGivenTheta[thinIdx] , type=plotType , 
+        pch="." , cex=dotsize , lwd=barsize ,
+        xlim=c(0,1) , ylim=c(0,1.1*max(pDataGivenTheta)) , cex.axis=cexAxis ,
+        xlab=bquote(theta) , ylab=bquote( "p(D|" * theta * ")" ) , cex.lab=cexLab ,
+        main="Likelihood" , cex.main=1.5 , col="skyblue" )
+  if ( z > .5*N ) { textx = 0 ; textadj = c(0,1) }
+  else { textx = 1 ; textadj = c(1,1) }
+  text( textx ,1.0*max(pDataGivenTheta) ,cex=2.0
+  	,bquote( "Data: z=" * .(z) * ",N=" * .(N) ) ,adj=textadj )
+  if ( showCentTend != "None" ) {
+    if ( showCentTend == "Mean" ) {
+      meanTheta = sum( Theta * pDataGivenTheta ) 
+      if ( meanTheta > .5 ) {
+        textx = 0 ; textadj = c(0,1)
+      } else {
+        textx = 1 ; textadj = c(1,1)
+      }
+      text( textx , 0.7*max(pDataGivenTheta) ,
+            bquote( "mean=" * .(signif(meanTheta,3)) ) ,
+            cex=2.0 , adj=textadj )
+    }
+    if ( showCentTend == "Mode" ) {
+      modeTheta = Theta[ which.max( pDataGivenTheta ) ]
+      if ( modeTheta > .5 ) {
+        textx = 0 ; textadj = c(0,1)
+      } else {
+        textx = 1 ; textadj = c(1,1)
+      }
+      text( textx , 0.7*max(pDataGivenTheta) ,
+            bquote( "mode=" * .(signif(modeTheta,3)) ) ,
+            cex=2.0 , adj=textadj )
+    }
+  }
+  
+  # Plot the posterior.
+  yLim = c(0,1.1*max(c(pTheta,pThetaGivenData)))
+  plot( Theta[thinIdx] , pThetaGivenData[thinIdx] , type=plotType , 
+        pch="." , cex=dotsize , lwd=barsize ,
+        xlim=c(0,1) , ylim=yLim , cex.axis=cexAxis ,
+        xlab=bquote(theta) , ylab=bquote( "p(" * theta * "|D)" ) , cex.lab=cexLab ,
+        main="Posterior" , cex.main=1.5 , col="skyblue" )
+  if ( showCentTend != "None" ) {
+    if ( showCentTend == "Mean" ) {
+      meanTheta = sum( Theta * pThetaGivenData ) 
+      if ( meanTheta > .5 ) {
+        textx = 0 ; textadj = c(0,1)
+      } else {
+        textx = 1 ; textadj = c(1,1)
+      }
+      text( textx , yLim[2] ,
+            bquote( "mean=" * .(signif(meanTheta,3)) ) ,
+            cex=2.0 , adj=textadj )
+    }
+    if ( showCentTend == "Mode" ) {
+      modeTheta = Theta[ which.max( pThetaGivenData ) ]
+      if ( modeTheta > .5 ) {
+        textx = 0 ; textadj = c(0,1)
+      } else {
+        textx = 1 ; textadj = c(1,1)
+      }
+      text( textx , yLim[2] ,
+            bquote( "mode=" * .(signif(modeTheta,3)) ) ,
+            cex=2.0 , adj=textadj )
+    }
+  }
+
+  
+  # Plot marginal likelihood pData:
+  if ( showpD ) {
+    meanTheta = sum( Theta * pThetaGivenData ) 
+    if ( meanTheta > .5 ) {
+      textx = 0 ; textadj = c(0,1)
+    } else {
+      textx = 1 ; textadj = c(1,1)
+    }
+    text( textx , 0.75*max(pThetaGivenData) , cex=2.0 ,
+    	    bquote( "p(D)=" * .(signif(pData,3)) ) ,adj=textadj )
+  }
+  
+  # Mark the highest density interval. HDI points are not thinned in the plot.
+  if ( showHDI ) {
+    HDIinfo = HDIofGrid( pThetaGivenData , credMass=HDImass )
+    points( Theta[ HDIinfo$indices ] , 
+            rep( HDIinfo$height , length( HDIinfo$indices ) ) , 
+            pch="-" , cex=1.0 )
+    text( mean( Theta[ HDIinfo$indices ] ) , HDIinfo$height ,
+             bquote( .(100*signif(HDIinfo$mass,3)) * "% HDI" ) ,
+             adj=c(0.5,-1.5) , cex=1.5 )
+    # Mark the left and right ends of the waterline. 
+    # Find indices at ends of sub-intervals:
+    inLim = HDIinfo$indices[1] # first point
+    for ( idx in 2:(length(HDIinfo$indices)-1) ) {
+      if ( ( HDIinfo$indices[idx] != HDIinfo$indices[idx-1]+1 ) | # jumps on left, OR
+        ( HDIinfo$indices[idx] != HDIinfo$indices[idx+1]-1 ) ) { # jumps on right
+        inLim = c(inLim,HDIinfo$indices[idx]) # include idx
+      }
+    }
+    inLim = c(inLim,HDIinfo$indices[length(HDIinfo$indices)]) # last point
+    # Mark vertical lines at ends of sub-intervals:
+    for ( idx in inLim ) {
+      lines( c(Theta[idx],Theta[idx]) , c(-0.5,HDIinfo$height) , type="l" , lty=2 , 
+             lwd=1.5 )
+      text( Theta[idx] , HDIinfo$height , bquote(.(round(Theta[idx],3))) ,
+            adj=c(0.5,-0.1) , cex=1.2 )
+    }
+  }
+  
+  # return( pThetaGivenData )
+} # end of function
+```
+
+You plot using Kruschke's method, like so.
+
+```{r, fig.width = 5, fig.height = 6, warning = F, message = F}
+Data <- c(rep(0, 13), rep(1, 14))
+
+BernGrid(theta, p_theta, Data, plotType = "Bars",
+         showCentTend = "None", showHDI = FALSE, showpD = FALSE)
+```
+
+It works fine. However, I'm not a fan of the method. It's clear that a lot of thought went into his `BernGrid()` function. However, its inner workings are too opaque, for me. I wanna get my hands dirty and make my own plots so that I know exactly what's going on. Before we make our plots with ggplot2, let's first get the data into a tibble.
+
+```{r}
+# we need these to compute the likelihood
+N <- 27
+z <- 14
+
+trial_data <- c(rep(0, times = N - z), rep(1, times = z))        # (i.e., Data)
+
+d <-
+  tibble(theta = seq(from = 0, to = 1, length.out = 1000),       # (i.e., Theta)
+         Prior = c(rep(1, 200),                                  # (i.e., pTheta)
+                   seq(1, 100, length = 50), 
+                   seq(100, 1, length = 50), 
+                   rep(1, 200)) %>% 
+           rep(., times = 2)) %>% 
+  mutate(Prior = Prior/sum(Prior),
+         Likelihood = Bernoulli_likelihood(theta = theta,        # (i.e., pDataGivenTheta)
+                                           data = trial_data)) %>%
+  mutate(normalizing_constant = sum(Likelihood * Prior)) %>%     # (i.e., pData)
+  mutate(Posterior = Likelihood * Prior / normalizing_constant)  # (i.e., pThetaGivenData)
+  
+glimpse(d)
+```
+
+With our nice tibble in hand, we'll plot the prior, likelihood, and posterior one at a time.
+
+```{r, fig.width = 5, fig.height = 2}
+(plot_1 <-
+  d %>% 
+  ggplot(aes(x = theta)) +
+  geom_ribbon(aes(ymin = 0, ymax = Prior),
+              fill = "grey50") +
+  labs(title = "Prior",
+       x = expression(theta),
+       y = expression(paste("p(", theta, ")"))) +
+  theme(panel.grid = element_blank())
+ )
+
+(plot_2 <-
+  d %>% 
+  ggplot(aes(x = theta)) +
+  geom_ribbon(aes(ymin = 0, ymax = Likelihood),
+              fill = "grey50") +
+  labs(title = "Likelihood",
+       x = expression(theta),
+       y = expression(paste("p(D|", theta, ")"))) +
+  theme(panel.grid = element_blank())
+ )
+
+(plot_3 <-
+  d %>% 
+  ggplot(aes(x = theta)) +
+  geom_ribbon(aes(ymin = 0, ymax = Posterior),
+              fill = "grey50") +
+  labs(title = "Posterior",
+       x = expression(theta),
+       y = expression(paste("p(", theta, "|D)"))) +
+  theme(panel.grid = element_blank())
+ )
+```
+
+Note how we saved each the plots as objects. If we want to stack the plots one atop another like they’re presented in Figure 6.5, we can use `grid.arrange()` from the [gridExtra package](https://cran.r-project.org/web/packages/gridExtra/index.html).
+
+```{r, fig.width = 5, fig.height = 6, warning = F, message = F}
+library(gridExtra)
+
+grid.arrange(plot_1, plot_2, plot_3)
+```
+
+## References {-}
+
+Kruschke, J. K. (2015). *Doing Bayesian data analysis, Second Edition: A tutorial with R, JAGS, and Stan.* Burlington, MA: Academic Press/Elsevier.
+
+## Session info {-}
+
+```{r}
+sessionInfo()
+```
+
+```{r, message = F, warning = F, echo = F}
+# Here we'll remove our objects
+rm(Bernoulli_likelihood, betaABfromMeanKappa, betaABfromModeKappa, betaABfromMeanSD, beta_param, N, z, a, b, proportion_heads, prior_mean, posterior_mean, trial_data, d, line_tibble, text_tibble, theta, p_theta, BernGrid, plot_1, plot_2, plot_3)
+```
