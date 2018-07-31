@@ -1,0 +1,251 @@
+---
+title: "Chapter 05. Bayes' Rule"
+author: "A Solomon Kurz"
+date: "`r format(Sys.Date())`"
+output:
+  github_document
+---
+
+# Bayes' Rule
+
+## Bayes' rule
+
+With equations 5.5 and 5.6, Kruschke gave us Bayes' rule in terms of $c$ and $r$. Equation 5.5:
+
+$$p(c|r) = \frac{p(r|c)p(c)}{p(r)}$$
+
+Since $p(r) = \sum_{c^*}p(r|c^*)p(c^*)$, we can re-express that as equation 5.6:
+
+$$p(c|r) = \frac{p(r|c)p(c)}{\sum_{c^*}p(r|c^*)p(c^*)}$$
+
+## Applied to parameters and data
+
+Here we get those equations re-expressed in the terms data analysts tend to think in terms of, parameters (i.e., $\theta$) and data (i.e., $D$).
+
+$$p(\theta|D) = \frac{p(D|\theta)p(\theta)}{p(D)}$$
+
+$$p(\theta|D) = \frac{p(D|\theta)p(\theta)}{\sum\limits_{\theta^*}p(D|\theta^*)p(\theta^*)}$$
+
+## Complete examples: Estimating bias in a coin
+
+Behold Figure 5.1.a.
+
+```{r, message = F, warning = F, fig.width = 4, fig.height = 2}
+library(tidyverse)
+
+tibble(theta = seq(from   = 0,   to = 1,  by = .1),
+       prior = c(seq(from = 0,   to = .2, length.out = 6),
+                 seq(from = .16, to = 0,  length.out = 5))) %>%
+  
+  ggplot(aes(x = theta, y = prior)) +
+  geom_col(width = .025, color = "grey50", fill = "grey50") +
+  scale_x_continuous(breaks = seq(from = 0, to = 1, by = .2)) +
+  labs(title = "Prior",
+       x = expression(theta),
+       y = expression(paste("p(", theta, ")"))) +
+  theme(panel.grid = element_blank())
+```
+
+If we follow Kruschke's equation 5.10 (i.e., the Bernoulli function) closely, we can express it as a function in R.
+
+```{r}
+Bernoulli <- function(theta, y){
+  return(theta^y * (1 - theta)^(1 - y))
+}
+```
+
+To get a sense of how it works, consider a single coin flip of heads when heads is considered a successful trial. We'll call the single sucessful trial `y = 1`. We can use our custom `Bernoulli()` function to compute the likelihood of different values of $\theta$. We'll look at 11 candedate $\theta$ values, which we'll call `theta_sequence`. 
+
+```{r}
+theta_sequence <- seq(from = 0, to = 1, by = .1)
+
+Bernoulli(theta = theta_sequence,
+          y = 1)
+```
+
+Notice how our `theta_sequence` corresponds nicely with the sequence of $\theta$ values on the x-axes of Figure 5.1. We can combine `theta_sequence` and our `Bernoulli()` function to make the middle panel of Figure 5.1
+
+```{r, fig.width = 4, fig.height = 2}
+tibble(x = theta_sequence) %>%
+  mutate(likelihood = Bernoulli(theta = theta_sequence,
+                                y = 1)) %>% 
+  
+  ggplot(aes(x = x, y = likelihood)) +
+  geom_col(width = .025, color = "grey50", fill = "grey50") +
+  scale_x_continuous(breaks = seq(from = 0, to = 1, by = .2)) +
+  labs(title = "Likelihood",
+       x = expression(theta),
+       y = expression(paste("p(D|", theta, ")"))) +
+  theme(panel.grid = element_blank())
+```
+
+In order to compute $p(D)$ (i.e., the *evidence* or the *marginal likelihood*), we'll need to multiply our respective prior and likelihood values for each point in our theta sequence and then sum all that up. That sum will be our *marginal likelihood*.
+
+```{r}
+tibble(theta = theta_sequence,
+       prior = c(seq(from = 0,   to = .2, length.out = 6),
+                 seq(from = .16, to = 0,  length.out = 5))) %>%
+  mutate(likelihood = Bernoulli(theta = theta_sequence,
+                                y = 1)) %>% 
+  mutate(product = prior * likelihood) %>% 
+  summarise(marginal_likelihood = sum(product)) 
+```
+
+Now we know our $p(D) = 0.5$, we're ready to make Figure 5.1.c.
+
+```{r, message = F, warning = F, fig.width = 4, fig.height = 2}
+tibble(theta = theta_sequence,
+       prior = c(seq(from = 0,   to = .2, length.out = 6),
+                 seq(from = .16, to = 0,  length.out = 5))) %>%
+  mutate(likelihood = Bernoulli(theta = theta_sequence,
+                                y = 1)) %>% 
+  mutate(posterior = (prior * likelihood)/.5) %>%
+  
+  ggplot(aes(x = theta, y = posterior)) +
+  geom_col(width = .025, color = "grey50", fill = "grey50") +
+  scale_x_continuous(breaks = seq(from = 0, to = 1, by = .2)) +
+  labs(title = "Posterior",
+       x = expression(theta),
+       y = expression(paste("p(", theta, "|D)"))) +
+  theme(panel.grid = element_blank())
+```
+
+### Influence of sample size on the posterior.
+
+In order to follow along with this section, we're going to have to update our Bernoulli likelihood function so it can accommodate more than a single trial. We'll anticipate chapter 6 and call our more general function the `Bernoulli_likelihood()`.
+
+```{r}
+Bernoulli_likelihood <- function(theta, data) {
+  # theta = success probability parameter ranging from 0 to 1
+  # data = the vector of data (i.e., a series of 0s and 1s)
+  N   <- length(data)
+  return(theta^sum(data) * (1 - theta)^(N - sum(data)))
+  }
+```
+
+Here's the work required to make our version of the left portion of Figure 5.2.
+
+```{r, fig.width = 4, fig.height = 4}
+small_data <- rep(0:1, times = c(3, 1))
+
+tibble(theta =   seq(from = 0,     to = 1, by = .001),
+       Prior = c(seq(from = 0,     to = 1, length.out = 501),
+                 seq(from = 0.998, to = 0, length.out = 500))) %>% 
+  mutate(Prior = Prior/sum(Prior),
+         Likelihood = Bernoulli_likelihood(theta = theta,
+                                           data = small_data)) %>% 
+  mutate(marginal_likelihood = sum(Prior * Likelihood)) %>% 
+  mutate(Posterior = (Prior * Likelihood)/marginal_likelihood) %>% 
+  select(theta, Prior, Likelihood, Posterior) %>% 
+  gather(key, value, -theta) %>% 
+  mutate(key = factor(key, levels = c("Prior", "Likelihood", "Posterior"))) %>% 
+
+  ggplot(aes(x = theta, ymin = 0, ymax = value)) +
+  geom_ribbon(fill = "grey67") +
+  scale_x_continuous(breaks = seq(from = 0, to = 1, by = .2)) +
+  labs(x = expression(theta),
+       y = "probability density") +
+  theme(panel.grid = element_blank()) +
+  facet_wrap(~key, scales = "free_y", ncol = 1)
+```
+
+We’ll follow the same procedure to make the right portion of Figure 5.2. The only difference is how we switched from `small_data` to `large_data`.
+
+```{r, fig.width = 4, fig.height = 4}
+large_data <- rep(0:1, times = c(30, 10))
+
+tibble(theta =   seq(from = 0,     to = 1, by = .001),
+       Prior = c(seq(from = 0,     to = 1, length.out = 501),
+                 seq(from = 0.998, to = 0, length.out = 500))) %>% 
+  mutate(Prior = Prior/sum(Prior),
+         Likelihood = Bernoulli_likelihood(theta = theta,
+                                           data = large_data)) %>% 
+  mutate(marginal_likelihood = sum(Prior * Likelihood)) %>% 
+  mutate(Posterior = (Prior * Likelihood)/marginal_likelihood) %>% 
+  select(theta, Prior, Likelihood, Posterior) %>% 
+  gather(key, value, -theta) %>% 
+  mutate(key = factor(key, levels = c("Prior", "Likelihood", "Posterior"))) %>% 
+  
+  ggplot(aes(x = theta, ymin = 0, ymax = value)) +
+  geom_ribbon(fill = "grey67") +
+  scale_x_continuous(breaks = seq(from = 0, to = 1, by = .2)) +
+  labs(x = expression(theta),
+       y = "probability density") +
+  theme(panel.grid = element_blank()) +
+  facet_wrap(~key, scales = "free_y", ncol = 1)
+```
+
+With just an $N = 40$, the likelihood already dominated the posterior. But this is also a function of our fairly gentle prior.
+
+### Influence of prior on the posterior.
+
+It's not imediately obvious how Kruschke made his prior distributions for Figure 5.3. However, hidden away in his "BernGridExample.R" file he indicated that to get the distribution for the left side of Fiture 5.3, you simply raise the prior from the left of Figure 5.2 to the 0.1 power.
+
+```{r, fig.width = 4, fig.height = 4}
+small_data <- rep(0:1, times = c(3, 1))
+
+tibble(theta =   seq(from = 0,     to = 1, by = .001),
+       Prior = c(seq(from = 0,     to = 1, length.out = 501),
+                 seq(from = 0.998, to = 0, length.out = 500))) %>% 
+  # here's the important line of code
+  mutate(Prior = Prior^0.1) %>% 
+  mutate(Prior = Prior/sum(Prior),
+         Likelihood = Bernoulli_likelihood(theta = theta,
+                                           data = small_data)) %>% 
+  mutate(marginal_likelihood = sum(Prior * Likelihood)) %>% 
+  mutate(Posterior = (Prior * Likelihood)/marginal_likelihood) %>% 
+  select(theta, Prior, Likelihood, Posterior) %>% 
+  gather(key, value, -theta) %>% 
+  mutate(key = factor(key, levels = c("Prior", "Likelihood", "Posterior"))) %>% 
+
+  ggplot(aes(x = theta, ymin = 0, ymax = value)) +
+  geom_ribbon(fill = "grey67") +
+  scale_x_continuous(breaks = seq(from = 0, to = 1, by = .2)) +
+  labs(x = expression(theta),
+       y = "probability density") +
+  theme(panel.grid = element_blank()) +
+  facet_wrap(~key, scales = "free_y", ncol = 1)
+```
+
+The trick is similar for the right half of Figure 5.3.
+
+```{r, fig.width = 4.5, fig.height = 4}
+large_data <- rep(0:1, times = c(30, 10))
+
+tibble(theta =   seq(from = 0,     to = 1, by = .001),
+       Prior = c(seq(from = 0,     to = 1, length.out = 501),
+                 seq(from = 0.998, to = 0, length.out = 500))) %>% 
+  mutate(Prior = Prior/sum(Prior),
+         Likelihood = Bernoulli_likelihood(theta = theta,
+                                           data = large_data)) %>% 
+  # here's the important line of code
+  mutate(Prior = Prior^10) %>% 
+  mutate(marginal_likelihood = sum(Prior * Likelihood)) %>% 
+  mutate(Posterior = (Prior * Likelihood)/marginal_likelihood) %>% 
+  select(theta, Prior, Likelihood, Posterior) %>% 
+  gather(key, value, -theta) %>% 
+  mutate(key = factor(key, levels = c("Prior", "Likelihood", "Posterior"))) %>% 
+  
+  ggplot(aes(x = theta, ymin = 0, ymax = value)) +
+  geom_ribbon(fill = "grey67") +
+  scale_x_continuous(breaks = seq(from = 0, to = 1, by = .2)) +
+  labs(x = expression(theta),
+       y = "probability density") +
+  theme(panel.grid = element_blank()) +
+  facet_wrap(~key, scales = "free_y", ncol = 1)
+```
+
+## References {-}
+
+Kruschke, J. K. (2015). *Doing Bayesian data analysis, Second Edition: A tutorial with R, JAGS, and Stan.* Burlington, MA: Academic Press/Elsevier.
+
+## Session info {-}
+
+```{r}
+sessionInfo()
+```
+
+```{r, echo = F}
+rm(Bernoulli, theta_sequence, Bernoulli_likelihood, small_data, large_data)
+```
+
