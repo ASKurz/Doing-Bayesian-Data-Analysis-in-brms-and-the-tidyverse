@@ -1,0 +1,922 @@
+---
+title: "Chapter 12. Bayesian Approaches to Testing a Point ('Null') Hypothesis"
+author: "A Solomon Kurz"
+date: "`r format(Sys.Date())`"
+output:
+  github_document
+---
+
+# Bayesian Approaches to Testing a Point ("Null") Hypothesis
+
+In addition to the two approaches Kruschke contrasted in this chapter, we’ll also briefly introduce an information criteria approach toward the end.
+
+## The estimation approach
+
+Full disclosure: this is my preferred approach of the two.
+
+### Region of practical equivalence.
+
+Kruschke began: "A *region of practical equivalence* (ROPE) indicates a small range of parameter values that are considered to be practically equivalent to the null value for purposes of the particular application."
+
+Here's a plot of Kruschke's initial coin flip ROPE.
+
+```{r, fig.width = 6, fig.height = 1, warning = F, message = F}
+library(tidyverse)
+
+d_rope <- tibble(theta = c(.45, .55)) 
+
+d_rope %>% 
+  ggplot(aes(x = theta, y = 0)) +
+  geom_line(size = 1) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  labs(title = "Kruschke's coin flip ROPE",
+       x = expression(theta)) +
+  coord_cartesian(0:1) +
+  theme(panel.grid.minor = element_blank())
+```
+
+In his first example, he considers 325 heads out of 500 coin flips. To visualize the analysis, we'll need the Bernoulli likelihood.
+
+```{r}
+Bernoulli_likelihood <- function(theta, data) {
+  # theta = success probability parameter ranging from 0 to 1
+  # data = the vector of data (i.e., a series of 0s and 1s)
+  N   <- length(data)
+  z   <- sum(data)
+  return(theta^z * (1 - theta)^(N - sum(data)))
+  }
+```
+
+Now we'll follow the typical steps to combine the prior, which is flat in this case, and the likelihood to get the posterior.
+
+```{r}
+# we need these to compute the likelihood
+N <- 500
+z <- 325
+
+trial_data <- c(rep(0, times = N - z), rep(1, times = z))                # (i.e., data)
+
+d <-
+  tibble(theta = seq(from = 0, to = 1, length.out = 1000)) %>%           # (i.e., theta)
+  # Since the prior is flat, any constant value will do
+  mutate(Prior = 1) %>% 
+  mutate(Likelihood = Bernoulli_likelihood(theta = theta,                # (i.e., p(D | theta))
+                                           data = trial_data)) %>%
+  mutate(normalizing_constant = sum(Likelihood * Prior/sum(Prior))) %>%  # (i.e., p(D))
+  mutate(Posterior = Likelihood * Prior / normalizing_constant)          # (i.e., p(theta | D))
+  
+glimpse(d)
+```
+
+The results look like this:
+
+```{r, fig.width = 6, fig.height = 2, warning = F, message = F}
+d %>% 
+  ggplot(aes(x = theta)) +
+  geom_ribbon(aes(ymin = 0, ymax = Posterior),
+              fill = "grey67") +
+  geom_line(data = d_rope,
+            aes(y = 0),
+            size = 1) +
+  geom_text(data = tibble(
+    theta = .5, 
+    label = "ROPE"
+  ),
+  aes(y = 2, label = label)) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  labs(title = "Nope, that density ain't on that ROPE.",
+       x = expression(theta)) +
+  theme(panel.grid = element_blank())
+```
+
+In his second example, Kruschke considered 490 heads out of 1000 flips.
+
+```{r, fig.width = 6, fig.height = 2, warning = F, message = F}
+# we need these to compute the likelihood
+N <- 1000
+z <- 490
+
+trial_data <- c(rep(0, times = N - z), rep(1, times = z))
+
+tibble(theta = seq(from = 0, to = 1, length.out = 1000)) %>%
+  # Since the prior is flat, any constant value will do
+  mutate(Prior = 1) %>%
+  mutate(Likelihood = Bernoulli_likelihood(theta = theta,
+                                           data = trial_data)) %>%
+  mutate(normalizing_constant = sum(Likelihood * Prior/sum(Prior))) %>%
+  mutate(Posterior = Likelihood * Prior / normalizing_constant) %>%
+  
+  ggplot(aes(x = theta)) +
+  geom_ribbon(aes(ymin = 0, ymax = Posterior),
+              fill = "grey67") +
+  geom_line(data = d_rope,
+            aes(y = 0),
+            size = 1) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  labs(title = "This density is hovering right atop the ROPE.",
+       x = expression(theta)) +
+  theme(panel.grid = element_blank())
+```
+
+The ROPE approach gets complicated. "Because the ROPE and HDI can overlap in different ways, there are different decisions that can be made (p. 337)."
+
+Just down the page, he further cautioned: "The decision rule for accepting the null value says merely that the most credible values are practically equivalent to the null value according to the chosen ROPE, not necessarily that the null value has high credibility."
+
+### Some examples.
+
+Kruschke referenced an analysis from way back in chapter 9. We'll need to re-fit the model. First, here are the data.
+
+```{r, warning = F, message = F}
+ba <- read_csv("data.R/BattingAverage.csv")
+
+glimpse(ba)
+```
+
+Let's load brms and, while we're at it, tidybayes.
+
+```{r, warning = F, message = F}
+library(brms)
+library(tidybayes)
+```
+
+The model:
+
+```{r fit1, cache = T, warning = F, message = F, results = 'hide'}
+fit1 <-
+  brm(data = ba,
+      family = binomial(link = "logit"),
+      Hits  | trials(AtBats) ~ 1 + (1 | PriPos) + (1 | PriPos:Player),
+      prior = c(set_prior("normal(0, 1.5)", class = "Intercept"),
+                set_prior("normal(0, 1)", class = "sd")),
+      iter = 2000, warmup = 500, chains = 3, cores = 3,
+      control = list(adapt_delta = .9))
+```
+
+```{r}
+coef_primary_position <-
+  coef(fit1, summary = F)$PriPos %>% 
+  as_tibble()
+  
+str(coef_primary_position)
+```
+
+As we pointed out in chapter 9, keep in mind that `coef()` returns the values in the logit scale when used for logistic regression models. So we’ll have to use `brms::inv_logit_scaled()` to convert the estimates to the probability metric. We can make the difference distributions after we've converted the estimates.
+
+```{r}
+coef_small <-
+  coef_primary_position %>% 
+  transmute(`Pitcher - Catcher` = inv_logit_scaled(Pitcher.Intercept) - inv_logit_scaled(Catcher.Intercept),
+            `Catcher - 1st Base` = inv_logit_scaled(Catcher.Intercept) - inv_logit_scaled(`1st Base.Intercept`))
+
+head(coef_small)
+```
+
+Once we define our ROPE values, we're ready to re-plot the relevant parts of Figure 9.14. To help make it stand out, I've colored the ROPE in red.
+
+```{r, fig.width = 8, fig.height = 2.5}
+d_rope <- tibble(value = c(-.05, .05)) 
+
+coef_small %>% 
+  select(`Pitcher - Catcher`, `Catcher - 1st Base`) %>% 
+  gather() %>% 
+  
+  ggplot(aes(x = value)) +
+  geom_histogram(fill = "grey67", color = "grey92", size = .2,
+                bins = 50) +
+  geom_line(data = d_rope,
+            aes(y = -1),
+            size = .5, color = "red") +
+  stat_pointintervalh(aes(y = 0), 
+                      point_interval = mode_hdi, .prob = .95) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  labs(x = expression(theta)) +
+  theme(panel.grid = element_blank(),
+        legend.position = "none") +
+  facet_wrap(~key, scales = "free")
+```
+
+In order to re-plot part of Figure 9.15, we'll need to employ `fitted()` to snatch the player-specific posteriors.
+
+```{r}
+# this will make life easier. just go with it
+name_list <- c("ShinSoo Choo", "Ichiro Suzuki")
+
+# we'll define the data we'd like to feed into `fitted()`, here
+nd <-
+  ba %>% 
+  filter(Player %in% c(name_list)) %>% 
+  # these last two lines aren't typically necessary, 
+  # but they allow us to arrange the rows in the same order we find the names in Figures 9.15 and 9/16
+  mutate(Player = factor(Player, levels = c(name_list))) %>% 
+  arrange(Player)
+
+fitted_players <-
+  fitted(fit1, 
+       newdata = nd,
+       scale = "linear",
+       summary = F) %>% 
+  as_tibble() %>% 
+  # with one function, we rename the values as returned by `as_tibble()` and convert the values from the logit scale to the probability scale
+  transmute(`ShinSoo Choo`     = V1 %>% inv_logit_scaled(),
+            `Ichiro Suzuki`    = V2 %>% inv_logit_scaled()) %>% 
+  # in this last section, we make our difference distributions 
+  mutate(`ShinSoo Choo - Ichiro Suzuki` = `ShinSoo Choo` - `Ichiro Suzuki`)
+    
+glimpse(fitted_players)
+```
+
+Now we're ready to go.
+
+```{r, fig.width = 4, fig.height = 2.5}
+d_rope <- tibble(`ShinSoo Choo - Ichiro Suzuki` = c(-.05, .05)) 
+
+fitted_players %>% 
+  
+  ggplot(aes(x = `ShinSoo Choo - Ichiro Suzuki`)) +
+  geom_histogram(fill = "grey67", color = "grey92", size = .2,
+                bins = 50) +
+  geom_line(data = d_rope,
+            aes(y = -1),
+            size = .5, color = "red") +
+  stat_pointintervalh(aes(y = 0), 
+                      point_interval = mode_hdi, .prob = .95) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  labs(title = "ShinSoo Choo - Ichiro Suzuki",
+       x = expression(theta)) +
+  theme(panel.grid = element_blank())
+```
+
+### Differences of correlated parameters.
+
+Krushke didn't explicate where he got the data for Figure 12.1. If we're willing to presume a multivariate normal distribution, we can get close using the `MASS::mvrnorm()` function. You can get the basic steps from [Sven Hohenstein's answer to this stats.stacheschange question](https://stats.stackexchange.com/questions/164471/generating-a-simulated-dataset-from-a-correlation-matrix-with-means-and-standard).
+
+```{r}
+# first we'll make a correlation matrix
+# a correlation of .9 seems about right
+correlation_matrix <- 
+  matrix(c(1, .9, 
+           .9, 1), 
+         nrow = 2, ncol = 2)
+
+# next we'll specify the means and standard deviations
+mu <- c(.58, .42)
+sd <- c(.1, .1)
+
+# now we'll use the correlation matrix and standard deviations to make a covariance matrix
+covariance_matrix <- 
+  sd %*% t(sd) * correlation_matrix
+
+# after setting our seed, we're ready to simulate
+set.seed(1)
+d <- 
+  MASS::mvrnorm(n = 1000, 
+                mu = mu, 
+                Sigma = covariance_matrix) %>%
+  as_tibble() %>%
+  rename(theta_1 = V1, theta_2 = V2)
+```
+
+Now it only takes some light wrangling to prepare the data to make the three histograms in the left panel of Figure 12.1.
+
+```{r, fig.width = 8, fig.height = 2.75}
+d %>% 
+  mutate(`theta_1 - theta_2` = theta_1 - theta_2) %>% 
+  gather() %>% 
+  
+  ggplot(aes(x = value)) +
+  geom_histogram(fill = "grey67", color = "grey92", 
+                 size = .2, bins = 30) +
+  stat_pointintervalh(aes(y = 0), 
+                      point_interval = mode_hdi, .prob = .95) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  labs(x = expression(theta)) +
+  theme(panel.grid = element_blank()) +
+  facet_wrap(~key, scales = "free")
+```
+
+Here's the scatter plot, showing the correlation. I think we got pretty close!
+
+```{r, fig.width = 3, fig.height = 2.75}
+d %>%  
+  
+  ggplot(aes(x = theta_1, y = theta_2)) +
+  geom_abline(color = "white") +
+  geom_point(size = 1/2,
+             color = "grey50",
+             alpha = 1/4) +
+  coord_cartesian(xlim = 0:1,
+                  ylim = 0:1) +
+  labs(x = expression(theta[1]),
+       y = expression(theta[2])) +
+  theme(panel.grid = element_blank())
+```
+
+To make the plots in the right panel of Figure 12.1, we just need to convert the correlation from .9 to -.9.
+
+```{r}
+# this time we'll make the correlations -.9
+correlation_matrix <- 
+  matrix(c(1, -.9, 
+           -.9, 1), 
+         nrow = 2, ncol = 2)
+
+# we'll have to redo the covariance matrix
+covariance_matrix <- 
+  sd %*% t(sd) * correlation_matrix
+
+# here's the updated data
+set.seed(1)
+d <- MASS::mvrnorm(n = 1000, mu = mu, Sigma = covariance_matrix) %>%
+  as_tibble() %>%
+  rename(theta_1 = V1, theta_2 = V2)
+```
+
+Here are our right-panel Figure 12.1 histograms. 
+
+```{r, fig.width = 8, fig.height = 2.75}
+d %>% 
+  mutate(`theta_1 - theta_2` = theta_1 - theta_2) %>% 
+  gather() %>% 
+  
+  ggplot(aes(x = value)) +
+  geom_histogram(fill = "grey67", color = "grey92", 
+                 size = .2, bins = 30) +
+  stat_pointintervalh(aes(y = 0), 
+                      point_interval = mode_hdi, .prob = .95) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  labs(x = expression(theta)) +
+  theme(panel.grid = element_blank()) +
+  facet_wrap(~key, scales = "free")
+```
+
+Behold the second scatter plot.
+
+```{r, fig.width = 3, fig.height = 2.75}
+d %>%  
+  
+  ggplot(aes(x = theta_1, y = theta_2)) +
+  geom_abline(color = "white") +
+  geom_point(size = 1/2,
+             color = "grey50",
+             alpha = 1/4) +
+  coord_cartesian(xlim = 0:1,
+                  ylim = 0:1) +
+  labs(x = expression(theta[1]),
+       y = expression(theta[2])) +
+  theme(panel.grid = element_blank())
+```
+
+### Why HDI and not equal-tailed interval?
+
+Though Kruschke told us Figure 12.2 was of a gamma distribution, he didn't tell us the parameters for that particular gamma. After playing around for a bit, it appeared `dgamma(x, 2, .2)` worked pretty well.
+
+```{r, fig.width = 4, fig.height = 2}
+tibble(x = seq(from = 0, to = 40, by = .1)) %>% 
+  
+  ggplot(aes(x = x)) +
+  geom_ribbon(aes(ymin = 0,
+                  ymax = dgamma(x, 2, .2)),
+              fill = "grey67") +
+  coord_cartesian(xlim = 0:35) +
+  theme(panel.grid = element_blank())
+```
+
+If you want to get the quantile-based intervals (i.e., the ETIs), you can plug in the desired quantiles into the `qgamma()`.
+
+```{r}
+qgamma(.025, 2, .2)
+qgamma(.975, 2, .2)
+```
+
+It's unclear, to me, how to analytically derive HDIs. But we can get pretty close by simulating a large number of draws from the target distribution and then feeding those draws into `tidybayes::mode:hdi()`. Since `tidybayes::mode:hdi()` returns a data frame, we'll have to use `pull()` to extract the raw values when placing them in a vector (which will come in handy in just a bit).
+
+```{r}
+n <- 1e6
+
+set.seed(12.2)
+d <- 
+  tibble(x = rgamma(n, 2, .2))
+
+hdis <- mode_hdi(d)
+
+hdis[, 2] %>% pull()
+hdis[, 3] %>% pull()
+```
+
+Next you need to determine how high up to go on the y-axis. For the quantile-based intervals, the ETIs, you can use `dgamma()`. The trick is to insert a `qgamma()` statement into the `x` argument of `dgamma()`.
+
+```{r}
+dgamma(qgamma(.025, 2, .2), 2, .2)
+dgamma(qgamma(.975, 2, .2), 2, .2)
+```
+
+It wasn’t obvious to me how to find the corresponding density values for the HDIs, so I just sighted them. Once we have all those values, we can use them to make a data frame with the necessary coordinates to make the ETI and HDI lines in our plot.
+
+```{r}
+(
+  lines <-
+  tibble(interval = rep(c("eti", "hdi"), each = 4),
+         x = c(rep(c(qgamma(.025, 2, .2), qgamma(.975, 2, .2)), each = 2),
+               rep(c(hdis[, 2] %>% pull(), hdis[, 3] %>% pull()), each = 2)),
+         y = c(dgamma(qgamma(.025, 2, .2), 2, .2), 0, 0, dgamma(qgamma(.975, 2, .2), 2, .2),
+               0, .008, .008, 0))
+  )
+```
+
+We're finally ready to plot our Figure 12.2.
+
+```{r, fig.width = 6, fig.height = 3}
+tibble(x = seq(from = 0, to = 40, by = .1)) %>% 
+  
+  ggplot(aes(x = x)) +
+  geom_ribbon(aes(ymin = 0,
+                  ymax = dgamma(x, 2, .2)),
+              fill = "grey67") +
+  geom_path(data = lines,
+            aes(y = y, color = interval),
+            size = 1) +
+  geom_text(data = tibble(
+    x = c(15, 12),
+    y = c(.004, .012),
+    label = c("95% ETI", "95% HDI"),
+    interval = c("eti", "hdi")
+  ),
+  aes(y = y, color = interval, label = label)) +
+  scale_color_manual(values = c("black", "white")) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  coord_cartesian(xlim = 0:35) +
+  xlab("Parameter Value") +
+  theme(panel.grid = element_blank(),
+        legend.position = "none")
+```
+
+To repeat, ETIs are the only types of intervals avaliable directly by the brms package. When using the default `print()` or `summary()` output for a `brm()` model, the 95% ETIs are displayed in the 'l-95% CI' and 'u-95% CI' columns.
+
+```{r}
+print(fit1)
+```
+
+In the output of most other brms functions, the 95% ETIs appear in the `Q2.5` and `Q97.5` columns.
+
+```{r}
+fitted(fit1, 
+       newdata = nd,
+       scale = "linear",
+       nsamples = 100)
+```
+
+But as we just did, above, you can always use the convenience functions from the tidybayes package (e.g., `mode_hdi()`) to get HDIs.
+
+## The model-comparison approach
+
+As Kruschke put it in the opening, in this section
+
+> the focus is on deciding which of two hypothetical prior distributions is least incredible. One prior expresses the hypothesis that the parameter value is exactly the null value. The alternative prior expresses the hypothesis that the parameter could be any value, according to some form of broad distribution.
+
+### Is a coin fair or not?
+
+We'll use our typical steps with the grid aproximation to compute the data for the left column of Figure 12.3 (i.e., the column based on the Haldane prior).
+
+```{r}
+# we need these to compute the likelihood
+N <- 24
+z <- 7
+epsilon <- .01
+
+trial_data <- c(rep(0, times = N - z), rep(1, times = z))
+
+d <-
+  tibble(theta = seq(from = 0, to = 1, length.out = 1000)) %>%
+  # Since the prior is flat, any constant value will do
+  mutate(Prior = dbeta(x = theta, shape1 = epsilon, shape2 = epsilon)) %>%
+  mutate(Likelihood = Bernoulli_likelihood(theta = theta,
+                                           data = trial_data)) %>%
+  # we have to slice off the first and last values because they go to infinity on the prior, which creats problems when computing the normalizing_constant
+  slice(2:999) %>% 
+  mutate(normalizing_constant = sum(Likelihood * Prior/sum(Prior))) %>%
+  mutate(Posterior = Likelihood * Prior / normalizing_constant)
+
+head(d)
+```
+
+Here's the left column of Figure 12.3.
+
+```{r, fig.width = 4, fig.height = 6, warning = F, message = F}
+plot_1 <-
+  d %>% 
+  ggplot(aes(x = theta)) +
+  geom_ribbon(aes(ymin = 0, ymax = Prior),
+              fill = "grey50") +
+  scale_y_continuous(breaks = NULL) +
+  labs(title = "Prior (beta)",
+       x = expression(theta),
+       y = expression(paste("dbeta(", theta, "|0.01, 0.01)"))) +
+  theme(panel.grid = element_blank())
+
+plot_2 <-
+  d %>% 
+  ggplot(aes(x = theta)) +
+  geom_ribbon(aes(ymin = 0, ymax = Likelihood),
+              fill = "grey50") +
+  scale_y_continuous(breaks = NULL) +
+  labs(title = "Likelihood (Bernoulli)",
+       x = expression(theta),
+       y = expression(paste("p(D|", theta, ")"))) +
+  theme(panel.grid = element_blank(),
+        axis.text.y = element_text())
+
+plot_3 <-
+  d %>% 
+  ggplot(aes(x = theta)) +
+  geom_ribbon(aes(ymin = 0, ymax = Posterior),
+              fill = "grey50") +
+  scale_y_continuous(breaks = NULL) +
+  labs(title = "Posterior (beta)",
+       x = expression(theta),
+       y = expression(paste("dbeta(", theta, "|7.01, 17.01)"))) +
+  theme(panel.grid = element_blank())
+
+library(gridExtra)
+
+grid.arrange(plot_1, plot_2, plot_3)
+```
+
+We need updated data for the right column, based on the beta(2, 4) prior.
+
+```{r}
+d <-
+  tibble(theta = seq(from = 0, to = 1, length.out = 1000)) %>%
+  mutate(Prior = dbeta(x = theta, shape1 = 2, shape2 = 4)) %>%
+  mutate(Likelihood = Bernoulli_likelihood(theta = theta,
+                                           data = trial_data)) %>%
+  mutate(normalizing_constant = sum(Likelihood * Prior/sum(Prior))) %>%
+  mutate(Posterior = Likelihood * Prior / normalizing_constant)
+
+head(d)
+```
+
+Now here's the right column of Figure 12.3.
+
+```{r, fig.width = 4, fig.height = 6, warning = F, message = F}
+plot_1 <-
+  d %>% 
+  ggplot(aes(x = theta)) +
+  geom_ribbon(aes(ymin = 0, ymax = Prior),
+              fill = "grey50") +
+  scale_y_continuous(breaks = NULL) +
+  labs(title = "Prior (beta)",
+       x = expression(theta),
+       y = expression(paste("dbeta(", theta, "|2, 4)"))) +
+  theme(panel.grid = element_blank())
+
+plot_2 <-
+  d %>% 
+  ggplot(aes(x = theta)) +
+  geom_ribbon(aes(ymin = 0, ymax = Likelihood),
+              fill = "grey50") +
+  scale_y_continuous(breaks = NULL) +
+  labs(title = "Likelihood (Bernoulli)",
+       x = expression(theta),
+       y = expression(paste("p(D|", theta, ")"))) +
+  theme(panel.grid = element_blank(),
+        axis.text.y = element_text())
+
+plot_3 <-
+  d %>% 
+  ggplot(aes(x = theta)) +
+  geom_ribbon(aes(ymin = 0, ymax = Posterior),
+              fill = "grey50") +
+  scale_y_continuous(breaks = NULL) +
+  labs(title = "Posterior (beta)",
+       x = expression(theta),
+       y = expression(paste("dbeta(", theta, "|9, 21)"))) +
+  theme(panel.grid = element_blank())
+
+grid.arrange(plot_1, plot_2, plot_3)
+```
+
+Following formula 12.1.
+
+$$p(z, N|M_{null}) = \theta_{null}^z(1 - \theta_{null})^{(N - z)}$$
+
+we can compute the probability of the data given the null hypothesis.
+
+```{r}
+theta <- .5
+
+(p_d_null <- theta ^ z * (1 - theta) ^ (N - z))
+```
+
+As Kruschke reminds us equation 10.6 from page 270
+
+$$p(z, N) = \frac{B(z + \alpha, N - z + \beta)}{B(\alpha, \beta)}$$
+
+we can make our own `p_d()` function to compute the probability of the data given alternative hypotheses. Here we'll simplify the function a bit to extract `z` and `N` out of the environment.
+
+```{r}
+p_d <- function(a, b){ 
+  beta(z + a, N - z + b) / beta(a, b) 
+  }
+```
+
+Whith `p_d_null` and our `p_d()` function in hand, we can reproduce and extend Kruschke's equation 12.4.
+
+```{r}
+tibble(shape1 = c(2, 1, .1, .01, .001, .0001, .00001),
+       shape2 = c(4, 1, .1, .01, .001, .0001, .00001)) %>% 
+  mutate(p_d = map2(shape1, shape2, p_d)) %>% 
+  unnest() %>% 
+  mutate(p_d_null = p_d_null) %>% 
+  mutate(bf = p_d/p_d_null)
+```
+
+However, as Kruschke comments on page 347, "If we consider the posterior distribution instead of the Bayes’ factor, we see that the posterior distribution on $\theta$ within the alternative model is only slightly affected by the prior." Indeed.
+
+### Bayes’ factor can accept null with poor precision.
+
+Here are the steps to make the left column of Figure 12.4 (i.e., the column based on very weak data and the Haldane prior).
+
+```{r, fig.width = 4, fig.height = 6, warning = F, message = F}
+# we need these to compute the likelihood
+N <- 2
+z <- 1
+epsilon <- .01
+
+trial_data <- c(rep(0, times = N - z), rep(1, times = z))
+
+d <-
+  tibble(theta = seq(from = 0, to = 1, length.out = 1000)) %>%
+  # Since the prior is flat, any constant value will do
+  mutate(Prior = dbeta(x = theta, shape1 = epsilon, shape2 = epsilon)) %>%
+  mutate(Likelihood = Bernoulli_likelihood(theta = theta,
+                                           data = trial_data)) %>%
+  # we have to slice off the first and last values because they go to infinity on the prior, which creats problems when computing the normalizing_constant
+  slice(2:999) %>% 
+  mutate(normalizing_constant = sum(Likelihood * Prior/sum(Prior))) %>%
+  mutate(Posterior = Likelihood * Prior / normalizing_constant)
+
+plot_1 <-
+  d %>% 
+  ggplot(aes(x = theta)) +
+  geom_ribbon(aes(ymin = 0, ymax = Prior),
+              fill = "grey50") +
+  scale_y_continuous(breaks = NULL) +
+  labs(title = "Prior (beta)",
+       x = expression(theta),
+       y = expression(paste("dbeta(", theta, "|0.01, 0.01)"))) +
+  theme(panel.grid = element_blank())
+
+plot_2 <-
+  d %>% 
+  ggplot(aes(x = theta)) +
+  geom_ribbon(aes(ymin = 0, ymax = Likelihood),
+              fill = "grey50") +
+  scale_y_continuous(breaks = NULL) +
+  labs(title = "Likelihood (Bernoulli)",
+       x = expression(theta),
+       y = expression(paste("p(D|", theta, ")"))) +
+  theme(panel.grid = element_blank(),
+        axis.text.y = element_text())
+
+plot_3 <-
+  d %>% 
+  ggplot(aes(x = theta)) +
+  geom_ribbon(aes(ymin = 0, ymax = Posterior),
+              fill = "grey50") +
+  scale_y_continuous(breaks = NULL) +
+  labs(title = "Posterior (beta)",
+       x = expression(theta),
+       y = expression(paste("dbeta(", theta, "|7.01, 17.01)"))) +
+  theme(panel.grid = element_blank())
+
+grid.arrange(plot_1, plot_2, plot_3)
+```
+
+How do we compute the BF?
+
+```{r}
+theta <- .5
+epsilon <- .01
+a <- epsilon
+b <- epsilon
+
+# pD_{null}                            pD_{alternative}
+(theta ^ z * (1 - theta) ^ (N - z)) / (beta(z + a, N - z + b) / beta(a, b))
+```
+
+And here are the steps to make the right column of Figure 12.4 (i.e., based on stronger data and a flat beta(1, 1) prior).
+
+```{r, fig.width = 4, fig.height = 6, warning = F, message = F}
+# we need these to compute the likelihood
+N <- 14
+z <- 7
+
+trial_data <- c(rep(0, times = N - z), rep(1, times = z))
+
+d <-
+  tibble(theta = seq(from = 0, to = 1, length.out = 1000)) %>%
+  mutate(Prior = dbeta(x = theta, shape1 = 1, shape2 = 1)) %>%
+  mutate(Likelihood = Bernoulli_likelihood(theta = theta,
+                                           data = trial_data)) %>%
+  mutate(normalizing_constant = sum(Likelihood * Prior/sum(Prior))) %>%
+  mutate(Posterior = Likelihood * Prior / normalizing_constant)
+
+plot_1 <-
+  d %>% 
+  ggplot(aes(x = theta)) +
+  geom_ribbon(aes(ymin = 0, ymax = Prior),
+              fill = "grey50") +
+  scale_y_continuous(breaks = NULL) +
+  labs(title = "Prior (beta)",
+       x = expression(theta),
+       y = expression(paste("dbeta(", theta, "|1, 1)"))) +
+  theme(panel.grid = element_blank())
+
+plot_2 <-
+  d %>% 
+  ggplot(aes(x = theta)) +
+  geom_ribbon(aes(ymin = 0, ymax = Likelihood),
+              fill = "grey50") +
+  scale_y_continuous(breaks = NULL) +
+  labs(title = "Likelihood (Bernoulli)",
+       x = expression(theta),
+       y = expression(paste("p(D|", theta, ")"))) +
+  theme(panel.grid = element_blank(),
+        axis.text.y = element_text())
+
+plot_3 <-
+  d %>% 
+  ggplot(aes(x = theta)) +
+  geom_ribbon(aes(ymin = 0, ymax = Posterior),
+              fill = "grey50") +
+  scale_y_continuous(breaks = NULL) +
+  labs(title = "Posterior (beta)",
+       x = expression(theta),
+       y = expression(paste("dbeta(", theta, "|8, 8)"))) +
+  theme(panel.grid = element_blank())
+
+grid.arrange(plot_1, plot_2, plot_3)
+```
+
+How do we compute this BF?
+
+```{r}
+theta <- .5
+a <- 1
+b <- 1
+
+# pD_{null}                            pD_{alternative}
+(theta ^ z * (1 - theta) ^ (N - z)) / (beta(z + a, N - z + b) / beta(a, b))
+```
+
+### Are different groups equal or not?
+
+If you look in Kruschke's "OneOddGroupModelComp2E.R" file, you can get his simulation code. Here we've dramatically simplified it. This attempt does not exactly reproduce what his script did, but it gets it in spirit.
+
+```{r}
+# For each subject, specify the condition s/he was in,
+# the number of trials s/he experienced, and the number correct.
+n_g <- 20  # number of subjects per group
+n_t <- 20  # number of trials per subject
+
+set.seed(47405)
+d <-
+  tibble(condition = rep(c("Das Kruschke", "Mozart", "Bach", "Beethoven"), each = 20),
+         id = 1:80,
+         n_g = n_g,
+         n_t = n_t,
+         group_means =  rep(c(.40, .50, .51, .52), each = 20)) %>% 
+  mutate(n_recalled = rbinom(n_g, n_t, group_means))
+
+d %>% 
+  group_by(group_means) %>% 
+  summarise(m = mean(n_recalled))
+```
+
+Recall that although brms does accommodate models based on the Bernoulli likelihood, it doesn’t do so when the data are aggregated. With our aggregate Bernoulli data, we’ll have to use the conventional binomial likelihood, instead. Our model will be
+
+$$\textrm{n_recalled}_{ij} ~ Binomial(20, \theta_{j})$$
+
+where
+
+$$logit(\theta_{ij}) = \beta_{0_{j}}$$
+
+In our equation, $\beta_{0_{j}}$ is the group-specific intercept within the logistic regression model. We'll use the $N(0, 1.5)$ prior for the intercept. Though it appears strongly regularizing in the log-odds space, it’s quite flat on the $\theta$ space. If we wanted to be more conservative in the $\theta$ space, we might use something more like $N(0, 1)$.
+
+```{r fit2, cache = T, warning = F, message = F}
+fit2 <-
+  brm(data = d, 
+      family = binomial,
+      n_recalled | trials(20) ~ 0 + condition,
+      prior = c(set_prior("normal(0, 1.5)", class = "b")),
+      iter = 2500, warmup = 500, cores = 4, chains = 4,
+      control = list(adapt_delta = .8))
+```
+
+Here's the model summary.
+
+```{r}
+print(fit2)
+```
+
+Do keep in mind that our results will differ from Kruschke’s because of two factors. First, we simulated slightly different data. In the limit, I suspect our data simulation approaches would have converged. But we’re far from the limit. Second, we used a different likelihood to model the data, which resulted in slightly different priors. But even with those substantial limitations, our results are pretty close.
+
+To make the top portion of Figure 12.5, we'll need to extract the `condition`-specific parameters. For that, we'll employ `fixef()` and then wrangle a bit.
+
+```{r}
+post <-
+  fixef(fit2, summary = F) %>% 
+  as_tibble() %>% 
+  transmute(theta_1 = conditionDasKruschke %>% inv_logit_scaled(), 
+            theta_2 = conditionMozart %>% inv_logit_scaled(), 
+            theta_3 = conditionBach %>% inv_logit_scaled(), 
+            theta_4 = conditionBeethoven %>% inv_logit_scaled()) %>% 
+  transmute(`theta_1 - theta_2` = theta_1 - theta_2,
+            `theta_1 - theta_3` = theta_1 - theta_3,
+            `theta_1 - theta_4` = theta_1 - theta_4,
+            `theta_2 - theta_3` = theta_2 - theta_3,
+            `theta_2 - theta_4` = theta_2 - theta_4,
+            `theta_3 - theta_4` = theta_3 - theta_4)
+
+head(post)
+```
+
+Now we have the wrangled data, we're ready to `gather()` them and plot the top of Figure 12.5.
+
+```{r, fig.width = 8, fig.height = 4}
+post %>% 
+  gather() %>% 
+  
+  ggplot(aes(x = value)) +
+  geom_vline(xintercept = 0, color = "white") +
+  geom_histogram(color = "grey92", fill = "grey67",
+                 binwidth = .01, size = .2) +
+  stat_pointintervalh(aes(y = 0),
+                      point_interval = mode_hdi, .prob = .95) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  coord_cartesian(xlim = c(-.25, .25)) +
+  theme(panel.grid = element_blank()) +
+  facet_wrap(~key)
+```
+
+Here's how you'd get the eact mode and HDI summaries.
+
+```{r}
+post %>% 
+  gather() %>% 
+  group_by(key) %>% 
+  mode_hdi(value) %>% 
+  mutate_if(is.double, round, digits = 3)
+```
+
+The lower portion of Figure 12.5 is a mystery, to me. Here's a trace plot instead.
+
+```{r, fig.width = 8, fig.height = 4}
+plot(fit2)
+```
+
+Kruschke compared the 4-intercepts model, `fit2`, with an intercept-only model. We'll call that `fit3`.
+
+```{r fit3, cache = T, warning = F, message = F}
+fit3 <-
+  brm(data = d, 
+      family = binomial,
+      n_recalled | trials(20) ~ 1,
+      prior = c(set_prior("normal(0, 1.5)", class = "Intercept")),
+      iter = 2500, warmup = 500, cores = 4, chains = 4,
+      control = list(adapt_delta = .8))
+```
+
+In addition to Bayes factors and such, we can compare the models with information criteria. If we just put both models into the `loo()` or `waic()` functions, we can side step the need to save their outputs as objects which we then put into `compare_ic()`.
+
+```{r loo_and_waic, cache = T}
+loo(fit2, fit3)
+waic(fit2, fit3)
+```
+
+The comparisons for both information criteria suggests `fit2`, the one with the `condition`-specific intercepts, is an improvement over the simple one-intercept-only model. Another way to compare the information criteria is with AIC-type weighting. The brms package offers a variety of weighting methods via the `model_weights()` function. Here we'll use `weights = "loo"`.
+
+```{r loo_weights, cache = T}
+model_weights(fit2, fit3, weights = "loo")
+```
+
+Within a given comparison, the weights sum to 1. The better-fitting model will be closer to 1 than the other(s). In this case, both the LOO and WAIC comparisons suggest `fit2` is a better summary of the data than `fit3`.
+
+### 12.2.2.1. Model specification in JAGS.
+
+None for us.
+
+## References {-}
+
+Kruschke, J. K. (2015). *Doing Bayesian data analysis, Second Edition: A tutorial with R, JAGS, and Stan.* Burlington, MA: Academic Press/Elsevier.
+
+## Session info {-}
+
+```{r}
+sessionInfo()
+```
+
+```{r, message = F, warning = F, echo = F}
+# Here we'll remove our objects
+rm(h_counter, coins, N, z, N_choose_z, flips, z_maker, Bernoulli_likelihood, trial_data, d_nail, d_coin, plot_1, plot_2, plot_3, theta, alpha_pc, c)
+```
