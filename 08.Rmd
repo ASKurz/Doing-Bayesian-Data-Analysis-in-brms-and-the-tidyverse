@@ -75,6 +75,8 @@ z15N50 %>%
   count()
 ```
 
+However, we’re not going to do anything with an "Ntotal" value. For brms, the data are fine in their current data frame form.
+
 ### Specify model.
 
 Let's open brms.
@@ -85,7 +87,7 @@ library(brms)
 
 The brms package doesn't have code blocks following the JAGS format or the sequence in Kurschke's diagrams. Rather, its syntax is modeled in part after the popular frequentist mixed-effects package, [lme4](https://cran.r-project.org/web/packages/lme4/index.html). To learn more about how brms compares to lme4, see Bürkner's [overview](https://cran.r-project.org/web/packages/brms/vignettes/brms_overview.pdf).
 
-The primary function in brms is `brm()`. Into this one function we will specify the data, the model, the likelihood function, the prior(s), and any technical settings such as the number of MCMC chains, iterations, and so forth.
+The primary function in brms is `brm()`. Into this one function we will specify the data, the model, the likelihood function, the prior(s), and any technical settings such as the number of MCMC chains, iterations, and so forth. You can order the arguments in any way you like. My typical practice is to start with `data`, `family` (i.e., the likelihood), the model `formula`, and my `prior`s. If there are any technical specifications such as the number of MHC iterations I’d like to change from their default values, I usually do that last.
 
 ```{r fit1, cache = T, warning = F, message = F, results = 'hide'}
 fit1 <-
@@ -124,7 +126,7 @@ If you want to display each chain as its own density, you can use the handy `mcm
 library(bayesplot)
 ```
 
-The current version of bayesplot has the annoying effect of setting the default `theme_grey()` ggplot2 theme to another setting, what appears to be `theme_classic()`. I don’t recall this behavior in previous versions, so I’m hoping it’s a momentary bug. In the meantime, we can work around it with `theme_set()`, which you can learn more about [here](https://ggplot2.tidyverse.org/reference/theme_get.html).
+`theme_grey()` is the default setting for ggplot2 plots. The current version of bayesplot has the annoying effect of switching the default to another setting, what appears to be `theme_classic()`. I don’t recall this behavior in previous versions, so I’m hoping it’s a momentary bug. In the meantime, we can work around it with `theme_set()`, which you can learn more about [here](https://ggplot2.tidyverse.org/reference/theme_get.html).
 
 ```{r}
 theme_set(theme_grey())
@@ -382,6 +384,11 @@ gathered_post %>%
   facet_wrap(~key, scales = "free_x")
 ```
 
+```{r}
+
+```
+
+
 Here’s a way to get the numeric summaries out of `post`.
 
 ```{r}
@@ -410,9 +417,23 @@ head(prior)
 
 ## Probability distributions available in ~~JAGS~~  brms
 
-With `prior` in hand, we can make our prior histograms as in Figure 8.7.
+With `prior` in hand, we're almost ready to make the prior histograms of Figure 8.7. But first we'll want to determine the $z/N$ values in order to mark them off in the plots. [You'll note Kruschke did so with gray plus marks in his.]
 
-```{r, fig.width = 10, fig.height = 3}
+```{r}
+z6N8z2N7 %>% 
+  group_by(s) %>% 
+  summarise(z = sum(y),
+            N = n()) %>% 
+  mutate(`z/N` = z/N)
+
+d_line <-
+  tibble(value = c(.75, .286, .75 - .286),
+         key = c("theta_Reginald", "theta_Tony", "theta_Reginald - theta_Tony"))
+```
+
+Behold the histograms of Figure 8.7.
+
+```{r, fig.width = 10, fig.height = 3, message = F}
 prior %>% 
   rename(theta_Reginald = b_sReginald,
          theta_Tony = b_sTony) %>% 
@@ -425,7 +446,10 @@ prior %>%
                  size = .2) +
   stat_pointintervalh(aes(y = 0), 
                       point_interval = mode_hdi, .prob = c(.95, .50)) +
+  geom_vline(data = d_line, aes(xintercept = value), 
+             color = "white", linetype = 2, size = .75) +
   scale_y_continuous(NULL, breaks = NULL) +
+  theme_grey() +
   theme(panel.grid = element_blank()) +
   facet_wrap(~key, scales = "free_x")
 ```
@@ -480,6 +504,12 @@ fit2 <-
 
 See the `cores = 4, chains = 4` arguments? With that bit of code, we told `brms::brm()` we wanted 4 chains, which we ran in parallel across 4 cores.
 
+## Tips for expanding ~~JAGS~~ brms models
+
+I'm in complete agreement with Kruschke, here: 
+
+> Often, the process of programming a model is done is stages, starting with a simple model and then incrementally incorporating complexifications. At each step, the model is checked for accuracy and efficiency. This procedure of incremental building is useful for creating a desired complex model from scratch, for expanding a previously created model for a new application, and for expanding a model that has been found to be inadequate in a posterior predictive check.
+
 ## References {-}
 
 Kruschke, J. K. (2015). *Doing Bayesian data analysis, Second Edition: A tutorial with R, JAGS, and Stan.* Burlington, MA: Academic Press/Elsevier.
@@ -492,6 +522,6 @@ sessionInfo()
 
 ```{r, message = F, warning = F, echo = F}
 # Here we'll remove our objects
-rm(z15N50, fit1, post, estimate_mode, my_breaks, z6N8z2N7, fit2, gathered_post, prior)
+rm(z15N50, fit1, post, estimate_mode, my_breaks, z6N8z2N7, fit2, gathered_post, prior, d_line)
 ```
 
