@@ -20,14 +20,26 @@ Kruschke began: "A *region of practical equivalence* (ROPE) indicates a small ra
 
 Here's a plot of Kruschke's initial coin flip ROPE.
 
-```{r, fig.width = 6, fig.height = 1, warning = F, message = F}
+```{r, fig.width = 6, fig.height = 1.125, warning = F, message = F}
 library(tidyverse)
 
-d_rope <- tibble(theta = c(.45, .55)) 
+d_text <-
+  tibble(x = .5,
+         y = .5,
+         label = "ROPE")
 
-d_rope %>% 
-  ggplot(aes(x = theta, y = 0)) +
-  geom_line(size = 1) +
+rope <- 
+  tibble(xmin = .45,
+         xmax = .55)
+
+ggplot() +
+  geom_rect(data = rope,
+            aes(xmin = xmin, xmax = xmax,
+                ymin = -Inf, ymax = Inf),
+            color = "transparent", fill = "white") +
+  geom_text(data = d_text,
+            aes(x = x, y = y, label = label),
+            color = "grey67") +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(title = "Kruschke's coin flip ROPE",
        x = expression(theta)) +
@@ -71,20 +83,27 @@ glimpse(d)
 The results look like this:
 
 ```{r, fig.width = 6, fig.height = 2, warning = F, message = F}
+# we'll use this to mark off the ROPEs as white strips in the background
+rope <-
+  tibble(xmin = .45,
+         xmax = .55)
+
 d %>% 
-  ggplot(aes(x = theta)) +
-  geom_ribbon(aes(ymin = 0, ymax = Posterior),
+  ggplot() +
+  geom_rect(data = rope,
+            aes(xmin = xmin, xmax = xmax,
+                ymin = -Inf, ymax = Inf),
+            color = "transparent", fill = "white") +
+  geom_ribbon(aes(x = theta,
+                  ymin = 0, ymax = Posterior),
               fill = "grey67") +
-  geom_line(data = d_rope,
-            aes(y = 0),
-            size = 1) +
   geom_text(data = tibble(
     theta = .5, 
-    label = "ROPE"
-  ),
-  aes(y = 2, label = label)) +
+    label = "ROPE"),
+    aes(x = theta, y = 2, label = label),
+    color = "grey67") +
   scale_y_continuous(NULL, breaks = NULL) +
-  labs(title = "Nope, that density ain't on that ROPE.",
+  labs(title = "Nope, that density ain't in that ROPE.",
        x = expression(theta)) +
   theme(panel.grid = element_blank())
 ```
@@ -106,14 +125,15 @@ tibble(theta = seq(from = 0, to = 1, length.out = 1000)) %>%
   mutate(normalizing_constant = sum(Likelihood * Prior/sum(Prior))) %>%
   mutate(Posterior = Likelihood * Prior / normalizing_constant) %>%
   
-  ggplot(aes(x = theta)) +
-  geom_ribbon(aes(ymin = 0, ymax = Posterior),
+  ggplot() +
+  geom_rect(data = rope,
+            aes(xmin = xmin, xmax = xmax,
+                ymin = -Inf, ymax = Inf),
+            color = "transparent", fill = "white") +
+  geom_ribbon(aes(x = theta, ymin = 0, ymax = Posterior),
               fill = "grey67") +
-  geom_line(data = d_rope,
-            aes(y = 0),
-            size = 1) +
   scale_y_continuous(NULL, breaks = NULL) +
-  labs(title = "This density is hovering right atop the ROPE.",
+  labs(title = "This density sits right within the ROPE.",
        x = expression(theta)) +
   theme(panel.grid = element_blank())
 ```
@@ -171,22 +191,26 @@ coef_small <-
 head(coef_small)
 ```
 
-Once we define our ROPE values, we're ready to re-plot the relevant parts of Figure 9.14. To help make it stand out, I've colored the ROPE in red.
+Once we define our ROPE values, we're ready to re-plot the relevant parts of Figure 9.14.
 
 ```{r, fig.width = 8, fig.height = 2.5}
-d_rope <- tibble(value = c(-.05, .05)) 
+rope <-
+  tibble(xmin = -.05,
+         xmax = .05)
 
 coef_small %>% 
   select(`Pitcher - Catcher`, `Catcher - 1st Base`) %>% 
   gather() %>% 
   
-  ggplot(aes(x = value)) +
-  geom_histogram(fill = "grey67", color = "grey92", size = .2,
-                bins = 50) +
-  geom_line(data = d_rope,
-            aes(y = -1),
-            size = .5, color = "red") +
-  stat_pointintervalh(aes(y = 0), 
+  ggplot() +
+  geom_rect(data = rope,
+            aes(xmin = xmin, xmax = xmax,
+                ymin = -Inf, ymax = Inf),
+            color = "transparent", fill = "white") +
+  geom_histogram(aes(x = value),
+                 fill = "grey67", color = "grey92", 
+                 size = .2, bins = 50) +
+  stat_pointintervalh(aes(x = value, y = 0), 
                       point_interval = mode_hdi, .prob = .95) +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(x = expression(theta)) +
@@ -228,17 +252,17 @@ glimpse(fitted_players)
 Now we're ready to go.
 
 ```{r, fig.width = 4, fig.height = 2.5}
-d_rope <- tibble(`ShinSoo Choo - Ichiro Suzuki` = c(-.05, .05)) 
-
 fitted_players %>% 
   
-  ggplot(aes(x = `ShinSoo Choo - Ichiro Suzuki`)) +
-  geom_histogram(fill = "grey67", color = "grey92", size = .2,
-                bins = 50) +
-  geom_line(data = d_rope,
-            aes(y = -1),
-            size = .5, color = "red") +
-  stat_pointintervalh(aes(y = 0), 
+  ggplot() +
+  geom_rect(data = rope,
+            aes(xmin = xmin, xmax = xmax,
+                ymin = -Inf, ymax = Inf),
+            color = "transparent", fill = "white") +
+  geom_histogram(aes(x = `ShinSoo Choo - Ichiro Suzuki`),
+                 fill = "grey67", color = "grey92", 
+                 size = .2, bins = 50) +
+  stat_pointintervalh(aes(x = `ShinSoo Choo - Ichiro Suzuki`, y = 0), 
                       point_interval = mode_hdi, .prob = .95) +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(title = "ShinSoo Choo - Ichiro Suzuki",
@@ -918,5 +942,4 @@ sessionInfo()
 
 ```{r, message = F, warning = F, echo = F}
 # Here we'll remove our objects
-rm(h_counter, coins, N, z, N_choose_z, flips, z_maker, Bernoulli_likelihood, trial_data, d_nail, d_coin, plot_1, plot_2, plot_3, theta, alpha_pc, c)
 ```
