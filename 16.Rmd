@@ -1,0 +1,832 @@
+---
+title: "Chapter 16. Metric-Predicted Variable on One or Two Groups"
+author: "A Solomon Kurz"
+date: "`r format(Sys.Date())`"
+output:
+  github_document
+---
+
+# Metric-Predicted Variable on One or Two Groups
+
+> In the context of the generalized linear model (GLM) introduced in the previous chapter, this chapter’s situation involves the most trivial cases of the linear core of the GLM, as indicated in the left cells of Table 15.1 (p. 434), with a link function that is the identity along with a normal distribution for describing noise in the data, as indicated in the first row of Table 15.2 (p. 443). We will explore options for the prior distribution on parameters of the normal distribution, and methods for Bayesian estimation of the parameters. We will also consider alternative noise distributions for describing data that have outliers. (pp. 449--450)
+
+## Estimating the mean and standard deviation of a normal distribution
+
+Here's the Gaussian probability density function:
+
+$$p(y|\mu, \sigma) = \frac{1}{\sigma\sqrt{2\pi}}\text{exp}(-\frac{1}{2}\frac{(y - \mu)^2}{\sigma^2})$$
+
+We'll divide Figure 16.1 into data and plot steps. I came up with the primary data like so:
+
+```{r, warning = F, message = F}
+library(tidyverse)
+
+sequence_length <- 100
+
+d <-
+  tibble(mu    = rep(c(87.8, 100, 112), each = 3)    %>% rep(., times = sequence_length),
+         sigma = rep(c(7.35, 12.2, 18.4), times = 3) %>% rep(., times = sequence_length),
+         y     = seq(from = 50, to = 150, length.out = sequence_length) %>% rep(., each = 9)) 
+
+d
+```
+
+Instead of putting the coordinates for the three data points in our tibble, I just threw them into their own tibble in the `geom_point()` function.
+
+```{r, fig.width = 8, fig.height = 4.5}
+# here we suppress grid lines for all plots in this chapter
+theme_set(theme_grey() +
+            theme(panel.grid = element_blank()))
+
+d %>% 
+  ggplot(aes(x = y)) +
+  geom_ribbon(aes(ymin = 0, ymax = dnorm(y, mean = mu, sd = sigma)),
+              fill = "grey67") +
+  geom_vline(xintercept = c(85, 100, 115), 
+             linetype = 3, color = "grey92") +
+  geom_point(data = tibble(y = c(85, 100, 115)),
+             aes(y = 0),
+             size = 2) +
+  scale_y_continuous(breaks = NULL) +
+  labs(title = "Competing Gaussian likelihoods given the same data",
+       subtitle = expression(paste("The columns are arranged by increasing values of ", mu, " and the rows by increasing values of ", sigma, ".")),
+       y = expression(paste("p(y|", mu, ", ", sigma, ")"))) +
+  coord_cartesian(xlim = 60:140) +
+  facet_grid(sigma ~ mu)
+```
+
+
+### Solution by mathematical analysis.
+
+Nothing for us, here.
+
+### Approximation by ~~MCMC in JAGS~~ HMC in brms.
+
+Let's load and `glimpse()` at the data.
+
+```{r, message = F}
+my_data <- read_csv("data.R/TwoGroupIQ.csv")
+
+glimpse(my_data)
+```
+
+The data file included values from two groups.
+
+```{r}
+my_data %>% 
+  distinct(Group)
+```
+
+We'll use `filter()` to subset.
+
+```{r}
+my_data <-
+  my_data %>% 
+  filter(Group == "Smart Drug")
+```
+
+Those subsetted data look like this:
+
+```{r, fig.width = 4, fig.height = 3}
+my_data %>% 
+  ggplot(aes(x = Score)) +
+  geom_density(color = "transparent", fill = "grey67") +
+  geom_rug(size = 1/4, alpha = 1/2) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  ggtitle("The ticks show individual data points.")
+```
+
+Here are the mean and $SD$ of the `Score` data.
+
+```{r}
+(mean_y <- mean(my_data$Score))
+(sd_y   <- sd(my_data$Score))
+```
+
+We're ready to brms.
+
+```{r, message = F, warning = F}
+library(brms)
+```
+
+If we want to pass user-defined values into our brms prior code, we'll need to define them first in using `brms::stanvar()`.
+
+```{r}
+stanvars <- 
+  stanvar(mean_y, name = "mean_y") + 
+  stanvar(sd_y, name = "sd_y")
+```
+
+We've saved that as `stanvars`, but you could name it whatever you want. But the trick is to them tell `brm()` about your values in a `stanvars` statement. Recall that the Stan team [discourages uniform priors for variance parameters](https://github.com/stan-dev/stan/wiki/Prior-Choice-Recommendations), such as our $\sigma$. Here we'll use the half Normal.
+
+```{r fit1, cache = T, message = F, warning = F}
+fit1 <-
+  brm(data = my_data,
+      family = gaussian,
+      Score ~ 1,
+      prior = c(prior(normal(mean_y, sd_y*100), class = Intercept),
+                prior(normal(0, sd_y), class = sigma)),
+      chains = 4, cores = 4,
+      stanvars = stanvars)
+```
+
+To be more explicit, the `stanvars = stanvars` argument at the bottom of our code is what allowed us to define our intercept prior as `normal(mean_y, sd_y*100)` instead of requiring us to type in the parameters as `normal(107.8413, 25.4452*100)`. Same basic point for our $\sigma$ prior.
+
+The chains look good.
+
+```{r, fig.width = 8, fig.height = 2}
+plot(fit1)
+```
+
+The model summary looks sensible.
+
+```{r}
+print(fit1)
+```
+
+Compare those values with `mean_y` and `sd_y`.
+
+```{r}
+mean_y
+sd_y
+```
+
+```{r}
+post <- posterior_samples(fit1)
+```
+
+```{r, fig.width = 8, fig.height = 2}
+# we'll need this for `stat_pointintervalh()`
+library(tidybayes)
+
+# we'll use this to mark off the ROPEs as white strips in the background
+rope <-
+  tibble(key = c("Mean", "Standard Deviation", "Effect Size"), 
+         xmin = c(99, 14, -.1),
+         xmax = c(101, 16, .1))
+
+# here are the primary data
+post %>% 
+  transmute(Mean = b_Intercept, 
+            `Standard Deviation` = sigma) %>% 
+  mutate(`Effect Size` = (Mean - 100)/`Standard Deviation`) %>% 
+  gather() %>% 
+  
+  # the plot
+  ggplot() +
+  geom_rect(data = rope,
+            aes(xmin = xmin, xmax = xmax,
+                ymin = -Inf, ymax = Inf),
+            color = "transparent", fill = "white") +
+  geom_histogram(aes(x = value),
+                 color = "grey92", fill = "grey67",
+                 size = .2, bins = 30) +
+  stat_pointintervalh(aes(x = value, y = 0), 
+                      point_interval = mode_hdi, .prob = c(.95, .5)) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  xlab(NULL) +
+  facet_wrap(~key, scales = "free", ncol = 3)
+```
+
+For the next part, we should look at the posterior samples.
+
+```{r}
+head(post)
+```
+
+`head()` returned six rows, each one corresponding to the credible parameter values from a given posterior draw. Following our model equation $\text{Score}_i ~ N(\mu, \sigma)$, we might reformat the first two columns as:
+
+1. `Score` ~ $N$(`r round(post[1, 1], 3)`, `r round(post[1, 2], 3)`)
+2. `Score` ~ $N$(`r round(post[2, 1], 3)`, `r round(post[2, 2], 3)`)
+3. `Score` ~ $N$(`r round(post[3, 1], 3)`, `r round(post[3, 2], 3)`)
+4. `Score` ~ $N$(`r round(post[4, 1], 3)`, `r round(post[4, 2], 3)`)
+5. `Score` ~ $N$(`r round(post[5, 1], 3)`, `r round(post[5, 2], 3)`)
+6. `Score` ~ $N$(`r round(post[6, 1], 3)`, `r round(post[6, 2], 3)`)
+
+Each row of `post` yields a full model equation that is a credible description of the data—or at least as credible as we can get within the limits of the model we have specified. We can give voice to a subset of these credible distributions with our version of the upper right panel of Figure 16.3.
+
+```{r, fig.width = 3, fig.height = 2.25}
+# How many credible density lines would you like?
+n_lines <- 63
+
+my_data %>% 
+  ggplot(aes(x = Score)) + 
+  geom_histogram(aes(y = stat(density)),
+                 color = "grey92", fill = "grey67",
+                 size = .2, binwidth = 5, boundary = 0) +
+  # this is where we specify our individual density lines
+  mapply(mean = post %>% select(b_Intercept) %>% slice(1:n_lines) %>% pull(),
+         sd   = post %>% select(sigma)       %>% slice(1:n_lines) %>% pull(),
+         function(mean, sd) {
+           stat_function(data  = tibble(Score = c(0, 250)),
+                         fun   = dnorm, 
+                         args  = list(mean = mean, sd = sd), 
+                         size  = 1/4,
+                         alpha = 1/3, 
+                         color = "grey25")
+           }
+         ) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  coord_cartesian(xlim = 50:210) +
+  labs(title = "Posterior Predictive Distribution",
+       x = "y")
+```
+
+Note the `stat(density)` argument in the `geom_histogram()` function. That’s what rescaled the histogram to the density metric. If you leave that part out, all the density lines will drop to the bottom of the plot.
+
+## Outliers and robust estimation: The $t$ distribution
+
+We'll employ a custom function and stick it into `map()` to make the data for Figure 16.4.
+
+```{r}
+t_maker <- function(nu){
+  tibble(y = seq(from = -8, to = 8, length.out = 500)) %>% 
+    mutate(density = dt(y, df = nu))
+  }
+
+d <-
+  tibble(nu = c(Inf, 4, 2, 1)) %>% 
+  mutate(t = map(nu, t_maker)) %>% 
+  unnest() %>% 
+  # this line is unnecessary, but will help with the plot legend
+  mutate(nu = factor(nu, levels = c("Inf", "4", "2", "1")))
+
+d
+```
+
+Behold our Student-$t$ densities!
+
+```{r, fig.width = 5.5, fig.height = 3.5}
+d %>% 
+  ggplot(aes(x = y, y = density, group = nu, color = nu)) +
+  geom_line() +
+  scale_color_viridis_d(expression(paste("t"[nu])), option = "B", direction = 1, end = .8) +
+  coord_cartesian(xlim = -6:6) +
+  labs(y = "p(y)") +
+  theme(legend.position = c(.92, .75),
+        legend.background = element_rect(fill = "grey92"),
+        legend.key = element_rect(color = "transparent", fill = "transparent"))
+```
+
+Here's Figure 16.5.a.
+
+```{r, fig.width = 6, fig.height = 3}
+tibble(y = seq(from = -10, to = 20, length.out = 1e3)) %>% 
+  ggplot(aes(x = y)) +
+  geom_ribbon(aes(ymin = 0,
+                  ymax = dnorm(y, mean = 2.5, sd = 5.73)),
+              color = "transparent", fill = "grey50", alpha = 1/2) +
+  geom_ribbon(aes(ymin = 0,
+                  ymax = metRology::dt.scaled(y, df = 1.14, mean = .12, sd = 1.47)),
+              color = "transparent", fill = "grey50", alpha = 1/2) +
+  geom_vline(xintercept = c(.12, 2.5), color = "grey92", linetype = 3) +
+  geom_point(data = tibble(y = c(-2:2, 15)),
+             aes(y = 0),
+             size = 2) +
+  coord_cartesian(xlim = -5:15) +
+  labs(title = "Maximum Likelihood Estimates",
+       y = "p(y)")
+```
+
+I'm now aware that we have the data for the bottom panel of Figure 16.5. However, we can simulate similar data with `rt.scaled()` from the [metRology package](https://sourceforge.net/projects/metrology/).
+
+```{r, fig.width = 6, fig.height = 3}
+set.seed(145)
+d <-
+  tibble(y = metRology::rt.scaled(n = 177, df = 2.63, mean = 1.11, sd = 0.15))
+
+tibble(y = seq(from = -3, to = 12, length.out = 1e3)) %>% 
+  ggplot(aes(y)) +
+  geom_histogram(data = d,
+                 aes(y = stat(density)),
+                 color = "grey92", fill = "grey67",
+                 size = .2, binwidth = .1) +
+  geom_line(aes(y = dnorm(y, mean = 1.16, sd = 0.63)),
+              color = "grey33") +
+  geom_line(aes(y = metRology::dt.scaled(y, df = 2.63, mean = 1.11, sd = 0.15)),
+              color = "grey33") +
+  scale_x_continuous(breaks = seq(from = -2, to = 10, by = 2)) +
+  coord_cartesian(xlim = c(-1.5, 10.25)) +
+  labs(title = "Maximum Likelihood Estimates",
+       y = "p(y)")
+```
+
+In case you were curious, this is how I selected the seed for the plot. Run the code yourself to get a sense of how it works.
+
+```{r, fig.width = 2, fig.height = 8, eval = F}
+# In the R Notebook code block settings, I used: fig.width = 2, fig.height = 8
+
+t_maker <- function(seed) {
+  set.seed(seed)
+  tibble(y = metRology::rt.scaled(n = 177, df = 2.63, mean = 1.11, sd = 0.15)) %>% 
+    summarise(min = min(y),
+              max = max(y)) %>% 
+    mutate(spread = max - min)
+}
+
+tibble(seed = 1:200) %>% 
+  mutate(t = map(seed, t_maker)) %>% 
+  unnest() %>%
+  
+  ggplot(aes(x = reorder(seed, spread), ymin = min, ymax = max)) +
+  geom_hline(yintercept = 0, color = "white") +
+  geom_linerange() +
+  coord_flip()
+```
+
+Here's the left column for Figure 16.6.
+
+```{r, fig.width = 4, fig.height = 6}
+# the primary data
+d <-
+  tibble(nu = c(Inf, 5, 2, 1)) %>% 
+  # `tidyr::expand()` allows you to combine all possible combinations among variables
+  # see https://tidyr.tidyverse.org/reference/expand.html
+  expand(nu, y = seq(from = -8, to = 8, length.out = 1e3)) %>%
+  mutate(label = str_c("nu = ", nu) %>% 
+           factor(., levels = c("nu = Inf", "nu = 5", "nu = 2", "nu = 1")))
+
+# the plot
+d %>% 
+  ggplot(aes(x = y)) +
+  geom_ribbon(aes(ymin = 0,
+                  ymax = dt(y, df = nu)),
+              fill = "grey67") +
+  geom_ribbon(data = d %>% 
+                filter(y >= -1 & y <= 1),
+              aes(ymin = 0,
+                  ymax = dt(y, df = nu)),
+              fill = "grey33") +
+  # note how this function has its own data
+  geom_text(data = tibble(
+    y = 0,
+    density = .175,
+    label = factor(c("nu = Inf", "nu = 5", "nu = 2", "nu = 1")),
+    text = c("68%", "64%", "58%", "50%")),
+    aes(y = density, label = text),
+    color = "grey92") +
+  scale_y_continuous(breaks = c(0, .2, .4)) +
+  coord_cartesian(xlim = -6:6) +
+  ylab("p(y)") +
+  facet_wrap(~label, ncol = 1)
+```
+
+Now here's the right column.
+
+```{r, fig.width = 4, fig.height = 6}
+# the primary data
+d <-
+  tibble(nu = c(Inf, 5, 2, 1)) %>% 
+  expand(nu, y = seq(from = -8, to = 8, length.out = 1e3)) %>%
+  # here we compute the 68% limits, by values of nu
+  mutate(ymin = rep(c(-1.84, -1.32, -1.11, -1), each = 1e3),
+         ymax = rep(c(1.84, 1.32, 1.11, 1), each = 1e3)) %>% 
+  mutate(label = str_c("nu = ", nu) %>% 
+           factor(., levels = c("nu = Inf", "nu = 5", "nu = 2", "nu = 1")))
+
+# the plot
+d %>% 
+  ggplot(aes(x = y)) +
+  geom_ribbon(aes(ymin = 0,
+                  ymax = dt(y, df = nu)),
+              fill = "grey67") +
+  geom_ribbon(data = d %>% 
+                # notice our `filter()` argument has changed
+                filter(y >= ymin & y <= ymax),
+              aes(ymin = 0,
+                  ymax = dt(y, df = nu)),
+              fill = "grey33") +
+  geom_text(data = tibble(
+    y = 0,
+    density = .175,
+    text = "68%"),
+    aes(y = density, label = text),
+    color = "grey92") +
+  scale_y_continuous(breaks = c(0, .2, .4)) +
+  coord_cartesian(xlim = -6:6) +
+  ylab("p(y)") +
+  facet_wrap(~label, ncol = 1)
+```
+
+### Using the $t$ distribution in ~~JAGS~~ brms.
+
+It's easy to use Student's $t$ in brms. Make sure to specify `family = student`. Be default, brms already sets the lower bound for $\nu$ to 1, so there's no need to worry about shifting the exponential prior. Also, Stan will bark if you try to enter the `1/30` into the exponential prior:
+
+> DIAGNOSTIC(S) FROM PARSER:
+Warning: integer division implicitly rounds to integer. Found int division: 1 / 30
+Positive values rounded down, negative values rounded up or down in platform-dependent way.
+
+To avoid this, just do the division beforehand.
+
+```{r}
+stanvars <- 
+  stanvar(mean_y, name = "mean_y") + 
+  stanvar(sd_y, name = "sd_y") + 
+  stanvar(1/30, name = "one_over_thirty")
+```
+
+Here's the `brm()` code.
+
+```{r fit2, cache = T, message = F, warning = F}
+fit2 <-
+  brm(data = my_data,
+      family = student,
+      Score ~ 1,
+      prior = c(prior(normal(mean_y, sd_y*100), class = Intercept),
+                prior(normal(0, sd_y), class = sigma),
+                prior(exponential(one_over_thirty), class = nu)),
+      chains = 4, cores = 4,
+      stanvars = stanvars)
+```
+
+We can make the shifted exponential distribution (i.e., Figure 16.7) with simple addition.
+
+```{r, fig.width = 6, fig.height = 5, message = F, warning = F}
+# how many draws would you like?
+n_draws <- 1e6
+
+# here are the data
+d <-
+  tibble(exp = rexp(n_draws, rate = 1/29)) %>% 
+  transmute(exp_plus_1 = exp + 1,
+            log_10_exp_plus_1 = log10(exp + 1))
+  
+# this is the plot in the top panel
+p1 <-
+  d %>% 
+  ggplot(aes(x = exp_plus_1)) +
+  geom_histogram(color = "grey92", fill = "grey67",
+                 size = .2, binwidth = 5, boundary = 1) +
+  stat_pointintervalh(aes(y = 0), 
+                      point_interval = mode_hdi, .prob = c(.95, .5)) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  labs(title = expression(paste("exponential(", lambda, " = 29) shifted + 1")),
+       x = expression(nu)) +
+  coord_cartesian(xlim = 1:150)
+
+# the bottom panel plot
+p2 <-
+  d %>% 
+  ggplot(aes(x = log_10_exp_plus_1)) +
+  geom_histogram(color = "grey92", fill = "grey67",
+                 size = .2, binwidth = .1, boundary = 0) +
+  stat_pointintervalh(aes(y = 0), 
+                      point_interval = mode_hdi, .prob = c(.95, .5)) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  labs(title = " ",
+       x = expression(paste("log10(", nu, ")"))) +
+  coord_cartesian(xlim = c(0, 2.5))
+
+# here we'll use `gridExtra::grid.arrange()` to put them together
+library(gridExtra)
+
+grid.arrange(p1, p2)
+```
+
+Here are the scatter plots of Figure 16.8.
+
+```{r}
+pairs(fit2,
+      off_diag_args = list(size = 1/3, alpha = 1/3))
+```
+
+I'm not aware of an easy way to use `log10(nu)` instead of `nu` with `brms::pairs()`. However, you can get those plots with `posterior_samples()` and a little wrangling.
+
+```{r, fig.width = 3, fig.height = 5}
+post <- posterior_samples(fit2)
+
+post %>% 
+  mutate(`log10(nu)` = log10(nu)) %>% 
+  select(b_Intercept, sigma, `log10(nu)`) %>% 
+  gather(key, value, -`log10(nu)`) %>% 
+  
+  ggplot(aes(x = `log10(nu)`, y = value)) +
+  geom_point(color = "grey50", size = 1/3, alpha = 1/3) +
+  ylab(NULL) +
+  facet_grid(key~., scales = "free", switch = "y")
+```
+
+If you want the Pearson's correlations, you can use base R `cor()`.
+
+```{r}
+post %>% 
+  mutate(`log10(nu)` = log10(nu)) %>% 
+  select(b_Intercept, sigma, `log10(nu)`) %>% 
+  cor()
+```
+
+Here are four of the panels for Figure 16.9.
+
+```{r, fig.width = 6, fig.height = 4}
+# we'll use this to mark off the ROPEs as white strips in the background
+rope <-
+  tibble(key = c("Mean", "Scale", "Effect Size"), 
+         xmin = c(99, 14, -.1),
+         xmax = c(101, 16, .1))
+
+# here are the primary data
+post %>% 
+  transmute(Mean = b_Intercept, 
+            Scale = sigma,
+            Normality = log10(nu)) %>% 
+  mutate(`Effect Size` = (Mean - 100)/Scale) %>% 
+  gather() %>% 
+  
+  # the plot
+  ggplot() +
+  geom_rect(data = rope,
+            aes(xmin = xmin, xmax = xmax,
+                ymin = -Inf, ymax = Inf),
+            color = "transparent", fill = "white") +
+  geom_histogram(aes(x = value),
+                 color = "grey92", fill = "grey67",
+                 size = .2, bins = 30) +
+  stat_pointintervalh(aes(x = value, y = 0), 
+                      point_interval = mode_hdi, .prob = c(.95, .5)) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  xlab(NULL) +
+  facet_wrap(~key, scales = "free", ncol = 2)
+```
+
+Just a couple alterations to our `mapply()` code from before and we'll be set to make the final panel of Figure 16.9.
+
+```{r, fig.width = 3, fig.height = 2.25}
+# How many credible density lines would you like?
+n_lines <- 63
+
+my_data %>% 
+  ggplot(aes(x = Score)) + 
+  geom_histogram(aes(y = stat(density)),
+                 color = "grey92", fill = "grey67",
+                 size = .2, binwidth = 5, boundary = 0) +
+  # this is where we specify our individual density lines
+  mapply(mean = post %>% select(b_Intercept) %>% slice(1:n_lines) %>% pull(),
+         sd   = post %>% select(sigma)       %>% slice(1:n_lines) %>% pull(),
+         nu   = post %>% select(nu)          %>% slice(1:n_lines) %>% pull(),
+         function(nu, mean, sd) {
+           stat_function(data  = tibble(Score = c(0, 250)),
+                         fun = metRology::dt.scaled,
+                         args  = list(df = nu, mean = mean, sd = sd), 
+                         size  = 1/4,
+                         alpha = 1/3, 
+                         color = "grey25")
+           }
+         ) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  coord_cartesian(xlim = 50:210) +
+  labs(title = "Posterior Predictive Distribution",
+       x = "y")
+```
+
+In case you were wondering, here's the model `summary()`:
+
+```{r}
+summary(fit2)
+```
+
+### Using the $t$ distribution in Stan.
+
+Kruschke expressed concern about high autocorrelations in the chains of his JAGS model. Here are the results of our brms attempt:
+
+```{r, fig.width = 6, fig.height = 4, message = F, warning = F}
+post <- posterior_samples(fit2, add_chain = T)
+
+library(bayesplot)
+theme_set(theme_grey() +
+            theme(panel.grid = element_blank()))
+
+mcmc_acf(post, pars = c("b_Intercept", "sigma", "nu"), lags = 35)
+```
+
+For all three parameters, the autocorrelations were near zero by lag 3 or 4. Not bad. The $N_{eff}/N$ ratios are okay.
+
+```{r, fig.width = 6, fig.height = 1.5}
+neff_ratio(fit2) %>% 
+  mcmc_neff() +
+  yaxis_text(hjust = 0)
+```
+
+Here are the trace plots:
+
+```{r, fig.width = 8, fig.height = 4}
+plot(fit2)
+```
+
+The overlaid density plots:
+
+```{r, fig.width = 8, fig.height = 2}
+mcmc_dens_overlay(post, pars = c("b_Intercept", "sigma", "nu"))
+```
+
+And here are the $\hat{R}$ values:
+
+```{r}
+rhat(fit2)
+```
+
+If you peer into the contents of a `brm()` fit object (e.g., `fit2 %>% str()`), you'll see that it contains the Scan code. Here it is for our `fit2`.
+
+```{r}
+fit2$fit@stanmodel
+```
+
+Note the last line in the parameters block, "real<lower=1> nu;  // degrees of freedom or shape." By default, brms set the lower bound for $\nu$ to 1.
+
+## Two groups
+
+Since we subset the data, earlier, we'll just reload it.
+
+```{r}
+my_data <- read_csv("data.R/TwoGroupIQ.csv")
+
+glimpse(my_data)
+```
+
+This time, we'll compute `mean_y` and `sd_y` from the full data.
+
+```{r}
+(mean_y <- mean(my_data$Score))
+(sd_y   <- sd(my_data$Score))
+
+stanvars <- 
+  stanvar(mean_y, name = "mean_y") + 
+  stanvar(sd_y, name = "sd_y") + 
+  stanvar(1/30, name = "one_over_thirty")
+```
+
+Within the brms framework, Bürkner calls it distributional modeling when you model more than the mean. Since we're now modeling $\mu$ and $\sigma$, we're fitting a distributional model. When doing so in brms, you wrap your `formula` syntax into the `bf()` function. It's also important to know that when modeling $\sigma$, brms defaults to modeling its log. So we'll use `log(sd_y)` in its prior. For more on all this, see Bürkner"s [*Estimating Distributional Models with brms*](https://cran.r-project.org/web/packages/brms/vignettes/brms_distreg.html).
+
+```{r fit3, cache = T, message = F, warning = F}
+fit3 <-
+  brm(data = my_data,
+      family = student,
+      bf(Score ~ 0 + Group, sigma ~ 0 + Group),
+      prior = c(prior(normal(mean_y, sd_y*100), class = b),
+                prior(normal(0, log(sd_y)), class = b, dpar = sigma),
+                prior(exponential(one_over_thirty), class = nu)),
+      chains = 4, cores = 4,
+      stanvars = stanvars)
+```
+
+Let's look at the model summary.
+
+```{r}
+print(fit3)
+```
+
+Remember that the $\sigma$s are now in the log scale. If you want a quick and dirty conversion, you might do something like:
+
+```{r}
+fixef(fit3)[3:4, 1] %>% exp()
+```
+
+This leads us to the next subsection.
+
+### Analysis by NHST.
+
+Here's the $t$-test:
+
+```{r}
+t.test(data = my_data,
+       Score ~ Group)
+```
+
+If we want to make the histograms in Figure 16.12, we'll need to first extract the posterior samples.
+
+```{r}
+post <- posterior_samples(fit3)
+
+glimpse(post)
+```
+
+We may as well clean convert the columns a bit to make their names and metrics reflect those in the text.
+
+```{r}
+transmuted_post <-
+  post %>% 
+  transmute(`Placebo Mean`      = b_GroupPlacebo,
+            `Smart Drug Mean`   = b_GroupSmartDrug,
+            # we need to transform the next three parameters
+            `Placebo Scale`     = b_sigma_GroupPlacebo   %>% exp(),
+            `Smart Drug Scale`  = b_sigma_GroupSmartDrug %>% exp(),
+            Normality           = nu                     %>% log10()) %>% 
+  mutate(`Difference of Means`  = `Smart Drug Mean` - `Placebo Mean`,
+         `Difference of Scales` = `Smart Drug Scale` - `Placebo Scale`,
+         `Effect Size` = (`Smart Drug Mean` - `Placebo Mean`)/sqrt((`Smart Drug Scale`^2 + `Placebo Scale`^2)/2))
+
+glimpse(transmuted_post)
+```
+
+Now we're ready for the bulk of Figure 16.12.
+
+```{r, fig.width = 6, fig.height = 8}
+# we'll use this to mark off the ROPEs as white strips in the background
+rope <-
+  tibble(key = c("Difference of Means", "Difference of Scales", "Effect Size"), 
+         xmin = c(-1, -1, -.1),
+         xmax = c(1, 1, .1))
+
+# here are the primary data
+transmuted_post %>% 
+  gather() %>% 
+  
+  # the plot
+  ggplot() +
+  geom_rect(data = rope,
+            aes(xmin = xmin, xmax = xmax,
+                ymin = -Inf, ymax = Inf),
+            color = "transparent", fill = "white") +
+  geom_histogram(aes(x = value),
+                 color = "grey92", fill = "grey67",
+                 size = .2, bins = 30) +
+  stat_pointintervalh(aes(x = value, y = 0), 
+                      point_interval = mode_hdi, .prob = c(.95, .5)) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  xlab(NULL) +
+  facet_wrap(~key, scales = "free", ncol = 2)
+```
+
+Like in the text, our mean-difference plot contradicts the $t$-test’s $p$-value.
+
+Here are the upper two panels in the right column of Figure 16.12.
+
+```{r, fig.width = 4, fig.height = 4.5}
+# How many credible density lines would you like?
+n_lines <- 63
+
+p1 <-
+  my_data %>% 
+  filter(Group == "Placebo") %>% 
+  ggplot(aes(x = Score)) + 
+  geom_histogram(aes(y = stat(density)),
+                 color = "grey92", fill = "grey67",
+                 size = .2, binwidth = 5, boundary = 0) +
+  # this is where we specify our individual density lines
+  mapply(mean = post %>% select(b_GroupPlacebo)                 %>% slice(1:n_lines) %>% pull(),
+         sd   = post %>% select(b_sigma_GroupPlacebo) %>% exp() %>% slice(1:n_lines) %>% pull(),
+         nu   = post %>% select(nu)                             %>% slice(1:n_lines) %>% pull(),
+         function(nu, mean, sd) {
+           stat_function(data  = tibble(Score = c(0, 250)),
+                         fun = metRology::dt.scaled,
+                         args  = list(df = nu, mean = mean, sd = sd), 
+                         size  = 1/4,
+                         alpha = 1/3, 
+                         color = "grey25")
+           }
+         ) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  coord_cartesian(xlim = 50:210) +
+  labs(title = "Placebo PPD",
+       x = "y")
+
+p2 <-
+  my_data %>% 
+  filter(Group != "Placebo") %>% 
+  ggplot(aes(x = Score)) + 
+  geom_histogram(aes(y = stat(density)),
+                 color = "grey92", fill = "grey67",
+                 size = .2, binwidth = 5, boundary = 0) +
+  # this is where we specify our individual density lines
+  mapply(mean = post %>% select(b_GroupSmartDrug)                 %>% slice(1:n_lines) %>% pull(),
+         sd   = post %>% select(b_sigma_GroupSmartDrug) %>% exp() %>% slice(1:n_lines) %>% pull(),
+         nu   = post %>% select(nu)                               %>% slice(1:n_lines) %>% pull(),
+         function(nu, mean, sd) {
+           stat_function(data  = tibble(Score = c(0, 250)),
+                         fun = metRology::dt.scaled,
+                         args  = list(df = nu, mean = mean, sd = sd), 
+                         size  = 1/4,
+                         alpha = 1/3, 
+                         color = "grey25")
+           }
+         ) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  coord_cartesian(xlim = 50:210) +
+  labs(title = "Smart Drug PPD",
+       x = "y")
+
+grid.arrange(p1, p2, ncol = 1)
+```
+
+## Other noise distributions and transforming data
+
+It's worth repeating a portion of this section.
+
+> If the initially assumed noise distribution does not match the data distribution, there are two ways to pursue a better description. The preferred way is to use a better noise distribution. The other way is to transform the data to a new scale so that they tolerably match the shape of the assumed noise distribution. In other words, we can either change the shoe to fit the foot, or we can squeeze the foot to fit in the shoe. Changing the shoe is preferable to squeezing the foot. In traditional statistical software, users were stuck with the pre-packaged noise distribution, and had no way to change it, so they transformed their data and squeezed them into the software. This practice can lead to confusion in interpreting the parameters because they are describing the transformed data, not the data on the original scale. In software such as [brms, we can spend less time squeezing our feet into ill-fitting shoes]. (p. 472)
+
+## References {-}
+
+Kruschke, J. K. (2015). *Doing Bayesian data analysis, Second Edition: A tutorial with R, JAGS, and Stan.* Burlington, MA: Academic Press/Elsevier.
+
+## Session info {-}
+
+```{r}
+sessionInfo()
+```
+
+```{r, message = F, warning = F, echo = F}
+# Here we'll remove our objects
+rm(sequence_length, d, my_data, mean_y, sd_y, stanvars, fit1, post, rope, n_lines, t_maker, n_draws, p1, p2, fit3, transmuted_post)
+
+theme_set(theme_grey())
+```
+
