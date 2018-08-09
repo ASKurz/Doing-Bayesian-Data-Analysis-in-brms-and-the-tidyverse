@@ -1,0 +1,941 @@
+---
+title: "Chapter 17. Metric Predicted Variable with One Metric Predictor"
+author: "A Solomon Kurz"
+date: "`r format(Sys.Date())`"
+output:
+  github_document
+---
+
+# Metric Predicted Variable with One Metric Predictor
+
+> We will initially describe the relationship between the predicted variable, $y$ and predictor, $x$, with a simple linear model and normally distributed residual randomness in $y$. This model is often referred to as 'simple linear regression.' We will generalize the model in three ways. First, we will give it a noise distribution that accommodates outliers, which is to say that we will replace the normal distribution with a $t$ distribution as we did in the previous chapter. The model will be implemented in [brms]. Next, we will consider differently shaped relations between the predictor and the predicted, such as quadratic trend. Finally, we will consider hierarchical models of situations in which every individual has data that can be described by an individual trend, and we also want to estimate group-level typical trends across individuals. (p. 478)
+
+## Simple linear regression
+
+It wasn’t entirely clear how Kruschke simulated the bimodal data on the right panel of Figure 17.1. I figured an even split of two Gaussians would suffice and just sighted their $\mu$s and $\sigma$s.
+
+```{r, message = F, warning = F}
+library(tidyverse)
+
+# how many draws per panel would you like?
+n_draw <- 1000
+
+set.seed(1)
+d <-
+  tibble(panel = rep(letters[1:2], each = n_draw),
+         x = c(runif(n = n_draw, -10, 10),
+               rnorm(n = n_draw/2, -6, 2),
+               rnorm(n = n_draw/2, 3, 2))) %>% 
+  mutate(y = 10 + 2 * x + rnorm(n = n(), 0, 2))
+
+head(d)
+```
+
+Behold Figure 17.1.
+
+```{r, fig.width = 7, fig.height = 4}
+theme_set(theme_grey() +
+            theme(panel.grid = element_blank()))
+
+d %>% 
+  ggplot(aes(x = x, y = y)) +
+  geom_vline(xintercept = 0, color = "white") +
+  geom_hline(yintercept = 0, color = "white") +
+  geom_point(size = 1/3, alpha = 1/3) +
+  stat_smooth(method = "lm", se = F) +
+  coord_cartesian(xlim = -10:10,
+                  ylim = -10:30) +
+  labs(title = "Normal PDF around Linear Function",
+       subtitle = "We simulated x from a uniform distribution in the left panel and simulated it from a mixture of\ntwo Gaussians on the right.") +
+  theme(strip.background = element_blank(),
+        strip.text = element_blank()) +
+  facet_wrap(~ panel)
+```
+
+## Robust linear regression
+
+Here's Kruschke's `HtWtDataGenerator()` code.
+
+```{r}
+HtWtDataGenerator <- function(nSubj, rndsd = NULL, maleProb = 0.50) {
+  # Random height, weight generator for males and females. Uses parameters from
+  # Brainard, J. & Burmaster, D. E. (1992). Bivariate distributions for height and
+  # weight of men and women in the United States. Risk Analysis, 12(2), 267-275.
+  # Kruschke, J. K. (2011). Doing Bayesian data analysis:
+  # A Tutorial with R and BUGS. Academic Press / Elsevier.
+  # Kruschke, J. K. (2014). Doing Bayesian data analysis, 2nd Edition:
+  # A Tutorial with R, JAGS and Stan. Academic Press / Elsevier.
+  
+  # require(MASS)
+  
+  # Specify parameters of multivariate normal (MVN) distributions.
+  # Men:
+  HtMmu   <- 69.18
+  HtMsd   <- 2.87
+  lnWtMmu <- 5.14
+  lnWtMsd <- 0.17
+  Mrho    <- 0.42
+  Mmean   <- c(HtMmu, lnWtMmu)
+  Msigma  <- matrix(c(HtMsd^2, Mrho * HtMsd * lnWtMsd,
+                      Mrho * HtMsd * lnWtMsd, lnWtMsd^2), nrow = 2)
+  # Women cluster 1:
+  HtFmu1   <- 63.11
+  HtFsd1   <- 2.76
+  lnWtFmu1 <- 5.06
+  lnWtFsd1 <- 0.24
+  Frho1    <- 0.41
+  prop1    <- 0.46
+  Fmean1   <- c(HtFmu1, lnWtFmu1)
+  Fsigma1  <- matrix(c(HtFsd1^2, Frho1 * HtFsd1 * lnWtFsd1,
+                       Frho1 * HtFsd1 * lnWtFsd1, lnWtFsd1^2), nrow = 2)
+  # Women cluster 2:
+  HtFmu2   <- 64.36
+  HtFsd2   <- 2.49
+  lnWtFmu2 <- 4.86
+  lnWtFsd2 <- 0.14
+  Frho2    <- 0.44
+  prop2    <- 1 - prop1
+  Fmean2   <- c(HtFmu2, lnWtFmu2)
+  Fsigma2  <- matrix(c(HtFsd2^2, Frho2 * HtFsd2 * lnWtFsd2,
+                       Frho2 * HtFsd2 * lnWtFsd2, lnWtFsd2^2), nrow = 2)
+  
+  # Randomly generate data values from those MVN distributions.
+  if (!is.null(rndsd)) {set.seed(rndsd)}
+  datamatrix <- matrix(0, nrow = nSubj, ncol = 3)
+  colnames(datamatrix) <- c("male", "height", "weight")
+  maleval <- 1; femaleval <- 0 # arbitrary coding values
+  for (i in 1:nSubj)  {
+    # Flip coin to decide sex
+    sex <- sample(c(maleval, femaleval), size = 1, replace = TRUE,
+                  prob = c(maleProb, 1 - maleProb))
+    if (sex == maleval) {datum = MASS::mvrnorm(n = 1, mu = Mmean, Sigma = Msigma)}
+    if (sex == femaleval) {
+      Fclust = sample(c(1, 2), size = 1, replace = TRUE, prob = c(prop1, prop2))
+      if (Fclust == 1) {datum = MASS::mvrnorm(n = 1, mu = Fmean1, Sigma = Fsigma1)}
+      if (Fclust == 2) {datum = MASS::mvrnorm(n = 1, mu = Fmean2, Sigma = Fsigma2)}
+    }
+    datamatrix[i, ] = c(sex, round(c(datum[1], exp(datum[2])), 1))
+  }
+  
+  return(datamatrix)
+} # end function
+```
+
+Now we're ready to use `HtWtDataGenerator()` to simulate our data.
+
+```{r}
+d <- 
+  HtWtDataGenerator(nSubj = 300, rndsd = 1, maleProb = .50) %>% 
+  as_tibble() %>% 
+  # this will allow us to subset 30 of the values into their own group
+  mutate(subset = rep(0:1, times = c(9, 1)) %>% rep(., 30))
+
+head(d)
+```
+
+#### Standardizing the data for MCMC sampling.
+
+We'll make a custom function to standardize the `height` and `weight` values.
+
+```{r}
+standardize <- function(x){
+  (x - mean(x))/sd(x)
+  }
+
+d <-
+  d %>% 
+  mutate(height_z = standardize(height),
+         weight_z = standardize(weight))
+```
+
+Somewhat analogous to how Kruschke standardized his data within the JAGS code, you could standardize the data within the `brm()` statement. That would look something like this:
+
+```{r eval = F}
+fit1 <-
+  brm(data = d %>%  # The standardizing occurs in the next two lines
+        mutate(height_z = standardize(height),
+               weight_z = standardize(weight)),
+      family = student,
+      weight_z ~ 1 + height_z,
+      prior = c(prior(normal(0, 100), class = Intercept),
+                prior(normal(0, 100), class = b),
+                prior(normal(0, 1), class = sigma),
+                prior(exponential(one_over_twentynine) + 1, class = nu)),
+      chains = 4, cores = 4,
+      stanvars = stanvars)
+```
+
+Open brms.
+
+```{r, message = F, warning = F}
+library(brms)
+```
+
+Here we'll save our exponential prior value with `stanvar()`.
+
+```{r}
+stanvars <- 
+  stanvar(1/29, name = "one_over_twentynine")
+```
+
+Instead of the uniform on $\sigma$, we'll continue to use a half Gaussian. With standardized data, $N(0, 1)$ will work just fine. `fit1` will be of the total data sample. `fit2` is of the $n = 30$ subset.
+
+```{r fit1, cache = T, message = F, warning = F}
+fit1 <-
+  brm(data = d,
+      family = student,
+      weight_z ~ 1 + height_z,
+      prior = c(prior(normal(0, 100), class = Intercept),
+                prior(normal(0, 100), class = b),
+                prior(normal(0, 1), class = sigma),
+                prior(exponential(one_over_twentynine) + 1, class = nu)),
+      chains = 4, cores = 4,
+      stanvars = stanvars)
+
+fit2 <-
+  update(fit1,
+         newdata = d %>% 
+           filter(subset == 1),
+         chains = 4, cores = 4,
+         stanvars = stanvars)
+```
+
+Here are the results.
+
+```{r}
+print(fit1)
+print(fit2)
+```
+
+Based on equation 17.2, we can convert the standardized coefficients back to their original metric as follows:
+
+$$\beta_0 = \zeta_0 SD_y + M_y - \frac{\zeta_1 M_x SD_y}{SD_x}$$
+
+and
+
+$$\beta_1 = \frac{\zeta_1 SD_y}{SD_x}$$
+
+To implement them, we'll first extract the posterior samples. We'll begin with `fit1`, the model for which $N = 300$.
+
+```{r}
+post <- posterior_samples(fit1)
+
+head(post)
+```
+
+Let's wrap the consequences of equation 17.2 into two functions.
+
+```{r}
+make_beta_0 <- function(zeta_0, zeta_1, sd_x, sd_y, m_x, m_y){
+  zeta_0 * sd_y + m_y - zeta_1 * m_x * sd_y / sd_x
+  }
+
+make_beta_1 <- function(zeta_1, sd_x, sd_y){
+  zeta_1 * sd_y / sd_x
+  }
+```
+
+After saving a few values, we're ready to use our custom functions.
+
+```{r}
+sd_x <- sd(d$height)
+sd_y <- sd(d$weight)
+m_x  <- mean(d$height)
+m_y  <- mean(d$weight)
+
+post <-
+  post %>% 
+  mutate(b_0 = make_beta_0(zeta_0 = b_Intercept,
+                           zeta_1 = b_height_z,
+                           sd_x = sd_x,
+                           sd_y = sd_y,
+                           m_x = m_x,
+                           m_y = m_y),
+         b_1 = make_beta_1(zeta_1 = b_height_z,
+                           sd_x = sd_x,
+                           sd_y = sd_y))
+
+glimpse(post)
+```
+
+Here's the top panel of Figure 17.4.
+
+```{r, fig.width = 4.5, fig.height = 4}
+# how many posterior lines would you like?
+n_lines <- 100
+
+ggplot(data = d, 
+       aes(x = height, y = weight)) +
+  geom_abline(intercept = post[1:n_lines, "b_0"], 
+              slope = post[1:n_lines, "b_1"],
+              color = "grey67", size = 1/4, alpha = .3) +
+  geom_point(alpha = 1/2) +
+  coord_cartesian(xlim = 50:80,
+                  ylim = -50:470) +
+  labs(subtitle = eval(substitute(paste("Data with", 
+                                        n_lines, 
+                                        "credible regression lines"))),
+       x = "height",
+       y = "weight")
+```
+
+We'll want to open the tidybayes package to help make the histograms.
+
+```{r, fig.width = 6, fig.height = 4, warning = F, message = F}
+library(tidybayes)
+# we'll use this to mark off the ROPEs as white strips in the background
+rope <-
+  tibble(key = "Slope", 
+         xmin = -.5,
+         xmax = .5)
+
+# here are the primary data
+post %>% 
+  transmute(Intercept = b_0,
+            Slope = b_1,
+            Scale = sigma * sd_y,
+            Normality = nu %>% log10()) %>% 
+  gather() %>% 
+  
+  # the plot
+  ggplot() +
+  geom_rect(data = rope,
+            aes(xmin = xmin, xmax = xmax,
+                ymin = -Inf, ymax = Inf),
+            color = "transparent", fill = "white") +
+  geom_histogram(aes(x = value),
+                 color = "grey92", fill = "grey67",
+                 size = .2, bins = 40) +
+  stat_pointintervalh(aes(x = value, y = 0), 
+                      point_interval = mode_hdi, .width = c(.95, .5)) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  xlab(NULL) +
+  facet_wrap(~key, scales = "free", ncol = 2)
+```
+
+Here's the scatter plot for the slope and intercept.
+
+```{r, fig.width = 3.25, fig.height = 3}
+post %>% 
+  ggplot(aes(x = b_1, y = b_0)) +
+  geom_point(color = "grey56", size = 1/3, alpha = 1/3) +
+  labs(x = expression(beta[1]),
+       y = expression(beta[0]))
+```
+
+Finally, here's the scatter plot for $log10(\nu)$ and $\sigma_{\text{transformed back to its raw metric}}$.
+
+```{r, fig.width = 3.25, fig.height = 3}
+post %>% 
+  transmute(Scale = sigma * sd_y,
+            Normality = nu %>% log10()) %>% 
+  ggplot(aes(x = Normality, y = Scale)) +
+  geom_point(color = "grey56", size = 1/3, alpha = 1/3) +
+  labs(x = expression(paste("log10(", nu, ")")),
+       y = expression(sigma))
+```
+
+Let's back track and make the plots for Figure 17.3 with `fit2`. We'll need to extract the posterior samples and wrangle, as before.
+
+```{r}
+post <- posterior_samples(fit2)
+
+post <-
+  post %>% 
+  mutate(b_0 = make_beta_0(zeta_0 = b_Intercept,
+                           zeta_1 = b_height_z,
+                           sd_x = sd_x,
+                           sd_y = sd_y,
+                           m_x = m_x,
+                           m_y = m_y),
+         b_1 = make_beta_1(zeta_1 = b_height_z,
+                           sd_x = sd_x,
+                           sd_y = sd_y))
+
+glimpse(post)
+```
+
+Here's the top panel of Figure 17.3.
+
+```{r, fig.width = 4.5, fig.height = 4}
+# how many posterior lines would you like?
+n_lines <- 100
+
+ggplot(data = d %>% 
+         filter(subset == 1), 
+       aes(x = height, y = weight)) +
+  geom_vline(xintercept = 0, color = "white") +
+  geom_abline(intercept = post[1:n_lines, "b_0"], 
+              slope = post[1:n_lines, "b_1"],
+              color = "grey67", size = 1/4, alpha = .3) +
+  geom_point(alpha = 1/2) +
+  scale_y_continuous(breaks = seq(from = -300, to = 200, by = 100)) +
+  coord_cartesian(xlim = 0:80,
+                  ylim = -350:250) +
+  labs(subtitle = eval(substitute(paste("Data with", 
+                                        n_lines, 
+                                        "credible regression lines"))),
+       x = "height",
+       y = "weight")
+```
+
+Next we'll make the histograms.
+
+```{r, fig.width = 6, fig.height = 4}
+# here are the primary data
+post %>% 
+  transmute(Intercept = b_0,
+            Slope = b_1,
+            Scale = sigma * sd_y,
+            Normality = nu %>% log10()) %>% 
+  gather() %>% 
+  
+  # the plot
+  ggplot() +
+  geom_rect(data = rope,
+            aes(xmin = xmin, xmax = xmax,
+                ymin = -Inf, ymax = Inf),
+            color = "transparent", fill = "white") +
+  geom_histogram(aes(x = value),
+                 color = "grey92", fill = "grey67",
+                 size = .2, bins = 40) +
+  stat_pointintervalh(aes(x = value, y = 0), 
+                      point_interval = mode_hdi, .width = c(.95, .5)) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  xlab(NULL) +
+  facet_wrap(~key, scales = "free", ncol = 2)
+```
+
+And we'll finish up with the scatter plots.
+
+```{r, fig.width = 3.25, fig.height = 3}
+post %>% 
+  ggplot(aes(x = b_1, y = b_0)) +
+  geom_point(color = "grey56", size = 1/3, alpha = 1/3) +
+  labs(x = expression(beta[1]),
+       y = expression(beta[0]))
+
+post %>% 
+  transmute(Scale = sigma * sd_y,
+            Normality = nu %>% log10()) %>% 
+  ggplot(aes(x = Normality, y = Scale)) +
+  geom_point(color = "grey56", size = 1/3, alpha = 1/3) +
+  labs(x = expression(paste("log10(", nu, ")")),
+       y = expression(sigma))
+```
+
+### Robust linear regression in Stan.
+
+> Recall from Section 14.1 (p. 400) that Stan uses Hamiltonian dynamics to find proposed positions in parameter space. The trajectories use the gradient of the posterior distribution to move large distances even in narrow distributions. Thus, HMC by itself, without data standardization, should be able to efficiently generate a representative sample from the posterior distribution. (p. 487)
+
+#### Constants for vague priors.
+
+It's worth repeating a large portion of Kruschke's second paragraph:
+
+> A regression slope can take on a maximum value of $SD_y/SD_x$ for data that are perfectly correlated. Therefore, the prior on the slope will be given a standard deviation that is large compared to that maximum. The biggest that an intercept could be, for data that are perfectly correlated, is $M_xSD_y/SD_x$. Therefore, the prior on the intercept will have a standard deviation that is large compared to that maximum.
+
+With that in mind, we'll specify our `stanvars` as follows:
+
+```{r}
+beta_0_sigma <- 10 * abs(m_x * sd_y / sd_x)
+beta_1_sigma <- 10 * abs(sd_y / sd_x) 
+
+stanvars <- 
+  stanvar(beta_0_sigma, name = "beta_0_sigma") + 
+  stanvar(beta_1_sigma, name = "beta_1_sigma") +
+  stanvar(sd_y, name = "sd_y") +
+  stanvar(1/29, name = "one_over_twentynine")
+```
+
+Now we're ready to fit `fit3`.
+
+```{r fit3, cache = T, message = F, warning = F}
+fit3 <-
+  brm(data = d,
+      family = student,
+      weight ~ 1 + height,
+      prior = c(prior(normal(0, beta_0_sigma), class = Intercept),
+                prior(normal(0, beta_1_sigma), class = b),
+                prior(normal(0, sd_y), class = sigma),
+                prior(exponential(one_over_twentynine) + 1, class = nu)),
+      chains = 4, cores = 4,
+      stanvars = stanvars)
+```
+
+Here's the model summary.
+
+```{r}
+print(fit3)
+```
+
+### Stan or JAGS?
+
+We only fit the models in brms, which uses Stan under the hood. But since we fit the $N = 300$ model with both standardized and unstandardized data, we can compare their performance. Let's open bayesplot.
+
+```{r, message = F, warning = F}
+library(bayesplot)
+```
+
+They had equally impressive autocorrelation plots.
+
+```{r, fig.width = 5, fig.height = 3}
+mcmc_acf(posterior_samples(fit1), pars = c("b_Intercept", "b_height_z", "sigma", "nu"), lags = 10)
+mcmc_acf(posterior_samples(fit3), pars = c("b_Intercept", "b_height", "sigma", "nu"), lags = 10)
+```
+
+Their $N_{eff}/N$ ratios were pretty similar. Both were reasonable. You'd probably want to run a simulation to contrast them with any rigor.
+
+```{r, fig.width = 6, fig.height = 1.5}
+neff_ratio(fit1) %>% 
+  mcmc_neff() +
+  yaxis_text(hjust = 0)
+
+neff_ratio(fit3) %>% 
+  mcmc_neff() +
+  yaxis_text(hjust = 0)
+```
+
+### Interpreting the posterior distribution.
+
+Halfway through the prose, Kruschke mentioned how the models provide entire posteriors for the `weight` of a 50-inch-tall person. brms offers a few ways to do so. Since this is such a simple model, one way is to work directly with the posterior samples. 
+
+```{r, fig.width = 3.5, fig.height = 2.5}
+post %>% 
+  mutate(weight_at_50 = b_0 + b_1*50) %>% 
+  
+  ggplot(aes(x = weight_at_50)) +
+  geom_histogram(color = "grey92", fill = "grey67",
+                 size = .2, bins = 40) +
+  stat_pointintervalh(aes(y = 0), 
+                      point_interval = mode_hdi, .width = c(.95, .5)) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  xlab("lbs")
+```
+
+Looks pretty wide, doesn’t it? Hopefully this isn’t a surprise. First, this is from the posterior based on the $n = 30$ data, so most predictions from that model are uncertain. But second, this 50 inches is way out of the bounds of the data the model was based on, so we should be uncertain in this range.
+
+## Hierarchical regression on individuals within groups
+
+Load the data and take a `glimpse()`.
+
+```{r, message = F}
+my_data <- read_csv("data.R/HierLinRegressData.csv")
+
+glimpse(my_data)
+```
+
+### The model and implementation in ~~JAGS~~ brms.
+
+Here we'll standardize the data and define our `stanvars`. I should note that when standardizing, and mean centering, more generally, becomes complicated with multilevel models. Here we're just standardizing based on the grand mean and grand standard deviation. But there are other ways to standardize, such as within groups. Craig Enders has a [good chapter](https://scholar.google.com/scholar?hl=en&as_sdt=0%2C1&q=Centering+Predictors+and+Contextual+Effects&btnG=) that touched on the topic.
+
+```{r}
+my_data <-
+  my_data %>% 
+  mutate(X_z = standardize(X),
+         Y_z = standardize(Y))
+
+stanvars <- 
+  stanvar(1/29, name = "one_over_twentynine")
+```
+
+In my experience, you typically use the `(|)` syntax when fitting a heretical model with `brm()`. The terms before the `|` are those varying by group and you tell `brm()` what the grouping variable is after the `|`. In the case of multiple group-level parameters—which is the case with this model (i.e., both intercept and the `X_z` slope--, this syntax also estimates correlations among the group-level parameters. Kruschke’s model doesn’t appear to include such a correlation. Happily, we can use the `(||)` syntax instead. This syntax omits correlations among the group-level parameters. If you’re curious about the distinction, fit the model both ways and explore the differences in the `print()` output. For more on the topic, see the *Group-level terms* subsection of the *brmsformula* section of the [brms reference manual](https://cran.r-project.org/web/packages/brms/brms.pdf)
+
+```{r fit4, cache = T, message = F, warning = F}
+fit4 <-
+  brm(data = my_data,
+      family = student,
+      Y_z ~ 1 + X_z + (1 + X_z || Subj),
+      prior = c(prior(normal(0, 100), class = Intercept),
+                prior(normal(0, 100), class = b),
+                prior(normal(0, 1), class = sigma),
+                # The next line is new
+                prior(normal(0, 1), class = sd),
+                prior(exponential(one_over_twentynine) + 1, class = nu)),
+      chains = 4, cores = 4,
+      stanvars = stanvars)
+```
+
+Here's the model `summary()`.
+
+```{r}
+summary(fit4)
+```
+
+### The posterior distribution: Shrinkage and prediction.
+
+```{r}
+post <- posterior_samples(fit4)
+
+sd_x <- sd(my_data$X)
+sd_y <- sd(my_data$Y)
+m_x  <- mean(my_data$X)
+m_y  <- mean(my_data$Y)
+
+post <-
+  post %>% 
+  mutate(b_0 = make_beta_0(zeta_0 = b_Intercept,
+                           zeta_1 = b_X_z,
+                           sd_x = sd_x,
+                           sd_y = sd_y,
+                           m_x = m_x,
+                           m_y = m_y),
+         b_1 = make_beta_1(zeta_1 = b_X_z,
+                           sd_x = sd_x,
+                           sd_y = sd_y))
+
+glimpse(post)
+```
+
+Here's the top panel of Figure 17.4.
+
+```{r, fig.width = 4.25, fig.height = 4}
+# how many posterior lines would you like?
+n_lines <- 250
+
+my_data %>% 
+  mutate(Subj = Subj %>% as.character()) %>% 
+  
+  ggplot(aes(x = X, y = Y)) +
+  geom_abline(intercept = post[1:n_lines, "b_0"], 
+              slope = post[1:n_lines, "b_1"],
+              color = "grey67", size = 1/4, alpha = .3) +
+  geom_point(aes(color = Subj),
+             alpha = 1/2) +
+  geom_line(aes(group = Subj, color = Subj),
+            size = 1/4) +
+  scale_color_viridis_d() +
+  scale_y_continuous(breaks = seq(from = 50, to = 250, by = 50)) +
+  coord_cartesian(xlim = 40:95,
+                  ylim = 30:270) +
+  labs(subtitle = eval(substitute(paste("Data from all units with", n_lines, "credible population-level\nregression lines")))) +
+  theme(legend.position = "none")
+```
+
+Recall how we can use `coef()` to extract the `Subj`-specific parameters. But we'll want posterior draws rather than summaries, which requires `summary = F`. It'll take a bit of wrangling to get the output in a tidy format. Once we're there, the plot code will be fairly simple.
+
+```{r, fig.width = 7, fig.height = 6}
+coefs <-
+  # first we'll wrangle the `coef()` output
+  coef(fit4, summary = F)$Subj[, , "Intercept"] %>% 
+  as_tibble() %>% 
+  gather(Subj, Intercept) %>% 
+  bind_cols(
+    coef(fit4, summary = F)$Subj[, , "X_z"] %>% 
+      as_tibble() %>% 
+      gather(Subj, Slope) %>% 
+      select(Slope)
+  ) %>% 
+  # now we're ready to un-standardize the standardized coefficients
+  mutate(b_0 = make_beta_0(zeta_0 = Intercept,
+                           zeta_1 = Slope,
+                           sd_x = sd_x,
+                           sd_y = sd_y,
+                           m_x = m_x,
+                           m_y = m_y),
+         b_1 = make_beta_1(zeta_1 = Slope,
+                           sd_x = sd_x,
+                           sd_y = sd_y)) %>% 
+  # we need an iteration index so we might `filter()` the number of lines per case
+  mutate(iter = rep(1:4000, times = 25))
+
+# how many lines would you like?
+n_lines <- 250
+
+# the plot:
+my_data %>% 
+  ggplot(aes(x = X, y = Y)) +
+  geom_abline(data = coefs %>% filter(iter <= n_lines),
+              aes(intercept = b_0, slope = b_1), 
+              color = "grey67", size = 1/4, alpha = .3) +
+  geom_point(aes(color = Subj)) +
+  scale_color_viridis_c() +
+  scale_x_continuous(breaks = seq(from = 50, to = 90, by = 20)) +
+  scale_y_continuous(breaks = seq(from = 50, to = 250, by = 100)) +
+  coord_cartesian(xlim = 45:90,
+                  ylim = 50:270) +
+  labs(subtitle = "Each unit now has its own bundle of credible regression lines") +
+  theme(legend.position = "none") +
+  facet_wrap(~Subj %>% factor(., levels = 1:25))
+```
+
+## Quadratic trend and weighted data
+
+Let's grab the data. Note the `comment` argument.
+
+```{r, message = F}
+my_data <- read_csv("data.R/IncomeFamszState3yr.csv",
+                    comment = "#")
+
+glimpse(my_data)
+```
+
+Here we'll standardize all variables but `State`, our grouping variable. It’d be silly to try to standardize that.
+
+```{r}
+my_data <-
+  my_data %>% 
+  mutate(FamilySize_z   = standardize(FamilySize),
+         MedianIncome_z = standardize(MedianIncome),
+         SampErr_z      = SampErr/(mean(SampErr)))
+
+glimpse(my_data)
+```
+
+In brms, there are a [couple ways to handle measurement error on a variable](https://github.com/ASKurz/Statistical_Rethinking_with_brms_ggplot2_and_the_tidyverse/blob/master/Ch._14_Missing_Data_and_Other_Opportunities.md). Here we’ll use the `se()` syntax, following the form `response | se(se_response, sigma = TRUE)`. In this form, `se` stands for standard error, the loose frequentist analogue to the Bayesian posterior $SD$. Unless you're fitting a meta-analysis on summary information, make sure to specify `sigma = TRUE`. Without that you'll have no estimate for $\sigma$! For more information on the `se()` method, go to the [brms reference manual](https://cran.r-project.org/web/packages/brms/brms.pdf) and find the *Additional response information* subsection of the *brmsformula* section.
+
+```{r fit5, cache = T, message = F, warning = F}
+fit5 <-
+  brm(data = my_data,
+      family = student,
+      MedianIncome_z | se(SampErr_z, sigma = TRUE) ~ 1 + FamilySize_z +  I(FamilySize_z^2) + 
+        (1 + FamilySize_z +  I(FamilySize_z^2) || State),
+      prior = c(prior(normal(0, 100), class = Intercept),
+                prior(normal(0, 100), class = b),
+                prior(normal(0, 1), class = sigma),
+                prior(normal(0, 1), class = sd),
+                prior(exponential(one_over_twentynine) + 1, class = nu)),
+      chains = 4, cores = 4,
+      stanvars = stanvars)
+```
+
+The model summary is as follows:
+
+```{r}
+print(fit5)
+```
+
+A new model type requires a different approach to un-standardizing our standardized coefficients. Based on equation 17.3, we can convert our coefficients like so:
+
+$$\beta_0 = \zeta_0 SD_y + M_y - \frac{\zeta_1 M_x SD_y}{SD_x} + \frac{\zeta_2 M^{2}_x SD_y}{SD^{2}_x}$$
+
+$$\beta_1 = \frac{\zeta_1 SD_y}{SD_x} - \frac{2 \zeta_2 M_x SD_y}{SD^{2}_x}$$
+
+$$\beta_2 = \frac{\zeta_2 SD_y}{SD^{2}_x}$$
+
+We'll make new custom functions to use them.
+
+```{r}
+make_beta_0 <- function(zeta_0, zeta_1, zeta_2, sd_x, sd_y, m_x, m_y){
+  zeta_0 * sd_y + m_y - zeta_1 * m_x * sd_y / sd_x + zeta_2 * m_x^2 * sd_y / sd_x^2
+  }
+
+make_beta_1 <- function(zeta_1, zeta_2, sd_x, sd_y, m_x){
+  zeta_1 * sd_y / sd_x - 2 * zeta_2 * m_x * sd_y / sd_x^2
+}
+
+make_beta_2 <- function(zeta_2, sd_x, sd_y){
+  zeta_2 * sd_y / sd_x^2
+}
+
+# may as well respecify these, too
+m_x  <- mean(my_data$FamilySize)
+m_y  <- mean(my_data$MedianIncome)
+sd_x <- sd(my_data$FamilySize)
+sd_y <- sd(my_data$MedianIncome)
+```
+
+Now we'll extract our posterior samples and make the conversions.
+
+```{r, fig.width = 7, fig.height = 6}
+post <- 
+  posterior_samples(fit5) %>% 
+  mutate(b_0 = make_beta_0(zeta_0 = b_Intercept,
+                           zeta_1 = b_FamilySize_z,
+                           zeta_2 = b_IFamilySize_zE2,
+                           sd_x = sd_x,
+                           sd_y = sd_y,
+                           m_x = m_x,
+                           m_y = m_y),
+         b_1 = make_beta_1(zeta_1 = b_FamilySize_z,
+                           zeta_2 = b_IFamilySize_zE2,
+                           sd_x = sd_x,
+                           sd_y = sd_y,
+                           m_x = m_x),
+         b_2 = make_beta_2(zeta_2 = b_IFamilySize_zE2,
+                           sd_x = sd_x,
+                           sd_y = sd_y))
+```
+
+Our `geom_abline()` approach from before won't work with curves. We'll have to resort to `geom_line()`. With the `geom_line()` approach, we'll need many specific values of model-implied `MedianIncome` across a densely-packed range of `FamilySize`. We want to use a lot of `FamilySize`, like 30 or 50 or so, to make sure the curves look smooth. Below, we'll use 50 (i.e., `length.out = 50`). But if it's still not clear why, try plugging in a lesser value, like 5 or so. You'll see.
+
+```{r}
+make_curve <- function(FamilySize){
+  post %>% 
+    select(b_0:b_2) %>% 
+    mutate(iter = 1:n(),
+           MedianIncome = b_0 + b_1 * FamilySize + b_2 * FamilySize^2)
+}
+
+population_curve <-
+  tibble(FamilySize = seq(from = 1, to = 9, length.out = 50)) %>% 
+  mutate(MedianIncome = map(FamilySize, make_curve)) %>% 
+  unnest()
+
+head(population_curve)
+```
+
+Now we're ready to make the top panel of Figure 17.7. 
+
+```{r, fig.width = 4.25, fig.height = 4}
+# how many posterior lines would you like?
+n_lines <- 200
+
+my_data %>%
+  ggplot(aes(x = FamilySize, y = MedianIncome)) +
+  geom_line(data = population_curve %>% 
+              filter(iter <= n_lines),
+            aes(group = iter),
+            size  = 1/4, alpha = 1/3, color = "grey67") +
+  geom_line(aes(group = State),
+            alpha = 1/2, size = 1/4) +
+  geom_point(alpha = 1/2, size = 1/2) +
+  scale_color_viridis_c() +
+  scale_x_continuous(breaks = 1:8) +
+  coord_cartesian(xlim = 1:8,
+                  ylim = 0:150000) +
+  labs(title = "All states",
+       x = "Family size",
+       y = "Medium income")
+```
+
+Like before, we'll extract the group-level coefficients (i.e., those specific to the `State`s) with the `coef()` function. And like before, the `coef()` output will require a little wrangling.
+
+```{r}
+coefs <-
+  coef(fit5, summary = F)$State[, , "Intercept"] %>% 
+  as_tibble() %>% 
+  gather(State, Intercept) %>% 
+  bind_cols(
+    coef(fit5, summary = F)$State[, , "FamilySize_z"] %>% 
+      as_tibble() %>% 
+      gather(Subj, FamilySize_z) %>% 
+      select(FamilySize_z)
+  ) %>% 
+  bind_cols(
+    coef(fit5, summary = F)$State[, , "IFamilySize_zE2"] %>% 
+      as_tibble() %>% 
+      gather(Subj, IFamilySize_zE2) %>% 
+      select(IFamilySize_zE2)
+  ) %>% 
+  # let's go ahead and make the standardized-to-unstandardized conversions, here
+  mutate(b_0 = make_beta_0(zeta_0 = Intercept,
+                           zeta_1 = FamilySize_z,
+                           zeta_2 = IFamilySize_zE2,
+                           sd_x = sd_x,
+                           sd_y = sd_y,
+                           m_x = m_x,
+                           m_y = m_y),
+         b_1 = make_beta_1(zeta_1 = FamilySize_z,
+                           zeta_2 = IFamilySize_zE2,
+                           sd_x = sd_x,
+                           sd_y = sd_y,
+                           m_x = m_x),
+         b_2 = make_beta_2(zeta_2 = IFamilySize_zE2,
+                           sd_x = sd_x,
+                           sd_y = sd_y)) %>% 
+  # We just want the first 25 states, from Alabama through Mississippi, so we'll `filter()`
+  filter(State <= "Mississippi")
+
+head(coefs)
+```
+
+Now we'll alter our `make_curve()` function to operate on the `coefs` data instead of `post`.
+
+```{r}
+make_curve <- function(FamilySize){
+  coefs %>% 
+    select(State, b_0:b_2) %>% 
+    mutate(iter = 1:4000 %>% rep(., times = 25),
+           MedianIncome = b_0 + b_1 * FamilySize + b_2 * FamilySize^2)
+}
+
+state_curves <-
+  tibble(FamilySize = seq(from = 1, to = 9, length.out = 50)) %>% 
+  mutate(MedianIncome = map(FamilySize, make_curve)) %>% 
+  unnest() %>% 
+  ungroup()
+
+head(state_curves)
+```
+
+Finally, we're ready for the `State`-specific miniatures in Figure 17.7.
+
+```{r, fig.width = 7, fig.height = 6}
+n_lines <- 200
+
+my_data %>%
+  filter(State <= "Mississippi") %>% 
+ 
+  ggplot(aes(x = FamilySize, y = MedianIncome)) +
+  geom_line(data = state_curves %>% 
+              filter(iter <= n_lines),
+            aes(group = iter),
+            size  = 1/4, alpha = 1/3, color = "grey67") +
+  geom_point(aes(color = State)) +
+  geom_line(aes(color = State)) +
+  scale_color_viridis_d() +
+  scale_x_continuous(breaks = 1:8) +
+  coord_cartesian(xlim = 1:8,
+                  ylim = 0:150000) +
+  labs(subtitle = "Each State now has its own bundle of credible regression curves.",
+       x = "Family size",
+       y = "Medium income") +
+  theme(legend.position = "none") +
+  facet_wrap(~State)
+```
+
+### Results and interpretation.
+
+Here are the mode and HDIs for $\beta_1$ and $\beta_2$.
+
+```{r}
+post %>% 
+  select(b_1:b_2) %>% 
+  gather() %>%
+  group_by(key) %>% 
+  mode_hdi(value) %>% 
+  select(key:.upper)
+```
+
+Although "almost all of the posterior distribution [was] below $\nu = 4$" in the text, the bulk of our $\nu$ distribution spanned across much larger values.
+
+```{r, fig.width = 3.5, fig.height = 2.75}
+post %>%
+  ggplot(aes(x = nu)) +
+  geom_histogram(color = "grey92", fill = "grey67",
+                 size = .2, bins = 40, boundary = 1) +
+  stat_pointintervalh(aes(y = 0), 
+                      point_interval = mode_hdi, .width = c(.95, .5)) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  labs(title = expression(paste("Our big ", nu)),
+       x = NULL)
+```
+
+I'm guessing the distinction in our $\nu$ distribution and that in the text is our use of the `se()` syntax in the `brm()` `formula`. If you have a better explanation, [share it](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues).
+
+### Further extensions.
+
+Kruschke discussed the ease with which users of Bayesian software might specify nonlinear models. Check out Bürkner’s vignette, [*Estimating Non-Linear Models with brms*](https://cran.r-project.org/web/packages/brms/vignettes/brms_nonlinear.html) for more on the topic. Though I haven't used it, I believe it is also possible to use the $t$ distribution to model group-level variation in brms.
+
+## Procedure and perils for expanding a model
+
+For more on the PPC "double dipping" issue, check out Gelman's [*Discussion with Sander Greenland on posterior predictive checks*](http://andrewgelman.com/2014/08/11/discussion-sander-greenland-posterior-predictive-checks/) or Simpson's [*Touch me, I want to feel your data*](http://andrewgelman.com/2017/09/07/touch-want-feel-data/), which is itself connected to Gabry and colleagues' [*Visualization in Bayesian workflow*](https://arxiv.org/abs/1709.01449).
+
+## References {-}
+
+Kruschke, J. K. (2015). *Doing Bayesian data analysis, Second Edition: A tutorial with R, JAGS, and Stan.* Burlington, MA: Academic Press/Elsevier.
+
+## Session info {-}
+
+```{r}
+sessionInfo()
+```
+
+```{r, message = F, warning = F, echo = F}
+# Here we'll remove our objects
+rm(n_draw, d, HtWtDataGenerator, standardize, fit1, stanvars, fit2, post, make_beta_0, make_beta_1, sd_x, sd_y, m_x, m_y, beta_0_sigma, beta_1_sigma, fit3, my_data, fit4, coefs, fit5, make_beta_2, make_curve, population_curve, state_curves)
+
+theme_set(theme_grey())
+```
+
+
