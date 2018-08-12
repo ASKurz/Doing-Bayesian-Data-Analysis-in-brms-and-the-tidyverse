@@ -103,21 +103,21 @@ Here are the mean and $SD$ of the `Score` data.
 (sd_y   <- sd(my_data$Score))
 ```
 
-We're ready to brms.
+We're ready for brms.
 
 ```{r, message = F, warning = F}
 library(brms)
 ```
 
-If we want to pass user-defined values into our brms prior code, we'll need to define them first in using `brms::stanvar()`.
+If we want to pass user-defined values into our `brm()` prior code, we'll need to define them first in using `brms::stanvar()`.
 
 ```{r}
 stanvars <- 
   stanvar(mean_y, name = "mean_y") + 
-  stanvar(sd_y, name = "sd_y")
+  stanvar(sd_y,   name = "sd_y")
 ```
 
-We've saved that as `stanvars`, but you could name it whatever you want. But the trick is to them tell `brm()` about your values in a `stanvars` statement. Recall that the Stan team [discourages uniform priors for variance parameters](https://github.com/stan-dev/stan/wiki/Prior-Choice-Recommendations), such as our $\sigma$. Here we'll use the half Normal.
+Though we've saved that as `stanvars`, you could name it whatever you want. But the trick is to them tell `brm()` about your values in a `stanvars` statement. Recall that the Stan team [discourages uniform priors for variance parameters](https://github.com/stan-dev/stan/wiki/Prior-Choice-Recommendations), such as our $\sigma$. Here we'll use the half Normal.
 
 ```{r fit1, cache = T, message = F, warning = F}
 fit1 <-
@@ -134,7 +134,7 @@ To be more explicit, the `stanvars = stanvars` argument at the bottom of our cod
 
 The chains look good.
 
-```{r, fig.width = 8, fig.height = 2}
+```{r, fig.width = 8, fig.height = 2.25}
 plot(fit1)
 ```
 
@@ -155,7 +155,7 @@ sd_y
 post <- posterior_samples(fit1)
 ```
 
-```{r, fig.width = 8, fig.height = 2}
+```{r, fig.width = 8, fig.height = 2, message = F, warning = F}
 # we'll need this for `stat_pointintervalh()`
 library(tidybayes)
 
@@ -182,7 +182,7 @@ post %>%
                  color = "grey92", fill = "grey67",
                  size = .2, bins = 30) +
   stat_pointintervalh(aes(x = value, y = 0), 
-                      point_interval = mode_hdi, .prob = c(.95, .5)) +
+                      point_interval = mode_hdi, .width = c(.95, .5)) +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(NULL) +
   facet_wrap(~key, scales = "free", ncol = 3)
@@ -203,7 +203,7 @@ head(post)
 5. `Score` ~ $N$(`r round(post[5, 1], 3)`, `r round(post[5, 2], 3)`)
 6. `Score` ~ $N$(`r round(post[6, 1], 3)`, `r round(post[6, 2], 3)`)
 
-Each row of `post` yields a full model equation that is a credible description of the data—or at least as credible as we can get within the limits of the model we have specified. We can give voice to a subset of these credible distributions with our version of the upper right panel of Figure 16.3.
+Each row of `post` yields a full model equation that credibly describes the data—or at least as credibly as we can within the limits of the model. We can give voice to a subset of these credible distributions with our version of the upper right panel of Figure 16.3.
 
 ```{r, fig.width = 3, fig.height = 2.25}
 # How many credible density lines would you like?
@@ -410,10 +410,26 @@ d %>%
 
 ### Using the $t$ distribution in ~~JAGS~~ brms.
 
-It's easy to use Student's $t$ in brms. Make sure to specify `family = student`. Be default, brms already sets the lower bound for $\nu$ to 1, so there's no need to worry about shifting the exponential prior. Also, Stan will bark if you try to enter the `1/30` into the exponential prior:
+It's easy to use Student's $t$ in brms. Make sure to specify `family = student`. By default, brms already sets the lower bound for $\nu$ to 1. But we do still need to use 1/29. To get a sense, let's simulate.
+
+```{r}
+n_draws <- 1e7
+mu      <- 29
+
+set.seed(1621)
+tibble(y = rexp(n = n_draws, rate = 1/mu)) %>% 
+  mutate(y_at_least_1 = ifelse(y < 1, NA, y)) %>% 
+    gather() %>% 
+    group_by(key) %>% 
+    summarise(mean = mean(value, na.rm = T))
+```
+
+The simulation showed that when we define the exponential rate as 1/29 and use the typical boundary at 0, the mean of our samples converges to 29. But when we only consider the samples of 1 or greater, the mean converges to 30. Thus, our exponential(1/29) prior with a boundary at 1 is how we get a shifted exponential distribution in brms. Just make sure to remember that if you want the mean to be 30, you'll need to specify the rate of 1/29.
+
+Also, Stan will bark if you try to enter the `1/29` into the exponential prior:
 
 > DIAGNOSTIC(S) FROM PARSER:
-Warning: integer division implicitly rounds to integer. Found int division: 1 / 30
+Warning: integer division implicitly rounds to integer. Found int division: 1 / 29
 Positive values rounded down, negative values rounded up or down in platform-dependent way.
 
 To avoid this, just do the division beforehand.
@@ -421,8 +437,8 @@ To avoid this, just do the division beforehand.
 ```{r}
 stanvars <- 
   stanvar(mean_y, name = "mean_y") + 
-  stanvar(sd_y, name = "sd_y") + 
-  stanvar(1/30, name = "one_over_thirty")
+  stanvar(sd_y,   name = "sd_y") + 
+  stanvar(1/29,   name = "one_over_twentynine")
 ```
 
 Here's the `brm()` code.
@@ -434,7 +450,7 @@ fit2 <-
       Score ~ 1,
       prior = c(prior(normal(mean_y, sd_y*100), class = Intercept),
                 prior(normal(0, sd_y), class = sigma),
-                prior(exponential(one_over_thirty), class = nu)),
+                prior(exponential(one_over_twentynine), class = nu)),
       chains = 4, cores = 4,
       stanvars = stanvars)
 ```
@@ -542,7 +558,7 @@ post %>%
                  color = "grey92", fill = "grey67",
                  size = .2, bins = 30) +
   stat_pointintervalh(aes(x = value, y = 0), 
-                      point_interval = mode_hdi, .prob = c(.95, .5)) +
+                      point_interval = mode_hdi, .width = c(.95, .5)) +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(NULL) +
   facet_wrap(~key, scales = "free", ncol = 2)
@@ -592,8 +608,6 @@ Kruschke expressed concern about high autocorrelations in the chains of his JAGS
 post <- posterior_samples(fit2, add_chain = T)
 
 library(bayesplot)
-theme_set(theme_grey() +
-            theme(panel.grid = element_blank()))
 
 mcmc_acf(post, pars = c("b_Intercept", "sigma", "nu"), lags = 35)
 ```
@@ -606,7 +620,7 @@ neff_ratio(fit2) %>%
   yaxis_text(hjust = 0)
 ```
 
-Here are the trace plots:
+The trace plots look fine.
 
 ```{r, fig.width = 8, fig.height = 4}
 plot(fit2)
@@ -618,13 +632,13 @@ The overlaid density plots:
 mcmc_dens_overlay(post, pars = c("b_Intercept", "sigma", "nu"))
 ```
 
-And here are the $\hat{R}$ values:
+The $\hat{R}$ values are right wherer we like them.
 
 ```{r}
 rhat(fit2)
 ```
 
-If you peer into the contents of a `brm()` fit object (e.g., `fit2 %>% str()`), you'll see that it contains the Scan code. Here it is for our `fit2`.
+If you peer into the contents of a `brm()` fit object (e.g., `fit2 %>% str()`), you'll discover it contains the Scan code. Here it is for our `fit2`.
 
 ```{r}
 fit2$fit@stanmodel
@@ -636,7 +650,7 @@ Note the last line in the parameters block, "real<lower=1> nu;  // degrees of fr
 
 Since we subset the data, earlier, we'll just reload it.
 
-```{r}
+```{r, message = F}
 my_data <- read_csv("data.R/TwoGroupIQ.csv")
 
 glimpse(my_data)
@@ -650,8 +664,8 @@ This time, we'll compute `mean_y` and `sd_y` from the full data.
 
 stanvars <- 
   stanvar(mean_y, name = "mean_y") + 
-  stanvar(sd_y, name = "sd_y") + 
-  stanvar(1/30, name = "one_over_thirty")
+  stanvar(sd_y,   name = "sd_y") + 
+  stanvar(1/29,   name = "one_over_twentynine")
 ```
 
 Within the brms framework, Bürkner calls it distributional modeling when you model more than the mean. Since we're now modeling $\mu$ and $\sigma$, we're fitting a distributional model. When doing so in brms, you wrap your `formula` syntax into the `bf()` function. It's also important to know that when modeling $\sigma$, brms defaults to modeling its log. So we'll use `log(sd_y)` in its prior. For more on all this, see Bürkner"s [*Estimating Distributional Models with brms*](https://cran.r-project.org/web/packages/brms/vignettes/brms_distreg.html).
@@ -663,7 +677,7 @@ fit3 <-
       bf(Score ~ 0 + Group, sigma ~ 0 + Group),
       prior = c(prior(normal(mean_y, sd_y*100), class = b),
                 prior(normal(0, log(sd_y)), class = b, dpar = sigma),
-                prior(exponential(one_over_thirty), class = nu)),
+                prior(exponential(one_over_twentynine), class = nu)),
       chains = 4, cores = 4,
       stanvars = stanvars)
 ```
@@ -699,7 +713,7 @@ post <- posterior_samples(fit3)
 glimpse(post)
 ```
 
-We may as well clean convert the columns a bit to make their names and metrics reflect those in the text.
+Along with transforming the metrics of a few of the parameters, we may as well rename them to reflect those in the text.
 
 ```{r}
 transmuted_post <-
@@ -740,7 +754,7 @@ transmuted_post %>%
                  color = "grey92", fill = "grey67",
                  size = .2, bins = 30) +
   stat_pointintervalh(aes(x = value, y = 0), 
-                      point_interval = mode_hdi, .prob = c(.95, .5)) +
+                      point_interval = mode_hdi, .width = c(.95, .5)) +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(NULL) +
   facet_wrap(~key, scales = "free", ncol = 2)
@@ -754,6 +768,7 @@ Here are the upper two panels in the right column of Figure 16.12.
 # How many credible density lines would you like?
 n_lines <- 63
 
+# Here's the plot on top
 p1 <-
   my_data %>% 
   filter(Group == "Placebo") %>% 
@@ -779,6 +794,7 @@ p1 <-
   labs(title = "Placebo PPD",
        x = "y")
 
+# Here's the plot on the bottom
 p2 <-
   my_data %>% 
   filter(Group != "Placebo") %>% 
@@ -804,6 +820,7 @@ p2 <-
   labs(title = "Smart Drug PPD",
        x = "y")
 
+# We're ready to bring them together
 grid.arrange(p1, p2, ncol = 1)
 ```
 
