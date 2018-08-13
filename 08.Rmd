@@ -126,12 +126,6 @@ If you want to display each chain as its own density, you can use the handy `mcm
 library(bayesplot)
 ```
 
-`theme_grey()` is the default setting for ggplot2 plots. The current version of bayesplot has the annoying effect of switching the default to another setting, what appears to be `theme_classic()`. I don’t recall this behavior in previous versions, so I’m hoping it’s a momentary bug. In the meantime, we can work around it with `theme_set()`, which you can learn more about [here](https://ggplot2.tidyverse.org/reference/theme_get.html).
-
-```{r}
-theme_set(theme_grey())
-```
-
 But before we do so, we’ll need to export the posterior samples into a data frame, for which we’ll employ `posterior_samples()`.
 
 ```{r}
@@ -148,8 +142,7 @@ mcmc_dens_overlay(post, pars = c("b_Intercept")) +
 The `bayesplot::mcmc_acf()` will give us the autocorrelation plots.
 
 ```{r, fig.width = 4, fig.height = 4}
-mcmc_acf(post, pars = "b_Intercept", lags = 35) +
-  theme(panel.grid = element_blank())
+mcmc_acf(post, pars = "b_Intercept", lags = 35)
 ```
 
 With brms functions, we get a sole $\hat{R}$ value for each parameter rather than a running vector.
@@ -229,9 +222,7 @@ mcmc_areas(
   theme(panel.grid = element_blank())
 ```
 
-brms doesn’t have a convenient way to compute the posterior mode or HDIs. Base R is no help, either. But the Matthew Kay's [tidybayes package](https://github.com/mjskay/tidybayes) makes it easy to compute posterior modes and HDIs. It's currently only available via GitHub and you may install it by executing `devtools::install_github("mjskay/tidybayes")`.
-
-The tidybayes package gives us access to the handy `geom_halfeyeh()` function.
+brms doesn’t have a convenient way to compute the posterior mode or HDIs. Base R is no help, either. But the Matthew Kay's [tidybayes package](https://github.com/mjskay/tidybayes) makes it easy to compute posterior modes and HDIs. The tidybayes package gives us access to the handy `geom_halfeyeh()` function.
 
 ```{r, fig.width = 4, fig.height = 2.5, warning = F, message = F}
 library(tidybayes)
@@ -239,7 +230,7 @@ library(tidybayes)
 post %>% 
   ggplot(aes(x = b_Intercept, y = 0)) +
   geom_halfeyeh(point_interval = mode_hdi,
-                .prob = c(.95, .5)) +
+                .width = c(.95, .5)) +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(title = "Theta",
        x = expression(theta)) +
@@ -261,7 +252,7 @@ post %>%
   geom_histogram(color = "grey92", fill = "grey67",
                  size = .2, bins = 40) +
   stat_pointintervalh(aes(y = 0), 
-                      point_interval = mode_hdi, .prob = .95) +
+                      point_interval = mode_hdi, .width = .95) +
   scale_x_continuous(breaks = my_breaks$breaks,
                      labels = my_breaks$labels) +
   scale_y_continuous(NULL, breaks = NULL) +
@@ -275,8 +266,8 @@ With the `point_interval` argument within `tidybayes::stat_pointintervalh()`, we
 ```{r, fig.width = 4, fig.height = 1.5}
 post %>% 
   ggplot(aes(x = b_Intercept)) +
-  stat_pointintervalh(aes(y = 1), point_interval = median_qi, .prob = c(.95, .5)) +
-  stat_pointintervalh(aes(y = 2), point_interval = mode_hdi, .prob = c(.95, .5)) +
+  stat_pointintervalh(aes(y = 1), point_interval = median_qi, .width = c(.95, .5)) +
+  stat_pointintervalh(aes(y = 2), point_interval = mode_hdi, .width = c(.95, .5)) +
   scale_y_continuous(NULL, breaks = 1:2,
                      labels = c("median_qi", "mode_hdi")) +
   coord_cartesian(ylim = 0:3) +
@@ -378,16 +369,11 @@ gathered_post %>%
   geom_histogram(color = "grey92", fill = "grey67",
                  size = .2) +
   stat_pointintervalh(aes(y = 0), 
-                      point_interval = mode_hdi, .prob = c(.95, .50)) +
+                      point_interval = mode_hdi, .width = c(.95, .50)) +
   scale_y_continuous(NULL, breaks = NULL) +
   theme(panel.grid = element_blank()) +
   facet_wrap(~key, scales = "free_x")
 ```
-
-```{r}
-
-```
-
 
 Here’s a way to get the numeric summaries out of `post`.
 
@@ -445,7 +431,7 @@ prior %>%
   geom_histogram(color = "grey92", fill = "grey67",
                  size = .2) +
   stat_pointintervalh(aes(y = 0), 
-                      point_interval = mode_hdi, .prob = c(.95, .50)) +
+                      point_interval = mode_hdi, .width = c(.95, .50)) +
   geom_vline(data = d_line, aes(xintercept = value), 
              color = "white", linetype = 2, size = .75) +
   scale_y_continuous(NULL, breaks = NULL) +
