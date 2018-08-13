@@ -299,7 +299,7 @@ post <- posterior_samples(fit1, add_chain = T)
 library(bayesplot)
 ```
 
-In chapter 8 we covered how the current version of bayesplot appears to switch the default theme for ggplot2 plots from `theme_grey()` to `theme_classic()`. A quick `theme_set()` function can switch things back. Since I prefer to plot without gridlines, here we'll slip in a line on `panel.grid` to suppress them by default for the remainder of this chapter.
+One of the nice things about bayesplot is it returns ggplot2 objects. As such, we can amend their theme settings to be consistent with our other ggplot2 plots. The `theme_set()` function will make that particularly easy. And since I prefer to plot without gridlines, we'll slip in a line on `panel.grid` to suppress them by default for the remainder of this chapter.
 
 ```{r}
 theme_set(theme_grey() +
@@ -354,7 +354,7 @@ post_small %>%
   geom_histogram(color = "grey92", fill = "grey67",
                  size = .2, bins = 30) +
   stat_pointintervalh(aes(y = 0), 
-                      point_interval = mode_hdi, .prob = .95) +
+                      point_interval = mode_hdi, .width = .95) +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(NULL) +
   facet_wrap(~key, scales = "free", ncol = 3)
@@ -410,6 +410,7 @@ labels <-
   post %>% 
   transmute(theta = b_Intercept %>% inv_logit_scaled()) %>%
   mode_hdi() %>% 
+  select(theta:.upper) %>% 
   gather() %>% 
   mutate(label = value %>% round(3) %>% as.character) %>% 
   slice(1:3)
@@ -421,7 +422,7 @@ post %>%
   geom_histogram(color = "grey92", fill = "grey67",
                  size = .2, bins = 30) +
   stat_pointintervalh(aes(y = 0), 
-                      point_interval = mode_hdi, .prob = .95) +
+                      point_interval = mode_hdi, .width = .95) +
   scale_x_continuous(breaks = labels$value,
                      labels = labels$label) +  
   scale_y_continuous(NULL, breaks = NULL) +
@@ -445,6 +446,7 @@ sigmas <-
 labels <-
   sigmas %>% 
   mode_hdi(sd) %>% 
+  select(sd:.upper) %>% 
   gather() %>% 
   mutate(label = value %>% round(3) %>% as.character) %>% 
   slice(1:3)
@@ -455,7 +457,7 @@ sigmas %>%
   geom_histogram(color = "grey92", fill = "grey67",
                  size = .2, bins = 30, boundary = 0) +
   stat_pointintervalh(aes(y = 0), 
-                      point_interval = mode_hdi, .prob = .95) +
+                      point_interval = mode_hdi, .width = .95) +
   scale_x_continuous(breaks = labels$value,
                      labels = labels$label) +  
   scale_y_continuous(NULL, breaks = NULL) +
@@ -771,7 +773,7 @@ make_histogram <- function(data, mapping, title, xlim, ...){
   geom_histogram(fill = "grey67", color = "grey92", size = .2,
                 bins = 30) +
   stat_pointintervalh(aes(y = 0), 
-                      point_interval = mode_hdi, .prob = .95) +
+                      point_interval = mode_hdi, .width = .95) +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(title = title,
        x = expression(theta)) +
