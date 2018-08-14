@@ -1,0 +1,595 @@
+---
+title: "Chapter 10. Model Comparison and Hierarchical Modeling"
+author: "A Solomon Kurz"
+date: "`r format(Sys.Date())`"
+output:
+  html_document
+---
+
+# Model Comparison and Hierarchical Modeling
+
+> There are situations in which different models compete to describe the same set of data... Bayesian inference is reallocation of credibility over possibilities. In model comparison, the focal possibilities are the models, and Bayesian model comparison reallocates credibility across the models, given the data. (pp. 265--266)
+
+## 10.1. General formula and the Bayes factor
+
+"The Bayes factor (BF) is the ratio of the probabilities of the data in models 1 and 2."
+
+$$\text{BF} = \frac{p(D|m = 1)}{p(D|m = 2)}$$
+
+> One convention for converting the magnitude of the BF to a discrete decision about the models is that there is "substantial" evidence for model $m = 1$ when the BF exceeds 3.0 and, equivalently, "substantial" evidence for model $m = 2$ when the BF is less than 1/3 ([Jeffreys, 1961](https://global.oup.com/academic/product/theory-of-probability-9780198503682?cc=us&lang=en&); [Kass & Raftery, 1995](http://xyala.cap.ed.ac.uk/teaching/tutorials/phylogenetics/Bayesian_Workshop/PDFs/Kass%20and%20Raftery%201995.pdf); [Wetzels et al., 2011](https://pdfs.semanticscholar.org/1874/4e6c84087ccc20bc0f6db28020bc48c81b4a.pdf)).
+
+## 10.2. Example: Two factories of coins 
+
+Kruschke considered the coin bias of two factories, each described by the beta distribution. We can organize how to derive the $\alpha$ and $\beta$ parameters from $\omega$ and $\kappa$ with a tibble.
+
+```{r, warning = F, message = F}
+library(tidyverse)
+
+tibble(factory = 1:2,
+       omega   = c(.25, .75),
+       kappa   = 12) %>% 
+  mutate(alpha =       omega * (kappa - 2) + 1,
+         beta  = (1 - omega) * (kappa - 2) + 1)
+```
+
+Thus given $\omega_1 = .25$, $\omega_2 = .75$ and $\kappa = 12$, we can describe the bias of the two coin factories as $\text{B}_1(3.5, 8.5)$ and $\text{B}_2(8.5, 3.5)$. We can construct a similar tibble to make the densities of Figure 10.2.
+
+```{r, fig.width = 6, fig.height = 2}
+n_points <- 100
+
+tibble(theta   = seq(from = 0, to = 1, length.out = n_points) %>% rep(., times = 2),
+       factory = rep(c("B(3.5, 8.5)", "B(8.5, 3.5)"), each = n_points),
+       alpha   = rep(c(3.5, 8.5), each = n_points),
+       beta    = rep(c(8.5, 3.5), each = n_points)) %>% 
+  
+  ggplot(aes(x = theta, 
+             ymin = 0, 
+             ymax = dbeta(x = theta, shape1 = alpha, shape2 = beta))) +
+  geom_ribbon(fill = "grey67") +
+  scale_y_continuous(NULL, breaks = NULL) +
+  xlab(expression(theta)) +
+  theme(panel.grid = element_blank()) +
+  facet_wrap(~factory)
+```
+
+We might recreate the top panel with `geom_col()`.
+
+```{r, fig.width = 3, fig.height = 2}
+tibble(Model = c("1", "2"),
+       y = 1) %>% 
+  
+  ggplot(aes(x = Model, y = y)) +
+  geom_col(width = .75, fill = "grey50") +
+  scale_y_continuous(NULL, breaks = NULL) +
+  ggtitle(expression(paste(italic(P)[italic(m)]))) +
+  theme(panel.grid = element_blank(),
+        axis.ticks.x = element_blank())
+```
+
+Consider the Bernoulli bar plots in the bottom panels of Figure 10.2. The heights of the bars are arbitrary and just intended to give a sense of the Bernoulli distribution. If we wanted the heights to correspond to the Beta distributions above them, we might do so like this.
+
+```{r, fig.width = 6, fig.height = 2}
+tibble(Model = rep(c("Model 1", "Model 2"), each  = 2),
+       flip  = rep(c("tails"  , "heads"  ), times = 2),
+       prob  = c(.25, .75, .75, .25)) %>% 
+  
+  ggplot(aes(x = flip, y = prob)) +
+  geom_col(width = .75, fill = "grey50") +
+  scale_y_continuous(NULL, breaks = NULL) +
+  xlab(NULL) +
+  theme(panel.grid = element_blank(),
+        axis.ticks.x = element_blank()) +
+  facet_wrap(~Model)
+```
+
+### 10.2.1. Solution by formal analysis.
+
+If you would like to compute $p(D|m)$, don't use this function. If suffers from underflow with large values.
+
+```{r}
+p_d <- function(z, N, a, b) { 
+  beta(z + a, N - z + b) / beta(a, b) 
+}
+```
+
+Use this one instead.
+
+```{r}
+p_d <- function(z, N, a, b) { 
+  exp(lbeta(z + a, N - z + b) - lbeta(a, b)) 
+}
+```
+
+You'd use it like this to compute $p(D|m_1)$.
+
+```{r}
+p_d(z = 6, N = 9, a = 3.5, b = 8.5)
+```
+
+So to compute our BF, $\frac{p(D|m_1)}{p(D|m_2)}$, you might use the `p_d()` function like this.
+
+```{r}
+p_d_1 <- p_d(z = 6,   N = 9, 
+             a = 3.5, b = 8.5)
+p_d_2 <- p_d(z = 6,   N = 9, 
+             a = 8.5, b = 3.5)
+
+p_d_1 / p_d_2
+```
+
+### 10.2.2. Solution by grid approximation.
+
+We won't be able to make the wireframe plots on the left of Figure 10.3, but we can do some of the others. Here's the upper right panel.
+
+```{r, fig.width = 3.5, fig.height = 3}
+n_points <- 101
+
+tibble(omega = seq(from = 0, to = 1, length.out = n_points)) %>% 
+  mutate(m_p = ifelse(omega %in% c(.25, .75), 15, 0)) %>% 
+  
+  ggplot(aes(x = omega, 
+             ymin = 0,
+             ymax = m_p)) +
+  geom_ribbon(fill = "grey67", color = "grey67") +
+  coord_flip(ylim = 0:25) +
+  labs(subtitle = "Remember, the scale on the x is arbitrary.",
+       x = expression(omega),
+       y = expression(paste("Marginal p(", omega, ")"))) +
+  theme(panel.grid = element_blank())
+```
+
+Building on that, here's the upper middle panel of the "two [prior] dorsal fins" (p. 271).
+
+```{r, fig.width = 3.5, fig.height = 3}
+d <-
+  tibble(omega = seq(from = 0, to = 1, length.out = n_points)) %>% 
+  expand(omega, 
+         theta = seq(from = 0, to = 1, length.out = n_points)) %>% 
+  mutate(prior = ifelse(omega == .25, dbeta(theta, 3.5, 8.5),
+                          ifelse(omega == .75, dbeta(theta, 8.5, 3.5),
+                                 0)))
+d %>% 
+  ggplot(aes(x = theta, y = omega, fill = prior)) +
+  geom_tile() +
+  scale_fill_viridis_c(option = "A") +
+  labs(x = expression(theta),
+       y = expression(omega)) +
+  theme(panel.grid = element_blank(),
+        legend.position = "none")
+```
+
+This time we'll separate $p_{m = 1}(\theta)$ and $p_{m = 2}(\theta)$ into the two short plots on the right of the next row down.
+
+```{r, fig.width = 3.5, fig.height = 3, warning = F, message = F}
+p1 <-
+  d %>% 
+  filter(omega == .75) %>% 
+  
+  ggplot(aes(x = theta, 
+             ymin = 0, 
+             ymax = prior)) +
+  geom_ribbon(fill = "grey67") +
+  labs(x = expression(theta),
+       y = expression(paste("p(", theta, "|", omega, " = .75)"))) +
+   theme(panel.grid = element_blank())
+
+p2 <-
+  d %>% 
+  filter(omega == .25) %>% 
+  
+  ggplot(aes(x = theta, 
+             ymin = 0, 
+             ymax = prior)) +
+  geom_ribbon(fill = "grey67") +
+  labs(x = expression(theta),
+       y = expression(paste("p(", theta, "|", omega, " = .25)"))) +
+  theme(panel.grid = element_blank())
+
+# we'll put them together with help from gridExtra
+library(gridExtra)
+
+grid.arrange(p1, p2)
+```
+
+We can continue to build on those sensibilities for the middle panel of the same row. Here we're literally adding $p_{m = 1}(\theta)$ to $p_{m = 2}(\theta)$ and taking their average.
+
+```{r, fig.width = 3.5, fig.height = 3}
+tibble(theta = seq(from = 0, to = 1, length.out = n_points)) %>% 
+  mutate(d_75 = dbeta(x = theta, shape1 = 8.5, shape2 = 3.5),
+         d_25 = dbeta(x = theta, shape1 = 3.5, shape2 = 8.5)) %>% 
+  mutate(mean_prior = (d_75 + d_25) / 2) %>% 
+
+  ggplot(aes(x = theta, 
+             ymin = 0, 
+             ymax = mean_prior)) +
+  geom_ribbon(fill = "grey67") +
+  coord_cartesian(ylim = 0:3) +
+  labs(x = expression(theta),
+       y = expression(paste("Marginal p(", theta, ")"))) +
+  theme(panel.grid = element_blank())
+```
+
+We need the Bernoulli likelihood function for the next step.
+
+```{r}
+Bernoulli_likelihood <- function(theta, data) {
+  # theta = success probability parameter ranging from 0 to 1
+  # data = the vector of data (i.e., a series of 0s and 1s)
+  N   <- length(data)
+  z   <- sum(data)
+  return(theta^z * (1 - theta)^(N - sum(data)))
+  }
+```
+
+Time to feed our data and the parameter space into `Bernoulli_likelihood()`, which will allow us to make the 2-dimensional density plot at the heart of Figure 10.3.
+
+```{r, fig.width = 3.5, fig.height = 3}
+N <- 9
+z <- 6
+
+trial_data <- rep(0:1, times = c(N - z, z))
+
+d <-
+  d %>% 
+  mutate(likelihood = Bernoulli_likelihood(theta = theta, 
+                                           data  = trial_data))
+
+d %>%
+  ggplot(aes(x = theta, y = omega, fill = likelihood)) +
+  geom_tile() +
+  scale_fill_viridis_c(option = "A") +
+  labs(x = expression(theta),
+       y = expression(omega)) +
+  theme(panel.grid = element_blank(),
+        legend.position = "none")
+```
+
+Now we just need the marginal likelihood, $p(D)$, to compute the posterior. Our first depiction will be the middle panel of the second row from the bottom--the panel with the uneven dolphin fins.
+
+```{r, fig.width = 3.5, fig.height = 3}
+d <-
+  d %>% 
+  mutate(marginal_likelihood = sum(prior * likelihood)) %>% 
+  mutate(posterior = (prior * likelihood) / marginal_likelihood) 
+
+d %>% 
+  ggplot(aes(x = theta, y = omega, fill = posterior)) +
+  geom_tile() +
+  scale_fill_viridis_c(option = "A") +
+  labs(x = expression(theta),
+       y = expression(omega)) +
+  theme(panel.grid = element_blank(),
+        legend.position = "none")
+```
+
+Here, then, is a way to get the panel in on the right of the second row from the bottom.
+
+```{r, fig.width = 3.5, fig.height = 3}
+d %>% 
+  mutate(marginal = (posterior / max(posterior)) * 25) %>% 
+
+  ggplot(aes(x = omega,
+             ymin = 0,
+             ymax = marginal)) +
+  geom_ribbon(fill = "grey67", color = "grey67") +
+  coord_flip(ylim = 0:25) +
+  labs(subtitle = "Remember, the scale on the x is arbitrary.",
+       x = expression(omega),
+       y = expression(paste("Marginal p(", omega, "|D)"))) +
+  theme(panel.grid = element_blank())
+```
+
+To make the middle bottom panel of Figure 10.3, we have to average the posterior values of $\theta$ over the grid of $\omega$ values. That is, we have to marginalize.
+
+```{r, fig.width = 3.5, fig.height = 3}
+ d %>%
+  group_by(theta) %>% 
+  summarise(marginal_theta = mean(posterior)) %>% 
+  
+  ggplot(aes(x = theta, 
+             ymin = 0,
+             ymax = marginal_theta)) +
+  geom_ribbon(fill = "grey67") + 
+  labs(x = expression(theta),
+       y = expression(paste("Marginal p(", theta, "|D)"))) +
+  theme(panel.grid = element_blank())
+```
+
+For the lower right panel of Figure 10.3, we'll filter to our two focal values of $\omega$ and then facet by them.
+
+```{r, fig.width = 3.5, fig.height = 3}
+d %>% 
+  filter(omega %in% c(.25, .75)) %>% 
+  mutate(omega = str_c("omega == ", omega)) %>%
+
+  ggplot(aes(x = theta, 
+             ymin = 0,
+             ymax = posterior)) +
+  geom_ribbon(fill = "grey67") + 
+  labs(x = expression(theta),
+       y = expression(paste("Marginal p(", theta, "|", omega, ")"))) +
+  theme(panel.grid = element_blank()) +
+  facet_wrap(~omega, ncol = 1, scales = "free", labeller = label_parsed)
+```
+
+Do note the different scales on the $y$. Here's what they'd look like on the same scale.
+
+```{r, fig.width = 3.5, fig.height = 3}
+d %>% 
+  filter(omega %in% c(.25, .75)) %>% 
+  mutate(omega = str_c("omega == ", omega)) %>%
+
+  ggplot(aes(x = theta, 
+             ymin = 0,
+             ymax = posterior)) +
+  geom_ribbon(fill = "grey67") + 
+  labs(x = expression(theta),
+       y = expression(paste("Marginal p(", theta, "|", omega, ")"))) +
+  theme(panel.grid = element_blank()) +
+  facet_wrap(~omega, ncol = 1, labeller = label_parsed)
+```
+
+Using the grid, you might get the BF presented on page 273 like this:
+
+```{r}
+d %>% 
+  filter(omega %in% c(.25, .75)) %>% 
+  group_by(omega) %>% 
+  summarise(sum_posterior = sum(posterior)) %>% 
+  mutate(model = c("model_2", "model_1")) %>% 
+  select(-omega) %>% 
+  spread(key = model, value = sum_posterior) %>% 
+  summarise(BF = model_1 / model_2)
+```
+
+## 10.3. Solution by MCMC
+
+Kruschke started with: "For large, complex models, we cannot derive $p(D|m)$ analytically or with grid approximation, and therefore we will approximate the posterior probabilities using MCMC methods" (p. 274). He's not kidding. Welcome to modern Bayes.
+
+### 10.3.1. Nonhierarchical MCMC computation of each model’s marginal likelihood.
+
+Before you get excited, Kruschke warned: "For complex models, this method might not be tractable. [But] for the simple application here, however, the method works well, as demonstrated in the next section" (p. 277).
+
+#### 10.3.1.1. Implementation with JAGS.
+
+Load brms.
+
+```{r, warning = F, message = F}
+library(brms)
+```
+
+Let's save the `trial_data` as a tibble.
+
+```{r}
+trial_data <- 
+  tibble(y = trial_data)
+```
+
+We'll need to make our `stanvars` object to insert our $\omega$- and $\kappa$-themed prior values into `brm()`.
+
+```{r}
+omega <- .75
+kappa <- 12
+
+stanvars <-
+  stanvar(omega * (kappa - 2) + 1, name = "my_alpha") +
+  stanvar((1 - omega) * (kappa - 2) + 1, name = "my_beta")
+```
+
+Fit the first model (i.e., the model for which $\omega = .75$).
+
+```{r fit1, cache = T, warning = F, message = F}
+fit1 <-
+  brm(data = trial_data, 
+      family = bernoulli(link = "identity"),
+      y ~ 1,
+      prior = prior(beta(my_alpha, my_beta), class = Intercept),
+      iter = 11000, warmup = 1000, chains = 4, cores = 4,
+      stanvars = stanvars,
+      control = list(adapt_delta = .999),
+      # This will let us use `prior_samples()` later on
+      sample_prior = T)
+```
+
+We may as well inspect the chains.
+
+```{r, fig.width = 8, fig.height = 1}
+plot(fit1)
+```
+
+We'll glance at the model summary, too.
+
+```{r}
+print(fit1)
+```
+
+Next we'll follow Kruschke and extract the posterior samples, saving them as `theta`.
+
+```{r}
+theta <- posterior_samples(fit1)
+
+head(theta)
+```
+
+The `fixef()` function will return the posterior summaries for the model intercept (i.e., $\theta$). We can then index and save the desired summaries.
+
+```{r}
+fixef(fit1)
+
+
+(mean_theta <- fixef(fit1)[1])
+(sd_theta   <- fixef(fit1)[2])
+```
+
+Now we'll convert them to the $\alpha$ and $\beta$ parameters, `a_post` and `b_post`, respectively.
+
+```{r}
+a_post <-      mean_theta  * ( mean_theta * (1 - mean_theta) / sd_theta^2 - 1)
+b_post <- (1 - mean_theta) * ( mean_theta * (1 - mean_theta) / sd_theta^2 - 1)
+```
+
+Recall we've already defined:
+
+```{r}
+N     <- 9
+z     <- 6
+omega <- .75
+kappa <- 12
+```
+
+Thus we'll use them to compute $\frac{1}{p(D)}$. Here we'll express Kruschke's `oneOverPD` as a function, `one_over_pd()`.
+
+```{r}
+one_over_pd <- function(theta) {
+  mean(dbeta(theta, a_post, b_post ) / 
+         (theta^z * (1 - theta)^(N - z) * 
+            dbeta(theta, omega * (kappa - 2) + 1, (1 - omega) * (kappa - 2) + 1 )))
+}
+```
+
+We're ready to use `one_over_pd()` to help compute $p(D)$.
+
+```{r}
+theta %>% 
+  summarise(pd = 1 / one_over_pd(theta = b_Intercept))
+```
+
+That's pretty close to Kruschke's value! Let's rinse, wash, and repeat for $\omega = .25$. First, we'll need to redefine `omega` and our `stanvars`.
+
+```{r}
+omega <- .25
+
+stanvars <-
+  stanvar(omega * (kappa - 2) + 1, name = "my_alpha") +
+  stanvar((1 - omega) * (kappa - 2) + 1, name = "my_beta")
+```
+
+Fit the model.
+
+```{r fit2, cache = T, warning = F, message = F, results = 'hide'}
+fit2 <-
+  update(fit1, 
+         prior = prior(beta(my_alpha, my_beta), class = Intercept),
+         iter = 11000, warmup = 1000, chains = 4, cores = 4,
+         stanvars = stanvars)
+```
+
+We'll do the rest in bulk.
+
+```{r}
+theta <- posterior_samples(fit2)
+
+mean_theta <- fixef(fit2)[1]
+sd_theta   <- fixef(fit2)[2]
+
+a_post <-      mean_theta  * ( mean_theta * (1 - mean_theta) / sd_theta^2 - 1)
+b_post <- (1 - mean_theta) * ( mean_theta * (1 - mean_theta) / sd_theta^2 - 1)
+
+theta %>% 
+  summarise(pd = 1 / one_over_pd(theta = b_Intercept))
+```
+
+Boom!
+
+### 10.3.2. Hierarchical MCMC computation of relative model probability.
+
+I'm not aware of a way to specify a model like this in brms. If you know of a way, [share your code](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues).
+
+<**Introduce information criteria and model weighting**>
+
+```{r}
+loo(fit1, fit2)
+```
+
+```{r}
+(mw <- model_weights(fit1, fit2))
+```
+
+```{r}
+mw[1] / mw[2]
+```
+
+
+```{r}
+nd <- tibble(y = 1)
+
+pp_averaged <-
+  pp_average(fit1, fit2, 
+           newdata = nd,
+           method = "fitted",
+           summary = F) %>% 
+  as_tibble()
+  
+head(pp_averaged)  
+```
+
+We can plot our model-averaged $\theta$ with a little help from good old `tidybayes::geom_halfeyeh()`.
+
+```{r, fig.width = 3.5, fig.height = 3, message = F, warning = F}
+library(tidybayes)
+
+pp_averaged %>% 
+  
+  ggplot(aes(x = V1, y = 0)) +
+  geom_halfeyeh(point_interval = mode_hdi,
+                .width = c(.95, .5)) +
+  labs(x = expression(theta),
+       y = expression(paste("Marginal p(", theta, "|D)"))) +
+  coord_cartesian(xlim = 0:1) +
+  theme(panel.grid = element_blank())
+```
+
+Looks a lot like the one we made with grid approximation, doesn't it?
+
+#### 10.3.2.1. Using pseudo-priors to reduce autocorrelation.
+
+Since we didn't use Kruschke's method from the last subsection, we don't have the same worry about autocorrelation. For example, here are the autocorrelation plots for `fit1`.
+
+```{r, fig.width = 4, fig.height = 4, message = F, warning = F}
+library(bayesplot)
+
+mcmc_acf(posterior_samples(fit1, add_chain = T), 
+         pars = "b_Intercept",
+         lags = 35)
+```
+
+Our autocorrelations were a little high for HMC, but nowhere near pathological. The results for `fit2` were similar. As you might imagine from the moderate autocorrelations, the $N_{eff}/N$ ratio for `b_Intercept` wasn't great.
+
+```{r, fig.width = 6, fig.height = 1.25}
+neff_ratio(fit1)[1]%>% 
+  mcmc_neff() +
+  yaxis_text(hjust = 0)
+```
+
+But we specified a lot of post-warmup iterations, so we're still in good shape. Plus, the $\hat{R}$ was fine.
+
+```{r}
+rhat(fit1)[1]
+```
+
+### 10.3.3. Models with different "noise" distributions in JAGS.
+
+## 10.4. Prediction: Model averaging
+
+## 10.5. Model complexity naturally accounted for
+
+### 10.5.1. Caveats regarding nested model comparison.
+
+## 10.6. Extreme sensitivity to prior distribution
+
+### 10.6.1. Priors of different models should be equally informed.
+
+## References {-}
+
+Kruschke, J. K. (2015). *Doing Bayesian data analysis, Second Edition: A tutorial with R, JAGS, and Stan.* Burlington, MA: Academic Press/Elsevier.
+
+## Session info {-}
+
+```{r}
+sessionInfo()
+```
+
+```{r, message = F, warning = F, echo = F}
+# Here we'll remove our objects
+rm()
+```
