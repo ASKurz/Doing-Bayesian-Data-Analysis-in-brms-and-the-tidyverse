@@ -64,7 +64,9 @@ I'm going to skip over these.
 
 We might express that in code as follows:
 
-```{r, fig.width = 4, fig.height = 2}
+```{r, fig.width = 4, fig.height = 2, message = F, warning = F}
+library(tidyverse)
+
 concentration <- 2000
 mode          <- .65
 
@@ -303,13 +305,17 @@ sim_power <- function(mode, power) {
 
 Here we use the two functions to compute the values in Table 13.1 on page 367. 
 
-```{r}
+```{r, results = "hide"}
 sim <-
   tibble(mode = seq(from = .6, to = .85, by = .05)) %>% 
   expand(mode, power = c(.7, .8, .9)) %>% 
   mutate(results = purrr::map2(mode, power, sim_power)) %>% 
   unnest()
+```
 
+The results look like this.
+
+```{r}
 sim
 ```
 
@@ -370,7 +376,7 @@ min_n_for_hdi_power(gen_prior_mode = .75,
 
 Just like in the last section, here I set `init_samp_size` to a higher value than in the text in order to keep the output reasonably short. To reproduce the results in Table 13.2, we’ll need to adjust the `min_n_for_hdi_power()` parameters within our `sim_power()` function.
 
-```{r}
+```{r, results = "hide"}
 sim_power <- function(mode, power) {
   min_n_for_hdi_power(gen_prior_mode = mode, 
                       gen_prior_n    = 10,
@@ -390,7 +396,11 @@ sim <-
   expand(mode, power = c(.7, .8, .9)) %>% 
   mutate(results = purrr::map2(mode, power, sim_power)) %>% 
   unnest()
+```
 
+Let's make a table.
+
+```{r}
 sim %>%
   spread(key = mode, value = results) %>%
   knitr::kable()
