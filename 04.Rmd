@@ -10,7 +10,7 @@ output:
 
 Kruschke opened:
 
-> Inferential statistical techniques assign precise measures to our uncertainty about possibil- ities. Uncertainty is measured in terms of probability, and therefore we must establish the properties of probability before we can make inferences about it. This chapter introduces the basic ideas of probability.
+> Inferential statistical techniques assign precise measures to our uncertainty about possibilities. Uncertainty is measured in terms of *probability*, and therefore we must establish the properties of probability before we can make inferences about it. This chapter introduces the basic ideas of probability. (p. 71, *emphasis* in the original)
 
 ## The set of all possible events
 
@@ -24,11 +24,15 @@ This snip from page 72 is important (*emphasis* in the original):
 
 #### Simulating a long-run relative frequency.
 
-Here's the simulation.
+First, load the tidyverse.
+
+```{r, message = F, warning = F}
+library(tidyverse)
+```
+
+Now run the simulation.
 
 ```{r sim, cache = T, message = F, warning = F}
-library(tidyverse)
-
 N       <- 500  # Specify the total number of flips, denoted N.
 p_heads <- 0.5  # Specify underlying probability of heads.
 
@@ -38,13 +42,13 @@ set.seed(47405)
 # Here we use that seed to flip a coin N times and compute the running proportion of heads at each flip. 
 # We generate a random sample of N flips (heads = 1, tails = 0)
 my_flip <-
-  tibble(flip_sequence = sample(x = c(0, 1), 
-                                prob = c(1 - p_heads, p_heads), 
-                                size = N, 
+  tibble(flip_sequence = sample(x       = c(0, 1), 
+                                prob    = c(1 - p_heads, p_heads), 
+                                size    = N, 
                                 replace = T),
          r = cumsum(flip_sequence),
-         n = 1:N,
-         run_prop = r/n)
+         n = 1:N) %>% 
+  mutate(run_prop = r / n)
 
 end_prop <-
   my_flip %>% 
@@ -54,7 +58,7 @@ end_prop <-
   pull()
 ```
 
-Now we're ready fo make Figure 4.1.
+Now we're ready to make Figure 4.1.
 
 ```{r, message = F, warning = F, fig.width = 4.5, fig.height = 4}
 my_flip %>%
@@ -448,10 +452,19 @@ library(tidybayes)
 
 As far as I could tell, Figure 4.5.b is of a beta distribution, which Kruschke covers in greater detail starting in chapter 6. I got the `shape1` and `shape2` values from playing around. If you have a more principled approach, [do share](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues).
 
+```{r}
+mode_hdi(tibble(x = rbeta(5e2, shape1 = 15, shape2 = 4))) %>% 
+  select(x:.width) %>% 
+  gather() %>% 
+  pull()
+```
+
+
 ```{r, fig.width = 4.5, fig.height = 2}
 set.seed(434)
 h <- 
   mode_hdi(tibble(x = rbeta(5e6, shape1 = 15, shape2 = 4))) %>% 
+  select(x:.width) %>%
   gather() %>% 
   pull()
 
@@ -495,7 +508,7 @@ Here we compute the HDIs and put them in a tibble.
 h <- 
   d %>% 
   mode_hdi() %>% 
-  select(conf.low, conf.high)
+  select(.lower, .upper)
 
 h
 ```
@@ -518,7 +531,7 @@ ggplot(data = dens,
          aes(x = x, y = y)) +
   geom_ribbon(aes(ymin = 0, ymax = y),
               size = 0, fill = "grey75") +
-  # Note the use of pull(), which extracts the values, rather than return a tibble  
+  # Note the use of `pull()`, which extracts the values, rather than return a tibble  
   geom_ribbon(data = dens %>% filter(x > h[1, 1] %>% pull() & 
                                        x < h[1, 2] %>% pull()),
               aes(ymin = 0, ymax = y),
