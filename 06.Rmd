@@ -10,7 +10,7 @@ output:
 
 Kruschke wrote:
 
-> In the next few chapters, we will develop all the foundational concepts and methods of Bayesian data analysis, which are applied to the simplest type of data. Because of the simplicity of the data, we can focus on the Bayesian methods and scaffold the concepts clearly and efficiently. The subsequent part of the book applies the methods developed in this part to more complex data structures.
+> In the next few chapters, we will develop all the foundational concepts and methods of Bayesian data analysis, which are applied to the simplest type of data. Because of the simplicity of the data, we can focus on the Bayesian methods and scaffold the concepts clearly and efficiently. The subsequent part of the book applies the methods developed in this part to more complex data structures. (p. 121)
 
 He put it well. I have nothing to add.
 
@@ -20,14 +20,18 @@ He put it well. I have nothing to add.
 
 ## The likelihood function: The Bernoulli distribution
 
-If you follow equation 6.2 closely, here is how we might express it in R.
+If we denote a set of possible outcomes as $\{y_i\}$  Kruschke's Bernoulli likelihood function for a set of $N$ trials follows the form
+
+$$p(\{y_i\} | \theta) = \theta^z \cdot (1 - \theta) ^ {N - z}$$
+
+If you follow that equation closely, here is how we might express it in R.
 
 ```{r}
 Bernoulli_likelihood <- function(theta, data) {
   # theta = success probability parameter ranging from 0 to 1
   # data = the vector of data (i.e., a series of 0s and 1s)
-  N   <- length(data)
-  z   <- sum(data)
+  N <- length(data)
+  z <- sum(data)
   return(theta^z * (1 - theta)^(N - sum(data)))
   }
 ```
@@ -47,10 +51,10 @@ d <-
   tibble(x = seq(from = 0, to = 1, length.out = 1e3) %>% 
          rep(., times = 25)) %>% 
   group_by(x) %>% 
-  mutate(shape1 = rep(c(.1, 1:4), times = 5),
-         shape2 = rep(c(.1, 1:4), each = 5)) %>% 
-  mutate(a = paste("a =", shape1),
-         b = paste("b =", shape2)) %>% 
+  mutate(shape1   = rep(c(.1, 1:4), times = 5),
+         shape2   = rep(c(.1, 1:4), each = 5)) %>% 
+  mutate(a        = paste("a =", shape1),
+         b        = paste("b =", shape2)) %>% 
   ungroup() %>% 
   mutate(exemplar = rep(1:1e3, each = 25))
 
@@ -80,13 +84,13 @@ d <-
   tibble(x = seq(from = 0, to = 1, length.out = 1e3) %>% 
          rep(., times = 4)) %>% 
   group_by(x) %>% 
-  mutate(shape1 = c(5.6, 17.6, 5, 17),
-         shape2 = c(1.4, 4.4, 2, 5)) %>% 
-  mutate(a = paste("a =", shape1),
-         b = paste("b =", shape2),
-         kappa = rep(c("kappa = 7", "kappa = 22"), times = 2),
+  mutate(shape1   = c(5.6, 17.6, 5, 17),
+         shape2   = c(1.4, 4.4, 2, 5)) %>% 
+  mutate(a        = paste("a =", shape1),
+         b        = paste("b =", shape2),
+         kappa    = rep(c("kappa = 7", "kappa = 22"), times = 2),
          mu_omega = rep(c("mu = 0.8", "omega = 0.8"), each = 2)) %>% 
-  mutate(kappa = factor(kappa, levels = c("kappa = 7", "kappa = 22"))) %>% 
+  mutate(kappa    = factor(kappa, levels = c("kappa = 7", "kappa = 22"))) %>% 
   ungroup() 
 
 head(d)
@@ -168,9 +172,9 @@ z <- 1
 a <- 5
 b <- 5
 
-(proportion_heads <- z/N)
-(prior_mean <- a/(a + b))
-(posterior_mean <- (z + a)/(N + a + b))
+(proportion_heads <- z / N)
+(prior_mean <- a / (a + b))
+(posterior_mean <- (z + a) / (N + a + b))
 ```
 
 In order to make the plots for Figure 6.3, we'll want to compute the prior, likelihood, and posterior density values across a densely-packed range of $\theta$ values. 
@@ -197,11 +201,10 @@ To make things easier on ourselves, we'll also make two additional data objects 
 ```{r}
 # the data for the in-plot lines
 line_tibble <-
-  tibble(theta = c(.212 + .008, .788 - .008, 
-                   .114 + .004, .497 - .005),
-         value = rep(c(.51, .66), each = 2),
+  tibble(theta      = c(.212 + .008, .788 - .008, .114 + .004, .497 - .005),
+         value      = rep(c(.51, .66), each = 2),
          xintercept = c(.212, .788, .114, .497),
-         key = rep(c("Prior (beta)", "Posterior (beta)"), each = 2)) %>% 
+         key        = rep(c("Prior (beta)", "Posterior (beta)"), each = 2)) %>% 
   mutate(key = factor(key, levels = c("Prior (beta)", "Likelihood (Bernoulli)", "Posterior (beta)")))
   
 # the data for the annotation
@@ -209,7 +212,7 @@ text_tibble <-
   tibble(theta = c(.5, .3),
          value = c(.8, 1.125),
          label = "95% HDI",
-         key = c("Prior (beta)", "Posterior (beta)")) %>% 
+         key   = c("Prior (beta)", "Posterior (beta)")) %>% 
   mutate(key = factor(key, levels = c("Prior (beta)", "Likelihood (Bernoulli)", "Posterior (beta)")))
 ```
 
@@ -337,29 +340,27 @@ But we can be a little more organized and plot the top row of Figure 6.4 all at 
 ```{r, fig.width = 10, fig.height = 2}
 # the data for the in-plot lines
 line_tibble <-
-  tibble(theta = c(.431 + .005, .569 - .005, 
-                   .558 + .005, .892 - .005),
-         value = rep(c(1.9, .8), each = 2),
-         xintercept = c(.431, .569, 
-                        .558, .892),
-         exemplar = rep(c("dbeta(theta, 100, 100)", "dbeta(theta, 18.25, 6.75)"), each = 2)) %>%
+  tibble(theta      = c(.431 + .005, .569 - .005, .558 + .005, .892 - .005),
+         value      = rep(c(1.9, .8), each = 2),
+         xintercept = c(.431, .569, .558, .892),
+         exemplar   = rep(c("dbeta(theta, 100, 100)", "dbeta(theta, 18.25, 6.75)"), each = 2)) %>%
   mutate(exemplar = factor(exemplar, levels = c("dbeta(theta, 100, 100)", "dbeta(theta, 18.25, 6.75)", "dbeta(theta, 1, 1)")))
   
 # the data for the annotation
 text_tibble <-
-  tibble(theta = c(.5, .735),
-         value = c(3.6, 1.45),
-         label = "95% HDI",
+  tibble(theta    = c(.5, .735),
+         value    = c(3.6, 1.45),
+         label    = "95% HDI",
          exemplar = c("dbeta(theta, 100, 100)", "dbeta(theta, 18.25, 6.75)")) %>%
   mutate(exemplar = factor(exemplar, levels = c("dbeta(theta, 100, 100)", "dbeta(theta, 18.25, 6.75)", "dbeta(theta, 1, 1)")))
 
 # our main data tibble
 tibble(theta = seq(from = 0, to = 1, length.out = 100) %>% rep(., times = 3),
-       a = rep(c(100, 18.25, 1), each = 100),
-       b = rep(c(100, 6.75, 1), each = 100)) %>% 
+       a     = rep(c(100, 18.25, 1), each = 100),
+       b     = rep(c(100, 6.75, 1),  each = 100)) %>% 
   mutate(exemplar = ifelse(a == 18.25, str_c("dbeta(theta, ", a, ", ", b, ")"),
                            str_c("dbeta(theta, ", a %>% round(0), ", ", b %>% round(0), ")")),
-         density = dbeta(theta, shape1 = a, shape2 = b)) %>% 
+         density  = dbeta(theta, shape1 = a, shape2 = b)) %>% 
   mutate(exemplar = factor(exemplar, levels = c("dbeta(theta, 100, 100)", "dbeta(theta, 18.25, 6.75)", "dbeta(theta, 1, 1)"))) %>% 
   
   # finally, the plot code!
@@ -393,9 +394,8 @@ z <- 17
 
 trial_data <- c(rep(0, times = N - z), rep(1, times = z))
 
-tibble(theta = seq(from = 0, to = 1, length.out = 100)) %>% 
-  mutate(likelihood = Bernoulli_likelihood(theta = theta,
-                                           data = trial_data)) %>% 
+tibble(theta        = seq(from = 0, to = 1, length.out = 100)) %>% 
+  mutate(likelihood = Bernoulli_likelihood(theta = theta, data = trial_data)) %>% 
   
   ggplot(aes(x = theta)) +
   geom_ribbon(aes(ymin = 0, ymax = likelihood),
@@ -425,19 +425,19 @@ line_tibble <-
   
 # the data for the annotation
 text_tibble <-
-  tibble(theta = c(.532, .78, .82),
-         value = c(3.5, 2, 1.6),
-         label = "95% HDI",
+  tibble(theta    = c(.532, .78, .82),
+         value    = c(3.5, 2, 1.6),
+         label    = "95% HDI",
          exemplar = c("dbeta(theta, 117, 103)", "dbeta(theta, 35.25, 9.75)", "dbeta(theta, 18, 4)")) %>%
   mutate(exemplar = factor(exemplar, levels = c("dbeta(theta, 117, 103)", "dbeta(theta, 35.25, 9.75)", "dbeta(theta, 18, 4)")))
 
 # our main data tibble
 tibble(theta = seq(from = 0, to = 1, length.out = 100) %>% rep(., times = 3),
-       a = rep(c(117, 35.25, 18), each = 100),
-       b = rep(c(103, 9.75, 4), each = 100)) %>% 
+       a     = rep(c(117, 35.25, 18), each = 100),
+       b     = rep(c(103, 9.75, 4),   each = 100)) %>% 
   mutate(exemplar = ifelse(a == 35.25, str_c("dbeta(theta, ", a, ", ", b, ")"),
                            str_c("dbeta(theta, ", a %>% round(0), ", ", b %>% round(0), ")")),
-         density = dbeta(theta, shape1 = a, shape2 = b)) %>% 
+         density  = dbeta(theta, shape1 = a, shape2 = b)) %>% 
   mutate(exemplar = factor(exemplar, levels = c("dbeta(theta, 117, 103)", "dbeta(theta, 35.25, 9.75)", "dbeta(theta, 18, 4)"))) %>% 
   
   # the plot
@@ -477,7 +477,7 @@ p_theta <-
     rep(1, 200)) %>% 
   rep(., times = 2)
 
-p_theta <- p_theta/sum(p_theta)    # Make p_theta sum to 1.0
+p_theta <- p_theta / sum(p_theta)  # Make p_theta sum to 1.0
 ```
 
 Here's Kruschke's `BernGrid()` code in all its glory.
@@ -731,9 +731,9 @@ d <-
                    seq(100, 1, length = 50), 
                    rep(1, 200)) %>% 
            rep(., times = 2)) %>% 
-  mutate(Prior = Prior/sum(Prior),
+  mutate(Prior      = Prior / sum(Prior),
          Likelihood = Bernoulli_likelihood(theta = theta,        # (i.e., pDataGivenTheta)
-                                           data = trial_data)) %>%
+                                           data  = trial_data)) %>%
   mutate(normalizing_constant = sum(Likelihood * Prior)) %>%     # (i.e., pData)
   mutate(Posterior = Likelihood * Prior / normalizing_constant)  # (i.e., pThetaGivenData)
   
