@@ -12,15 +12,43 @@ output:
 options(width = 100)
 ```
 
-Kruschke began:
-
-> This chapter introduces the methods we will use for producing accurate approximations to Bayesian posterior distributions for realistic applications. The class of methods is called Markov chain Monte Carlo (MCMC), for reasons that will be explained later in the chapter. It is MCMC algorithms and software, along with fast computer hardware, that allow us to do Bayesian data analysis for realistic applications that would have been effectively impossible 30 years ago.
+> This chapter introduces the methods we will use for producing accurate approximations to Bayesian posterior distributions for realistic applications. The class of methods is called Markov chain Monte Carlo (MCMC), for reasons that will be explained later in the chapter. It is MCMC algorithms and software, along with fast computer hardware, that allow us to do Bayesian data analysis for realistic applications that would have been effectively impossible 30 years ago. (p. 144)
 
 David Draper discussed some of the history of MCMC in his lecture, [*Bayesian Statistical Reasoning*](https://www.youtube.com/watch?v=072Q18nX91I&frags=pl%2Cwn).
 
 ## Approximating a distribution with a large sample
 
-To get the density in the upper left panel of Figure 7.1, we'll make use of `dbeta()`.
+```{r}
+hdi_of_icdf <- function(ICDFname, credible_mass = .95, tol = 1e-8, ... ) {
+  incredible_mass <-  1.0 - credible_mass
+  interval_width  <- function(low_tail_prob, ICDFname, credible_mass, ...) {
+    ICDFname(credible_mass + low_tail_prob, ...) - ICDFname(low_tail_prob, ...)
+  }
+  opt_info            <- optimize(interval_width, c(0, incredible_mass), 
+                                  ICDFname = ICDFname, credible_mass = credible_mass, 
+                                  tol = tol, ...)
+  hdi_lower_tail_prob <- opt_info$minimum
+  return(c(ICDFname(hdi_lower_tail_prob, ...),
+           ICDFname(credible_mass + hdi_lower_tail_prob, ...)))
+}
+```
+
+```{r}
+(hdi <-
+  hdi_of_icdf(ICDFname      = qbeta,
+              shape1        = 15,
+              shape2        = 7,
+              credible_mass = .95)
+ )
+```
+
+And using an equation from Chapter 6, $\omega = (a − 1) / (a + b − 2)$, we can compute the mode.
+
+```{r}
+(omega <- (15 - 1) / (15 + 7 - 2))
+```
+
+To get the density in the upper left panel of Figure 7.1, we'll make use of `dbeta()`. And we'll also make use of our `hdi` and `omega` values.
 
 ```{r, fig.width = 3, fig.height = 2.5, warning = F, message = F}
 library(tidyverse)
@@ -32,15 +60,19 @@ tibble(theta = seq(from = 0, to = 1, length.out = 100)) %>%
                                shape1 = 15, 
                                shape2 = 7)),
               fill = "grey67") +
-  # the x and xend values came straight out of the figure in the text
-  geom_segment(aes(x = .491, xend = .864, y = 0, yend = 0), 
-               size = 1.1) +
+  geom_segment(aes(x = hdi[1], xend = hdi[2], y = 0, yend = 0),
+               size = .75) +
+  geom_point(aes(x = omega, y = 0),
+             size = 1.5, shape = 19) +
   geom_text(data = tibble(
     theta = .675,
     p     = .3,
     label = "95% HDI"),
     aes(y = p, label = label),
             color = "grey92") +
+  scale_x_continuous(breaks = c(0, hdi, omega, 1),
+                     labels = c("0", hdi %>% round(2), omega, "1")) +
+  coord_cartesian(ylim = c(-.125, 4)) +
   labs(title = "Exact distribution",
        x = expression(theta),
        y = expression(paste("p(", theta, ")"))) +
@@ -74,7 +106,7 @@ d %>%
   geom_histogram(size = .2, color = "grey92", fill = "grey67",
                  binwidth = .02) +
   stat_pointintervalh(aes(y = 0), 
-                      point_interval = mode_hdi, .prob = .95) +
+                      point_interval = mode_hdi, .width = .95) +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(expression(theta)) +
   coord_cartesian(xlim = 0:1) +
@@ -123,15 +155,15 @@ sim %>%
   ggplot(aes(x = theta, y = key)) +
   geom_vline(xintercept = .7, color = "white") +
   geom_halfeyeh(point.interval = median_qi, 
-                .prob = c(.95, .5)) +
+                .width = c(.95, .5)) +
   labs(title = expression(paste("Variability of the mode for simulations of ", beta, "(", theta, "|15, 7), the true mode of which is .7")),
        subtitle = "For each sample size, the dot is the median, the inner thick line is the percentile-based 50% interval,\nand the outer thin line the percentile-based 95% interval. Although the central tendency\napproximates the true value for all three conditions, the variability of the mode estimate is inversely\nrelated to the sample size.",
        x = "mode", 
        y = NULL) +
   coord_cartesian(xlim = c(.6, .8)) +
-  theme(panel.grid = element_blank(),
-        axis.text.y = element_text(hjust = 0),
-        axis.ticks.y = element_blank())
+  theme(panel.grid   = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.text.y  = element_text(hjust = 0))
 ```
 
 ## A simple case of the Metropolis algorithm
@@ -334,7 +366,7 @@ Now we have `my_metropolis()`, we can run the analysis based on the three `propo
 
 ```{r metropolis_sim, cache = T}
 d <-
-  tibble(proposal_sd = c(0.02, 0.2, 2.0)) %>% 
+  tibble(proposal_sd   = c(0.02, 0.2, 2.0)) %>% 
   mutate(accepted_traj = map(proposal_sd, my_metropolis)) %>% 
   unnest()
 
@@ -351,8 +383,7 @@ d %>%
   geom_histogram(boundary = 0, binwidth = .02, size = .2,
                  color = "grey92", fill = "grey67") +
   geom_halfeyeh(aes(y = 0), 
-                point.interval = mode_hdi, 
-                .prob = .95) +
+                point.interval = mode_hdi, .width = .95) +
   scale_x_continuous(breaks = seq(from = 0, to = 1, length.out = 6)) +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(x = expression(theta)) +
@@ -450,7 +481,7 @@ tibble(theta_1 = theta_sequence,
     
   expand(nesting(theta_1, prior_1), nesting(theta_2, prior_2)) %>%
   
-  ggplot(aes(x = theta_1, y = theta_2, fill = prior_1*prior_2)) +
+  ggplot(aes(x = theta_1, y = theta_2, fill = prior_1 * prior_2)) +
   geom_tile() +
   scale_fill_viridis_c(option = "A") +
   labs(x = expression(theta[1]),
@@ -464,8 +495,8 @@ We'll need the `Bernoulli_likelihood` function from back in chapter 6 for the mi
 Bernoulli_likelihood <- function(theta, data) {
   # theta = success probability parameter ranging from 0 to 1
   # data = the vector of data (i.e., a series of 0s and 1s)
-  N   <- length(data)
-  z   <- sum(data)
+  N <- length(data)
+  z <- sum(data)
   return(theta^z * (1 - theta)^(N - sum(data)))
   }
 ```
@@ -486,7 +517,7 @@ tibble(theta_1 = theta_sequence,
                                            data = theta_2_data)) %>% 
   expand(nesting(theta_1, likelihood_1), nesting(theta_2, likelihood_2)) %>%
   
-  ggplot(aes(x = theta_1, y = theta_2, fill = likelihood_1*likelihood_2)) +
+  ggplot(aes(x = theta_1, y = theta_2, fill = likelihood_1 * likelihood_2)) +
   geom_tile() +
   scale_fill_viridis_c(option = "A") +
   labs(x = expression(theta[1]),
@@ -526,7 +557,7 @@ prior_tibble %>%
   # we need the marginal likelihood, the denominator in Bayes' rule
   mutate(marginal_likelihood = sum(prior_1 * prior_2 * likelihood_1 * likelihood_2)) %>% 
   # finally, the two-dimensional posterior
-  mutate(posterior = (prior_1 * prior_2 * likelihood_1 * likelihood_2)/marginal_likelihood) %>% 
+  mutate(posterior = (prior_1 * prior_2 * likelihood_1 * likelihood_2) / marginal_likelihood) %>% 
   
   # the plot
   ggplot(aes(x = theta_1, y = theta_2, fill = posterior)) +
@@ -561,7 +592,7 @@ d <-
          N2 = 7)
 ```
 
-Kruschke said he was starting us out simply. But within the brms context, this is an intercepts-only multivariate model, which isn't the simplest of things to code into brms. There are a couple ways to code a multivariate model in brms. With this one, it makes sense to specify the model for each sequence of flips separately. This results in two models, which we'll call `model_1` and `model_2`.
+Kruschke said he was starting us out simply. But within the brms context, this is an intercepts-only multivariate model, which isn't the simplest of things to code into brms. There are a couple ways to code a [multivariate model in brms](https://cran.r-project.org/web/packages/brms/vignettes/brms_multivariate.html). With this one, it makes sense to specify the model for each sequence of flips separately. This results in two models, which we'll call `model_1` and `model_2`.
 
 ```{r}
 model_1 <- bf(z1 | trials(N1) ~ 1)
@@ -574,8 +605,7 @@ Before we fit, we’ll have to address a technicality. The brms package does all
 fit1 <-
   brm(data = d, family = binomial,
       model_1 + model_2,
-      prior = c(set_prior("normal(0, 1)", class = "Intercept", resp = "z1"),
-                set_prior("normal(0, 1)", class = "Intercept", resp = "z2")),
+      set_prior("normal(0, 1)", class = "Intercept"),
       iter = 25500, warmup = 500, cores = 1, chains = 1)
 ```
 
@@ -629,7 +659,7 @@ post %>%
   geom_histogram(color = "grey92", fill = "grey67",
                  size = .2, bins = 40) +
   stat_pointintervalh(aes(y = 0),
-                      point_interval = mode_hdi, .prob = .95) +
+                      point_interval = mode_hdi, .width = .95) +
   scale_y_continuous(NULL, breaks = NULL) +
   coord_cartesian(xlim = c(-.5, .8)) +
   xlab(expression(paste(theta[1], " - ", theta[2]))) +
@@ -672,7 +702,7 @@ fit2 <-
   brm(data = d, 
       family = bernoulli(link = "identity"),
       y ~ 1,
-      prior = set_prior("beta(2, 2)", class = "Intercept"),
+      set_prior("beta(2, 2)", class = "Intercept"),
       iter = 10000, warmup = 500, cores = 3, chains = 3)
 ```
 
@@ -816,9 +846,9 @@ post %>%
 
   ggplot(aes(x = b_Intercept, y = chain, fill = chain)) +
   geom_halfeyeh(point.interval = mode_hdi,
-                .prob = .95) +
+                .width = .95) +
   scale_fill_viridis_d(begin = .35, end = .95) +
-  theme(panel.grid = element_blank(),
+  theme(panel.grid      = element_blank(),
         legend.position = "none")
 ```
 
@@ -855,7 +885,7 @@ p1 <-
   labs(x = "Index 1001:1071",
        title = "Lag 1") +
   theme(legend.position = "none",
-        panel.grid = element_blank())
+        panel.grid      = element_blank())
 
 p2 <-
   lagged_post %>% 
@@ -869,7 +899,7 @@ p2 <-
   labs(x = "Index 1001:1071",
        title = "Lag 5") +
   theme(legend.position = "none",
-        panel.grid = element_blank())
+        panel.grid      = element_blank())
 
 p3 <-
   lagged_post %>% 
@@ -883,7 +913,7 @@ p3 <-
   labs(x = "Index 1001:1071",
        title = "Lag 10") +
   theme(legend.position = "none",
-        panel.grid = element_blank())
+        panel.grid      = element_blank())
 
 library(gridExtra)
 
