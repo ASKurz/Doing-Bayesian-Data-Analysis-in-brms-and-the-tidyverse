@@ -22,7 +22,7 @@ In the opening prargraph in his Github repository for brms, Bürkner explains:
 
 Bürkner's brms repository includes many helpful links, such as to where [brms lives on CRAN](https://cran.r-project.org/web/packages/brms/index.html), a [list of blog posts](https://paul-buerkner.github.io/blog/brms-blogposts/) highlighting brms, and [a forum](http://discourse.mc-stan.org) where users can ask questions about brms in specific or about Stan in general.
 
-You can install the current official version of brms in the same way you would any other R package. If you want the current developmental version, you could downloaded it from github via:
+You can install the current official version of brms in the same way you would any other R package. If you want the current developmental version, you could download it from github via:
 
 ```{r, eval = F}
 if (!requireNamespace("devtools")) {
@@ -57,7 +57,7 @@ The brms package does not require us to convert the data into a list. It can han
 head(z15N50)
 ```
 
-Here they are in a bar plot.
+We might visualize them in a bar plot.
 
 ```{r, fig.width = 3, fig.height = 3}
 z15N50 %>% 
@@ -75,7 +75,7 @@ z15N50 %>%
   count()
 ```
 
-However, we’re not going to do anything with an "Ntotal" value. For brms, the data are fine in their current data frame form.
+However, we’re not going to do anything with an "Ntotal" value. For brms, the data are fine in their current data-frame form.
 
 ### Specify model.
 
@@ -94,7 +94,7 @@ fit1 <-
   brm(data = z15N50, 
       family = bernoulli(link = "identity"),
       y ~ 1,
-      prior = set_prior("beta(2, 2)", class = "Intercept"),
+      prior(beta(2, 2), class = Intercept),
       iter = 500 + 3334, warmup = 500, chains = 3)
 ```
 
@@ -139,7 +139,7 @@ mcmc_dens_overlay(post, pars = c("b_Intercept")) +
   theme(panel.grid = element_blank())
 ```
 
-The `bayesplot::mcmc_acf()` will give us the autocorrelation plots.
+The `bayesplot::mcmc_acf()` function will give us the autocorrelation plots.
 
 ```{r, fig.width = 4, fig.height = 4}
 mcmc_acf(post, pars = "b_Intercept", lags = 35)
@@ -202,42 +202,41 @@ post %>%
                  size = .2) +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(title = "Theta",
-       x = expression(theta)) +
+       x     = expression(theta)) +
   theme(panel.grid = element_blank())
 ```
 
-`bayesplot::mcmc_areas()` offers a nice way to depict the posterior densities, along with their percentile-based 50% and 95% ranges.
+The `bayesplot::mcmc_areas()` function offers a nice way to depict the posterior densities, along with their percentile-based 50% and 95% ranges.
 
 ```{r, fig.width = 4, fig.height = 2.5, message = F}
 mcmc_areas(
   post, 
-  pars = c("b_Intercept"),
-  prob = 0.5,
+  pars       = c("b_Intercept"),
+  prob       = 0.5,
   prob_outer = 0.95,
-  point_est = "mean"
+  point_est  = "mean"
 ) +
   scale_y_discrete(NULL, breaks = NULL) +
   labs(title = "Theta",
-       x = expression(theta)) +
+       x     = expression(theta)) +
   theme(panel.grid = element_blank())
 ```
 
-brms doesn’t have a convenient way to compute the posterior mode or HDIs. Base R is no help, either. But the Matthew Kay's [tidybayes package](https://github.com/mjskay/tidybayes) makes it easy to compute posterior modes and HDIs. The tidybayes package gives us access to the handy `geom_halfeyeh()` function.
+brms doesn’t have a convenient way to compute the posterior mode or HDIs. Base R is no help, either. But Matthew Kay's [tidybayes package](https://github.com/mjskay/tidybayes) makes it easy to compute posterior modes and HDIs. The tidybayes package gives us access to the handy `geom_halfeyeh()` function.
 
 ```{r, fig.width = 4, fig.height = 2.5, warning = F, message = F}
 library(tidybayes)
 
 post %>% 
   ggplot(aes(x = b_Intercept, y = 0)) +
-  geom_halfeyeh(point_interval = mode_hdi,
-                .width = c(.95, .5)) +
+  geom_halfeyeh(point_interval = mode_hdi, .width = c(.95, .5)) +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(title = "Theta",
-       x = expression(theta)) +
+       x     = expression(theta)) +
   theme(panel.grid = element_blank())
 ```
 
-`geom_halfeyeh()` yields a density with a measure of the posterior’s central tendency in a dot and one or multiple interval bands as horizontal lines at the base of the density. Since we used the `point_interval = mode_hdi` argument, we asked for the mode to be our measure of central tendency and the highest posterior density intervals to be our intervals. With `.prob = c(.95, .5)`, we requested our HDIs be at both the 95% and 50% levels.
+`tidybayes::geom_halfeyeh()` yields a density with a measure of the posterior’s central tendency in a dot and one or multiple interval bands as horizontal lines at the base of the density. Since we used the `point_interval = mode_hdi` argument, we asked for the mode to be our measure of central tendency and the highest posterior density intervals to be our intervals. With `.width = c(.95, .5)`, we requested our HDIs be at both the 95% and 50% levels.
 
 To be more congruent with Kruschke’s plotting sensibilities, we can combine `geom_histogram()` with `stat_pointintervalh()`. 
 
@@ -257,25 +256,25 @@ post %>%
                      labels = my_breaks$labels) +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(title = "Theta",
-       x = expression(theta)) +
+       x     = expression(theta)) +
   theme(panel.grid = element_blank())
 ```
 
-With the `point_interval` argument within `tidybayes::stat_pointintervalh()`, we can request different combinations of measures of central tendency (i.e., mean, median, mode) and interval types (i.e., percentile-based and HDIs). Although all of these are legitimate ways to summarize a posterior, they can yield somewhat different results. For example, here we’ll contrast our mode + HDI summary with a median + percentile-based interval summary.
+With the `point_interval` argument within the `tidybayes::stat_pointintervalh()` function, we can request different combinations of measures of central tendency (i.e., mean, median, mode) and interval types (i.e., percentile-based and HDIs). Although all of these are legitimate ways to summarize a posterior, they can yield somewhat different results. For example, here we’ll contrast our mode + HDI summary with a median + percentile-based interval summary.
 
 ```{r, fig.width = 4, fig.height = 1.5}
 post %>% 
   ggplot(aes(x = b_Intercept)) +
   stat_pointintervalh(aes(y = 1), point_interval = median_qi, .width = c(.95, .5)) +
-  stat_pointintervalh(aes(y = 2), point_interval = mode_hdi, .width = c(.95, .5)) +
+  stat_pointintervalh(aes(y = 2), point_interval = mode_hdi,  .width = c(.95, .5)) +
   scale_y_continuous(NULL, breaks = 1:2,
                      labels = c("median_qi", "mode_hdi")) +
   coord_cartesian(ylim = 0:3) +
   labs(title = "Theta",
-       x = expression(theta)) +
-  theme(panel.grid = element_blank(),
+       x     = expression(theta)) +
+  theme(panel.grid   = element_blank(),
         axis.ticks.y = element_blank(),
-        axis.text.y = element_text(hjust = 0))
+        axis.text.y  = element_text(hjust = 0))
 ```
 
 Similar, yet distinct.
@@ -312,8 +311,8 @@ Here we fit the model with `brm()`.
 fit2 <-
   brm(data = z6N8z2N7, family = bernoulli("identity"),
       y ~ 0 + s,
-      prior = c(set_prior("beta(2, 2)", class = "b", coef = "sReginald"),
-                set_prior("beta(2, 2)", class = "b", coef = "sTony")),
+      prior = c(prior(beta(2, 2), class = b, coef = sReginald),
+                prior(beta(2, 2), class = b, coef = sTony)),
       cores = 4, chains = 4,
       # This isn't always necessary, but it will let us use `prior_samples()` later
       sample_prior = T,
@@ -343,7 +342,7 @@ pairs(fit2,
       off_diag_args = list(size = 1/3, alpha = 1/3))
 ```
 
-But to get at that difference score distribution, we’ll have extract the posterior iterations with `posterior_samples()`, make difference score with `mutate()`, and manually plot with ggplot2.
+But to get at that difference-score distribution, we’ll have extract the posterior iterations with `posterior_samples()`, make difference score with `mutate()`, and manually plot with ggplot2.
 
 ```{r}
 post <- posterior_samples(fit2)
@@ -351,10 +350,10 @@ post <- posterior_samples(fit2)
 post <-
   post %>% 
   rename(theta_Reginald = b_sReginald,
-         theta_Tony = b_sTony) %>% 
+         theta_Tony     = b_sTony) %>% 
   mutate(`theta_Reginald - theta_Tony` = theta_Reginald - theta_Tony)
 
-head(post)
+glimpse(post)
 ```
 
 ```{r, fig.width = 10, fig.height = 3, message = F}
@@ -410,11 +409,11 @@ z6N8z2N7 %>%
   group_by(s) %>% 
   summarise(z = sum(y),
             N = n()) %>% 
-  mutate(`z/N` = z/N)
+  mutate(`z/N` = z / N)
 
 d_line <-
   tibble(value = c(.75, .286, .75 - .286),
-         key = c("theta_Reginald", "theta_Tony", "theta_Reginald - theta_Tony"))
+         key   = c("theta_Reginald", "theta_Tony", "theta_Reginald - theta_Tony"))
 ```
 
 Behold the histograms of Figure 8.7.
@@ -422,7 +421,7 @@ Behold the histograms of Figure 8.7.
 ```{r, fig.width = 10, fig.height = 3, message = F}
 prior %>% 
   rename(theta_Reginald = b_sReginald,
-         theta_Tony = b_sTony) %>% 
+         theta_Tony     = b_sTony) %>% 
   mutate(`theta_Reginald - theta_Tony` = theta_Reginald - theta_Tony) %>% 
   gather() %>% 
   mutate(key = factor(key, levels = c("theta_Reginald", "theta_Tony", "theta_Reginald - theta_Tony"))) %>%
@@ -445,7 +444,7 @@ Here's how to make the scatter plot.
 ```{r, fig.width = 3.5, fig.height = 3}
 prior %>% 
   rename(theta_Reginald = b_sReginald,
-         theta_Tony = b_sTony) %>% 
+         theta_Tony     = b_sTony) %>% 
   
   ggplot(aes(x = theta_Reginald, y = theta_Tony)) +
   geom_point(alpha = 1/4, color = "grey50") +
@@ -457,7 +456,7 @@ Or you could always use a two-dimensional density plot with `stat_density_2d()`.
 ```{r, fig.width = 3.5, fig.height = 3}
 prior %>% 
   rename(theta_Reginald = b_sReginald,
-         theta_Tony = b_sTony) %>% 
+         theta_Tony     = b_sTony) %>% 
   
   ggplot(aes(x = theta_Reginald, y = theta_Tony)) +
   stat_density_2d(aes(fill = stat(density)), 
@@ -465,7 +464,7 @@ prior %>%
   scale_fill_viridis_c(option = "B") +
   labs(x = expression(theta[1]),
        y = expression(theta[2])) +
-  theme(panel.grid = element_blank(),
+  theme(panel.grid      = element_blank(),
         legend.position = "none")
 ```
 
@@ -481,8 +480,8 @@ We don't need to open another package to sample in parallel in brms. In fact, we
 fit2 <-
   brm(data = z6N8z2N7, family = binomial("identity"),
       y ~ 0 + s,
-      prior = c(set_prior("beta(2, 2)", class = "b", coef = "sReginald"),
-                set_prior("beta(2, 2)", class = "b", coef = "sTony")),
+      prior = c(prior(beta(2, 2), class = b, coef = sReginald),
+                prior(beta(2, 2), class = b, coef = sTony)),
       cores = 4, chains = 4,
       sample_prior = T,
       control = list(adapt_delta = .99))
@@ -494,7 +493,7 @@ See the `cores = 4, chains = 4` arguments? With that bit of code, we told `brms:
 
 I'm in complete agreement with Kruschke, here: 
 
-> Often, the process of programming a model is done is stages, starting with a simple model and then incrementally incorporating complexifications. At each step, the model is checked for accuracy and efficiency. This procedure of incremental building is useful for creating a desired complex model from scratch, for expanding a previously created model for a new application, and for expanding a model that has been found to be inadequate in a posterior predictive check.
+> Often, the process of programming a model is done is stages, starting with a simple model and then incrementally incorporating complexifications. At each step, the model is checked for accuracy and efficiency. This procedure of incremental building is useful for creating a desired complex model from scratch, for expanding a previously created model for a new application, and for expanding a model that has been found to be inadequate in a posterior predictive check. (p. 218)
 
 ## References {-}
 
