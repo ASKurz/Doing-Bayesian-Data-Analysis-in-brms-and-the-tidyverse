@@ -73,7 +73,7 @@ beta  <- 2
 
 That is, the mode of $\text{Beta} (2, 2) = .5$. 
 
-We won’t be able to make the wireframe plots on the left of Figure 9.2, but we make the others. W'll make the intial data following Kruschke's (p. 226) formulas
+We won’t be able to make the wireframe plots on the left of Figure 9.2, but we can make the others. We'll make the initial data following Kruschke's (p. 226) formulas
 
 $$p(\theta, \omega) = p(\theta | \omega) p(\omega) = \text{Beta} (\theta | \omega (100 - 2) + 1, (1 - \omega) (100 - 2) + 1) \text{Beta} (\omega | 2, 2)$$
 
@@ -97,7 +97,7 @@ parameter_space <- seq(from = 0, to = 1, by = .01)
 kappa <- 100
 ```
 
-Our `make_prior()` function had five variables. We've saved the values of three of them into working memory (i.e., `alpha`, `beta`, and `kappa`). Now we'll use `parameter_space` to define the ranges for the final two variables, `theta` and `omega`, which we'll save in a tibble. We'll then feed the `theta` and `omega` values into our function via `map2()`, which will return a nested tibble. Once we `unnest()` the tibble, we'll be ready to plot the top middle panel of Figure 9.2.
+Our `make_prior()` function had five variables. We've saved the values of three of them into working memory (i.e., `alpha`, `beta`, and `kappa`). Now we'll use `parameter_space` to define the ranges for the final two variables, `theta` and `omega`, which we'll save in a tibble. We'll then feed the `theta` and `omega` values into our function via `purrr::map2()`, which will return a nested tibble. Once we `unnest()` the tibble, we'll be ready to plot the top middle panel of Figure 9.2.
 
 ```{r, fig.width = 3.5, fig.height = 3}
 d <-
@@ -107,7 +107,7 @@ d <-
   mutate(prior = map2(theta, omega, make_prior)) %>% 
   unnest() %>% 
   # here we normalize (i.e., translate the prior from the density metric to the probability metric)
-  mutate(prior = prior/sum(prior))
+  mutate(prior = prior / sum(prior))
 
 d %>% 
   ggplot(aes(x = theta, y = omega, fill = prior)) +
@@ -211,8 +211,8 @@ We need the Bernoulli likelihood function for the lower three rows of Figure 9.2
 Bernoulli_likelihood <- function(theta, data) {
   # theta = success probability parameter ranging from 0 to 1
   # data = the vector of data (i.e., a series of 0s and 1s)
-  N   <- length(data)
-  z   <- sum(data)
+  N <- length(data)
+  z <- sum(data)
   return(theta^z * (1 - theta)^(N - sum(data)))
   }
 ```
@@ -291,7 +291,7 @@ d %>%
   theme(panel.grid = element_blank())
 ```
 
-And like above, we'll `filter()` and wrangle to make the short plots in the lower right panel of Figure 9.2
+And like above, we'll `filter()` and wrangle to make the short plots in the lower right panel of Figure 9.2.
 
 ```{r, fig.width = 3.5, fig.height = 3}
 d %>% 
@@ -478,7 +478,7 @@ d %>%
 
 ## Multiple coins from a single mint
 
-Kruschke provided our motivation on page 230: "What if we collect data from more than one coin created by the mint? If each coin has its own distinct bias $\theta$s, then we are estimating a distinct parameter value for each coin, and using all the data to estimate $\omega$"
+Kruschke provided our motivation on page 230: "What if we collect data from more than one coin created by the mint? If each coin has its own distinct bias $\theta$s, then we are estimating a distinct parameter value for each coin, and using all the data to estimate $\omega$."
 
 ### Posterior via grid approximation.
 
@@ -852,7 +852,7 @@ tibble(x = seq(from = 0, to = 200, length.out = length) %>%
   mutate(shape = rep(c(.01, 1.56, 1, 6.25), each = length),
          rate = rep(c(.01, .0312, .02, .125), each = length)) %>% 
   mutate(mean = shape * 1/rate,
-         sd = sqrt(shape * (1/rate)^2)) %>% 
+         sd = sqrt(shape * (1 / rate)^2)) %>% 
   mutate(label = str_c("shape = ", shape, ", rate = ", rate, 
                        "\nmean = ", mean, ", sd = ", sd)) %>% 
   
@@ -882,15 +882,15 @@ With those in hand, we can follow Kruschke's "DBDA2E-utilities.R" file to make a
 gamma_s_and_r_from_mean_sd <- function(mean, sd) {
   if (mean <= 0) stop("mean must be > 0")
   if (sd   <= 0) stop("sd must be > 0")
-  shape <- mean^2/sd^2
-  rate  <- mean/sd^2
+  shape <- mean^2 / sd^2
+  rate  <- mean   / sd^2
   return(list(shape = shape, rate = rate))
 }
 
 gamma_s_and_r_from_mode_sd <- function(mode, sd) {
   if (mode <= 0) stop("mode must be > 0")
   if (sd   <= 0) stop("sd must be > 0")
-  rate  <- (mode + sqrt(mode^2 + 4 * sd^2))/(2 * sd^2)
+  rate  <- (mode + sqrt(mode^2 + 4 * sd^2)) / (2 * sd^2)
   shape <- 1 + mode * rate
   return(list(shape = shape, rate = rate))
 }
@@ -977,8 +977,8 @@ fit1 <-
   brm(data = my_data,
       family = bernoulli(link = "logit"),
       y ~ 1 + (1 | s),
-      prior = c(set_prior("normal(0, 1.5)", class = "Intercept"),
-                set_prior("normal(0, 1)", class = "sd")),
+      prior = c(prior(normal(0, 1.5), class = Intercept),
+                prior(normal(0, 1), class = sd)),
       iter = 20000, warmup = 1000, thin = 10, chains = 4, cores = 4)
 ```
 
@@ -986,7 +986,7 @@ As it turns out, the $N(0, 1.5)$ prior is flat in the probability space for the 
 
 Here are the trace plots and posterior densities of the main parameters.
 
-```{r, fig.width = 10, fig.height = 2.5}
+```{r, fig.width = 8, fig.height = 2.5}
 plot(fit1)
 ```
 
@@ -1028,7 +1028,7 @@ print(fit1)
 
 We'll need `brms::inv_logit_scaled()` to convert the model parameters to predict $\theta$ rather than $logit(\theta)$. After the conversions, we'll be ready to make the histograms in the lower portion of Figure 9.10.
 
-```{r, fig.width = 8, fig.height = 4}
+```{r, fig.width = 8, fig.height = 4, warning = F, message = F}
 library(tidybayes)
 
 post_small <-
@@ -1128,7 +1128,7 @@ post %>%
   xlab(expression(theta))
 ```
 
-I'm not aware there's a straight conversion to get $\sigma$ in a probability metric. As far as I can tell, you have to first use `coef()` to "extract [the] model coefficients, which are the sum of population-level effects and corresponding group-level effects" (p. 38 of the [user's guide for brms](https://cran.r-project.org/web/packages/brms/brms.pdf) version 2.3.1). With the model coefficient draws in hand, you can index them by posterior iteration, group them by that index, compute the iteration-level $SD$s, and then plot the distribution of the $SD$s.
+I'm not aware there's a straight conversion to get $\sigma$ in a probability metric. As far as I can tell, you have to first use `coef()` to "extract [the] model coefficients, which are the sum of population-level effects and corresponding group-level effects" (p. 39 of the [user's guide for brms](https://cran.r-project.org/web/packages/brms/brms.pdf) version 2.5.0). With the model coefficient draws in hand, you can index them by posterior iteration, group them by that index, compute the iteration-level $SD$s, and then plot the distribution of the $SD$s.
 
 ```{r, fig.width = 3.25, fig.height = 2.5}
 # the tibble of the primary data
@@ -1302,9 +1302,9 @@ grid.arrange(p1, p2, p3, ncol = 3)
 
 ## Shrinkage in hierarchical models
 
-Recall formula 9.4 from page 224.
+Recall formula 9.4 from page 223.
 
-$$\theta ~ \text{dbeta}(\omega(\kappa - 2) + 1), (1 - \omega)(\kappa - 2) + 1)$$
+$$\theta \sim \text{dbeta}(\omega(\kappa - 2) + 1), (1 - \omega)(\kappa - 2) + 1)$$
 
 With that formula, we can express `dbeta()`'s `shape1` and `shape2` in terms of $\omega$ and $\kappa$ and make the shapes in Figure 9.12.
 
@@ -1315,11 +1315,11 @@ kappa2 <- 15.8
 
 tibble(x = seq(from = 0, to = 1, by = .001)) %>%
   mutate(`kappa = 2.1` = dbeta(x = x, 
-                               shape1 = omega*(kappa1 - 2) + 1, 
-                               shape2 = (1 - omega)*(kappa1 - 2) + 1),
+                               shape1 = omega * (kappa1 - 2) + 1, 
+                               shape2 = (1 - omega) * (kappa1 - 2) + 1),
          `kappa = 15.8` = dbeta(x = x, 
-                                shape1 = omega*(kappa2 - 2) + 1, 
-                                shape2 = (1 - omega)*(kappa2 - 2) + 1)) %>% 
+                                shape1 = omega * (kappa2 - 2) + 1, 
+                                shape2 = (1 - omega) * (kappa2 - 2) + 1)) %>% 
   gather(key, value, - x) %>% 
   mutate(key = factor(key, levels = c("kappa = 2.1", "kappa = 15.8"))) %>% 
   
@@ -1342,8 +1342,8 @@ start_time_bernoulli <- proc.time()
 brm(data = my_data,
       family = bernoulli(link = "logit"),
       y ~ 1 + (1 | s),
-      prior = c(set_prior("normal(0, 1.5)", class = "Intercept"),
-                set_prior("normal(0, 1)", class = "sd")),
+      prior = c(prior(normal(0, 1.5), class = Intercept),
+                prior(normal(0, 1), class = sd)),
       iter = 20000, warmup = 1000, thin = 10, chains = 4, cores = 4)
 stop_time_bernoulli <- proc.time()
 
@@ -1352,8 +1352,8 @@ start_time_binomial <- proc.time()
 brm(data = my_data,
       family = bernoulli(link = "logit"),
       y ~ 1 + (1 | s),
-      prior = c(set_prior("normal(0, 1.5)", class = "Intercept"),
-                set_prior("normal(0, 1)", class = "sd")),
+      prior = c(prior(normal(0, 1.5), class = Intercept),
+                prior(normal(0, 1), class = sd)),
       iter = 20000, warmup = 1000, thin = 10, chains = 4, cores = 4)
 stop_time_binomial <- proc.time()
 ```
@@ -1386,7 +1386,7 @@ And here are the number of occasions by primary position, `PriPos`, with their m
 ```{r}
 ba %>% 
   group_by(PriPos) %>% 
-  summarise(n = n(),
+  summarise(n      = n(),
             median = median(AtBats)) %>% 
   arrange(desc(n))
 ```
@@ -1400,8 +1400,8 @@ fit2 <-
   brm(data = ba,
       family = binomial(link = "logit"),
       Hits  | trials(AtBats) ~ 1 + (1 | PriPos) + (1 | PriPos:Player),
-      prior = c(set_prior("normal(0, 1.5)", class = "Intercept"),
-                set_prior("normal(0, 1)", class = "sd")),
+      prior = c(prior(normal(0, 1.5), class = Intercept),
+                prior(normal(0, 1), class = sd)),
       iter = 3500, warmup = 500, chains = 3, cores = 3,
       control = list(adapt_delta = .99))
 ```
@@ -1449,16 +1449,17 @@ post <-
 head(post)
 ```
 
-In the text, Kruschke described the model as having 967 parameters. Our `post` tibble has one vector for each, with a couple others tacked onto the end. In the hierarchical logistic regression model, the group-specific parameters for the levels of `PriPos` are additive combinations of the global intercept vector, `b_Intercept` and each position-specific vector, `r_PriPos[i.Base,Intercept]`, where `i` is a fill-in for the position of interest. And recall that since the linear model is of the logit of the criterion, we’ll need to use `inv_logit_scaled()` to convert that to the probability space.
+In the text, Kruschke described the model as having 968 parameters. Our `post` tibble has one vector for each, with a couple others tacked onto the end. In the hierarchical logistic regression model, the group-specific parameters for the levels of `PriPos` are additive combinations of the global intercept vector, `b_Intercept` and each position-specific vector, `r_PriPos[i.Base,Intercept]`, where `i` is a fill-in for the position of interest. And recall that since the linear model is of the logit of the criterion, we’ll need to use `inv_logit_scaled()` to convert that to the probability space.
 
 ```{r}
 post_small <-
   post %>% 
-  transmute(`1st Base` = (b_Intercept + `r_PriPos[1st.Base,Intercept]`) %>% inv_logit_scaled(), 
-            Catcher    = (b_Intercept + `r_PriPos[Catcher,Intercept]`)  %>% inv_logit_scaled(), 
-            Pitcher    = (b_Intercept + `r_PriPos[Pitcher,Intercept]`)  %>% inv_logit_scaled()) %>% 
+  transmute(`1st Base` = (b_Intercept + `r_PriPos[1st.Base,Intercept]`), 
+            Catcher    = (b_Intercept + `r_PriPos[Catcher,Intercept]`), 
+            Pitcher    = (b_Intercept + `r_PriPos[Pitcher,Intercept]`)) %>% 
+  mutate_all(inv_logit_scaled) %>% 
   # here we compute our difference distributions
-  mutate(`Pitcher - Catcher` = Pitcher - Catcher,
+  mutate(`Pitcher - Catcher`  = Pitcher - Catcher,
          `Catcher - 1st Base` = Catcher - `1st Base`)
 
 head(post_small)
@@ -1475,7 +1476,7 @@ make_histogram <- function(data, mapping, title, xlim, ...){
                       point_interval = mode_hdi, .width = .95) +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(title = title,
-       x = expression(theta)) +
+       x     = expression(theta)) +
   coord_cartesian(xlim = xlim) +
   theme(legend.position = "none")
 }
@@ -1526,7 +1527,7 @@ grid.arrange(p1, p2, p3, p4, ncol = 2)
 
 We could follow the same procedure to make the right portion of Figure 9.14. But instead, let’s switch gears and explore the second way brms affords us for plotting group-level parameters. This time, we’ll use `coef()`.
 
-Up in section 9.2.4, we learned that we can use `coef()` to "extract [the] model coefficients, which are the sum of population-level effects and corresponding group-level effects" (p. 38 of the [user's guide for brms](https://cran.r-project.org/web/packages/brms/brms.pdf) version 2.3.1). The grouping level we’re interested in is ` PriPos`, so we’ll use that to index the information returned by `coef()`. Since `coef()` returns a matrix, we'll use `as_tibble()` to convert it to a tibble.
+Up in section 9.2.4, we learned that we can use `coef()` to "extract [the] model coefficients, which are the sum of population-level effects and corresponding group-level effects" (p. 39 of the [user's guide for brms](https://cran.r-project.org/web/packages/brms/brms.pdf) version 2.5.0). The grouping level we’re interested in is ` PriPos`, so we’ll use that to index the information returned by `coef()`. Since `coef()` returns a matrix, we'll use `as_tibble()` to convert it to a tibble.
 
 ```{r}
 coef_primary_position <-
@@ -1542,11 +1543,12 @@ Keep in mind that `coef()` returns the values in the logit scale when used for l
 coef_small <-
   coef_primary_position %>% 
   select(`1st Base.Intercept`, Catcher.Intercept, Pitcher.Intercept) %>% 
-  transmute(`1st Base` = `1st Base.Intercept` %>% inv_logit_scaled(), 
-            Catcher = Catcher.Intercept %>% inv_logit_scaled(), 
-            Pitcher = Pitcher.Intercept %>% inv_logit_scaled()) %>% 
+  transmute(`1st Base` = `1st Base.Intercept`, 
+            Catcher    = Catcher.Intercept, 
+            Pitcher    = Pitcher.Intercept) %>% 
+  mutate_all(inv_logit_scaled) %>% 
   # here we make the difference distributions
-  mutate(`Pitcher - Catcher` = Pitcher - Catcher,
+  mutate(`Pitcher - Catcher`  = Pitcher - Catcher,
          `Catcher - 1st Base` = Catcher - `1st Base`)
 
 head(coef_small)
@@ -1601,7 +1603,7 @@ post_small %>%
   mutate_if(is.double, round, digits = 3)
 ```
 
-For Figures 9.15 and 9.16, Kruschke drilled down further into the posterior. To drill along with him, we'll take the oportunity to showcase `fitted()`, the third way brms affords us for plotting group-level parameters.
+For Figures 9.15 and 9.16, Kruschke drilled down further into the posterior. To drill along with him, we'll take the opportunity to showcase `fitted()`, the third way brms affords us for plotting group-level parameters.
 
 ```{r, fig.width = 3.5, fig.height = 2.5}
 # this will make life easier. just go with it
@@ -1623,19 +1625,21 @@ fitted_players <-
        scale = "linear",
        summary = F) %>% 
   as_tibble() %>% 
-  # with one function, we rename the values as returned by `as_tibble()` and convert the values from the logit scale to the probability scale
-  transmute(`Kyle Blanks`      = V1 %>% inv_logit_scaled(), 
-            `Bruce Chen`       = V2 %>% inv_logit_scaled(), 
-            `ShinSoo Choo`     = V3 %>% inv_logit_scaled(),
-            `Ichiro Suzuki`    = V4 %>% inv_logit_scaled(),
-            `Mike Leake`       = V5 %>% inv_logit_scaled(),
-            `Wandy Rodriguez`  = V6 %>% inv_logit_scaled(),
-            `Andrew McCutchen` = V7 %>% inv_logit_scaled(),
-            `Brett Jackson`    = V8 %>% inv_logit_scaled()) %>% 
+  # rename the values as returned by `as_tibble()`
+  transmute(`Kyle Blanks`      = V1, 
+            `Bruce Chen`       = V2, 
+            `ShinSoo Choo`     = V3,
+            `Ichiro Suzuki`    = V4,
+            `Mike Leake`       = V5,
+            `Wandy Rodriguez`  = V6,
+            `Andrew McCutchen` = V7,
+            `Brett Jackson`    = V8) %>% 
+  # convert the values from the logit scale to the probability scale
+  mutate_all(inv_logit_scaled) %>% 
   # in this last section, we make our difference distributions 
-  mutate(`Kyle Blanks - Bruce Chen`         = `Kyle Blanks` - `Bruce Chen`,
-         `ShinSoo Choo - Ichiro Suzuki`     = `ShinSoo Choo` - `Ichiro Suzuki`,
-         `Mike Leake - Wandy Rodriguez`     = `Mike Leake` - `Wandy Rodriguez`,
+  mutate(`Kyle Blanks - Bruce Chen`         = `Kyle Blanks`      - `Bruce Chen`,
+         `ShinSoo Choo - Ichiro Suzuki`     = `ShinSoo Choo`     - `Ichiro Suzuki`,
+         `Mike Leake - Wandy Rodriguez`     = `Mike Leake`       - `Wandy Rodriguez`,
          `Andrew McCutchen - Brett Jackson` = `Andrew McCutchen` - `Brett Jackson`)
     
 glimpse(fitted_players)
