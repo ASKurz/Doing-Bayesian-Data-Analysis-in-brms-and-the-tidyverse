@@ -215,8 +215,8 @@ We need the Bernoulli likelihood function for the next step.
 Bernoulli_likelihood <- function(theta, data) {
   # theta = success probability parameter ranging from 0 to 1
   # data = the vector of data (i.e., a series of 0s and 1s)
-  N   <- length(data)
-  z   <- sum(data)
+  N <- length(data)
+  z <- sum(data)
   return(theta^z * (1 - theta)^(N - sum(data)))
   }
 ```
@@ -388,7 +388,7 @@ fit1 <-
       stanvars = stanvars,
       control = list(adapt_delta = .999),
       # This will let us use `prior_samples()` later on
-      sample_prior = T)
+      sample_prior = "only")
 ```
 
 We may as well inspect the chains.
@@ -569,15 +569,349 @@ rhat(fit1)[1]
 
 ### 10.3.3. Models with different "noise" distributions in JAGS.
 
+Kruschke tells us
+
+> probability distribution[s are] sometimes [called “noise”] distribution[s] because [the describe] the random variability of the data values around the underlying trend. In more general applications, different models can have different noise distributions. For example, one model might describe the data as log-normal distributed, while another model might describe the data as gamma distributed. (p. 288)
+
+If there are more than one plausible noise distributions for our data, we might want to compare the models. As Kruschke put it, we might want to examine $p_1 (D | \theta_1, m_1) \text{ versus } p_2 (D | \theta_2, m_2)$. Kruschke then gave us a general trick in the form of this JAGS code:
+
+```{r, eval = F}
+data {
+  C <- 10000 # JAGS does not warn if too small!
+  for (i in 1:N) {
+    ones[i] <- 1 }
+} model {
+  for (i in 1:N) {
+    spy1[i] <- pdf1(y[i], parameters1) / C # where pdf1 is a formula
+    spy2[i] <- pdf2(y[i], parameters2) / C # where pdf2 is a formula
+    spy[i]  <- equals(m,1) * spy1[i] + equals(m, 2) * spy2[i]
+    ones[i] ~ dbern(spy[i])
+  }
+  parameters1 ~ dprior1...
+  parameters2 ~ dprior2...
+  m ~ dcat(mPriorProb[])
+  mPriorProb[1] <- .5
+  mPriorProb[2] <- .5
+}
+```
+
+I'm not aware that we can do this within the brms framework. If I'm in error and you know how, [please share your code](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues). However, we do have options. Consider Gaussian-like data with thick tails. We might generate some like this:
+
+```{r}
+# how many draws would you like?
+n <- 1e3
+
+set.seed(10.33)
+(d <- tibble(y = rt(n, df = 7)))
+```
+
+They look like this.
+
+```{r, fig.width = 3.5, fig.height = 2.5}
+d %>% 
+  ggplot(aes(x = y)) +
+  geom_histogram(color = "grey92", fill = "grey67",
+                 size = .2, bins = 30) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  theme(panel.grid = element_blank())
+```
+
+
+```{r}
+fit3 <-
+  brm(data = d,
+      family = gaussian,
+      y ~ 1,
+      prior = c(prior(normal(0, 10), class = Intercept),
+                prior(normal(0, 10), class = sigma)),  # by default, this has a lower bound of 0
+      chains = 4, cores = 4)  
+
+fit4 <-
+  brm(data = d,
+      family = student,
+      y ~ 1,
+      prior = c(prior(normal(0, 10), class = Intercept),
+                prior(normal(0, 10), class = sigma),
+                prior(gamma(2, 0.1), class = nu)),  # this is the brms default prior for nu
+      chains = 4, cores = 4) 
+```
+
+```{r}
+posterior_summary(fit3) %>% round(digits = 2)
+posterior_summary(fit4) %>% round(digits = 2)
+```
+
+We can compare them using information criteria.
+
+```{r}
+l_fit3 <- loo(fit3)
+l_fit4 <- loo(fit4)
+
+compare_ic(l_fit3, l_fit4)
+```
+
+We can compare them using model weights. Here we'll use the default weighting scheme.
+
+```{r, warning = F, message = F}
+model_weights(fit3, fit4)
+```
+
+In this, virtually all the weight was placed on the Student's-$t$ model, `fit4`.
+
+```{r, fig.width = 3.5, fig.height = 2.5}
+posterior_samples(fit4) %>% 
+  ggplot(aes(x = nu)) +
+  geom_histogram(color = "grey92", fill = "grey67",
+                 size = .2, bins = 30) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  labs(subtitle = expression(paste("Recall that for the Gaussian, ", nu, " = infinity.")),
+       x = expression(nu)) +
+  theme(panel.grid = element_blank())
+```
+
 ## 10.4. Prediction: Model averaging
+
+> In many applications of model comparison, the analyst wants to identify the best model and then base predictions of future data on that single best model, denoted with index $b$. In this case, predictions of future $\hat{y}$ are based exclusively on the likelihood function $p_b(\hat{y} | \theta_b, m = b)$ and the posterior distribution $p_b(\theta_b | D, m = b)$ of the winning model:
+
+$$p_b(\hat y | D, m = b) = \int \text d \theta_b p_b (\hat{y} | \theta_b, m = b) p_b(\theta_b | D, m = b)$$
+
+> But the full model of the data is actually the complete hierarchical structure that spans all the models being compared, as indicated in Figure 10.1 (p. 267). Therefore, if the hierarchical structure really expresses our prior beliefs, then the most complete prediction of future data takes into account all the models, weighted by their posterior credibilities. In other words, we take a weighted average across the models, with the weights being the posterior probabilities of the models. Instead of conditionalizing on the winning model, we have
+
+$$
+\begin{eqnarray}
+p (\hat y | D) & = & \sum_m p (\hat y | D, m) p (m | D) \\
+
+& = & \sum_m \int \text d \theta_m p_m (\hat{y} | \theta_m, m) p_m(\theta_m | D, m) p (m | D)
+\end{eqnarray}
+$$
+
+> This is called model averaging.
+
+> ...Recall that there were two models of mints that created the coin, with one mint being tail-biased with mode $\omega = 0.25$ and one mint being head-biased with mode $\omega = 0.75$ The two subpanels in the lower-right illustrate the posterior distributions on $\omega$ within each model, $p(\theta | D, \omega = 0.25)$ and $p(\theta | D, \omega = 0.75)$ The winning model was $\omega = 0.75$, and therefore the predicted value of future data, based on the winning model alone, would use $p(\theta | D, \omega = 0.75)$. (p. 289)
+
+That is, the posterior for `fit1`. 
+
+```{r, fig.width = 3.5, fig.height = 3}
+posterior_samples(fit1) %>% 
+  ggplot(aes(x = b_Intercept)) +
+  geom_histogram(color = "grey92", fill = "grey67",
+                 size = .2, bins = 30) +
+  stat_pointintervalh(aes(y = 0), 
+                      point_interval = mode_hdi, .width = c(.95, .5)) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  labs(subtitle = "The posterior for the probability, given fit1",
+       x = expression(paste(italic(p), "(", theta, "|", italic(D), ", ", omega, " = .75)"))) +
+  coord_cartesian(xlim = 0:1) +
+  theme(panel.grid = element_blank())
+```
+
+> But the overall model included $\omega = 0.75$, and if we use the overall model, then the predicted value of future data should be based on the complete posterior summed across values of $\omega$. The complete posterior distribution [is] $p(\theta | D)$ (p. 289).
+
+We'll use `pp_average()` to show that. 
+
+```{r, fig.width = 3.5, fig.height = 3}
+nd <- tibble(y = 1)
+
+pp_average(fit1, fit2, 
+           newdata = nd,
+           method = "fitted",
+           summary = F) %>% 
+  as_tibble() %>% 
+  ggplot(aes(x = V1)) +
+  geom_histogram(color = "grey92", fill = "grey67",
+                 size = .2, bins = 30) +
+  stat_pointintervalh(aes(y = 0), 
+                      point_interval = mode_hdi, .width = c(.95, .5)) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  labs(subtitle = "The posterior for the probability, given the\nweighted combination of fit1 and fit2",
+       x = expression(paste(italic(p), "(", theta, "|", italic(D), ")"))) +
+  coord_cartesian(xlim = 0:1) +
+  theme(panel.grid = element_blank())
+```
+
+As Kruschke concluded, "you can see the contribution of $p(\theta | D, \omega = 0.25)$ as the extended leftward tail" (p. 289).
 
 ## 10.5. Model complexity naturally accounted for
 
-### 10.5.1. Caveats regarding nested model comparison.
+> Bayesian model comparison compensates for model complexity by the fact that each model must have a prior distribution over its parameters, and more complex models must dilute their prior distributions over larger parameter spaces than simpler models. Thus, even if a complex model has some particular combination of parameter values that fit the data well, the prior probability of that particular combination must be small because the prior is spread thinly over the broad parameter space. (p. 290)
 
+Our two models are
+
+* $p(\theta | D, \kappa = 2000)$ (i.e., the "must-be-fair" model) and
+* $p(\theta | D, \kappa = 2)$ (i.e., the "anything's-possible" model).
+
+They look like this.
+
+```{r, fig.width = 7, fig.height = 3}
+# how granular to you want the theta sequence?
+n <- 1e3
+
+tibble(theta = seq(from = 0, to = 1, length.out = n) %>% rep(., times = 2),
+       omega = .5,
+       kappa = rep(c(1000, 2), each = n),
+       model = rep(c("The must-be-fair model", "The anything's-possible model"), each = n)) %>% 
+  mutate(density = dbeta(theta, 
+                         shape1 =      omega  * (kappa - 2) + 1, 
+                         shape2 = (1 - omega) * (kappa - 2) + 1)) %>% 
+  
+  ggplot(aes(x = theta, ymin = 0, ymax = density)) +
+  geom_ribbon(fill = "grey67") + 
+  scale_y_continuous(NULL, breaks = NULL) +
+  labs(subtitle = "Note that in this case, their y-axes are on the same scale.",
+       x     = expression(theta)) +
+  theme(panel.grid = element_blank()) +
+  facet_wrap(~model)
+```
+
+```{r}
+# the data summaries
+z <- 15
+N <- 20
+
+p_d(z, N, a = 500, b = 500) / p_d(z, N, a = 1, b = 1)
+```
+
+If you're confused about where those `a` and `b` values came from, you can do the math like this.
+
+```{r}
+tibble(omega = .5,
+       kappa = c(1000, 2),
+       model = c("The must-be-fair model", "The anything's-possible model")) %>% 
+  mutate(a   =      omega  * (kappa - 2) + 1,
+         b   = (1 - omega) * (kappa - 2) + 1)
+```
+
+Let's try again with different data.
+
+```{r}
+# the data summaries
+z <- 11
+N <- 20
+
+p_d(z, N, a = 500, b = 500) / p_d(z, N, a = 1, b = 1)
+```
+
+> The anything’s-possible model loses because it pays the price of having a small prior probability on the values of $\theta$ near the data proportion, while the must-be- fair model has large prior probability on $\theta$ values sufficiently near the data proportion to be credible. Thus, in Bayesian model comparison, a simpler model can win if the data are consistent with it, even if the complex model fits just as well. The complex model pays the price of having small prior probability on parameter values that describe simple data. (p. 291)
 ## 10.6. Extreme sensitivity to prior distribution
 
+### 10.5.1. Caveats regarding nested model comparison.
+
+## 10.6. Extreme sensitivity to the prior distribution
+
+> In many realistic applications of Bayesian model comparison, the theoretical emphasis is on the difference between the models’ likelihood functions. For example, one theory predicts planetary motions based on elliptical orbits around the sun, and another theory predicts planetary motions based on circular cycles and epicycles around the earth. The two models involve very different parameters. In these sorts of models, the form of the prior distribution on the parameters is not a focus, and is often an afterthought. But, when doing Bayesian model comparison, the form of the prior is crucial because the Bayes factor integrates the likelihood function weighted by the prior distribution. (p. 292)
+
+However, "the sensitivity of Bayes factors to prior distributions is well known in the literature (e.g., [Kass & Raftery, 1995](https://www.stat.washington.edu/raftery/Research/PDF/kass1995.pdf); [Liu & Aitkin, 2008](http://psycnet.apa.org/record/2008-17435-006); [Vanpaemel, 2010](https://ppw.kuleuven.be/okp/_pdf/Vanpaemel2010PSITT.pdf))," and furthermore, when comparing Bayesian models using the methods Kruschke outlined in this chapter of the text, "different forms of vague priors can yield very different Bayes factors" (p. 293). 
+
+In the two BFs to follow, we compare the must-be-fair model with similar diffuse priors. In the first case, we use the good-old uniform beta(1, 1).
+
+```{r}
+z <- 65
+N <- 100 
+
+p_d(z, N, a = 500, b = 500) / p_d(z, N, a = 1, b = 1)
+```
+
+Now we compare the must-be-fair model with the Haldane prior, which sets the two parameters within the beta distribution to be a) equivalent and b) quite small (i.e., 0.01 in this case).
+
+```{r}
+p_d(z, N, a = 500, b = 500) / p_d(z, N, a = .01, b = .01)
+```
+
+Here's how those two priors of interest compare to one another.
+
+```{r, fig.width = 7, fig.height = 3}
+# how granular to you want the theta sequence?
+n <- 1e3
+
+tibble(theta = seq(from = 0, to = 1, length.out = n) %>% rep(., times = 2),
+       alpha = rep(c(1, .01), each = n),
+       beta  = rep(c(1, .01), each = n),
+       model = rep(c("Uninformative prior, beta(1, 1)", "Haldane prior, beta(0.01, 0.01)"), each = n)) %>% 
+  mutate(model = factor(model, levels = c("Uninformative prior, beta(1, 1)", "Haldane prior, beta(0.01, 0.01)"))) %>% 
+  mutate(density = dbeta(theta, 
+                         shape1 = alpha, 
+                         shape2 = beta)) %>% 
+  
+  ggplot(aes(x = theta, ymin = 0, ymax = density)) +
+  geom_ribbon(fill = "grey67") + 
+  scale_y_continuous(NULL, breaks = NULL) +
+  labs(subtitle = "These y-axes are on the same scale.",
+       x        = expression(theta)) +
+  theme(panel.grid = element_blank()) +
+  facet_wrap(~model)
+```
+
+Before we can complete the analyses of this subsection, we'll need to define our version of Kruschke's `HDIofICDF function()`, `hdi_of_icdf`(). 
+
+```{r}
+hdi_of_icdf <- function(ICDFname, credible_mass = .95, tol = 1e-8, ... ) {
+  incredible_mass <-  1.0 - credible_mass
+  interval_width  <- function(low_tail_prob, ICDFname, credible_mass, ...) {
+    ICDFname(credible_mass + low_tail_prob, ...) - ICDFname(low_tail_prob, ...)
+  }
+  opt_info            <- optimize(interval_width, c(0, incredible_mass), 
+                                  ICDFname = ICDFname, credible_mass = credible_mass, 
+                                  tol = tol, ...)
+  hdi_lower_tail_prob <- opt_info$minimum
+  return(c(ICDFname(hdi_lower_tail_prob, ...),
+           ICDFname(credible_mass + hdi_lower_tail_prob, ...)))
+}
+```
+
+Compute the HDI for the uniform-prior-based model, beta(1, 1).
+
+```{r}
+(hdi_1 <-
+  hdi_of_icdf(ICDFname      = qbeta,
+              shape1        = 66,
+              shape2        = 36)
+ )
+```
+
+Now compute the HDI for the Haldane-prior-based model, beta(0.01, 0.01).
+
+```{r}
+(hdi_2 <-
+  hdi_of_icdf(ICDFname      = qbeta,
+              shape1        = 65.01,
+              shape2        = 36.01)
+ )
+```
+
+And for kicks and giggles, we can compare those intervals in a plot.
+
+```{r, fig.width = 3.5, fig.height = 1.5}
+tibble(prior = c("Uniform", "Haldane"),
+       ll = c(hdi_1[1], hdi_2[1]),
+       ul = c(hdi_1[2], hdi_2[2])) %>% 
+  
+  ggplot(aes(x = ll,    xend = ul,
+             y = prior, yend = prior)) +
+  geom_segment(size = .75) +
+  coord_cartesian(xlim = 0:1) +
+  labs(subtitle = "Those two HDIs are quite similar. It almost\nseems silly their respective BFs are so\ndifferent.",
+       x        = expression(theta),
+       y        = NULL) +
+  theme(panel.grid   = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.text.y  = element_text(hjust = 0))
+```
+
+
 ### 10.6.1. Priors of different models should be equally informed.
+
+"We have established that seemingly innocuous changes in the vagueness of a vague prior can dramatically change a model’s marginal likelihood, and hence its Bayes factor in comparison with other models. What can be done to ameliorate the problem" (p. 294)? Kruschke posed one method might be taking a small representative portion of the data in hand and use them to make an empirically-based prior for the remaining set of data. From our previous example, "suppose that the 10% subset has 6 heads in 10 flips, so the remaining 90% of the data has $z = 65 − 6$ and $N  = 100 − 10$" (p. 294). Here are the new Bayes Factors.
+
+```{r}
+z <- 65 - 6
+N <- 100 - 10
+
+p_d(z, N, a = 500 + 6, b = 500 + 10 - 6) / p_d(z, N, a = 1 + 6, b = 1 + 10 - 6)
+
+p_d(z, N, a = 500 + 6, b = 500 + 10 - 6) / p_d(z, N, a = .01 + 6, b = .01 + 10 - 6)
+```
+
+Now the two Bayes Factors are nearly the same.
 
 ## References {-}
 
@@ -591,5 +925,5 @@ sessionInfo()
 
 ```{r, message = F, warning = F, echo = F}
 # Here we'll remove our objects
-rm()
+rm(n_points, p_d, p_d_1, p_d_2, d, p1, p2, Bernoulli_likelihood, N, z, trial_data, omega, kappa, stanvars, fit1, theta, mean_theta, sd_theta, a_post, b_post, one_over_pd, fit2, mw, nd, pp_averaged, n, fit3, fit4, l_fit3, l_fit4, hdi_of_icdf, hdi_1, hdi_2)
 ```
