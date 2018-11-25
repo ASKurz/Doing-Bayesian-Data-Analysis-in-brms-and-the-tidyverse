@@ -29,7 +29,7 @@ set.seed(18.1)
 d <-
   tibble(x_1 = runif(n = n, 0, 10),
          x_2 = runif(n = n, 0, 10)) %>% 
-  mutate(y = rnorm(n = n, mean = 10 + x_1 + 2 * x_2))
+  mutate(y   = rnorm(n = n, mean = 10 + x_1 + 2 * x_2))
 
 head(d)  
 ```
@@ -61,7 +61,7 @@ As in previous chapters, I'm not aware that ggplot2 allows for three-dimensional
 
 For Figure 18.2, the $x$ variables look to be multivariate normal with a correlation of about -.95. We can simulate such data with help from the MASS package.
 
-Sven Hohenstein's [answer to this stats.stackexchange.com question](https://stats.stackexchange.com/questions/164471/generating-a-simulated-dataset-from-a-correlation-matrix-with-means-and-standard)
+Sven Hohenstein's [answer to this stats.stackexchange.com question](https://stats.stackexchange.com/questions/164471/generating-a-simulated-dataset-from-a-correlation-matrix-with-means-and-standard) provides the steps for simulating the data. First, we'll need to specify the desired means and standard deviations for our variables. Then we'll make a correlation matrix with 1s on the diagonal and the desired correlation coefficient, $\rho$ on the off-diagonal. Since the correlation matrix is symmetric, both off-diagonal positions are the same. Then we convert the correlation matrix to a covariance matrix.
 
 ```{r}
 mus <- c(5, 5)
@@ -76,7 +76,10 @@ covs <- sds %*% t(sds) * cors
 covs
 ```
 
+Now we've defined our means, standard deviations, and covariance matrix, we're ready to simulate the data with `MASS::mvrnorm()`.
+
 ```{r}
+# how many data points would you like to simulate?
 n <- 300
 
 set.seed(18.2)
@@ -89,8 +92,10 @@ d <-
   as_tibble() %>% 
   rename(x_1 = V1,
          x_2 = V2) %>% 
-  mutate(y = rnorm(n = n, mean = 10 + x_1 + 2 * x_2))
+  mutate(y   = rnorm(n = n, mean = 10 + x_1 + 2 * x_2))
 ```
+
+Now we have our simulated data in hand, we're ready for three of the four panels of Figure 18.2.
 
 ```{r, fig.width = 3.5, fig.height = 3.25}
 d %>% 
@@ -114,9 +119,17 @@ d %>%
                   ylim = 0:10)
 ```
 
+Pretty close.
+
 ### The perils of correlated predictors.
 
-Before we remake Figure 18.3, we'll need to load the data.
+> Figures 18.1 and 18.2 show data generated from the same model. In both figures, $\sigma = 2, \beta_0 = 10, \beta_1 = 1, \text{ and } \beta_2 = 2$. All that differs between the two figures is the distribution of the $\langle x_1, x_2 \rangle$ values, which is not specified by the model. In Figure 18.1, the $\langle x_1, x_2 \rangle$ values are distributed independently. In Figure 18.2, the $\langle x_1, x_2 \rangle$ values are negatively correlated: When $x_1$ is small, $x_2$ tends to be large, and when $x_1$ is large, $x_2$ tends to be small. (p. 510)
+
+If you look closely at our simulation code from above, you'll see we have done so, too.
+
+> Real data often have correlated predictors. For example, consider trying to predict a state’s average high-school SAT score on the basis of the amount of money the state spends per pupil. If you plot only mean SAT against money spent, there is actually a *decreasing* trend... (p. 513, *emphasis* in the original)
+
+Before we remake Figure 18.3 to examine that decreasing trend, we'll need to load the data.
 
 ```{r, message = F}
 my_data <- read_csv("data.R/Guber1999data.csv")
@@ -140,7 +153,7 @@ my_data %>%
 
 my_data %>% 
   ggplot(aes(x = PrcntTake, y = Spend)) +
-  geom_vline(xintercept = seq(from = 5, to = 80, by = 5), color = "grey98") +
+  geom_vline(xintercept = seq(from = 5,   to = 80, by = 5), color = "grey98") +
   geom_hline(yintercept = seq(from = 3.5, to = 10, by = .5), color = "grey98") +
   geom_point(alpha = 2/3) +
   xlab("% Take")
@@ -152,7 +165,7 @@ We'll make a custom function to standardize the criterion and predictor values.
 
 ```{r}
 standardize <- function(x){
-  (x - mean(x))/sd(x)
+  (x - mean(x)) / sd(x)
   }
 
 my_data <-
@@ -195,6 +208,8 @@ The model summary is as follows:
 ```{r}
 print(fit1)
 ```
+
+So when we use a multivariable model, increases in spending now appear associated with *increases* in SAT scores.
 
 ### The posterior distribution.
 
@@ -282,7 +297,20 @@ post %>%
   facet_wrap(~key, scales = "free", ncol = 3)
 ```
 
-The `brms::bayes_R2()` function makes it easy to compute a Bayesian $R^2$. Simply feed a model brm fit object into `bayes_R2()` and you'll bet back the posterior mean, $SD$, and 95% intervals.
+> The slope on spending has a mode of about 13, which suggests that SAT scores rise by about 13 points for every extra $1000 spent per pupil. The slope on percentage taking the exam (PrcntTake) is also credibly non-zero, with a mode around −2.8, which suggests that SAT scores fall by about 2.8 points for every additional 1% of students who take the test. (p. 517)
+
+If you want those exact modes and, say, 50% intervals around them, you can just use `tidybayes::mode_hdi()`.
+
+```{r}
+post %>% 
+  transmute(Spend          = b_1,
+            `Percent Take` = b_2) %>% 
+  gather() %>% 
+  group_by(key) %>% 
+  mode_hdi(value, .width = .5)
+```
+
+The `brms::bayes_R2()` function makes it easy to compute a Bayesian $R^2$. Simply feed a brm fit object into `bayes_R2()` and you'll bet back the posterior mean, $SD$, and 95% intervals.
 
 ```{r}
 bayes_R2(fit1)
@@ -304,6 +332,8 @@ bayes_R2(fit1, summary = F) %>%
        x = NULL) +
   coord_cartesian(xlim = c(.6, 1))
 ```
+
+Since the `brms::bayes_R2()` function is not identical with Kruschke’s method in the text, the results might differ a bit.
 
 We can get a sense of the scatter plots with `bayesplot::mcmc_pairs()`.
 
@@ -333,9 +363,24 @@ post %>%
   psych::lowerCor(digits = 3)
 ```
 
+Kruschke finished the subsection with the observations "Sometimes we are interested in using the linear model to predict $y$ values for $x$ values of interest. It is straight forward to generate a large sample of credible $y$ values for specified $x$ values" (p. 519).
+
+The simplest way to do so in brms is with the `fitted()` function. For a quick example, say we wanted to know what the model would predict if we were to have a standard-score increase in spending and a simultaneous standard-score decrease in the percent taking the exam. We'd just specify those values in a tibble and feed that tibble into `fitted()` along with the model.
+
+```{r}
+nd <-
+  tibble(Spend_z     =  1,
+         PrcntTake_z = -1)
+
+fitted(fit1,
+       newdata = nd)
+```
+
 ### Redundant predictors.
 
-You would not want to fit a regression model with these data.
+> As a simplified example of correlated predictors, think of just two data points: Suppose $y = 1 \text{ for }  \langle x_1, x_2 \rangle = \langle 1, 1 \rangle \text{ and } y = 2 \text{ for } \langle x_1, x_2 \rangle = \langle 2, 2 \rangle$. The linear model, $y = \beta_1 x_1 + \beta_2 x_2$ is supposed to satisfy both data points, and in this case both are satisfied by $1 = \beta_1 + \beta_2$. Therefore, many different combinations of $\beta_1$ and $\beta_2$ satisfy the data. For example, it could be that $\beta_1 = 2$ and $\beta_2 = -1$, or $\beta_1 = 0.5$ and $\beta_2 = 0.5$, or $\beta_1 = 0$ and $\beta_2 = 1$. In other words, the credible values of $\beta_1$ and $\beta_2$ are anticorrelated and trade-off to fit the data. (p. 519)
+
+Here are what those data look like. You would not want to fit a regression model with these data.
 
 ```{r}
 tibble(x_1 = 1:2,
@@ -348,7 +393,7 @@ We can take percentages and turn them into their inverse re-expressed as a propo
 ```{r}
 percent_take <- 37
 
-(100 - percent_take)/100
+(100 - percent_take) / 100
 ```
 
 Let's make a redundant predictor and then `standardize()` it.
@@ -356,23 +401,23 @@ Let's make a redundant predictor and then `standardize()` it.
 ```{r}
 my_data <-
   my_data %>% 
-  mutate(PropNotTake = (100 - PrcntTake)/100) %>% 
+  mutate(PropNotTake = (100 - PrcntTake) / 100) %>% 
   mutate(PropNotTake_z = standardize(PropNotTake))
   
 glimpse(my_data)
 ```
 
-We're ready to fit the model.
+We're ready to fit the redundant-predictor model.
 
 ```{r fit2, cache = T, message = F, warning = F}
 fit2 <-
   brm(data = my_data,
       family = student,
-      SATT_z ~ 1 + Spend_z + PrcntTake_z + PropNotTake_z,
-      prior = c(prior(normal(0, 2), class = Intercept),
-                prior(normal(0, 2), class = b, coef = Spend_z),
-                prior(normal(0, 2), class = b, coef = PrcntTake_z),
-                prior(normal(0, 2), class = b, coef = PropNotTake_z),
+      SATT_z ~ 0 + Intercept + Spend_z + PrcntTake_z + PropNotTake_z,
+      prior = c(prior(normal(0, 2), class = b, coef = "Intercept"),
+                prior(normal(0, 2), class = b, coef = "Spend_z"),
+                prior(normal(0, 2), class = b, coef = "PrcntTake_z"),
+                prior(normal(0, 2), class = b, coef = "PropNotTake_z"),
                 prior(normal(0, 1), class = sigma),
                 prior(exponential(one_over_twentynine), class = nu)),
       chains = 4, cores = 4,
@@ -381,7 +426,9 @@ fit2 <-
       sample_prior = T)
 ```
 
-Kruschke mentioned high autocorrelations in the prose. Here are the autocorrelation plots for our $\beta$s.
+You might notice a few things about the `brm()` code. First, we have used the `~ 0 + Intercept + ...` syntax instead of the default syntax for intercepts. In normal situations, we would have been in good shape using the typical `~ 1 + ...` syntax for the intercept, especially given our use of standardized data. However, since brms version 2.5.0, using `sample_prior = T` will no longer allow us to return prior samples from the typical brms intercept. Bürkner addressed the issue on the [Stan forums](https://discourse.mc-stan.org/t/prior-intercept-samples-no-longer-saved-in-brms-2-5-0/6107). As he pointed out, if you want to get prior samples from an intercept, you’ll have to use the alternative syntax. The other thing to point out is that even though we used the same prior on all the predictors, including the intercept, we still explicitly spelled each out with the `coef` argument. If we hadn’t been explicit like this, we would only get a single `b` vector from the `prior_samples()` function. But since we want separate vectors for each of our predictors, we used the verbose code. If you’re having a difficult time understanding these two points, experiment. Fit the model in a few different ways with either the typical or the alternative intercept syntax and with either the verbose prior code or the simplified `prior(normal(0, 2), class = b)` code. And after each, execute `prior_samples(fit2)`. You’ll see.
+
+Let's move on. Kruschke mentioned high autocorrelations in the prose. Here are the autocorrelation plots for our $\beta$s.
 
 ```{r, fig.width = 6, fig.height = 4}
 post <- posterior_samples(fit2, add_chain = T)
@@ -406,7 +453,11 @@ vcov(fit2, correlation = T) %>%
   round(digits = 3)
 ```
 
-So it turns out the correlations among the redundant predictors were still very high. You can really get a sense of the silliness of the parameters if you plot them. We'll use `geom_halfeyeh()` to get a sense of densities and summaries of the $\beta$s.
+Notice how much lower our `Spend_z` correlations are than those Kruschke displayed on page 520 of the text. However, it turns out the correlations among the redundant predictors were still very high. 
+
+> If any of the nondiagonal correlations are high (i.e., close to +1 or close to −1), be careful when interpreting the posterior distribution. Here, we can see that the correlation of PrcntTake and PropNotTake is −1.0, which is an immediate sign of redundant predictors. (p. 520)
+
+You can really get a sense of the silliness of the parameters if you plot them. We'll use `geom_halfeyeh()` to get a sense of densities and summaries of the $\beta$s.
 
 ```{r, fig.width = 8, fig.height = 1.75}
 post %>% 
@@ -425,11 +476,11 @@ post %>%
   labs(x = NULL, 
        y = NULL) +
   coord_cartesian(xlim = -5:5) +
-  theme(axis.text.y = element_text(hjust = 0),
+  theme(axis.text.y  = element_text(hjust = 0),
         axis.ticks.y = element_blank())
 ```
 
-Yeah, on the standardized scale, those are some ridiculous estimates.
+Yeah, on the standardized scale those are some ridiculous estimates. Let's updata our `make_beta_0()` function.
 
 ```{r}
 make_beta_0 <- function(zeta_0, zeta_1, zeta_2, zeta_3, sd_x_1, sd_x_2, sd_x_3, sd_y, m_x_1, m_x_2, m_x_3,  m_y){
@@ -500,7 +551,7 @@ post %>%
   mcmc_pairs(off_diag_args = list(size = 1/8, alpha = 1/8))
 ```
 
-Here are the correlations:
+Here are the Pearson's correlations:
 
 ```{r}
 post %>% 
@@ -555,9 +606,9 @@ prior %>%
   facet_wrap(~key, scales = "free", ncol = 3)
 ```
 
-Since we used the half Gaussian prior for our $\sigma$, our `Scale` histogram looks different from Kruschke's. Otherwise, everything's on the up and up. Here are the scatter plots at the bottom of Figure 18.7.
+Since we used the half-Gaussian prior for our $\sigma$, our `Scale` histogram looks different from Kruschke's. Otherwise, everything's on the up and up. Here are the scatter plots at the bottom of Figure 18.7.
 
-```{r, fig.width = 7, fig.height = 6, message = F}
+```{r, fig.width = 7, fig.height = 6, warning = F}
 prior %>%
   mcmc_pairs(off_diag_args = list(size = 1/8, alpha = 1/8))
 ```
@@ -599,17 +650,28 @@ post %>%
 
 He was right. The posterior distributions are only slightly narrower than the priors for those two.
 
-Kruschke mentioned SEM as a possible solution to multicollinearity. brms [isn’t fully capable of SEM, at the moment](https://github.com/paul-buerkner/brms/issues/304), but its [multivariate syntax](https://cran.r-project.org/web/packages/brms/vignettes/brms_multivariate.html) does allow for [path analysis](http://www.imachordata.com/bayesian-sem-with-brms/). However, you can currently fit a variety of Bayesian SEMs with the [blavaan package](https://cran.r-project.org/web/packages/blavaan/index.html). I'm not aware of any textbooks highlighting blavaan. If you've seen any, [please share](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues).
+Kruschke mentioned SEM as a possible solution to multicollinearity. brms [isn’t fully capable of SEM, at the moment](https://github.com/paul-buerkner/brms/issues/304), but its [multivariate syntax](https://cran.r-project.org/web/packages/brms/vignettes/brms_multivariate.html) does allow for [path analysis](http://www.imachordata.com/bayesian-sem-with-brms/) and [IRT models](https://github.com/paul-buerkner/brms/issues/203). However, you can currently fit a variety of Bayesian SEMs with the [blavaan package](https://cran.r-project.org/web/packages/blavaan/index.html). I'm not aware of any textbooks highlighting blavaan. If you've seen any, [please share](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues).
+
+### Informative priors, sparse data, and correlated predictors
+
+It's worth reproducing some of Kruschke's prose from this subsection.
+
+> The examples in this book tend to use mildly informed priors (e.g., using information about the rough magnitude and range of the data). But a benefit of Bayesian analysis is the potential for cumulative scientific progress by using priors that have been informed from previous research.
+>
+> Informed priors can be especially useful when the amount of data is small compared to the parameter space. A strongly informed prior essentially reduces the scope of the credible parameter space, so that a small amount of new data implies a narrow zone of credible parameter values. (p. 523)
 
 ## Multiplicative interaction of metric predictors
 
 > Formally, interactions can have many different specific functional forms. We will con- sider multiplicative interaction. This means that the nonadditive interaction is expressed by multiplying the predictors. The predicted value is a weighted combination of the individual predictors and, additionally, the multiplicative product of the predictors. For two metric predictors, regression with multiplicative interaction has these algebraically equivalent expressions:
 
-$$\mu = \beta_0 + \beta_1 x_1 + \beta_2 x_2 + \beta_{1 \times 2} x_1 x_2$$
+$$
+\begin{eqnarray}
+\mu & = & \beta_0 + \beta_1 x_1 + \beta_2 x_2 + \beta_{1 \times 2} x_1 x_2 \\
+& = & \beta_0 + \underbrace{(\beta_1 + \beta_{1 \times 2} x_2)}_{\text{slope of } x_1} x_1 + \beta_2 x_2 \\
+& = & \beta_0 + \beta_1 x_1 + \underbrace{(\beta_2 + \beta_{1 \times 2} x_1)}_{\text{slope of } x_2} x_2
+\end{eqnarray}
+$$
 
-$$= \beta_0 + (\beta_1 + \beta_{1 \times 2} x_2) x_1 + \beta_2 x_2$$
-
-$$= \beta_0 + \beta_1 x_1 + (\beta_2 + \beta_{1 \times 2} x_1) x_2$$
 
 Figure 18.8 is out of our ggplot2 repertoire.
 
@@ -645,7 +707,7 @@ The `summary()` looks like this:
 summary(fit3)
 ```
 
-Our parameters were less severely correlated than those in the text.
+The correlations among our parameters are about as severe as those in the text.
 
 ```{r}
 vcov(fit3, correlation = T) %>% 
@@ -753,11 +815,15 @@ tibble(Spend = seq(from = min(my_data$Spend),
        y = "Slope on PrcntTake")
 ```
 
-Kruschke outlined all this in the opening paragraphs of page 530. His parting words of this subsection warrant repeating: "if you include an interaction term, you cannot ignore it even if its marginal posterior distribution includes zero."
+Kruschke outlined all this in the opening paragraphs of page 530. His parting words of this subsection warrant repeating: "if you include an interaction term, you cannot ignore it even if its marginal posterior distribution includes zero" (p. 530).
 
 ## Shrinkage of regression coefficients
 
-We'll make our ransom noise predictors with `rnorm()`.
+> In some research, there are many candidate predictors which we suspect could possibly be informative about the predicted variable. For example, when predicting college GPA, we might include high-school GPA, high-school SAT score, income of student, income of parents, years of education of the parents, spending per pupil at the student’s high school, student IQ, student height, weight, shoe size, hours of sleep per night, distance from home to school, amount of caffeine consumed, hours spent studying, hours spent earning a wage, blood pressure, etc. We can include all the candidate predictors in the model, with a regression coefficient for every predictor. And this is not even considering interactions, which we will ignore for now.
+>
+> With so many candidate predictors of noisy data, there may be some regression coefficients that are spuriously estimated to be non-zero. We would like some protection against accidentally nonzero regression coefficients. (p. 530)
+
+That's what this section is all about. We'll make our random noise predictors with `rnorm()`.
 
 ```{r}
 set.seed(18.3)
@@ -788,10 +854,11 @@ fit4 <-
          formula = SATT_z ~ 1 + PrcntTake_z + Spend_z + x_rand_1 + x_rand_2 + x_rand_3 + x_rand_4 + x_rand_5 + x_rand_6 + x_rand_7 + x_rand_8 + x_rand_9 + x_rand_10 + x_rand_11 + x_rand_12)
 ```
 
-It's summary is as follows:
+Its parameter summary is as follows:
 
 ```{r}
-print(fit4)
+posterior_summary(fit4) %>% 
+  round(digits = 2)
 ```
 
 Before we can make Figure 18.11, we'll need to update our `make_beta_0()` function to accommodate this model.
@@ -818,7 +885,7 @@ make_beta_0 <-
   }
 ```
 
-Sigh, our poor `make_beta_0()` and `make_beta_1()` code is getting obscene. I don’t have the energy to think of how to wrap this into a simpler function. But someone probably should. It that ends up as you, [share your code](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues).
+Sigh, our poor `make_beta_0()` and `make_beta_1()` code is getting obscene. I don’t have the energy to think of how to wrap this into a simpler function. But someone probably should. If that ends up as you, [do share your code](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues).
 
 ```{r}
 sd_x_1  <- sd(my_data$Spend)
@@ -835,7 +902,7 @@ sd_x_11 <- sd(my_data$x_rand_9)
 sd_x_12 <- sd(my_data$x_rand_10)
 sd_x_13 <- sd(my_data$x_rand_11)
 sd_x_14 <- sd(my_data$x_rand_12)
-sd_y   <- sd(my_data$SATT)
+sd_y    <- sd(my_data$SATT)
 
 m_x_1  <- mean(my_data$Spend)
 m_x_2  <- mean(my_data$PrcntTake)
@@ -987,6 +1054,8 @@ bayes_R2(fit4, summary = F) %>%
   coord_cartesian(xlim = c(.6, 1))
 ```
 
+Note that unlike the one Kruschke displayed in the text, our `brms::bayes_R2()`-based $R^2$ distribution did not exceed the logical right bound of 1.
+
 Sometimes when you have this many parameters you'd like to compare, it's better to display their summaries with an ordered coefficient plot.
 
 ```{r, fig.width = 8, fig.height = 3}
@@ -1018,13 +1087,13 @@ post %>%
   geom_density_ridges(scale = 4, fill = "grey67", color = "grey50", size = 1/5) +
   labs(x = NULL,
        y = NULL) +
-  theme(axis.text.y = element_text(hjust = 0),
+  theme(axis.text.y  = element_text(hjust = 0),
         axis.ticks.y = element_blank())
 ```
 
-In brms, we can fit something like the model Kruschke displayed in Figure 18.12 with the `horseshoe()` prior. From the *horseshoe* section of the [brms (version 2.4.0) reference manual](https://cran.r-project.org/web/packages/brms/index.html):
+In brms, we can fit something like the model Kruschke displayed in Figure 18.12 with the `horseshoe()` prior. From the `horseshoe` section of the [brms (version 2.6.0) reference manual](https://cran.r-project.org/web/packages/brms/brms.pdf):
 
-> The horseshoe prior is a special shrinkage prior initially proposed by Carvalho et al. (2009). It is symmetric around zero with fat tails and an infinitely large spike at zero. This makes it ideal for sparse models that have many regression coefficients, although only a minority of them is non- zero. The horseshoe prior can be applied on all population-level effects at once (excluding the intercept) by using set_prior("horseshoe(1)"). The 1 implies that the student-t prior of the local shrinkage parameters has 1 degrees of freedom.
+> The horseshoe prior is a special shrinkage prior initially proposed by Carvalho et al. (2009). It is symmetric around zero with fat tails and an infinitely large spike at zero. This makes it ideal for sparse models that have many regression coefficients, although only a minority of them is non-zero. The horseshoe prior can be applied on all population-level effects at once (excluding the intercept) by using `set_prior("horseshoe(1)")`. The 1 implies that the student-t prior of the local shrinkage parameters has 1 degrees of freedom.
 
 Based on the quote, here's the horseshoe-prior model:
 
@@ -1039,11 +1108,14 @@ fit5 <-
                    prior(exponential(one_over_twentynine), class = nu)))
 ```
 
+Why not use `posterior_summary()` to get the parameter summary?
+
 ```{r}
-print(fit5)
+posterior_summary(fit5) %>% 
+  round(digits = 2)
 ```
 
-Our `make_beta_0()` and `make_beta_1()` remains obscene. 
+Our `make_beta_0()` and `make_beta_1()` code remains obscene. 
 
 ```{r}
 post <-
@@ -1163,6 +1235,8 @@ post %>%
   facet_wrap(~key, scales = "free", ncol = 3)
 ```
 
+Based on the distributions for the random predictors, it looks like our brms horseshoe prior was a little more aggressively regularizing than Kruschke’s hierarchical prior in the text. And interestingly, look how our marginal posterior for `Spend` is bimodal. 
+
 For kicks and giggles, here's the corresponding coefficient plot for $\beta_1$ through $\beta_{14}$.
 
 ```{r, fig.width = 8, fig.height = 3}
@@ -1175,7 +1249,7 @@ post %>%
   stat_pointintervalh(point_interval = mode_hdi, .width = .95, color = "grey50") +
   labs(x = NULL,
        y = NULL) +
-  theme(axis.text.y = element_text(hjust = 0),
+  theme(axis.text.y  = element_text(hjust = 0),
         axis.ticks.y = element_blank(),
         panel.grid.major.y = element_line(color = "grey98", linetype = 2))
 ```
@@ -1205,19 +1279,21 @@ We can rewrite the linear regression model to accommodate whether it includes a 
 
 $$\mu_i = \beta_0 + \sum_j \delta_j \beta_j x_{j, i}$$
 
-where $\delta$ is a dummy for which 0 = *not included* 1 = *included*. I'm not aware of a way to use $\delta$ as an inclusion indicator in brms the way Kruschke implemented it in JAGS. If you know of a way [share your code](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues). However, this issue lead to a similar approach: information criteria, about which you can learn more about [here](https://www.youtube.com/watch?v=t0pRuy1_190&t=1331s&frags=pl%2Cwn). To do so, let's follow Kruschke's basic flow and use the first model from way back in subsection 18.1.1 as a starting point. The model formula was as follows.
+where $\delta$ is a dummy for which 0 = *not included* 1 = *included*. I'm not aware of a way to use $\delta$ as an inclusion indicator in brms the way Kruschke implemented it in JAGS. And in fact, it appears this might be [unfeasible within the Stan framework](https://discourse.mc-stan.org/t/include-extra-coefficient-multiplied-with-regression-weight-inclusion-weight-a-la-kruschke/5768). But if you know of a way, please [share your code](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues). However, this issue can lead to a similar approach: information criteria, about which you can learn more about [here](https://www.youtube.com/watch?v=t0pRuy1_190&t=1331s&frags=pl%2Cwn). To do so, let's follow Kruschke's basic flow and use the first model from way back in subsection 18.1.1 as a starting point. The model formula was as follows.
 
 ```{r}
 fit1$formula
 ```
 
-Taking interactions off the table for a moment, we can specify for model types with various combinations of the two predictors, `PrcntTake_z` and `Spend_z`. `fit1` was the first, which we might denote as $\langle 1, 1 \rangle$. That leads to the remaining possibilities as
+Taking interactions off the table for a moment, we can specify four model types with various combinations of the two predictors, `PrcntTake_z` and `Spend_z`. `fit1` was the first, which we might denote as $\langle 1, 1 \rangle$. That leads to the remaining possibilities as
 
 $\langle 1, 0 \rangle:$ `SATT_z ~ 1 + Spend_z`
 
 $\langle 0, 1 \rangle$ `SATT_z ~ 1 + PrcntTake_z`
 
 $\langle 0, 0 \rangle$ `SATT_z ~ 1`
+
+Let's fit those models.
 
 ```{r fit6_7_and_8, cache = T, message = F, warning = F, results = 'hide'}
 fit6 <-
@@ -1254,7 +1330,7 @@ Here's the basic LOO summary for `fit1`.
 print(l_fit1)
 ```
 
-You get a wealth of output, more of which can be seen with `str(l_fit1)`. First, notice the message "All Pareto k estimates are good (k < 0.5)." Pareto $k$ values can be [used for diagnostics](https://cran.r-project.org/web/packages/loo/vignettes/loo2-example.html#plotting-pareto-k-diagnostics). Each case in the data gets its own $k$ value and we like it when those $k$s are low. The makers of the loo package get worried when $k$ values exceed 0.7 and as a result, `loo()` returns a warning message when they do. Happily, we have no such warning messages in this example.
+You get a wealth of output, more of which can be seen with `str(l_fit1)`. First, notice the message "All Pareto k estimates are good (k < 0.5)." Pareto $k$ values can be [used for diagnostics](https://cran.r-project.org/web/packages/loo/vignettes/loo2-example.html#plotting-pareto-k-diagnostics). Each case in the data gets its own $k$ value and we like it when those $k$s are low. The makers of the loo package get worried when $k$ values exceed 0.7 and, as a result, `loo()` returns a warning message when they do. Happily, we have no such warning messages in this example.
 
 In the main section, we get estimates for the expected log predictive density (`elpd_loo`), the estimated effective number of parameters (`p_loo`), and the Pareto smoothed importance-sampling leave-one-out cross-validation (PSIS-LOO; `looic`). Each come with a standard error. Like other information criteria, the LOO values aren't of interest in and of themselves. However, the values of one model's LOO relative to that of another is of great interest. We generally prefer models with lower information criteria. With the `compare_ic()` function, we can compute a formal difference score between multiple loo objects.
 
@@ -1264,7 +1340,7 @@ compare_ic(l_fit1, l_fit6, l_fit7, l_fit8)
 
 Each difference score also comes with a standard error. In this case, `fit1` and `fit7` clearly have the lowest estimates, but the standard error of their difference score is about the same size as their difference. So the LOO difference score puts them on similar footing. You can do a similar analysis with the WAIC.
 
-In addition to difference score comparisons, you can also use the LOO or WAIC for AIC-type model weighting. In brms, you do this with the `model_weights()` function.
+In addition to difference-score comparisons, you can also use the LOO or WAIC for AIC-type model weighting. In brms, you do this with the `model_weights()` function.
 
 ```{r}
 (mw <- model_weights(fit1, fit6, fit7, fit8))
@@ -1311,7 +1387,7 @@ Perhaps unsurprisingly, their thoughts on the topic are similar with the Gelman 
 
 For more on some of these methods, check out Vehtari's [modelselection_tutorial GitHub repository](https://github.com/avehtari/modelselection_tutorial).
 
-But anyways, our model weighting methods cohered with Kruschke's $\delta$ inclusion indicator method in that both suggested the full model, `fit1`, and the model with `PrcntTake` as the sole predictor, `fit7`, were given the greatest weight. I'm not aware that our information criteria weighting/model stacking methods provide probability distributions of the type Kruschke displayed in the left portions of Figure 18.13. But we can at least recreate the plots in the other panels.
+But anyways, our model weighting methods cohered with Kruschke's $\delta$-inclusion-indicator method in that both suggested the full model, `fit1`, and the model with `PrcntTake` as the sole predictor, `fit7`, were given the greatest weight. I'm not aware that our information criteria weighting/model stacking methods provide probability distributions of the type Kruschke displayed in the left portions of Figure 18.13. But we can at least recreate the plots in the other panels.
 
 ```{r, fig.width = 6, fig.height = 3}
 # first we'll get the posterior draws from `fit1` and wrangle them
@@ -1350,7 +1426,7 @@ posterior_samples(fit1) %>%
 
 ### Inclusion probability is strongly affected by vagueness of prior.
 
-Let's fit the models with the updated $SD = 1$ on the $\beta_{1+}$ priors code.
+To follow along, let's fit the models with the updated $SD = 1$ on the $\beta_{1+}$ priors code.
 
 ```{r fit9_through_12, cache = T, message = F, warning = F}
 fit9 <-
@@ -1420,19 +1496,15 @@ Now we've fit the models, we're ready to examine how altering the $SD$s on the $
 
 ```{r, fig.width = 6, fig.height = 4.5}
 mw %>% 
+  rbind(model_weights(fit9, fit10, fit11, fit12),
+        model_weights(fit13, fit14, fit15, fit16)) %>% 
   as_tibble() %>% 
-  bind_rows(
-    model_weights(fit9, fit10, fit11, fit12) %>%
-      as_tibble()
-  ) %>% 
-  bind_rows(
-    model_weights(fit13, fit14, fit15, fit16) %>%
-      as_tibble()
-  ) %>% 
-  mutate(delta = rep(c("1, 1", "1, 0", "0, 1", "0, 0"), times = 3),
-         prior = rep(c("SD = 2", "SD = 10", "SD = 1"), each = 4)) %>% 
+  set_names("1, 1", "1, 0", "0, 1", "0, 0") %>% 
+  gather() %>% 
+  mutate(prior = rep(c("SD = 2", "SD = 10", "SD = 1"), times = 4)) %>%
+  mutate(prior = factor(prior, levels = c("SD = 10", "SD = 2", "SD = 1"))) %>% 
   
-  ggplot(aes(x = value, y = reorder(delta, value))) +
+  ggplot(aes(x = value, y = reorder(key, value))) +
   geom_text(aes(label = value %>% round(3) %>% as.character())) +
   coord_cartesian(xlim = 0:1) +
   labs(x = "Stacking weight",
@@ -1441,7 +1513,7 @@ mw %>%
   facet_grid(prior~.)
 ```
 
-So unlike in the depictions in Figure 18.14, the stacking method was fairly insensitive to the $SD$s on our $\beta_j$ priors. We might compare LOO difference scores, too.
+So unlike in the depictions in Figure 18.14, the stacking method was *insensitive* to the $SD$s on our $\beta_j$ priors. We might compare LOO difference scores, too.
 
 ```{r}
 compare_ic(l_fit1, l_fit6, l_fit7, l_fit8)
@@ -1521,6 +1593,12 @@ posterior_samples(fit13) %>%
   facet_grid(model~key, scales = "free")
 ```
 
+Kurschke concluded this subsection with
+
+> Bayesian model comparison can be strongly affected by the degree of vagueness in the priors, even though explicit estimates of the parameter values may be minimally affected. Therefore, be very cautious when interpreting the results of Bayesian variable selection. The next section discusses a way to inform the prior by using concurrent data instead of previous data. (p. 542)
+
+We should note that while the method in text was "strongly affected by the degree of vagueness in the priors", the information-criteria method, above, was not. If you're interested in comparing models within the Bayesian paradigm, choose your method with care.
+
 ### Variable selection with hierarchical shrinkage.
 
 Kruschke opened the subsection with a few good points:
@@ -1542,7 +1620,7 @@ We can use Kruschke's `gamma_s_and_r_from_mode_sd()` function to return the exac
 gamma_s_and_r_from_mode_sd <- function(mode, sd) {
   if (mode <= 0) stop("mode must be > 0")
   if (sd   <= 0) stop("sd must be > 0")
-  rate  <- (mode + sqrt(mode^2 + 4 * sd^2))/(2 * sd^2)
+  rate  <- (mode + sqrt(mode^2 + 4 * sd^2)) / (2 * sd^2)
   shape <- 1 + mode * rate
   return(list(shape = shape, rate = rate))
 }
@@ -1560,7 +1638,7 @@ We can code those values in with arbitrary precision with the `stanvar()` functi
 stanvars <- 
   stanvar(1/29, name = "one_over_twentynine") +
   stanvar(gamma_s_and_r_from_mode_sd(mode = 1, sd = 10)[["shape"]], name = "my_shape") +
-  stanvar(gamma_s_and_r_from_mode_sd(mode = 1, sd = 10)[["rate"]], name = "my_rate") +
+  stanvar(gamma_s_and_r_from_mode_sd(mode = 1, sd = 10)[["rate"]],  name = "my_rate") +
   stanvar(scode = "  real<lower=0> tau;", block = "parameters")
 ```
 
@@ -1577,7 +1655,7 @@ make_stancode(count ~ Trt + log_Base4_c, epilepsy,
               prior = bprior, stanvars = stanvars)
 ```
 
-Following the method, we tell `brm()` we'd like to estimate the $SD$ of our $\beta_{1+}$ priors with `prior(normal(0, tau), class = b)`, where the `tau` is a stand-in for the $SD$. In the next line, `set_prior("target += gamma_lpdf(tau | my_shape, my_rate)", check = FALSE),`, we tell `brm()` we'd like to estimate `tau` with a gamma(`my_shape`, `my_rate`), the values for which were saved in our `stanvars` object, above. And it's that `stanvar()` line in that code wherein we told `brm()` we'd like that parameter to have a lower bound of 0. Let's put it to use.
+Following the method, we tell `brm()` we'd like to estimate the $SD$ of our $\beta_{1+}$ priors with `prior(normal(0, tau), class = b)`, where the `tau` is a stand-in for the $SD$. In the next line, `set_prior("target += gamma_lpdf(tau | my_shape, my_rate)", check = FALSE)`, we tell `brm()` we'd like to estimate `tau` with a gamma(`my_shape`, `my_rate`), the values for which were saved in our `stanvars` object, above. And it's that `stanvar()` line in that code wherein we told `brm()` we'd like that parameter to have a lower bound of 0. Let's put it to use.
 
 ```{r fit_1111_through_0000, cache = T, message = F, warning = F, results = 'hide'}
 fit_1111 <-
@@ -1691,7 +1769,7 @@ mw %>%
   theme(axis.ticks.y = element_blank())
 ```
 
-As you might notice, pattern among model weights is similar with but not identical to the one among the model probabilities Kruschke displayed in Figure 18.15. Here I'll plot the histograms for our top six.
+As you might notice, pattern among model weights is similar with but not identical to the one among the model probabilities Kruschke displayed in Figure 18.15. Here we'll plot the histograms for our top six.
 
 ```{r, fig.width = 7, fig.height = 7}
 # first, we need to redefine `sd_x_3` and `sd_x_4` in terms of our two new predictors
@@ -1788,7 +1866,9 @@ Kruschke made a great point in the opening paragraph of this subsection.
 
 > It might make sense to use the single most credible model, especially if it is notably more credible than the runner up, and if the goal is to have a parsimonious explanatory description of the data. But it is important to recognize that using the single best model, when it excludes some predictors, is concluding that the regression coefficients on the excluded predictors are exactly zero. (p. 546)
 
-Later he added "A forthright report should state the posterior probabilities of the several top models. Additionally, it can be useful to report, for each model, the ratio of its posterior probability relative to that of the best model" (p. 546). And in the final paragraph of the subsection, he wrote:
+Later he added "A forthright report should state the posterior probabilities of the several top models. Additionally, it can be useful to report, for each model, the ratio of its posterior probability relative to that of the best model" (p. 546). Pragmatically speaking, I suspect that for a lot of manuscripts this is probably only feasible in supplementary materials. 
+
+In the final paragraph of the subsection, Kruschke wrote:
 
 > When the goal is prediction of $y$ for interesting values of the predictors, as opposed to parsimonious explanation, then it is usually not appropriate to use only the single most probable model. Instead, predictions should be based on as much information as possible, using all models to the extent that they are credible. This approach is called Bayesian model averaging (BMA). (p. 547)
 
