@@ -30,7 +30,7 @@ generate_data <- function(seed, mean){
   rnorm(n, mean = grand_mean + mean, sd = 2)
 }
 
-n          <- 100
+n          <- 20
 grand_mean <- 101
 
 d <-
@@ -43,9 +43,22 @@ d <-
 head(d)
 ```
 
-With `n <- 100`, we generated more cases that necessary for the jitter plots. To my eye, it appears Kruschke jittered about 20 points per group. However, we’ll want more values that that to get the Gaussian curves to look good. You’ll see.
+Here we'll make a tibble containing the necessary data for the rotated Gaussians. As far as I can tell, Kruschke's Gaussians only span about a 98% interval. We partition off those bounds for each `group` by the `ll` and `ul` columns in the first `mutate()` function. In the second `mutate()`, we expand the dataset to include a sequence of 100 values between those lower- and upper-limit points. In the third `mutate()`, we feed those points into the `dnorm()` function, with group-specific means and a common `sd`.
 
-In addition to the primary data, `d`, we'll wand two supplimentary tibbles to add the flourished to the plot. The `arrow` tibble will specify our light-gray arrows. The `betas` tibble will contain our annotation information.
+```{r}
+densities <-
+  d %>% 
+  distinct(group, deviation) %>% 
+  mutate(ll      = qnorm(.01, mean = grand_mean + deviation, sd = 2),
+         ul      = qnorm(.99, mean = grand_mean + deviation, sd = 2)) %>% 
+  mutate(d       = map2(ll, ul, seq, length.out = 100)) %>% 
+  mutate(density = map2(d, grand_mean + deviation, dnorm, sd = 2)) %>% 
+  unnest()
+
+head(densities)
+```
+
+We'll need two more supplementary tibbles to add the flourishes to the plot. The `arrow` tibble will specify our light-gray arrows. The `betas` tibble will contain our annotation information.
 
 ```{r}
 arrow <-
@@ -60,8 +73,8 @@ betas <-
   tibble(group     = c(0:5, 0),
          d         = grand_mean,
          deviation = c(0, 4, -5, -2, 6, -3, 10),
-         offset    = 1/4,
-         angle     = rep(c(270, 0), times = c(6, 1)),
+         offset    = rep(c(1/4, 0), times = c(6, 1)),
+         angle     = rep(c(90, 0), times = c(6, 1)),
          label     = c("beta[0] == 101", "beta['[1]'] == 4", "beta['[2]'] == -5", "beta['[3]'] == -2", "beta['[4]'] == 6", "beta['[5]'] == 3", "sigma['all'] == 2"))
 
 head(betas)
@@ -73,22 +86,18 @@ Now we're ready to plot.
 library(ggridges)
 
 d %>% 
-  filter(iteration < 21) %>% 
-  
   ggplot(aes(x = d, y = group, group = group)) +
   geom_vline(xintercept = grand_mean, color = "white") +
   geom_jitter(height = .05, alpha = 1/4, shape = 1) +
   # the Gausians
-  geom_ridgeline(data = d %>%
-                   mutate(d = seq(from = 85, to = 115, length.out = n) %>% 
-                            rep(., times = 5)),
-                 aes(height = dnorm(d, grand_mean + deviation, 2)),
-                 fill = "transparent",color = "grey50",
-                 scale = 4/3, min_height = .0075, size = 3/4) +
+  geom_ridgeline(data = densities,
+                 aes(height = -density, group = group),
+                 min_height = NA, scale = 3/2, size = 3/4,
+                 fill = "transparent", color = "grey50") +
   # the small arrows
   geom_segment(data = arrow,
                aes(x = d, xend = d + deviation,
-                   y = group - offset, yend = group - offset),
+                   y = group + offset, yend = group + offset),
                color = "grey50", size = 1,
                arrow = arrow(length = unit(.2, "cm"))) +
   # the large arrow on the left
@@ -98,18 +107,16 @@ d %>%
                arrow = arrow(length = unit(.2, "cm"))) +
   # the text
   geom_text(data = betas,
-            aes(x = grand_mean + deviation, y = group - offset,
+            aes(x = grand_mean + deviation, y = group + offset,
                 label = label, angle = angle), 
             size = 4, parse = T) +
   scale_y_continuous(breaks = 1:5,
                      labels = c("<1,0,0,0,0>", "<0,1,0,0,0>", "<0,0,1,0,0>", "<0,0,0,1,0>", "<0,0,0,0,1>")) +
-  coord_flip(ylim = c(-0.5, 5.5), xlim = 90:112) +
+  coord_flip(ylim = c(-0.2, 5.5), xlim = 90:112) +
   labs(x = NULL,
        y = NULL) +
   theme(panel.grid = element_blank())
 ```
-
-For this version of the figure, we used `ggridges::geom_ridgeline()` to make the rotated Gaussians. Working within that framework, I still haven’t figured out how to get the Gaussian curves to bulge out to the left, rather than the right. If you know a slick way to do that, [please share your magic](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues). But otherwise, just hold your horses a bit. We'll explore other options in a bit.
 
 ## 19.2. Traditional analysis of variance
 
@@ -270,13 +277,13 @@ fit1 <-
 
 Much like Kruschke's JAGS chains, our brms chains are well behaved.
 
-```{r}
+```{r, fig.width = 8, fig.height = 4}
 plot(fit1)
 ```
 
-Also like Kruschke, our chains are moderately autocorrelated, too.
+Also like Kruschke, our chains appear moderately autocorrelated.
 
-```{r, message = F, warning = F}
+```{r, message = F, warning = F, fig.width = 8, fig.height = 4}
 post <- posterior_samples(fit1, add_chain = T)
 
 library(bayesplot)
@@ -335,7 +342,7 @@ tibble(x = c(0, 150)) %>%
     stat_function(fun   = dnorm, 
                   args  = list(mean = mean, sd = sd), 
                   alpha = 2/3, 
-                  size = 1/3,
+                  size  = 1/3,
                   color = "grey50")
     }, 
     # Enter means and standard deviations here
@@ -345,93 +352,69 @@ tibble(x = c(0, 150)) %>%
   geom_jitter(data = my_data, aes(x = Longevity, y = -0.001),
               height = .001, 
               alpha = 1/2) +
-  scale_x_continuous(breaks = seq(from = 0, to = 100, by = 25)) +
+  scale_x_continuous("Longevity", breaks = seq(from = 0, to = 100, by = 25)) +
   scale_y_continuous(NULL, breaks = NULL) +
   coord_cartesian(xlim = 0:110) + 
-  labs(title = "Posterior Predictive Distribution",
-       subtitle = "The jittered dots are the ungrouped Longevity data. The\nGaussians are posterior draws depicting the overall\ndistribution, the grand mean.",
-       x = "Longevity")
+  labs(title    = "Posterior Predictive Distribution",
+       subtitle = "The jittered dots are the ungrouped Longevity data. The\nGaussians are posterior draws depicting the overall\ndistribution, the grand mean.")
 ```
 
-Unfortunately, we can’t extend our `mapply(stat_function())` method to the group-level estimates. To my knowledge, there isn’t a way to show the group estimates at different spots along the y-axis. But there are other ways. We'll need a little help from tidybayes.
+Unfortunately, we can’t extend our `mapply(stat_function())` method to the group-level estimates. To my knowledge, there isn’t a way to show the group estimates at different spots along the y-axis. And our `mapply(stat_function())` approach has other limitations, too. Happily, we have some great alternatives. To use them, we'll need a little help from tidybayes.
 
 ```{r, warning = F, message = F}
 library(tidybayes)
 ```
 
-First, here's a glimpse of what we get from `tidybayes::spread_draws()`, about which you can learn more [here](https://mjskay.github.io/tidybayes/articles/tidy-brms.html).
+For the first part, we'll take tidybayes::add_fitted_draws()` for a whirl.
 
 ```{r}
-sd <-
-  fit1 %>% 
-  spread_draws(b_Intercept, sigma, r_CompanionNumber[CompanionNumber,])
-  
-head(sd)
+densities <-
+  my_data %>% 
+  distinct(CompanionNumber) %>% 
+  add_fitted_draws(fit1, n = 20, seed = 19, dpar = c("mu", "sigma"))
+
+glimpse(densities)
 ```
 
-In our `sp` tibble, we have much of the same information we'd get from `brms::posterior_samples()`, but in the long format with respect to the random effects for `CompanionNumber`. Also notice that each row is indexed by the chain, iteration, and draw number. Among those, `.draw` if the column that corresponds to a unique row from what we'd get from `brms::posterior_samples()`. This is the index that ranges from 1 to the number of chains multiplied by the number of post-warmup iterations.  
+With the first two lines, we made a $5 \times 1$ tibble containing the five levels of the experimenal grouping variable, `CompanionNumber`. The [`add_fitted_draws()`](https://cran.r-project.org/web/packages/tidybayes/tidybayes.pdf) function comes from tidybayes. The first argument of the `add_fitted_draws()` is `newdata`, which works much like it does in `brms::fitted()`; It took our $5 \times 1$ tibble. The next argument took our brms model fit, `fit1`. With the `n` argument, we indicated we just wanted 20 random draws from the posterior. The `seed` argument makes those random draws reproducible. With `dpar`, we requested distributional regression parameters in the output. In our case, those were the $\mu$ and $\sigma$ values for each level of `CompanionNumber`. Since we took 20 draws across 5 groups, we ended up with a 100-row tibble.
 
-But we need to wrangle a bit. First, it’s important to understand that by default, `spread_draws()` is grouped by our grouping variable `CompanionNumber`. As such, when we use `sample_n()`, we’ll draw the same number of rows from each group—20 in this case. Within `expand()`, we select the columns we’d like to keep within the `nesting()` function and then expand the tibble by adding an `x` value of 0 to 120 for each. This sets us up to use the `dnorm()` function in the next line to compute the density for each of those `x` values based on 20 unique normal distributions for each of the five `CompanionNumber` groups. 
-
-The difficulty, however, is that all of these densities will have a minimum value of around 0 and all will be on the same basic scale. So we need a way to serially shift the density values up the y-axis in such a way that they’ll be sensibly separated by group. As far as I can figure, this’ll take us a couple steps. For the first step, we’ll create an intermediary variable, `g`, with which we’ll arbitrarily assign each of our five groups an integer index ranging from 0 to 4.
+The next steps are a direct extension of the method we used to make our Gaussians for our version of Figure 19.1.
 
 ```{r}
-set.seed(19)
-sd <-
-  sd %>% 
-  sample_n(n_draws) %>%
-  expand(nesting(.draw, b_Intercept, sigma, CompanionNumber, r_CompanionNumber), 
-         x = 0:120) %>%
-  mutate(density = dnorm(x,    mean = b_Intercept + r_CompanionNumber, sd = sigma),
-         ll      = qnorm(.025, mean = b_Intercept + r_CompanionNumber, sd = sigma),
-         ul      = qnorm(.975, mean = b_Intercept + r_CompanionNumber, sd = sigma),
-         g       = recode(CompanionNumber,
-                          None0     = 0,
-                          Pregnant1 = 1,
-                          Pregnant8 = 2,
-                          Virgin1   = 3,
-                          Virgin8   = 4))
+densities <-
+  densities %>% 
+  mutate(ll        = qnorm(.025, mean = mu, sd = sigma),
+         ul        = qnorm(.975, mean = mu, sd = sigma)) %>% 
+  mutate(Longevity = map2(ll, ul, seq, length.out = 100)) %>% 
+  mutate(density   = pmap(list(Longevity, mu, sigma), dnorm)) %>% 
+  unnest()
 
-head(sd)
+glimpse(densities)
 ```
 
-This last step is tricky. Here we use our `g` integers to sequentially shift the density values up. Since our `g` value for ` None0 = 0`, those will keep 0 as their baseline. As our `g` value for `Pregnant1 = 1`, the baseline for those will now increase by 1. And so on for the other groups. But we still need to do a little more fiddling. What we want is for the maximum values of the density estimates to be a little lower than the baslines of the ones one grouping variable up. That is, we want the maximum values for the `None0` densities to fall a little bit below 1 on the y-axis. It’s with the `* .75 / max(density) ` part of the code that we accomplish that task. If you want to experiment with more or less room between the top and bottom of each density, play around with increasing/decreasing that .75 value. It'll make sense in the plot.
-
-But so here it is, our version of the top panel of Figure 19.3.
+If you look at the code we used to make `ll` and `ul`, you’ll see we used 95% intervals, this time. Our second `mutate()` function is basically the same. But in the third `mutate()`, we switched from `map2()` to [`pmap()`](https://purrr.tidyverse.org/reference/map2.html), which is just an extension that allows us to iterate over three or more variables. In our case, we iterated over our values of `Longevity`, `mu`, and `sigma`, which we indicated in a `list()`. The `pmap()` function fed those three values into the first three arguments of `dnorm()`, which, are `x`, `mean`, and `sd`, respectively.
 
 ```{r, fig.height = 4.5, fig.width = 4}
-sd %>% 
-  mutate(density = g + density * .75 / max(density)) %>% 
-  filter(x < ul,
-         x > ll) %>% 
-  
-  ggplot(aes(x = x, y = density)) +
+densities %>% 
+  ggplot(aes(x = Longevity, y = CompanionNumber)) +
   # here we make our density lines
-  geom_line(aes(group = interaction(.draw, g)),
-            alpha = 2/3, size = 1/3, color = "grey50") +
-  # we use an augmented version of the original data for the jittered points
-  geom_jitter(data = my_data %>% 
-                mutate(density = recode(CompanionNumber,
-                                        None0     = 0,
-                                        Pregnant1 = 1,
-                                        Pregnant8 = 2,
-                                        Virgin1   = 3,
-                                        Virgin8   = 4)),
-              aes(x = Longevity),
+  geom_ridgeline(aes(height = density, group = interaction(CompanionNumber, .draw)),
+                 fill = NA, color = adjustcolor("grey50", alpha.f = 2/3),
+                 size = 1/3, scale = 25) +
+  # the original data with little jitter thrown in
+  geom_jitter(data = my_data,
               height = .04, alpha = 1/2) +
   # pretty much everything below this line is aesthetic fluff
   scale_x_continuous(breaks = seq(from = 0, to = 100, by = 25)) +
-  scale_y_continuous(breaks = 0:4,
-                     labels = c("None0", "Pregnant1", "Pregnant8", "Virgin1", "Virgin8")) +
-  coord_cartesian(xlim = 0:110) +
+  coord_cartesian(xlim = 0:110,
+                  ylim = c(1.25, 5.5)) +
   labs(title = "Data with Posterior Predictive Distrib.", 
-       x = "Longevity",
        y = NULL) +
   theme(axis.ticks.y = element_blank(),
         axis.text.y  = element_text(hjust = 0))
 ```
 
-In case it wasn’t clear, our last data wrangling step with `filter()` was to trim any density values that were outside of the percentile-based 95% intervals. Since Gaussians densities technically extend across the entire expanse of the x-axis, this is what keeps the shapes at a reasonable width mating the ones in Kruschke’s figures. If it’s still not clear, just make run that last block of code, again, but with omitting the `filter()` lines.
+Do be aware that when you use this method, you may have to fiddle around with the `geom_ridgeline()` `scale` argument to get the Gaussian's heights on reasonable-looking relative heights. Stick in different numbers to get a sense of what I mean. I also find that I’m often not a fan of the way the spacing on the y axis ends up with default `geom_ridgeline()`. It’s easy to overcome this with a little `ylim` fiddling. 
 
 To return to the more substantive interpretation, the top panel of
 
@@ -748,7 +731,7 @@ Here's the model summary.
 print(fit3)
 ```
 
-And here's the range in posterior means.
+Man, look at those effective samples! And here's the range in posterior means.
 
 ```{r}
 fixef(fit3, summary = F) %>% 
@@ -886,116 +869,76 @@ If you want a quick and dirty plot of the relation between `Thorax_c` and `Longe
 marginal_effects(fit4)
 ```
 
-But to make plots like the ones at the top of Figure 19.5, we'll have to work a little harder. First, we need the posterior samples.
+But to make plots like the ones at the top of Figure 19.5, we'll have to work a little harder. First, we need some intermediary values marking off the three values along the `Thorax`-axis Kruschke singled out in his top panel plots. As far as I can tell, they were the `min()`, the `max()`, and their `mean()`.
 
 ```{r}
-post <- posterior_samples(fit4)
-```
-
-We need some intermediary values marking off the three values along the `Thorax`-axis Kruschke singled out in his top panel plots. As far as I can tell, they were the `min()`, the `max()`, and the `mean()`.
-
-```{r}
-Thorax_m <- mean(my_data$Thorax)
-(r       <- range(my_data$Thorax))
+(r <- range(my_data$Thorax))
 mean(r)
 ```
 
-Now for each of the five `CompanionNumber` groups, we'll use `fitted()` to compute the model-implied fitted values to make the diagonal regression line(s). Since these are of a simple linear coefficient, all we need are values at two extremes, between which we'll draw the lines. `Thorax_c = c(-1, 1)` will work.
+Next, we'll make the data necessary for our side-tipped Gaussians. For kicks and giggles, we'll choose 80 draws, instead of 20. But do note how we used our `r` values, from above, so specify both `Thorax` and `Thorax_c` values in addition to the `CompanionNumber` categories for the `newdata` argument. Otherwise, this workflow is very much the same as in previous plots.
 
 ```{r}
-nd <-
-  my_data %>% 
-  distinct(CompanionNumber) %>% 
-  arrange(CompanionNumber) %>% 
-  expand(CompanionNumber, Thorax_c = c(-1, 1))
+n_draws <- 80
 
-f <- 
-  fitted(fit4,
-         newdata = nd,
-         summary = F) %>% 
-  as_tibble() %>% 
-  set_names(str_c(my_data %>% 
-                    distinct(CompanionNumber) %>%
-                    arrange(CompanionNumber) %>% 
-                    pull() %>% 
-                    rep(., each = 2), 
-                  "_", c(-1, 1)))
-
-head(f)
-```
-
-Since we just want some modest number of random draws for each, here we'll once again use `sample_n()` and then wrangle the results a bit to make them more suitable for ggplot2.
-
-```{r}
-n_draws <- 100
-
-set.seed(19)
-
-f <-
-  f %>% 
-  mutate(iter = 1:n()) %>% 
-  sample_n(n_draws) %>% 
-  gather(key, value, -iter) %>% 
-  separate(key, into = c("CompanionNumber", "Thorax_c"), sep = "_") %>% 
-  rename(Longevity = value) %>% 
-  mutate(Thorax_c = as.double(Thorax_c)) %>% 
-  mutate(Thorax   = Thorax_c + mean(my_data$Thorax))
-
-head(f)
-```
-
-Now we'll use our `spread_draws()` procedure like from a few plots above to make the Gaussians. Do note how this time we `expand()` by a combination of `Longevity` and `Thorax` values.
-
-```{r}
-set.seed(19)
-
-sd <-
-  fit4 %>% 
-  spread_draws(b_Intercept, b_Thorax_c, sigma, r_CompanionNumber[CompanionNumber,]) %>% 
-  sample_n(n_draws) %>%
-  expand(nesting(.draw, b_Intercept, b_Thorax_c, sigma, CompanionNumber, r_CompanionNumber), 
-         Longevity = -10:120, Thorax = c(r[1], mean(r), r[2])) %>%
+densities <-
+  tibble(Thorax = c(r[1], mean(r), r[2])) %>% 
   mutate(Thorax_c = Thorax - mean(my_data$Thorax)) %>% 
-  mutate(condition_mean = b_Intercept + (Thorax_c * b_Thorax_c) + r_CompanionNumber) %>% 
-  mutate(density  = dnorm(Longevity, mean = condition_mean, sd = sigma),
-         ll       = qnorm(.025, mean = condition_mean, sd = sigma),
-         ul       = qnorm(.975, mean = condition_mean, sd = sigma)) %>% 
-  group_by(CompanionNumber) %>% 
-  mutate(density  = .075 * density / max(density)) %>% 
-  filter(Longevity < ul,
-         Longevity > ll)
+  expand(CompanionNumber = distinct(my_data, CompanionNumber),
+         nesting(Thorax, Thorax_c)) %>% 
+  add_fitted_draws(fit4, n = n_draws, seed = 19, dpar = c("mu", "sigma")) %>%
+  mutate(ll = qnorm(.025, mean = mu, sd = sigma),
+         ul = qnorm(.975, mean = mu, sd = sigma)) %>% 
+  mutate(Longevity = map2(ll, ul, seq, length.out = 100)) %>% 
+  mutate(density = pmap(list(Longevity, mu, sigma), dnorm)) %>% 
+  unnest()
 
-head(sd)
+glimpse(densities)
 ```
 
-Here are the plots.
+Here, we'll use a simplified workflow to extract the `fitted()` values in order to make the regression lines. Since these are straight lines, all we need are two values for each draw, one at the extremes of the `Thorax` axis. 
+
+```{r}
+f <-
+  tibble(Thorax = c(.4, 1.2)) %>% 
+  mutate(Thorax_c = Thorax - mean(my_data$Thorax)) %>% 
+  expand(CompanionNumber = distinct(my_data, CompanionNumber),
+         nesting(Thorax, Thorax_c)) %>% 
+  add_fitted_draws(fit4, n = n_draws, seed = 19, value = "Longevity")
+
+glimpse(f)
+```
+
+Now we're ready to make our plots for the top row of Figure 19.3.
 
 ```{r, fig.width = 8, fig.height = 2.5}
-f %>% 
-  ggplot(aes(x = Thorax, y = Longevity)) +
-  geom_line(aes(group = iter),
+densities %>% 
+  ggplot(aes(x = Longevity, y = Thorax)) +
+  # the Gaussians
+  geom_ridgeline(aes(height = -density, group = interaction(Thorax, .draw)),
+                 fill = NA, size = 1/5, scale = 5/3,
+                 color = adjustcolor("grey50", alpha.f = 1/5),
+                 min_height = NA) +
+  # the vertical lines below the Gaussians
+  geom_line(aes(group = interaction(Thorax, .draw)),
+            color = "grey50", alpha = 1/5, size = 1/5) +
+  # the regression lines
+  geom_line(data = f,
+            aes(group = .draw),
             alpha = 1/5, size = 1/5, color = "grey50") +
-  # it's important to use `geom_path()` instead of `geom_line()`, here
-  geom_path(data = sd,
-            aes(x = Thorax - density,
-                group = interaction(Thorax, .draw)),
-            alpha = 1/5, size = 1/5, color = "grey50") +
-  geom_line(data = sd,
-            aes(group = interaction(Thorax, .draw)),
-            alpha = 1/5, size = 1/5, color = "grey50") +
+  # the data
   geom_point(data = my_data,
              alpha = 1/2) +
-  scale_y_continuous(breaks = seq(from = 0, to = 100, by = 20)) +
-  labs(title = "Data with Posterior Predictive Distribution") +
-  coord_cartesian(xlim = c(.58, 1),
-                  ylim = 0:110) +
-  theme(panel.grid = element_blank()) +
+  coord_flip(xlim = 0:110,
+             ylim = c(.58, 1)) +
   facet_wrap(~CompanionNumber, ncol = 5)
 ```
 
 Now we have a covariate in the model, we have to decide on which of its values we want to base our group comparisons. Unless there's a substantive reason for another value, the mean is a standard choice. And since the covariate `Thorax_c` is already mean centered, that means we can effectively leave it out of the equation. Here they are in the simple difference metric.
 
 ```{r, fig.width = 8, fig.height = 2.5}
+post <- posterior_samples(fit4)
+
 differences <-
   post %>% 
   transmute(`Pregnant1.Pregnant8 vs None0` = (`r_CompanionNumber[Pregnant1,Intercept]` + `r_CompanionNumber[Pregnant1,Intercept]`) / 2 - `r_CompanionNumber[None0,Intercept]`,
@@ -1225,49 +1168,37 @@ Let's get ready to make our version of the top of Figure 19.7. First we wrangle.
 ```{r}
 # How many model-implied Gaussians would you like?
 n_draws <- 20
-set.seed(19)
 
-sd <-
-  fit5 %>% 
-  spread_draws(b_Intercept, sigma, r_Group[Group,]) %>% 
-  sample_n(n_draws) %>% 
-  expand(nesting(.draw, b_Intercept, sigma, Group, r_Group),
-         Y = seq(from = 50, to = 150, length.out = 200)) %>%
-  mutate(density = dnorm(Y, mean = b_Intercept + r_Group, sd = sigma),
-         ll      = qnorm(.025, mean = b_Intercept + r_Group, sd = sigma),
-         ul      = qnorm(.975, mean = b_Intercept + r_Group, sd = sigma),
-         g       = recode(Group,
-                          A = 0,
-                          B = 1,
-                          C = 2,
-                          D = 3)) %>% 
-  mutate(density = g + density * .75 / max(density)) %>% 
-  filter(Y < ul,
-         Y > ll)
+densities <-
+  my_data %>% 
+  distinct(Group) %>% 
+  add_fitted_draws(fit5, n = n_draws, seed = 19, dpar = c("mu", "sigma")) %>% 
+  mutate(ll      = qnorm(.025, mean = mu, sd = sigma),
+         ul      = qnorm(.975, mean = mu, sd = sigma)) %>% 
+  mutate(Y       = map2(ll, ul, seq, length.out = 100)) %>% 
+  mutate(density = pmap(list(Y, mu, sigma), dnorm)) %>% 
+  unnest() %>% 
+  group_by(.draw) %>% 
+  mutate(density = density / max(density))
 
-head(sd)
+glimpse(densities)
 ```
 
-Now we're ready to make our version of the top panel of Figure 19.7.
+In our wrangling code, the main thing to notice is those last two lines. If you look closely to Kruschke’s Gaussians, you’ll notice they all have the same maximum height. Up to this point, ours haven’t. This has to do with technicalities on how densities are scaled. In brief, the wider densities have been shorter. So those last two lines scaled all the densities within the same group to the same metric. Otherwise the code was business as usual. 
+
+Anyway, here's our version of the top panel of Figure 19.7.
 
 ```{r, fig.height = 3.5, fig.width = 3.75}
-sd %>% 
-  ggplot(aes(x = Y, y = density)) +
-  geom_line(aes(group = interaction(.draw, g)),
-            alpha = 2/3, size = 1/3, color = "grey50") +
-  geom_jitter(data = my_data %>% 
-                mutate(density = recode(Group,
-                                        A = 0,
-                                        B = 1,
-                                        C = 2,
-                                        D = 3)),
-              aes(x = Y),
+densities %>% 
+  ggplot(aes(x = Y, y = Group)) +
+  geom_ridgeline(aes(height = density, group = interaction(Group, .draw)),
+                 fill = NA, color = adjustcolor("grey50", alpha.f = 2/3),
+                 size = 1/3, scale = 3/4) +
+  geom_jitter(data = my_data,
               height = .04, alpha = 1/2) +
-  # pretty much everything below this line is aesthetic fluff
   scale_x_continuous(breaks = seq(from = 80, to = 120, by = 10)) +
-  scale_y_continuous(breaks = 0:3,
-                     labels = LETTERS[1:4]) +
-  coord_cartesian(xlim = 75:125) +
+  coord_cartesian(xlim = 75:125,
+                  ylim = c(1.25, 4.5)) +
   labs(title = "Data with Posterior Predictive Distrib.", 
        y = NULL) +
   theme(axis.ticks.y = element_blank(),
@@ -1316,7 +1247,7 @@ differences %>%
   facet_wrap(~key, scales = "free_x", ncol = 4)
 ```
 
-Here's the robust hierarchical variances model.
+Here are the `stanvars` for the robust hierarchical variances model.
 
 ```{r}
 stanvars <- 
@@ -1326,6 +1257,8 @@ stanvars <-
   stanvar(s_r$rate,  name = "beta") +
   stanvar(1/29,      name = "one_over_twentynine")
 ```
+
+Now fit the robust model.
 
 ```{r fit6, cache = T, message = F, warning = F}
 fit6 <-
@@ -1347,9 +1280,13 @@ fit6 <-
       stanvars = stanvars)
 ``` 
 
-```{r}
+The chains look good.
+
+```{r, fig.width = 8, fig.height = 5}
 plot(fit6)
 ```
+
+Here's the summary.
 
 ```{r}
 print(fit6)
@@ -1358,54 +1295,38 @@ print(fit6)
 Let's get ready to make our version of the top of Figure 19.7. First we wrangle.
 
 ```{r}
-# How many model-implied Gaussians would you like?
-n_draws <- 20
-set.seed(19)
+densities <-
+  my_data %>% 
+  distinct(Group) %>% 
+  add_fitted_draws(fit6, n = n_draws, seed = 19, dpar = c("mu", "sigma", "nu")) %>% 
+  mutate(ll      = qt(.025, df = nu),
+         ul      = qt(.975, df = nu)) %>% 
+  mutate(Y       = map2(ll, ul, seq, length.out = 100)) %>% 
+  mutate(density = map2(Y, nu, dt)) %>% 
+  unnest() %>%
+  # notice the conversion
+  mutate(Y = mu + Y * sigma) %>% 
+  group_by(.draw) %>% 
+  mutate(density = density / max(density))
 
-sd <-
-  fit6 %>% 
-  spread_draws(b_Intercept, b_sigma_Intercept, nu, r_Group[Group,], r_Group__sigma[Group,]) %>% 
-  sample_n(n_draws) %>% 
-  expand(nesting(.draw, b_Intercept, b_sigma_Intercept, nu, Group, r_Group, r_Group__sigma),
-         Y = seq(from = 50, to = 150, length.out = 300)) %>%
-  mutate(m = b_Intercept + r_Group,
-         s = exp(b_sigma_Intercept + r_Group__sigma)) %>% 
-  mutate(density = dt((Y - m) / s, df = nu),
-         ll      = m + qt(.025, df = nu) * s,
-         ul      = m + qt(.975, df = nu) * s,
-         g       = recode(Group,
-                          A = 0,
-                          B = 1,
-                          C = 2,
-                          D = 3)) %>% 
-  mutate(density = g + density * .75 / max(density)) %>% 
-  filter(Y < ul,
-         Y > ll)
-
-head(sd)
+glimpse(densities)
 ```
 
+If you look closely at our code, above, you’ll note switching from the Gaussian to the Student $t$ required changes in our flow. Most obviously, we switched from `qnorm()` and `dnorm()` to `qt()` and `dt()`, respectively. The base R Student $t$ functions don’t take arguments for $\mu$ and $\sigma$. Rather, they’re presumed to be 0 and 1, respectively. That means that for our first three `mutate()` functions, the computations were all based on the standard Student $t$, with only the $\nu$ parameter varying according to the posterior. The we corrected for that was with the fourth `mutate()`. 
 
 Now we're ready to make our version of the top panel of Figure 19.7.
 
 ```{r, fig.height = 3.5, fig.width = 3.75}
-sd %>% 
-  ggplot(aes(x = Y, y = density)) +
-  geom_line(aes(group = interaction(.draw, g)),
-            alpha = 2/3, size = 1/3, color = "grey50") +
-  geom_jitter(data = my_data %>% 
-                mutate(density = recode(Group,
-                                        A = 0,
-                                        B = 1,
-                                        C = 2,
-                                        D = 3)),
-              aes(x = Y),
+densities %>% 
+  ggplot(aes(x = Y, y = Group)) +
+  geom_ridgeline(aes(height = density, group = interaction(Group, .draw)),
+                 fill = NA, color = adjustcolor("grey50", alpha.f = 2/3),
+                 size = 1/3, scale = 3/4) +
+  geom_jitter(data = my_data,
               height = .04, alpha = 1/2) +
-  # pretty much everything below this line is aesthetic fluff
   scale_x_continuous(breaks = seq(from = 80, to = 120, by = 10)) +
-  scale_y_continuous(breaks = 0:3,
-                     labels = LETTERS[1:4]) +
-  coord_cartesian(xlim = 75:125) +
+  coord_cartesian(xlim = 75:125,
+                  ylim = c(1.25, 4.5)) +
   labs(title = "Data with Posterior Predictive Distrib.", 
        y = NULL) +
   theme(axis.ticks.y = element_blank(),
@@ -1489,7 +1410,7 @@ sessionInfo()
 
 ```{r, message = F, echo = F}
 # Here we'll remove our objects
-rm(generate_data, n, grand_mean, d, arrow, betas, gamma_a_b_from_omega_sigma, sd_y, omega, sigma, s_r, my_data, mean_y, stanvars, fit1, post, n_draws, post_draws, sd, fit1_without_deflections, mw, fit2, fit3, my_small_data, sd_Thorax_c, fit4, dif, Thorax_m, r, nd, f, differences, fit5, fit6)
+rm(generate_data, n, grand_mean, d, densities, arrow, betas, gamma_a_b_from_omega_sigma, sd_y, omega, sigma, s_r, my_data, mean_y, stanvars, fit1, post, n_draws, post_draws, fit1_without_deflections, mw, fit2, fit3, my_small_data, sd_Thorax_c, fit4, dif, r, f, differences, fit5, fit6)
 
 theme_set(theme_grey())
 ```
