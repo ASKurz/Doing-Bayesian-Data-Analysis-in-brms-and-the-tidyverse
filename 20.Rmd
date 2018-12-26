@@ -1,0 +1,1405 @@
+---
+title: "Chapter 20. Metric Predicted Variable with Multiple Nominal Predictors"
+author: "A Solomon Kurz"
+date: "`r format(Sys.Date())`"
+output:
+  github_document
+---
+
+```{r, echo = F, eval = F}
+# remove this for the bookdown version
+
+# save(list = c("fit1", "fit2"), file = "20_fits.rda")
+load("20_fits.rda")
+```
+
+
+# Metric Predicted Variable with Multiple Nominal Predictors
+
+> This chapter considers data structures that consist of a metric predicted variable and two (or more) nominal predictors. This chapter extends ideas introduced in the previous chapter, so please read the previous chapter if you have not already....
+>
+> The traditional treatment of this sort of data structure is called multifactor analysis of variance (ANOVA). Our Bayesian approach will be a hierarchical generalization of the traditional ANOVA model. The chapter also considers generalizations of the traditional models, because it is straight forward in Bayesian software to implement heavy-tailed distributions to accommodate outliers, along with hierarchical structure to accommodate heterogeneous variances in the different groups. (pp. 583--584)
+
+## Describing groups of metric data with multiple nominal predictors
+
+Quick reprise:
+
+> Suppose we have two nominal predictors, denoted $\overrightarrow x_1$ and $\overrightarrow x_2$. A datum from the $j$th level of $\overrightarrow x_1$ is denoted $x_{1[j]}$, and analogously for the second factor. The predicted value is a baseline plus a deflection due to the level of factor 1 plus a deflection due to the level of factor 2 plus a residual deflection due to the interaction of factors:
+>
+>$$
+>\begin{eqnarray}
+>\mu & = & \beta_0 + \overrightarrow \beta_1 \cdot \overrightarrow x_1 + \overrightarrow \beta_2 \cdot \overrightarrow x_2 + \overrightarrow \beta_{1 \times 2} \cdot \overrightarrow x_{1 \times 2} \\
+>& = & \beta_0 + \sum_j \beta_{1[j]} x_{1[j]} + \sum_k \beta_{2[k]} x_{2[k]} + \sum_{j, k} \beta_{1 \times 2[j, k]} x_{1 \times 2[j, k]}
+>\end{eqnarray}
+>$$
+>
+> The deflections within factors and within the interaction are constrained to sum to zero:
+>
+>$$
+>\begin{eqnarray}
+>\sum_j \beta_{1[j]} = 0 & \;\;\;\; \text{ and } \;\;\;\; & \sum_k \beta_{2[k]} = 0 \;\;\;\; \text{ and} \\
+>\sum_j \beta_{1 \times 2[j, k]} = 0 \text{ for all } k & \;\;\;\; \text{ and } \;\;\;\; & \sum_k \beta_{1 \times 2[j, k]} = 0 \text{ for all } j
+>\end{eqnarray}
+>$$
+>
+> ([these equations] are repetitions of Equations 15.9 and 15.10, p. 434). The actual
+data are assumed to be randomly distributed around the predicted value. (pp. 584--585)
+
+### Interaction
+
+> An important concept of models with multiple predictors is interaction. Interaction means that the effect of a predictor depends on the level of another predictor. A little more technically, interaction is what is left over after the main effects of the factors are added: interaction is the nonadditive influence of the factors. (p. 585)
+
+Here are the data necessary for our version of Figure 20.1, which displays an interaction of two 2-level factors.
+
+```{r, message = F, warning = F}
+library(tidyverse)
+
+grand_mean            <- 5
+deflection_1          <- 1.8
+deflection_2          <- 0.2
+nonadditive_component <- -1
+
+(
+  d <-
+  tibble(x1                = rep(c(-1, 1), each = 2),
+         x2                = rep(c(1, -1), times = 2)) %>% 
+  mutate(mu_additive       = grand_mean + (x1 * deflection_1) + (x2 * deflection_2)) %>% 
+  mutate(mu_multiplicative = mu_additive + (x1 * x2 * nonadditive_component),
+         # we'll need this to accommodate `position = "dodge"` within `geom_col()`
+         x1_offset         = x1 + x2 * -.45,
+         # we'll need this for the fill
+         x2_c              = factor(x2, levels = c(1, -1)))
+  )
+```
+
+There's enough going on with the lines, arrows, and titles across the three panels that to my mind it seems easier to make three distinct plots and them join them at the end with `gridExtra::grid.arrange()`. But enough of the settings are common among the panels that it also makes sense to keep from repeating that part of the code. So we'll take a three-step solution. For the first step, we'll make the baseline or foundational plot, which we'll call `p`.
+
+```{r, fig.height = 3, fig.width = 2.75}
+p <-
+  d %>% 
+  ggplot(aes(x = x1, y = mu_multiplicative)) +
+  geom_col(aes(fill = x2_c),
+           position = "dodge") +
+  scale_fill_viridis_d(NULL, option = "C", begin = 1/3, end = 2/3,
+                       labels = c("x2[1]", "x2[2]")) +
+  scale_x_continuous(breaks = c(-1, 1),
+                     labels = c("x1[1]", "x1[2]")) +
+  scale_y_continuous(breaks = seq(from = 0, to = 10, by = 2)) +
+  coord_cartesian(ylim = 0:10) +
+  ylab(expression(mu)) +
+  theme(panel.grid        = element_blank(),
+        axis.ticks.x      = element_blank(),
+        legend.position   = c(.17, .875),
+        legend.background = element_rect(fill = "transparent"),
+        legend.key        = element_rect(size = 0))
+
+p
+```
+
+Now we have `p`, we’ll add panel-specific elements to it, which we’ll save as individual objects, `p1`, `p2`, and `p3`. That’s step 2. Then for step 3, we’ll bring them all together with `grid.arrange()`.
+
+```{r, fig.height = 3, fig.width = 8.25, warning = F, message = F}
+# Deflection from additive
+p1 <-
+  p +
+  geom_segment(aes(x = x1_offset, xend = x1_offset,
+                   y = mu_additive, yend = mu_multiplicative),
+               size = 1.25,
+               arrow = arrow(length = unit(.275, "cm"))) +
+  geom_line(aes(x = x1_offset, y = mu_additive, group = x2),
+            linetype = 2) +
+  geom_line(aes(x = x1_offset, y = mu_additive, group = x1),
+            linetype = 2) +
+  coord_cartesian(ylim = 0:10) +
+  ggtitle("Deflection from additive")
+  
+# Effect of x1 depends on x2
+p2 <-
+  p +
+  geom_segment(aes(x = x1_offset, xend = x1_offset,
+                   y = mu_additive, yend = mu_multiplicative),
+               size = .5,
+               arrow = arrow(length = unit(.15, "cm"))) +
+  geom_line(aes(x = x1_offset, y = mu_additive, group = x2),
+            linetype = 2) +
+  geom_line(aes(x = x1_offset, y = mu_multiplicative, group = x2),
+            size = 1.25) +
+  ggtitle("Effect of x1 depends on x2")
+
+# Effect of x2 depends on x1
+p3 <-
+  p +
+  geom_segment(aes(x = x1_offset, xend = x1_offset,
+                   y = mu_additive, yend = mu_multiplicative),
+               size = .5,
+               arrow = arrow(length = unit(.15, "cm"))) +
+  geom_line(aes(x = x1_offset, y = mu_multiplicative, group = x1),
+            size = 1.25) +
+  geom_line(aes(x = x1_offset, y = mu_additive, group = x1),
+            linetype = 2) +
+  ggtitle("Effect of x2 depends on x1")
+
+library(gridExtra)
+
+grid.arrange(p1, p2, p3, ncol = 3)
+```
+
+And in case it's not clear, "the average deflection from baseline due to a predictor... is called the main effect of the predictor. The main effects of the predictors correspond to the dashed lines in the left panel of Figure 20.1" (p. 587). And further
+
+> The left panel of Figure 20.1 highlights the interaction as the nonadditive component, emphasized by the heavy vertical arrows that mark the departure from additivity. The middle panel of Figure 20.1 highlights the interaction by emphasizing that the effect of $x_1$ depends on the level of $x_2$. The heavy lines mark the effect of $x_1$, that is, the changes from level 1 of $x_1$ to level 2 of $x_1$. Notice that the heavy lines have different slopes: The heavy line for level 1 of $x_2$ has a shallower slope than the heavy line for level 2 of $x_2$. The right panel of Figure 20.1 highlights the interaction by emphasizing that the effect of $x_2$ depends on the level of $x_1$. (p. 587)
+
+### Traditional ANOVA
+
+> The Bayesian approach is not ANOVA, but is analogous to ANOVA. Traditional ANOVA makes decisions about equality of groups (i.e., null hypotheses) on the basis of $p$ values using a null hypothesis that assumes (i) the data are normally distributed within groups, and (ii) the standard deviation of the data within each group is the same for all groups. The second assumption is sometimes called "homogeneity of variance." The entrenched precedent of ANOVA is why basic models of grouped data make those assumptions, and why the basic models presented in this chapter will also make those assumptions. Later in the chapter, those constraints will be relaxed. (pp. 587--588)
+
+## Hierarchical Bayesian approach 
+
+"Our goal is to estimate the main and interaction deflections, and other parameters, based on the observed data" (p. 588).
+
+### Implementation in ~~JAGS~~ brms
+
+Below is how to implement the model based on the code from Kruschke's `Jags-Ymet-Xnom2fac-MnormalHom.R` and `Jags-Ymet-Xnom2fac-MnormalHom-Example.R` scripts. In brms, we'll need to specify the `stanvars`.
+
+```{r, eval = F}
+mean_y <- mean(my_data$y)
+sd_y   <- sd(my_data$y)
+
+omega <- sd_y / 2
+sigma <- 2 * sd_y
+
+s_r <- gamma_a_b_from_omega_sigma(mode = omega, sd = sigma)
+
+stanvars <- 
+  stanvar(mean_y,    name = "mean_y") + 
+  stanvar(sd_y,      name = "sd_y") +
+  stanvar(s_r$shape, name = "alpha") +
+  stanvar(s_r$rate,  name = "beta")
+```
+
+And before that, of course, make sure you've defined the `gamma_a_b_from_omega_sigma()` function. E.g., 
+
+```{r}
+gamma_a_b_from_omega_sigma <- function(mode, sd) {
+  if (mode <= 0) stop("mode must be > 0")
+  if (sd   <= 0) stop("sd must be > 0")
+  rate <- (mode + sqrt(mode^2 + 4 * sd^2)) / (2 * sd^2)
+  shape <- 1 + mode * rate
+  return(list(shape = shape, rate = rate))
+}
+```
+
+With the preparatory work done, now all we'd need to do is run the `brm()` code.
+
+```{r, eval = F}
+fit <-
+  brm(data = my_data,
+      family = gaussian,
+      y ~ 1 + (1 | factor_1) + (1 | factor_2) + (1 | factor_1:factor_2),
+      prior = c(prior(normal(mean_y, sd_y * 5), class = Intercept),
+                prior(gamma(alpha, beta),       class = sd),
+                prior(cauchy(0, sd_y),          class = sigma)),
+      stanvars = stanvars)
+``` 
+
+If you have reason to use different priors for the random effects, you can always specify multiple lines of `class = sd`, each with the appropriate `coef` argument. 
+
+The big new element is multiple `(|)` parts in the `formula`. In this simple model type, we're only working random intercepts, in this case with two factors and their interaction. The `formula` above presumes the interaction is not itself coded within the data. But consider the case you have data including a term for the interaction of the two lower-level factors, called `interaction`. In that case, you'd have that last part of the `formula` read `(1 | interaction)`, instead. 
+
+### Example: It’s only money
+
+Load the salary data.
+
+```{r, message = F, warning = F}
+my_data <- read_csv("data.R/Salary.csv")
+
+glimpse(my_data)
+```
+
+We'll follow Kruschke's example on page 593 and modify the `Pos` variable a bit.
+
+```{r}
+my_data <-
+  my_data %>% 
+  mutate(Pos = factor(Pos,
+                      levels = c("FT3", "FT2", "FT1", "NDW", "DST") ,
+                      ordered = T,
+                      labels = c("Assis", "Assoc", "Full", "Endow", "Disting")))
+```
+
+With 1080 cases, two factors, and a criterion, these data are a little too unwieldy to look at the individual case level. But if we're tricky on how we aggregate, we can get a good sense of their structure with a `geom_tile()` plot. Here our strategy is to aggregate by our two factors, `Pos` and `Org`. Since our criterion is `Salary`, we'll compute the mean value of the cases within each unique paring, encoded as `m_Salary`. Also, we'll get a sense of how many cases there are within each factor pairing with `n`.
+
+```{r, fig.width = 9, fig.height = 2.5}
+my_data %>% 
+  group_by(Pos, Org) %>% 
+  summarise(m_Salary = mean(Salary),
+            n = n()) %>% 
+  
+  ggplot(aes(x = reorder(Org, m_Salary), 
+             y = reorder(Pos, m_Salary), 
+             fill = m_Salary)) +
+  geom_tile() +
+  geom_text(aes(label = n, color = m_Salary > 170000),
+            size = 2.75) +
+  # everything below this is really just aesthetic flourish
+  scale_fill_viridis_c("median Salary", option = "D", 
+                       breaks = c(55e3, 15e4, 26e4), 
+                       labels = c("$55K", "$150K", "$260K")) +
+  scale_color_manual(values = c("white", "black"), guide = 'none') +
+  scale_x_discrete("Org", expand = c(0, 0)) +
+  scale_y_discrete("Pos", expand = c(0, 0)) +
+  theme(legend.position = "top",
+        panel.grid  = element_blank(),
+        axis.ticks  = element_blank(),
+        axis.text.x = element_text(angle = 90, hjust = 0),
+        axis.text.y = element_text(hjust = 0))
+```
+
+Hopefully it’s clear that each cell is a unique pairing of `Org` and `Pos`. The cells are color coded by the mean `Salary`. The numbers in the cells give the $n$ cases they represent. When there’s no data for a unique combination of `Org` and `Pos`, the cells are left light gray blank.
+
+Load brms.
+
+```{r, warning = F, message = F}
+library(brms)
+```
+
+Define our `stanvars`.
+
+```{r}
+mean_y <- mean(my_data$Salary)
+sd_y   <- sd(my_data$Salary)
+
+omega <- sd_y / 2
+sigma <- 2 * sd_y
+
+s_r <- gamma_a_b_from_omega_sigma(mode = omega, sd = sigma)
+
+stanvars <- 
+  stanvar(mean_y,    name = "mean_y") + 
+  stanvar(sd_y,      name = "sd_y") +
+  stanvar(s_r$shape, name = "alpha") +
+  stanvar(s_r$rate,  name = "beta")
+```
+
+Now fit the model.
+
+```{r fit1, cache = T, warning = F, message = F}
+fit1 <-
+  brm(data = my_data,
+      family = gaussian,
+      Salary ~ 1 + (1 | Pos) + (1 | Org) + (1 | Pos:Org),
+      prior = c(prior(normal(mean_y, sd_y * 5), class = Intercept),
+                prior(gamma(alpha, beta),       class = sd),
+                prior(cauchy(0, sd_y),          class = sigma)),
+      iter = 4000, warmup = 2000, chains = 4, cores = 4,
+      seed = 20,
+      control = list(adapt_delta = 0.999,
+                     max_treedepth = 13),
+      stanvars = stanvars)
+``` 
+
+The chains look okay.
+
+```{r, fig.width = 8, fig.height = 6}
+plot(fit1)
+```
+
+Here's the model summary.
+
+```{r}
+print(fit1)
+```
+
+This was a difficult model to fit in brms. Stan does well when the criteria are on or close to a standardized metric. These `Salary` data are a far far cry from that. Tuning `adapt_delta` and `max_treedepth` helped a bit, but the effective samples are still pretty small. If we were doing this for real, I’d recommend rescaling the data, tightening up the priors, or perhaps both.
+
+Okay, let's get ready for our version of Figure 20.3. First, we'll use `tidybayes::add_fitted_draws()` to help organize the necessary posterior draws.
+
+```{r, warning = F, message = F}
+library(tidybayes)
+
+# how many draws would you like?
+n_draw <- 20
+
+# wrangle
+f <-
+  my_data %>% 
+  distinct(Pos) %>% 
+  expand(Pos, 
+         Org = c("BFIN", "CHEM", "PSY", "ENG")) %>% 
+  add_fitted_draws(fit1, n = n_draw, seed = 20,
+                   allow_new_levels = T,
+                   dpar = c("mu", "sigma")) %>% 
+  mutate(ll      = qnorm(.025, mean = mu, sd = sigma),
+         ul      = qnorm(.975, mean = mu, sd = sigma)) %>% 
+  mutate(Salary  = map2(ll, ul, seq, length.out = 100)) %>% 
+  mutate(density = pmap(list(Salary, mu, sigma), dnorm)) %>% 
+  unnest() %>% 
+  group_by(.draw) %>% 
+  mutate(density = density / max(density)) %>% 
+  mutate(Org = factor(Org, levels = c("BFIN", "CHEM", "PSY", "ENG")))
+
+glimpse(f)
+```
+
+We're ready to plot.
+
+```{r, warning = F, message = F ,fig.height = 5.5, fig.width = 8}
+library(ggridges)
+
+f %>% 
+  ggplot(aes(x = Salary, y = Pos)) +
+  geom_vline(xintercept = fixef(fit1)[, 1], color = "white") +
+  geom_ridgeline(aes(height = density, group = interaction(Pos, .draw),
+                     color = Pos),
+                 fill = NA, show.legend = F,
+                 size = 1/4, scale = 3/4) +
+  geom_jitter(data = my_data %>% 
+                filter(Org %in% c("BFIN", "CHEM", "PSY", "ENG")) %>% 
+                mutate(Org = factor(Org, levels = c("BFIN", "CHEM", "PSY", "ENG"))),
+              height = .025, alpha = 1/4) +
+  scale_color_viridis_d(option = "B", end = .9) +
+  scale_x_continuous(breaks = seq(from = 0, to = 300000, length.out = 4),
+                     labels = c("$0", "$100K", "200K", "$300K")) +
+  coord_cartesian(xlim = 0:35e4,
+                  ylim = c(1.25, 5.5)) +
+  labs(title    = "Data with Posterior Predictive Distributions", 
+       subtitle = "The white vertical line is the model-implied grand mean.",
+       y        = "Pos") +
+  theme(panel.grid   = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.text.y  = element_text(hjust = 0)) +
+  facet_wrap(~Org, ncol = 2)
+```
+
+The brms package doesn't have a convenience function that returns output quite like what Kruschke displayed in his Table 20.2. But we can get close. Due to space constraints, I won't show the output, here, but the `posterior_summary()` will return posterior means, $SD$s, and percentile-based 95% intervals for all model parameters.
+
+```{r, eval = F}
+posterior_summary(fit1)
+```
+
+I'm not aware of a simple way to extract the effective samples for all parameters within a brms fit object. There is no `effsamples()` function. However, we do have `neff_ratio()`, which returns a named vector of the ratios. For space constraints, here we look at the first ten values.
+
+```{r}
+neff_ratio(fit1)[1:10]
+```
+
+The `brms::neff_ratio()` function returns ratios of the effective samples over the total number of post-warmup iterations. So if we know the `neff_ratio()` values and the number of post-warmup iterations, the 'Eff.Sample' values are just a little algebra away. A quick solution is to look at the 'total post-warmup samples' line at the top of our `print()` output. Another way is to extract that information from our `brm()` fit object. I’m not aware of a way to do that directly, but we can extract the iter value (i.e., `fit1$fit@sim$iter`), the warmup value (i.e., `fit1$fit@sim$warmup`), and the number of chains (i.e., `fit1$fit@sim$chains`). With those values in hand, simple algebra will return the `total post-warmup samples` value. E.g.,
+
+```{r}
+(n_iter <- (fit1$fit@sim$iter - fit1$fit@sim$warmup) * fit1$fit@sim$chains)
+```
+
+And now we have `n_iter`, we can calculate the 'Eff.Sample' values.
+
+```{r}
+neff_ratio(fit1) %>% 
+  as.data.frame() %>% 
+  rownames_to_column() %>% 
+  rename(key  = rowname,
+         neff_ratio = ".") %>% 
+  mutate(eff_sample = (neff_ratio * n_iter) %>% round(digits = 0)) %>% 
+  select(-neff_ratio) %>% 
+  arrange(key) %>% 
+  head()
+```
+
+If we're careful, we can use `left_join()` to bind together the posterior summaries and their effective samples like this.
+
+```{r}
+post <- posterior_samples(fit1)
+
+# extract the means and medians
+post %>% 
+  gather() %>% 
+  arrange(key) %>% 
+  group_by(key) %>% 
+  summarise(Mean   = mean(value),
+            Median = median(value)) %>% 
+  # join to them the mode and HDIs
+  left_join(
+    post %>% 
+      gather() %>% 
+      group_by(key) %>% 
+      mode_hdi(value) %>% 
+      select(key:.upper) %>% 
+      rename(Mode     = value,
+             HDI_low  = .lower,
+             HDI_high = .upper),
+    by = "key"
+    ) %>% 
+  # now finally join the effective samples
+  left_join(
+    neff_ratio(fit1) %>% 
+      as.data.frame() %>% 
+      rownames_to_column() %>% 
+      rename(key        = rowname,
+             neff_ratio = ".") %>% 
+      mutate(eff_sample = (neff_ratio * n_iter)) %>% 
+      select(-neff_ratio) %>% 
+      arrange(key),
+    by = "key"
+    ) %>% 
+  # here we just reformat a bit
+  mutate_if(is.double, round, digits = 0) %>% 
+  rename(Parameter = key) %>% 
+  
+  head(n = 10)
+```
+
+Our code returned the summaries for all model parameters, including the log posterior (i.e., `lp__`). Since that's just way too much output to display, here, we just looked at the first 10. If you wanted to subset the parameters, you could just `filter()` by the `Parameter` column. And if this kind of a table was really important, to you, you might even use the code above as inspiration for a custom function.
+
+As Kruschke then pointed out, "individual salaries vary tremendously around the predicted cell mean" (p. 594), which you can quantify using $\sigma_y$. Here it is using `posterior_summary()`.
+
+```{r}
+posterior_summary(fit1)["sigma", ]
+```
+
+And we can get a better sense of the distribution with a plot.
+
+```{r, fig.width = 4, fig.height = 2}
+post %>%
+  ggplot(aes(x = sigma, y = 0)) +
+  geom_halfeyeh(point_interval = mode_hdi, .width = c(.5, .95)) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  xlab(expression(sigma[y])) +
+  theme(panel.grid = element_blank())
+```
+
+As Kruschke pointed out, this parameter is held constant across all subgroups. That is, the subgroups are homogeneous with respect to their variances. Later on, we'll relax this constraint.
+
+### Main effect contrasts
+
+Comparisons that "involve levels of a single factor and collapse across the other factor(s), are called main effect comparisons or contrasts" (p. 595).
+
+Here's the first contrast.
+
+```{r, fig.width = 3, fig.height = 2.5}
+# define the new data
+nd <- 
+  tibble(Pos = c("Assis", "Assoc"),
+         Org = "mu")
+
+# use the new data with `fitted()`
+contrast <-
+  fitted(fit1,
+       newdata = nd,
+       summary = F,
+       allow_new_levels = T) %>% 
+  as_tibble() %>% 
+  set_names("Assis", "Assoc") %>% 
+  mutate(`Assoc vs Assis` = Assoc - Assis)
+
+# plot
+contrast %>% 
+  ggplot(aes(x = `Assoc vs Assis`)) +
+  geom_histogram(color = "grey92", fill = "grey67",
+                 size = .2, bins = 40) +
+  stat_pointintervalh(aes(y = 0),
+                      point_interval = mode_hdi, .width = c(.95, .5)) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  labs(title = "Assoc vs Assis",
+       x     = "Difference") +
+  theme(panel.grid = element_blank())
+```
+
+In case you were curious, here are the summary statistics.
+
+```{r}
+contrast %>% 
+  mode_hdi(`Assoc vs Assis`) %>% 
+  select(`Assoc vs Assis`:.upper) %>% 
+  mutate_if(is.double, round, digits = 0)
+```
+
+Here are the next two contrasts.
+
+```{r, fig.width = 6, fig.height = 2.5}
+nd <- 
+  tibble(Org = c("BFIN", "CHEM", "ENG", "PSY"),
+         Pos = "mu")
+
+contrasts <-
+  fitted(fit1,
+       newdata = nd,
+       summary = F,
+       allow_new_levels = T) %>% 
+  as_tibble() %>% 
+  set_names("BFIN", "CHEM", "ENG", "PSY") %>% 
+  transmute(`CHEM vs PSY`     = CHEM - PSY,
+            `BFIN vs other 3` = BFIN - (CHEM + ENG + PSY) / 3)
+
+# plot
+contrasts %>% 
+  gather() %>% 
+  
+  ggplot(aes(x = value)) +
+  geom_histogram(color = "grey92", fill = "grey67",
+                 size = .2, bins = 40) +
+  stat_pointintervalh(aes(y = 0),
+                      point_interval = mode_hdi, .width = c(.95, .5)) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  labs(x     = "Difference") +
+  theme(panel.grid = element_blank()) +
+  facet_wrap(~key, scales = "free")
+```
+
+And here are their numeric summaries.
+
+```{r}
+contrasts %>% 
+  gather(contrast, mode) %>% 
+  group_by(contrast) %>% 
+
+  mode_hdi(mode) %>% 
+  select(contrast:.upper) %>% 
+  mutate_if(is.double, round, digits = 0)
+```
+
+**Side note:** For further discussion on marginal contrasts in brms, see [this discussion](https://github.com/paul-buerkner/brms/issues/552) on the brms GitHub issues section and [this discussion](https://discourse.mc-stan.org/t/how-do-i-get-marginal-effects-for-categorical-variables-to-condition-on-an-average-rather-than-a-category/5323) in the Stan user forums.
+
+### Interaction contrasts and simple effects
+
+If we'd like to make the simple effects and interaction contrasts like Kruschke displayed in Figure 20.5 within our tidyverse/brms paradigm, it'll be simplest to just redefine our `nd` data and use `fitted()`, again.
+
+```{r}
+# define our new data
+nd <-
+  tibble(Pos = c("Assis", "Full")) %>% 
+  expand(Pos, Org = c("CHEM", "PSY")) 
+
+# we need to update our col_names
+brief_col_names <-
+  tibble(Pos = c("Assis", "Full")) %>% 
+  expand(Pos, Org = c("CHEM", "PSY")) %>% 
+  unite(key, Pos, Org) %>% 
+  pull()
+
+# get the draws with `fitted()`
+f1 <-
+  fitted(fit1, 
+         newdata = nd,
+         summary = F) %>% 
+  # wrangle
+  as_tibble() %>% 
+  set_names(brief_col_names) %>% 
+  mutate(`Full - Assis @ PSY`  = Full_PSY - Assis_PSY,
+         `Full - Assis @ CHEM` = Full_CHEM - Assis_CHEM) %>% 
+  mutate(`Full.v.Assis (x) CHEM.v.PSY` = `Full - Assis @ CHEM` - `Full - Assis @ PSY`)
+
+# what have we done?
+head(f1)
+```
+
+It’ll take just a tiny bit more wrangling before we’re ready to plot.
+
+```{r, fig.width = 8, fig.height = 2.5}
+text <-
+  tibble(key = "Full - Assis @ PSY",
+         value = 14000,
+         y     = 1090,
+         label = "ROPE") %>% 
+  mutate(key = factor(key, levels = c("Full - Assis @ PSY", "Full - Assis @ CHEM", "Full.v.Assis (x) CHEM.v.PSY")))
+
+f1 %>% 
+  select(-contains("_")) %>% 
+  gather() %>% 
+  mutate(key = factor(key, levels = c("Full - Assis @ PSY", "Full - Assis @ CHEM", "Full.v.Assis (x) CHEM.v.PSY"))) %>% 
+  
+  ggplot(aes(x = value)) +
+  # We usually omit it, but for kicks and giggles we'll throw in the ROPE
+  geom_rect(aes(xmin = -1e3, xmax = 1e3,
+                ymin = -Inf, ymax = Inf),
+            color = "transparent", fill = "white") +
+  geom_histogram(color = "grey92", fill = "grey67",
+                 size = .2, bins = 40) +
+  stat_pointintervalh(aes(y = 0),
+                      point_interval = mode_hdi, .width = c(.95, .5)) +
+  geom_text(data = text,
+            aes(y = y, label = label),
+            color = "white", size = 5) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  labs(x     = "Difference") +
+  theme(panel.grid = element_blank()) +
+  facet_wrap(~key, scales = "free_y")
+```
+
+If it was really important that the labels in the x-axes were different, like they are in Kruschke's Figure 20.5, you could always make the three plots separately and then bind them together with `gridExtra::grid.arrange()`.
+
+Though he didn’t show the results, Kruschke mentioned a few other contrasts we might do at the top of page 598. The example entailed comparing the differences within `BFIN` to the average of the other three. Let’s walk it out.
+
+```{r}
+# define our new data
+nd <-
+  tibble(Pos = c("Assis", "Full")) %>% 
+  expand(Pos, Org = c("BFIN", "CHEM", "ENG", "PSY"))
+
+# we need to update our col_names
+brief_col_names <-
+  tibble(Pos = c("Assis", "Full")) %>% 
+  expand(Pos, Org = c("BFIN", "CHEM", "ENG", "PSY")) %>% 
+  unite(key, Pos, Org) %>% 
+  pull()
+
+# get the draws with `fitted()`
+f2 <-
+  fitted(fit1, 
+         newdata = nd,
+         summary = F) %>% 
+  # wrangle
+  as_tibble() %>% 
+  set_names(brief_col_names) %>% 
+  mutate(`Full - Assis @ BFIN` = Full_BFIN - Assis_BFIN,
+         `Full - Assis @ CHEM` = Full_CHEM - Assis_CHEM,
+         `Full - Assis @ ENG`  = Full_ENG - Assis_ENG,
+         `Full - Assis @ PSY`  = Full_PSY - Assis_PSY) %>% 
+  mutate(`Full.v.Assis (x) BFIN.v.the rest` = `Full - Assis @ BFIN` - (`Full - Assis @ CHEM` + `Full - Assis @ ENG` + `Full - Assis @ PSY`) / 3)
+
+# what have we done?
+glimpse(f2)
+```
+
+Now plot.
+
+```{r, fig.width = 5.33, fig.height = 6.75}
+f2 %>% 
+  select(-contains("_")) %>% 
+  gather() %>% 
+  
+  ggplot(aes(x = value)) +
+  geom_rect(aes(xmin = -1e3, xmax = 1e3,
+                ymin = -Inf, ymax = Inf),
+            color = "transparent", fill = "white") +
+  geom_histogram(color = "grey92", fill = "grey67",
+                 size = .2, bins = 40) +
+  stat_pointintervalh(aes(y = 0),
+                      point_interval = mode_hdi, .width = c(.95, .5)) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  labs(x     = "Difference") +
+  theme(panel.grid = element_blank()) +
+  facet_wrap(~key, scales = "free_y", ncol = 2)
+```
+
+So while the overall pay averages for those in `BFIN` were larger than those in the other three departments, the differences between full and associate professors within `BFIN` wasn’t substantially different from the differences within the other three departments. To be sure, the interquartile range of that last difference distribution fell below both zero and the ROPE, but there’s still a lot of spread in the rest of the distribution.
+
+#### Interaction effects: High uncertainty and shrinkage
+
+If we start with our `fitted()` object `f`, we wrangle a bit, compute the HDIs with `tidybayes::mode_hdi()` and then use simple subtraction to compute the interval range for each difference.
+
+```{r}
+f1 %>% 
+  select(-contains("_")) %>% 
+  gather() %>% 
+  mutate(key = factor(key, levels = c("Full - Assis @ PSY", "Full - Assis @ CHEM", "Full.v.Assis (x) CHEM.v.PSY"))) %>% 
+  group_by(key) %>% 
+  mode_hdi(value) %>% 
+  select(key:.upper) %>% 
+  mutate(`interval range` = .upper - .lower)
+```
+
+Just like Kruschke pointed out in the text, the interval for the interaction estimate was quite larger than the intervals for the simple contrasts.
+
+> This large uncertainty of an interaction contrast is caused by the fact that it involves at least four sources of uncertainty (i.e., at least four groups of data), unlike its component simple effects which each involve only half of those sources of uncertainty. In general, interaction contrasts require a lot of data to estimate accurately. (p. 598)
+
+Gelman has blogged on this, a bit (e.g., [*You need 16 times the sample size to estimate an interaction than to estimate a main effect*](https://andrewgelman.com/2018/03/15/need-16-times-sample-size-estimate-interaction-estimate-main-effect/)).
+
+There is also shrinkage.
+
+> The interaction contrasts also can experience notable shrinkage from the hierarchical model. In the present application, for example, there are 300 interaction deflections (5 levels of seniority times 60 departments) that are assumed to come from a higher- level distribution that has an estimated standard deviation, denoted $\sigma_{\beta 1 \times 2}$ in Figure 20.2. Chances are that most of the 300 interaction deflections will be small, and therefore the estimated standard deviation of the interaction deflections will be small, and therefore the estimated deflections themselves will be shrunken toward zero. This shrinkage is inherently neither good nor bad; it is simply the correct consequence of the model assumptions. The shrinkage can be good insofar as it mitigates false alarms about interactions, but the shrinkage can be bad if it inappropriately obscures meaningful interactions.
+
+Here's that $\sigma_{\beta 1 \times 2}$.
+
+```{r, fig.width = 3.75, fig.height = 2.5}
+post %>% 
+  ggplot(aes(x = `sd_Pos:Org__Intercept`)) +
+  geom_histogram(color = "grey92", fill = "grey67",
+                 size = .2, bins = 40) +
+  stat_pointintervalh(aes(y = 0),
+                      point_interval = mode_hdi, .width = c(.95, .5)) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  theme(panel.grid = element_blank())
+```
+
+## Rescaling can change interactions, homogeneity, and normality
+
+Here is Kruschke's initial example of a possible interaction effect of sex and political party with respect to wages.
+
+```{r, fig.width = 3.25, fig.height = 3}
+d <-
+  tibble(monetary_units = c(10, 12, 15, 18),
+         sex            = rep(c("women", "men"), times = 2),
+         politics       = rep(c("democrat", "republican"), each = 2)) %>% 
+  mutate(sex_number = ifelse(sex == "women", 1, 2),
+         politics   = factor(politics, levels = c("republican", "democrat")))
+
+d %>% 
+  ggplot(aes(x = sex_number, y = monetary_units, color = politics)) +
+  geom_line(size = 2) +
+  scale_color_manual(NULL, values = c("red2", "blue2")) +
+  scale_x_continuous("sex", breaks = 1:2, labels = c("women", "men")) +
+  coord_cartesian(ylim = 0:20) +
+  theme(panel.grid        = element_blank(),
+        legend.position   = c(.2, .15),
+        legend.background = element_rect(fill  = "transparent"),
+        legend.key        = element_rect(fill  = "transparent", 
+                                         color = "transparent"))
+```
+
+Because the pay discrepancy between men and women is not equal between Democrats and Republicans, in this example, it can be tempting to claim there is a subtle interaction. Not necessarily so. 
+
+```{r}
+tibble(politics      = c("democrat", "republican"),
+       female_salary = c(10, 15)) %>% 
+  mutate(male_salary = 1.2 * female_salary)
+```
+
+If we take female salary as the baseline and then add 20% to it for the men, the salary difference between Republican men and women will be larger than that between Democratic men and women. Even though the rate increase from women to men was the same, the increase in absolute value was greater within Republicans because Republican women made more than Democratic women.
+
+Look what happens to our original plot when we transform `monetary_units` with `log10()`.
+
+```{r, fig.width = 3.25, fig.height = 3}
+d %>% 
+  ggplot(aes(x = sex_number, y = log10(monetary_units), color = politics)) +
+  geom_line(size = 2) +
+  scale_color_manual(NULL, values = c("red2", "blue2")) +
+  scale_x_continuous("sex", breaks = 1:2, labels = c("women", "men")) +
+  theme(panel.grid        = element_blank(),
+        legend.position   = c(.2, .4),
+        legend.background = element_rect(fill  = "transparent"),
+        legend.key        = element_rect(fill  = "transparent", 
+                                         color = "transparent"))
+```
+
+"Equal ratios are transformed to equal distances by a logarithmic transformation" (p. 599).
+
+## Heterogeneous variances and robustness against outliers
+
+Before we fit the robust hierarchical variances model, we need to define our `stanvars`.
+
+```{r}
+stanvars <- 
+  stanvar(mean_y,    name = "mean_y") + 
+  stanvar(sd_y,      name = "sd_y") +
+  stanvar(s_r$shape, name = "alpha") +
+  stanvar(s_r$rate,  name = "beta") +
+  stanvar(1/29,      name = "one_over_twentynine")
+```
+
+Fit the robust hierarchical variances model.
+
+```{r fit2, cache = T, message = F, warning = F}
+fit2 <-
+  brm(data = my_data,
+      family = student,
+      bf(Salary ~ 1 + (1 | Pos) + (1 | Org) + (1 | Pos:Org), 
+         sigma  ~ 1 + (1 | Pos:Org)),
+      prior = c(prior(normal(mean_y, sd_y * 5), class = Intercept),
+                prior(normal(log(sd_y), 1),     class = Intercept, dpar = sigma),
+                prior(gamma(alpha, beta), class = sd),
+                prior(normal(0, 1),       class = sd, dpar = sigma),
+                prior(exponential(one_over_twentynine), class = nu)),
+      iter = 4000, warmup = 1000, chains = 4, cores = 4,
+      seed = 20,
+      control = list(adapt_delta = 0.999,
+                     max_treedepth = 15),
+      stanvars = stanvars)
+``` 
+
+Behold the summary.
+
+```{r}
+print(fit2)
+```
+
+This time we'll just feed the results of the wrangling code right into the plotting code for our version of the top panels of Figure 20.8.
+
+```{r, warning = F, message = F ,fig.height = 5.5, fig.width = 8}
+# how many draws would you like?
+n_draw <- 20
+
+# wrangle
+my_data %>% 
+  distinct(Pos) %>% 
+  expand(Pos, 
+         Org = c("BFIN", "CHEM", "PSY", "ENG")) %>% 
+  add_fitted_draws(fit2, n = n_draw, seed = 20,
+                   allow_new_levels = T,
+                   dpar = c("mu", "sigma", "nu")) %>% 
+  mutate(ll      = qt(.025, df = nu),
+         ul      = qt(.975, df = nu)) %>% 
+  mutate(Salary  = map2(ll, ul, seq, length.out = 100)) %>% 
+  mutate(density = map2(Salary, nu, dt)) %>% 
+  unnest() %>%
+  # notice the conversion
+  mutate(Salary = mu + Salary * sigma) %>% 
+  group_by(.draw) %>% 
+  mutate(density = density / max(density)) %>% 
+  mutate(Org = factor(Org, levels = c("BFIN", "CHEM", "PSY", "ENG"))) %>%
+  
+  # plot
+  ggplot(aes(x = Salary, y = Pos)) +
+  geom_vline(xintercept = fixef(fit1)[, 1], color = "white") +
+  geom_ridgeline(aes(height = density, group = interaction(Pos, .draw),
+                     color = Pos),
+                 fill = NA, show.legend = F,
+                 size = 1/4, scale = 3/4) +
+  geom_jitter(data = my_data %>% 
+                filter(Org %in% c("BFIN", "CHEM", "PSY", "ENG")) %>% 
+                mutate(Org = factor(Org, levels = c("BFIN", "CHEM", "PSY", "ENG"))),
+              height = .025, alpha = 1/4) +
+  scale_color_viridis_d(option = "B", end = .9) +
+  scale_x_continuous(breaks = seq(from = 0, to = 300000, length.out = 4),
+                     labels = c("$0", "$100K", "200K", "$300K")) +
+  coord_cartesian(xlim = 0:35e4,
+                  ylim = c(1.25, 5.5)) +
+  labs(title    = "Data with Posterior Predictive Distributions", 
+       subtitle = "The white vertical line is the model-implied grand mean.",
+       y        = "Pos") +
+  theme(panel.grid   = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.text.y  = element_text(hjust = 0)) +
+  facet_wrap(~Org, ncol = 2)
+```
+
+Our results for the bottom panel of Figure 20.8 will differ fundamentally from Kruschke's. Recall that Kurschke modeled $\sigma_{[j, k](i)}$ with a hierarchical gamma distribution and using the $\omega + \sigma$ parameterization. We, however, modeled our hierarchical log(sigma) with the typical normal distribution. As such we have a posterior $\mu$ and $\sigma$ based on that contrasting model. 
+
+```{r, fig.width = 8, fig.height = 2.5}
+# wrangle
+posterior_samples(fit2) %>% 
+  transmute(Normality              = log10(nu), 
+            `Mean of Cell Sigma's` = exp(b_sigma_Intercept), 
+            `SD of Cell Sigma's`   = exp(`sd_Pos:Org__sigma_Intercept`)) %>%
+  gather() %>% 
+  mutate(key = factor(key, levels = c("Normality", "Mean of Cell Sigma's", "SD of Cell Sigma's"))) %>% 
+  
+  # plot
+  ggplot(aes(x = value)) +
+  geom_histogram(color = "grey92", fill = "grey67",
+                 size = .2, bins = 40) +
+  stat_pointintervalh(aes(y = 0),
+                      point_interval = mode_hdi, .width = c(.95, .5)) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  xlab("param. value") +
+  theme(panel.grid = element_blank()) +
+  facet_wrap(~key, scales = "free", ncol = 3)
+```
+
+Though our $\sigma_\mu$ is on a similar metric to Kruschke's $\sigma_\omega$, our $\sigma_\sigma$ is just fundamentally different from his. So it goes. If you think I'm in error, here, [share your insights](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues). Even though our hierarchical $\sigma$ parameters look different from Kruschke's, it turns the contrast distributions are quite similar. Here's the necessary wrangling to make our version for Figure 20.9.
+
+```{r}
+# define our new data
+nd <-
+  tibble(Pos = c("Assis", "Full")) %>% 
+  expand(Pos, Org = c("CHEM", "PSY"))
+
+# we need to update our col_names
+brief_col_names <-
+  tibble(Pos = c("Assis", "Full")) %>% 
+  expand(Pos, Org = c("CHEM", "PSY")) %>% 
+  unite(key, Pos, Org) %>% 
+  pull()
+
+# get the draws with `fitted()`
+f <-
+  fitted(fit2, 
+         newdata = nd,
+         summary = F) %>% 
+  # wrangle
+  as_tibble() %>% 
+  set_names(brief_col_names) %>% 
+  transmute(`Full - Assis @ CHEM` = Full_CHEM - Assis_CHEM,
+            `Full - Assis @ PSY`  = Full_PSY - Assis_PSY) %>% 
+  mutate(`Full.v.Assis (x) CHEM.v.PSY` = `Full - Assis @ CHEM` - `Full - Assis @ PSY`) %>% 
+  gather() %>% 
+  mutate(key = factor(key, levels = c("Full - Assis @ PSY", "Full - Assis @ CHEM", "Full.v.Assis (x) CHEM.v.PSY")))
+
+# what have we done?
+head(f)
+```
+
+Now plot.
+
+```{r, fig.width = 8, fig.height = 2.5}
+f %>% 
+  ggplot(aes(x = value)) +
+  geom_rect(aes(xmin = -1e3, xmax = 1e3,
+                ymin = -Inf, ymax = Inf),
+            color = "transparent", fill = "white") +
+  geom_histogram(color = "grey92", fill = "grey67",
+                 size = .2, bins = 40) +
+  stat_pointintervalh(aes(y = 0),
+                      point_interval = mode_hdi, .width = c(.95, .5)) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  labs(x     = "Difference") +
+  theme(panel.grid = element_blank()) +
+  facet_wrap(~key, scales = "free", ncol = 3)
+```
+
+See? Our contrast distributions are really similar those in the text. Here are the numeric estimates.
+
+```{r}
+f %>% 
+  group_by(key) %>% 
+  mode_hdi(value) %>% 
+  select(key:.upper) %>% 
+  mutate_if(is.double, round, digits = 0)
+```
+
+In the second half of the middle paragraph on page 605, Kruschke contrasted the $\sigma_{\beta 1 \times 2}$ parameter in the two models (i.e., our `fit1` and `fit2`). Recall that in the brms output, these are termed `sd_Pos:Org__Intercept`. Here are the comparisons from our brms models.
+
+```{r}
+posterior_summary(fit1)["sd_Pos:Org__Intercept", ]
+posterior_summary(fit2)["sd_Pos:Org__Intercept", ]
+```
+
+Similar to the values in the text. And recall, of course, the `brms::posterior_summary()` function returns posterior means. If you really wanted the posterior modes, like Kruschke reported in the text, you'll have to work a little harder.
+
+```{r}
+posterior_samples(fit1) %>% 
+  transmute(value = `sd_Pos:Org__Intercept`) %>% 
+  mutate(key = "fit1") %>% 
+  bind_rows(
+    posterior_samples(fit2) %>% 
+      transmute(value = `sd_Pos:Org__Intercept`) %>% 
+      mutate(key = "fit2")
+  ) %>% 
+  group_by(key) %>% 
+  mode_hdi(value) %>% 
+  select(key:.upper) %>% 
+  mutate_if(is.double, round, digits = 0)
+```
+
+"Which model is a better description of the data?... In principle, an intrepid programmer could do a Bayesian model comparison..." (pp. 605--606). We could also examine iformation criteria, like the WAIC
+
+```{r l_fit1_fit2, cache = T}
+l <- loo(fit1, fit2)
+```
+
+Sigh. Both models had high pareto_k values, suggesting there were outliers relative to what was expected by their likelihoods. Just a little further in the text, Kruschke gives us hints why this might be so: 
+
+> Moreover, both models assume that the data within cells are distributed symmetrically above and below their central tendency, either as a normal distribution or a $t$-distribution. The data instead seem to be skewed toward larger values, especially for advanced seniorities. (p. 606)
+
+Here's the current LOO difference
+
+```{r}
+print(l)
+```
+
+For a more robust model comparison, we might follow the `kfold()` suggestion in the warning. However, be warned; The `kfold()` function entails refitting the model `K` times. Both these models took some time to fit, particularly `fit2`.
+
+But really, "we might want to create a model that describes the data within each cell as a skewed distribution such as a Weibull" (p. 606). Yes, brms can handle Weibull regression (e.g., [here](https://discourse.mc-stan.org/t/fitting-time-to-event-data-with-weibull-hazard-using-brm-function/4638)).
+
+```{r, echo = F}
+# these fits are sufficiently large that I’d like to clear them out before moving on
+rm(fit1, fit2)
+```
+
+## Within-subject designs
+
+> When every subject contributes many measurements to every cell, then the model of the situation is a straight-forward extension of the models we have already considered. We merely add "subject" as another nominal predictor in the model, with each individual subject being a level of the predictor. If there is one predictor other than subject, the model becomes
+>
+> $$
+> y = \beta_0 + \overrightarrow \beta_1 \overrightarrow x_1 + \overrightarrow \beta_S \overrightarrow x_S + \overrightarrow \beta_{1 \times S} \overrightarrow x_{1 \times S} 
+> $$
+>
+> This is exactly the two-predictor model we have already considered, with the second predictor being subject. When there are two predictors other than subject, the model becomes
+> 
+> $$
+> \begin{eqnarray}
+> y & = & \beta_0 \\
+> && + \overrightarrow \beta_1 \overrightarrow x_1 + \overrightarrow \beta_2 \overrightarrow x_2 + \overrightarrow \beta_S \overrightarrow x_S \\
+> && + \overrightarrow \beta_{1 \times 2} \overrightarrow x_{1 \times 2} + \overrightarrow \beta_{1 \times S} \overrightarrow x_{1 \times S} + \overrightarrow \beta_{2 \times S} \overrightarrow x_{2 \times S} \\
+> && + \overrightarrow \beta_{1 \times 2 \times S} \overrightarrow x_{1 \times 2 \times S} 
+> \end{eqnarray}
+> $$
+> 
+> This model includes all the two-way interactions of the factors, plus the three-way interaction. (p. 607)
+
+In situations in which subjects only contribute one observation per condition/cell, we simplify the model to
+
+$$
+\begin{eqnarray}
+y & = & \beta_0 \\
+&& + \overrightarrow \beta_1 \overrightarrow x_1 + \overrightarrow \beta_2 \overrightarrow x_2 + \overrightarrow \beta_{1 \times 2} \overrightarrow x_{1 \times 2} \\
+&& + \overrightarrow \beta_S \overrightarrow x_S
+\end{eqnarray}
+$$
+
+"In other words, we assume a main effect of subject, but no interaction of subject with other predictors. In this model, the subject effect (deflection) is constant across treatments, and the treatment effects (deflections) are constant across subjects" (p. 608).
+
+### Why use a within-subject design? And why not?
+
+Kruschke opined "the primary reason to use a within-subject design is that you can achieve greater precision in the estimates of the effects than in a between-subject design" (p. 608). Well, to that I counterpoint: "No one goes to the circus to see the average dog jump through the hoop significantly oftener than untrained does raised under the same circumstances" ([Skinner, 1956](https://pdfs.semanticscholar.org/a113/55f49947e4c77659ec9fa5c6b69bd7798194.pdf), p. 228). And it’s unlikely you’ll make a skillful jumper of your dog without repeated trials. But I digress.
+
+Here's the 4-subject response time data.
+
+```{r}
+(
+  d <-
+  tibble(response_time = c(300, 320, 350, 370, 400, 420, 450, 470),
+         subject = rep(1:4, each = 2),
+         hand = rep(c("dominant", "nondominant"), times = 4))
+  )
+```
+
+"For every subject, the difference between dominant and nondominant hands is exactly 20 ms, but there are big differences across subjects in overall response times" (p. 608). Here's what that looks like.
+
+```{r, fig.width = 6, fig.height = 1.5}
+d %>% 
+  mutate(subject = factor(subject)) %>% 
+  
+  ggplot(aes(x = response_time, y = subject)) +
+  geom_line(aes(group = subject), linetype = 3) +
+  geom_point(aes(color = hand), size = 2) +
+  scale_color_viridis_d(option = "A", begin = 1/3, end = 2/3) +
+  theme(panel.grid = element_blank())
+```
+
+Here there is more variability between subjects than within them, which you'd never detect without a within-subject design.
+
+### Split-plot design
+
+"Split-plot experiments were invented by [Fisher (1925)](http://psycnet.apa.org/record/1925-15003-000)" (p. 610).
+
+Here's a quick visual of what a split plot design might look like if you had 4 farmers and randomly split their plots of land into 9 subplots, each with a different fertilizer.
+
+```{r, fig.width = 3.5, fig.height = 3.5}
+set.seed(20)
+tibble(farmer = str_c("farmer ", 1:4)) %>%
+  expand(farmer, x = 0:2, y = 0:2) %>% 
+  group_by(farmer) %>% 
+  mutate(fertalizer = sample(letters[1:9], replace = F)) %>% 
+  
+  ggplot(aes(x = x, y = y)) +
+  geom_tile(aes(fill = fertalizer), show.legend = F) +
+  geom_text(aes(label = fertalizer)) +
+  scale_fill_viridis_d(option = "C", begin = .15) +
+  scale_x_continuous(NULL, breaks = NULL, expand = c(0, 0)) +
+  scale_y_continuous(NULL, breaks = NULL, expand = c(0, 0)) +
+  facet_wrap(~farmer)
+```
+
+#### Example: Knee high by the fourth of July
+
+Load the agronomy data.
+
+```{r, warning = F, message = F}
+my_data <- read_csv("data.R/SplitPlotAgriData.csv")
+
+glimpse(my_data)
+```
+
+Keeping with our `geom_tile()` method from above, we might visualize the data like this.
+
+```{r, fig.width = 6, fig.height = 4}
+my_data %>% 
+  mutate(Fert = str_c("Fert: ", Fert)) %>% 
+  
+  ggplot(aes(x = Till, y = Field)) +
+  geom_hline(yintercept = c(12.5, 22.5), color = "grey85") +
+  geom_tile(aes(fill = Yield)) +
+  scale_fill_viridis_c(option = "D", begin = 0) +
+  scale_x_discrete(expand = c(0, 0)) +
+  scale_y_discrete(expand = c(0, 0)) +
+  theme(panel.grid = element_blank()) +
+  facet_wrap(~Fert)
+```
+
+As Kruschke pointed out in the text, notice how each `Field` has only one level of `Till`, but three levels of `Fert`.
+
+#### The descriptive model
+
+> In the classical ANOVA-style model for a split-plot design, the overall variance is conceptually decomposed into five components: the main effect of the between-subjects factor, the main effect of the within-subjects factor, the interaction of the two factors, the effect of subject within levels of the between-subject factor, and the interaction of subject with the within-subject factor. Unfortunately, because there is only a single datum per cell, the five components exactly match the data, which is to say that there are as many parameters as there are data points. (If every subject contributed multiple data points to every cell then the five-component model could be used.) Because there is no residual noise within cells, the classical approach is to treat the final component as noise, that is, treat the interaction of subject with the within-subject factor as noise. That component is not included in the model (at least, not distinct from noise). We will do the same for the descriptive model in our Bayesian analysis. (p. 612)
+
+#### Implementation in ~~JAGS~~ brms
+
+Define the `stanvars`.
+
+```{r}
+mean_y <- mean(my_data$Yield)
+sd_y   <- sd(my_data$Yield)
+
+omega <- sd_y / 2
+sigma <- 2 * sd_y
+
+s_r <- gamma_a_b_from_omega_sigma(mode = omega, sd = sigma)
+
+stanvars <- 
+  stanvar(mean_y,    name = "mean_y") + 
+  stanvar(sd_y,      name = "sd_y") +
+  stanvar(s_r$shape, name = "alpha") +
+  stanvar(s_r$rate,  name = "beta")
+```
+
+Fit the model.
+
+```{r fit3, cache = T, warning = F, message = F}
+fit3 <-
+  brm(data = my_data,
+      family = gaussian,
+      Yield ~ 1 + (1 | Till) + (1 | Fert) + (1 | Field) + (1 | Till:Fert),
+      prior = c(prior(normal(mean_y, sd_y * 5), class = Intercept),
+                prior(gamma(alpha, beta),       class = sd),
+                prior(cauchy(0, sd_y),          class = sigma)),
+      iter = 4000, warmup = 2000, chains = 4, cores = 4,
+      seed = 20,
+      control = list(adapt_delta = 0.99,
+                     max_treedepth = 12),
+      stanvars = stanvars)
+``` 
+
+#### Results
+
+Here's the summary.
+
+```{r}
+print(fit3)
+```
+
+We might compare the varaince parameters.
+
+```{r, fig.width = 8, fig.height = 2.5}
+posterior_samples(fit3) %>% 
+  select(sigma, starts_with("sd")) %>% 
+  gather() %>% 
+    
+  ggplot(aes(x = value, y = key)) +
+  geom_halfeyeh(point_interval = mode_hdi, .width = c(.5, .95),
+                scale = "width", relative_scale = .9) +
+  labs(x = NULL,
+       y = NULL) +
+  coord_cartesian(xlim = 0:60,
+                  ylim = c(1.25, 5.5)) +
+  theme(panel.grid   = element_blank(),
+        axis.text.y  = element_text(hjust = 0),
+        axis.ticks.y = element_blank())
+```
+
+Now we have the results of `fit3`, we are ready to make our version if Figure 20.10. Note that how within `add_fitted_draws()`, we used the `re_formula` argument to average over the random effects of `Field` (i.e., we left `(1 | Field)` out of the formula). That's our equivalent to when Kruschke wrote "The predictive normal distributions are plotted with means at $\beta_0 + \beta_B + \beta_W + beta_{B \times W}$ (collapsed across $\beta_S$) and with standard deviation $\sigma$" (pp. 614-615).
+
+```{r, fig.width = 6, fig.height = 3.5}
+# wrangle
+my_data %>% 
+  distinct(Till, Fert) %>% 
+  add_fitted_draws(fit3, n = 20,
+                   re_formula = Yield ~ 1 + (1 | Till) + (1 | Fert) + (1 | Till:Fert),
+                   dpar = c("mu", "sigma")) %>% 
+  mutate(ll      = qnorm(.025, mean = mu, sd = sigma),
+         ul      = qnorm(.975, mean = mu, sd = sigma)) %>% 
+  mutate(Yield   = map2(ll, ul, seq, length.out = 100)) %>% 
+  mutate(density = pmap(list(Yield, mu, sigma), dnorm)) %>% 
+  unnest() %>% 
+  group_by(.draw) %>% 
+  mutate(density = density / max(density)) %>% 
+  
+  # plot
+  ggplot(aes(x = Yield, y = Fert)) +
+  geom_path(data = my_data,
+            aes(group = Field %>% as.factor()),
+            size = 1/4) +
+  geom_ridgeline(aes(height = -density, group = interaction(Fert, .draw),
+                     color = Fert),
+                 fill = NA, 
+                 size = 1/3, scale = 3/4,
+                 min_height = NA) +
+  geom_jitter(data = my_data,
+              height = .025, alpha = 1/4) +
+  scale_color_viridis_d(option = "A", begin = .2, end = .8) +
+  scale_x_continuous(breaks = seq(from = 100, to = 180, by = 20)) +
+  coord_flip(xlim = 90:190,
+             ylim = c(0.5, 2.75)) +
+  labs(title = "Data with Posterior Predictive Distribution") +
+  theme(panel.grid      = element_blank(),
+        axis.ticks.x    = element_blank(),
+        legend.position = "none") +
+  facet_wrap(~Till)
+```
+
+Let's make our Figure 20.11 contrasts.
+
+```{r, fig.width = 8, fig.height = 2.5}
+col_names <-
+  my_data %>% 
+  distinct(Till, Fert) %>% 
+  unite(key, Till, Fert) %>% 
+  pull()
+
+nd <-
+  my_data %>% 
+  distinct(Till, Fert)
+
+fitted(fit3,
+       newdata = nd,
+       summary = F,
+       re_formula = Yield ~ 1 + (1 | Till) + (1 | Fert) + (1 | Till:Fert)
+       ) %>% 
+  as_tibble() %>% 
+  set_names(col_names) %>% 
+  transmute(
+    `Moldbrd vs Ridge` = ((Moldbrd_Broad + Moldbrd_Deep + Moldbrd_Surface) / 3) - ((Ridge_Broad + Ridge_Deep + Ridge_Surface) / 3),
+            
+    `Moldbrd.Ridge vs Chisel` = ((Moldbrd_Broad + Moldbrd_Deep + Moldbrd_Surface + Ridge_Broad + Ridge_Deep + Ridge_Surface) / 6) - ((Chisel_Broad + Chisel_Deep + Chisel_Surface) / 3),
+    
+    `Deep.Surface vs Broad` = ((Chisel_Deep + Moldbrd_Deep + Ridge_Deep + Chisel_Surface + Moldbrd_Surface + Ridge_Surface) / 6) - ((Chisel_Broad + Moldbrd_Broad + Ridge_Broad) / 3),
+    
+    `Chisel.Moldbrd.v.Ridge (x) Broad.v.Deep.Surface` = (((Chisel_Broad + Chisel_Deep + Chisel_Surface + Moldbrd_Broad + Moldbrd_Deep + Moldbrd_Surface) / 6) - ((Ridge_Broad + Ridge_Deep + Ridge_Surface) / 3)) - (((Chisel_Broad + Moldbrd_Broad + Ridge_Broad) / 3) - ((Chisel_Deep + Moldbrd_Deep + Ridge_Deep + Chisel_Surface + Moldbrd_Surface + Ridge_Surface) / 6))
+    ) %>% 
+  gather() %>% 
+  mutate(key = factor(key, levels = c("Moldbrd vs Ridge", "Moldbrd.Ridge vs Chisel", "Deep.Surface vs Broad", "Chisel.Moldbrd.v.Ridge (x) Broad.v.Deep.Surface"))) %>% 
+  
+  ggplot(aes(x = value)) +
+  geom_rect(aes(xmin = -5, xmax = 5,
+                ymin = -Inf, ymax = Inf),
+            color = "transparent", fill = "white") +
+  geom_histogram(color = "grey92", fill = "grey67",
+                 size = .2, bins = 40) +
+  stat_pointintervalh(aes(y = 0),
+                      point_interval = mode_hdi, .width = c(.95, .5)) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  xlab("Difference") +
+  theme(panel.grid = element_blank(),
+        strip.text = element_text(size = 6)) +
+  facet_wrap(~key, scales = "free", ncol = 4)
+```
+
+As far as I can tell, it appears that our contrasts indicate our variance parameter for `Till` ended up larger than Kruschke’s.
+
+Krushke then poses a model "with field/subject coding suppressed, hence no lines connecting data from the same field/subject" (p. 616). Here's how to fit that model.
+
+```{r fit4, cache = T, warning = F, message = F}
+fit4 <-
+  brm(data = my_data,
+      family = gaussian,
+      Yield ~ 1 + (1 | Till) + (1 | Fert) + (1 | Till:Fert),
+      prior = c(prior(normal(mean_y, sd_y * 5), class = Intercept),
+                prior(gamma(alpha, beta),       class = sd),
+                prior(cauchy(0, sd_y),          class = sigma)),
+      iter = 4000, warmup = 2000, chains = 4, cores = 4,
+      seed = 20,
+      control = list(adapt_delta = 0.999,
+                     max_treedepth = 12),
+      stanvars = stanvars)
+``` 
+
+Behold the summary.
+
+```{r}
+print(fit4)
+```
+
+Look at how much larger the posterior is for $\sigma_y$ in this model compared to `fit3`.
+
+```{r}
+posterior_summary(fit3)["sigma", ]
+posterior_summary(fit4)["sigma", ]
+```
+
+Here's the top portion of Figure 20.12.
+
+```{r, fig.width = 6, fig.height = 3.5}
+# wrangle
+my_data %>% 
+  distinct(Till, Fert) %>% 
+  add_fitted_draws(fit4, n = 20,
+                   re_formula = Yield ~ 1 + (1 | Till) + (1 | Fert) + (1 | Till:Fert),
+                   dpar = c("mu", "sigma")) %>% 
+  mutate(ll      = qnorm(.025, mean = mu, sd = sigma),
+         ul      = qnorm(.975, mean = mu, sd = sigma)) %>% 
+  mutate(Yield   = map2(ll, ul, seq, length.out = 200)) %>% 
+  mutate(density = pmap(list(Yield, mu, sigma), dnorm)) %>% 
+  unnest() %>% 
+  group_by(.draw) %>% 
+  mutate(density = density / max(density)) %>% 
+  
+  # plot
+  ggplot(aes(x = Yield, y = Fert)) +
+  geom_ridgeline(aes(height = -density, group = interaction(Fert, .draw),
+                     color = Fert),
+                 fill = NA, 
+                 size = 1/3, scale = 3/4,
+                 min_height = NA) +
+  geom_jitter(data = my_data,
+              height = .025, alpha = 1/4) +
+  scale_color_viridis_d(option = "A", begin = .2, end = .8) +
+  scale_x_continuous(breaks = seq(from = 100, to = 180, by = 20)) +
+  coord_flip(xlim = 90:190,
+             ylim = c(0.5, 2.75)) +
+  labs(title = "Data with Posterior Predictive Distribution") +
+  theme(panel.grid      = element_blank(),
+        axis.ticks.x    = element_blank(),
+        legend.position = "none") +
+  facet_wrap(~Till)
+```
+
+Now the contrast distributions.
+
+```{r, fig.width = 8, fig.height = 2.5}
+fitted(fit4,
+       newdata = nd,
+       summary = F,
+       re_formula = Yield ~ 1 + (1 | Till) + (1 | Fert) + (1 | Till:Fert)
+       ) %>% 
+  as_tibble() %>% 
+  set_names(col_names) %>% 
+  transmute(
+    `Moldbrd vs Ridge` = ((Moldbrd_Broad + Moldbrd_Deep + Moldbrd_Surface) / 3) - ((Ridge_Broad + Ridge_Deep + Ridge_Surface) / 3),
+            
+    `Moldbrd.Ridge vs Chisel` = ((Moldbrd_Broad + Moldbrd_Deep + Moldbrd_Surface + Ridge_Broad + Ridge_Deep + Ridge_Surface) / 6) - ((Chisel_Broad + Chisel_Deep + Chisel_Surface) / 3),
+    
+    `Deep.Surface vs Broad` = ((Chisel_Deep + Moldbrd_Deep + Ridge_Deep + Chisel_Surface + Moldbrd_Surface + Ridge_Surface) / 6) - ((Chisel_Broad + Moldbrd_Broad + Ridge_Broad) / 3),
+    
+    `Chisel.Moldbrd.v.Ridge (x) Broad.v.Deep.Surface` = (((Chisel_Broad + Chisel_Deep + Chisel_Surface + Moldbrd_Broad + Moldbrd_Deep + Moldbrd_Surface) / 6) - ((Ridge_Broad + Ridge_Deep + Ridge_Surface) / 3)) - (((Chisel_Broad + Moldbrd_Broad + Ridge_Broad) / 3) - ((Chisel_Deep + Moldbrd_Deep + Ridge_Deep + Chisel_Surface + Moldbrd_Surface + Ridge_Surface) / 6))
+    ) %>% 
+  gather() %>% 
+  mutate(key = factor(key, levels = c("Moldbrd vs Ridge", "Moldbrd.Ridge vs Chisel", "Deep.Surface vs Broad", "Chisel.Moldbrd.v.Ridge (x) Broad.v.Deep.Surface"))) %>% 
+  
+  ggplot(aes(x = value)) +
+  geom_rect(aes(xmin = -5, xmax = 5,
+                ymin = -Inf, ymax = Inf),
+            color = "transparent", fill = "white") +
+  geom_histogram(color = "grey92", fill = "grey67",
+                 size = .2, bins = 40) +
+  stat_pointintervalh(aes(y = 0),
+                      point_interval = mode_hdi, .width = c(.95, .5)) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  xlab("Difference") +
+  theme(panel.grid = element_blank(),
+        strip.text = element_text(size = 6)) +
+  facet_wrap(~key, scales = "free", ncol = 4)
+```
+
+#### Model comparison approach
+
+Like we covered in an earlier chapter, I'm not aware that Stan/brms will allow for $\delta$ factor-inclusion parameters the way JAGS allows. However, if you'd like to compare models with different parameters, you can always use information criteria.
+
+```{r l_fit3_fit4, cache = T}
+loo(fit3, fit4)
+```
+
+Let's follow the diagnostic warnings to make sure the model comparison is robust to the outlying values.
+
+```{r rl_fit3_fit4, cache = T}
+loo(fit3, fit4,
+    reloo = T)
+```
+
+All good. Based on the LOO values, we should prefer the fuller model. This, of course, should be no surprise. The posterior for $\sigma_\text{Field}$ was a far cry from zero.
+
+```{r}
+posterior_summary(fit3)["sd_Field__Intercept", ]
+```
+
+## References {-}
+
+Kruschke, J. K. (2015). *Doing Bayesian data analysis, Second Edition: A tutorial with R, JAGS, and Stan.* Burlington, MA: Academic Press/Elsevier.
+
+## Session info {-}
+
+```{r}
+sessionInfo()
+```
+
+```{r, message = F, echo = F}
+# Here we'll remove our objects
+rm(grand_mean, deflection_1, deflection_2, nonadditive_component, d, p, p1, p2, p3, gamma_a_b_from_omega_sigma, my_data, mean_y, sd_y, omega, sigma, s_r, stanvars, n_draw, f, n_iter, post, nd, contrast, contrasts, brief_col_names, f1, text, f2, l, fit3, col_names, fit4)
+
+theme_set(theme_grey())
+```
