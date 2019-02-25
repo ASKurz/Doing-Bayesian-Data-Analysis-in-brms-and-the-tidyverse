@@ -14,7 +14,7 @@ output:
 
 ## 21.1. Multiple metric predictors
 
-"We begin by considering a situation with multiple metric predictors, because this case makes it easiest to visualize the concepts of logistic regression" (p. 623)
+"We begin by considering a situation with multiple metric predictors, because this case makes it easiest to visualize the concepts of logistic regression" (p. 623).
 
 Figure 21.1 is beyond the scope of our ggplot2 paradigm.
 
@@ -24,7 +24,7 @@ Our statistical model will follow the form
 
 $$
 \begin{eqnarray}
-\mu & = & \text{logistic] (\beta_0 + \beta_1 x_1 + \beta_2 x_2) \\
+\mu & = & \text{logistic} (\beta_0 + \beta_1 x_1 + \beta_2 x_2) \\
 y & \sim & \text{Bernoulli} (\mu)
 \end{eqnarray}
 $$
@@ -33,17 +33,29 @@ where
 
 $$\text{logistic} (x) = \frac{1}{(1 + \text{exp} (-x))}$$
 
-The generic brms code for logistic regression looks like so.
+The generic brms code for logistic regression using the Bernoulli likelihood looks like so.
+
+```{r, eval = F}
+fit <-
+  brm(data = my_data, family = bernoulli,
+      y ~ 1 + x1 + x2,
+      prior = c(prior(normal(0, 2), class = Intercept),
+                prior(normal(0, 2), class = b)))
+```
+
+Note that this syntax presumes the predictor variables have already been standardized.
+
+We'd be remis not to point out that you can also specify the model using the binomial distribution. That code would look like this.
 
 ```{r, eval = F}
 fit <-
   brm(data = my_data, family = binomial,
-      y ~ 1 + x1 + x2,
-      prior = c(prior(normal(0, 4), class = Intercept),
-                prior(normal(0, 4), class = b)))
+      y | trials(1) ~ 1 + x1 + x2,
+      prior = c(prior(normal(0, 2), class = Intercept),
+                prior(normal(0, 2), class = b)))
 ```
 
-Note that this syntax presumes the predictor variables have already been standardized.
+And the results of these two should be the same as long as the dara are not aggregated. In brms, the default link for both `family = bernoulli` and `family = binomial` models is `logit`, which is exactly what we want, here. Also, note the additional `| trials(1) ` syntax on the left side of the model formula. You could get away with omitting this in older versions of brms. But newer versions bark at you to specify how many of trials each row in the data represents. This is because, as with the baseball data we’ll use later in the chapter, the binomial distribution includes an $n$ parameter. When working with un-aggregated data like what we’re about to do, below, it’s presumed that $n = 1$.
 
 ### 21.1.2 Example: Height, weight, and gender
 
@@ -100,14 +112,14 @@ Open brms.
 library(brms)
 ```
 
-Our first model uses only `weight_z` as a predictor.
+Our first logistic model with `family = bernoulli` uses only `weight_z` as a predictor.
 
 ```{r fit1, cache = T, message = F, warning = F}
 fit1 <-
-  brm(data = my_data, family = binomial,
+  brm(data = my_data, family = bernoulli,
       male ~ 1 + weight_z,
-      prior = c(prior(normal(0, 4), class = Intercept),
-                prior(normal(0, 4), class = b)),
+      prior = c(prior(normal(0, 2), class = Intercept),
+                prior(normal(0, 2), class = b)),
       iter = 2500, warmup = 500, chains = 4, cores = 4,
       seed = 21)
 ```
@@ -118,23 +130,29 @@ Here's the model summary.
 print(fit1)
 ```
 
-```{r}
+Now let’s get ready to make our version of Figure 21.3. First, we need to do some `fitted()`-oriented wrangling.
+
+```{r, warning = F}
+length <- 200
 n_iter <- 20
-nd <- tibble(weight_z = seq(from = -2, to = 3.5, length.out = 200))
+
+nd <- tibble(weight_z = seq(from = -2, to = 3.5, length.out = length))
 
 f <-
   fitted(fit1,
-         newdata = nd,
-         summary = F,
+         newdata  = nd,
+         summary  = F,
          nsamples = n_iter) %>% 
   as_tibble() %>% 
   gather() %>% 
   mutate(weight_z = rep(nd$weight_z, each = n_iter),
-         iter = rep(1:n_iter, times = 200)) %>% 
-  mutate(weight = weight_z * sd(my_data$weight) + mean(my_data$weight))
+         iter     = rep(1:n_iter, times = length)) %>% 
+  mutate(weight   = weight_z * sd(my_data$weight) + mean(my_data$weight))
 
 head(f)
 ```
+
+Here’s a tricky way to get the threshold values.
 
 ```{r}
 thresholds <-
@@ -144,7 +162,7 @@ thresholds <-
   filter(value == max(value))
 ```
 
-
+Here’s our version of the top panel of Figure 21.3.
 
 ```{r, fig.width = 4.5, fig.height = 3.75}
 f %>% 
@@ -186,14 +204,26 @@ posterior_samples(fit1) %>%
   facet_wrap(~key, scales = "free", ncol = 2)
 ```
 
+And here are those exact posterior mode and 95% HDI values.
+
+```{r}
+posterior_samples(fit1) %>% 
+  transmute(Intercept = b_Intercept - (b_weight_z * mean(my_data$weight) / sd(my_data$weight)),
+            weight    = b_weight_z / sd(my_data$weight)) %>% 
+  gather() %>% 
+  group_by(key) %>% 
+  mode_hdi() %>% 
+  mutate_if(is.double, round, digits = 3)
+```
+
 Now fit the two-predictor model using both `weight_z` and `height_z`
 
 ```{r fit2, cache = T, message = F, warning = F}
 fit2 <-
-  brm(data = my_data, family = binomial,
-      male | trials(1) ~ 1 + weight_z + height_z,
-      prior = c(prior(normal(0, 4), class = Intercept),
-                prior(normal(0, 4), class = b)),
+  brm(data = my_data, family = bernoulli,
+      male ~ 1 + weight_z + height_z,
+      prior = c(prior(normal(0, 2), class = Intercept),
+                prior(normal(0, 2), class = b)),
       iter = 2500, warmup = 500, chains = 4, cores = 4,
       seed = 21)
 ```
@@ -209,10 +239,10 @@ Before we make our plots for Figure 21.4, we'll need to extract the posterior sa
 ```{r}
 post <-
   posterior_samples(fit2) %>% 
-  transmute(b_weight    = b_weight_z / sd(my_data$weight),
-            b_height    = b_height_z / sd(my_data$height),
-            Intercept   = b_Intercept - ((b_weight_z * mean(my_data$weight) / sd(my_data$weight)) +
-                                           (b_height_z * mean(my_data$height) / sd(my_data$height))))
+  transmute(b_weight  = b_weight_z / sd(my_data$weight),
+            b_height  = b_height_z / sd(my_data$height),
+            Intercept = b_Intercept - ((b_weight_z * mean(my_data$weight) / sd(my_data$weight)) +
+                                         (b_height_z * mean(my_data$height) / sd(my_data$height))))
 
 head(post)
 ```
@@ -262,6 +292,58 @@ post %>%
   facet_wrap(~key, scales = "free", ncol = 3)
 ```
 
+You know how to use `mode_hdi()` to get those exact summary values.
+
+Now remember how we backed away from Figure 21.1? Well, when you have a logistic regression with two predictors, there is a reasonable way to express those three dimensions on a two-dimensional grid. Now we have the results from `fit2`, let's try it out.
+
+First, we need a grid of values for our two predictors, `weight_z` and `height_z`.
+
+```{r}
+length <- 100
+
+nd <- 
+  tibble(weight_z = seq(from = -3.5, to = 3.5, length.out = length),
+         height_z = seq(from = -3.5, to = 3.5, length.out = length)) %>% 
+  expand(weight_z, height_z)
+```
+
+Second, we plug those values into `fitted()` and wrangle.
+
+```{r}
+f <-
+  fitted(fit2,
+         newdata = nd,
+         scale = "linear") %>% 
+  as_tibble() %>% 
+  # note we're only working with the posterior mean, here
+  transmute(prob = Estimate %>% inv_logit_scaled()) %>% 
+  bind_cols(nd) %>% 
+  mutate(weight = (weight_z * sd(my_data$weight) + mean(my_data$weight)),
+         height = (height_z * sd(my_data$height) + mean(my_data$height)))
+
+glimpse(f)
+```
+
+Third, we're ready to plot. Here we'll express the third dimension, probability, on a color spectrum.
+
+```{r, fig.width = 4.75, fig.height = 4}
+f %>% 
+  ggplot(aes(x = weight, y = height)) +
+  geom_raster(aes(fill = prob),
+              interpolate = T) +
+  geom_text(data = my_data,
+            aes(label = male, color = male == 1),
+            show.legend = F) +
+  scale_color_manual(values = c("white", "black")) +
+  scale_fill_viridis_c(option = "A", begin = .1) +
+  scale_y_continuous(position = "right") +
+  coord_cartesian(xlim = range(my_data$weight),
+                  ylim = range(my_data$height)) +
+  theme(legend.position = "left")
+```
+
+Hopefully this helps make sense of what the thresholds in Figure 21.4.a represented. But do note a major limitation of this visualization approach. By expressing the threshold by multiple lines drawn from the posterior in Figure 21.4.a, we expressed the uncertainty inherent in the posterior distribution. However, for our probability plane approach, here, we’ve taken a single value from the posterior, the mean (i.e., the `Estimate`), to compute the probabilities. Though beautiful, our plot here does a poor job expressing our uncertainty. 
+
 ## 21.2. Interpreting the regression coefficients
 
 > In this section, I’ll discuss how to interpret the parameters in logistic regression. The first subsection explains how to interpret the numerical magnitude of the slope coefficients in terms of "log odds." The next subsection shows how data with relatively few 1’s or 0’s can yield ambiguity in the parameter estimates. Then an example with strongly correlated predictors reveals tradeoffs in slope coefficients. Finally, I briefly describe the meaning of multiplicative interaction for logistic regression. (p. 629)
@@ -285,7 +367,7 @@ $$0 < \mu < 1, $$
 it may or may not be clear that the results of our logistic regression models have a nonlinear relation with the actual parameter of interest, $\mu$, which, recall, is the probability our criterion variable is 1 (e.g., `male == 1`). To get a sense of that nonlinear relation, we might make a plot.
 
 ```{r, fig.width = 3.25, fig.height = 3}
-tibble(mu = seq(from = 0, to = 1, length.out = 200)) %>% 
+tibble(mu         = seq(from = 0, to = 1, length.out = 200)) %>% 
   mutate(logit_mu = log(mu / (1 - mu))) %>% 
 
   ggplot(aes(x = mu, y = logit_mu)) +
@@ -336,17 +418,19 @@ d_rare <-
 glimpse(d_rare)
 ```
 
-We're ready to fit the model.
+We're ready to fit the model. So far, we’ve been following along with Kruschke by using the Bernoulli distribution (i.e., `family = Bernoulli`) in our brms models. Let’s get frisky and use the $n = 1$ binomial distribution, here. You’ll see it yields the same results.
 
 ```{r fit3, cache = T, message = F, warning = F}
 fit3 <-
   brm(data = d_rare, family = binomial,
       y | trials(1) ~ 1 + x,
-      prior = c(prior(normal(0, 4), class = Intercept),
-                prior(normal(0, 4), class = b)),
+      prior = c(prior(normal(0, 2), class = Intercept),
+                prior(normal(0, 2), class = b)),
       iter = 2500, warmup = 500, chains = 4, cores = 4,
       seed = 21)
 ```
+
+Recall that when you use the binomial distribution in newer versions of brms, you need to use the `trials()` syntax to tell `brm()` how many trials each row in the data corresponds to. Anyway, behold the summary.
 
 ```{r}
 print(fit3)
@@ -355,36 +439,37 @@ print(fit3)
 Here's the prepatory work to needed before we can make our version of the main plot in Figure 21.5.a.
 
 ```{r}
-# I'm not quite sure if Kruschke's still using 20 draws or not. 
-# Play with this number as you will.
+# undlear if Kruschke's still using 20 draws or not.
+# perhaps play with `n_iter` values.
 n_iter <- 20
-nd <- tibble(x = seq(from = -3.5, to = 3.5, length.out = 200))
+
+nd <- tibble(x = seq(from = -3.5, to = 3.5, length.out = length))
 
 # These will make the logistic curves
 set.seed(21)
 f <-
   fitted(fit3,
-         newdata = nd,
-         summary = F,
+         newdata  = nd,
+         summary  = F,
          nsamples = n_iter) %>% 
   as_tibble() %>% 
-  gather() %>% 
-  mutate(x = rep(nd$x, each = n_iter),
-         iter = rep(1:n_iter, times = 200))
+  gather(key, y) %>% 
+  mutate(x    = rep(nd$x, each = n_iter),
+         iter = rep(1:n_iter, times = length))
 
 # Here's just a little more work to get the thresholds
 thresholds <-
   f %>% 
-  filter(value < .5) %>% 
+  filter(y < .5) %>% 
   group_by(iter) %>% 
-  filter(value == max(value))
+  filter(y == max(y))
 ```
 
-We're ready to plot.
+We're ready to plot the top left panel of Figure 21.5.
 
 ```{r, fig.width = 4.25, fig.height = 3.75}
 f %>%   
-  ggplot(aes(x = x, y = value)) +
+  ggplot(aes(x = x, y = y)) +
   geom_hline(yintercept = .5, color = "white") +
   geom_vline(xintercept = thresholds$x, color = "white", size = 2/5) +
   geom_line(aes(group = iter),
@@ -398,7 +483,7 @@ f %>%
   theme(panel.grid = element_blank())
 ```
 
-Here are the two subplots at the bottom.
+Here are the two subplots at the bottom, left.
 
 ```{r, fig.width = 6, fig.height = 2.5, warning = F, message = F}
 posterior_samples(fit3) %>% 
@@ -417,6 +502,8 @@ posterior_samples(fit3) %>%
   facet_wrap(~key, scales = "free", ncol = 2)
 ```
 
+Since our data were simulated without the benefit of knowing how Kruschke set his seed and such, our results will only approximate those in the text.
+
 Okay, now we need to simulate the complimentary data, those for which $y = 1$ is a less-rare event.
 
 ```{r}
@@ -427,20 +514,22 @@ n <- 500
 
 set.seed(21)
 d_not_rare <-
-  tibble(x = rnorm(n, mean = 0, sd = 1)) %>% 
+  tibble(x  = rnorm(n, mean = 0, sd = 1)) %>% 
   mutate(mu = b0 + b1 * x) %>% 
-  mutate(y = rbinom(n, size = 1, prob = 1 / (1 + exp(-mu))))
+  mutate(y  = rbinom(n, size = 1, prob = 1 / (1 + exp(-mu))))
 
 glimpse(d_not_rare)
 ```
 
 Fitting this model is just like before.
 
-```{r fit4, cache = T, message = F, warning = F}
+```{r fit4, cache = T, message = F, warning = F, results = "hide"}
 fit4 <-
   update(fit3,
          newdata = d_not_rare)
 ```
+
+Behold the summary.
 
 ```{r}
 print(fit4)
@@ -449,8 +538,7 @@ print(fit4)
 Here's the main plot in Figure 21.5.b.
 
 ```{r, fig.width = 4.25, fig.height = 3.75}
-n_iter <- 20
-nd <- tibble(x = seq(from = -3.5, to = 3.5, length.out = 200))
+nd <- tibble(x = seq(from = -3.5, to = 3.5, length.out = length))
 
 set.seed(21)
 f <-
@@ -459,18 +547,18 @@ f <-
          summary = F,
          nsamples = n_iter) %>% 
   as_tibble() %>% 
-  gather() %>% 
+  gather(key, y) %>% 
   mutate(x = rep(nd$x, each = n_iter),
-         iter = rep(1:n_iter, times = 200))
+         iter = rep(1:n_iter, times = length))
 
 thresholds <-
   f %>% 
-  filter(value < .5) %>% 
+  filter(y < .5) %>% 
   group_by(iter) %>% 
-  filter(value == max(value))
+  filter(y == max(y))
 
 f %>%   
-  ggplot(aes(x = x, y = value)) +
+  ggplot(aes(x = x, y = y)) +
   geom_hline(yintercept = .5, color = "white") +
   geom_vline(xintercept = thresholds$x, color = "white", size = 2/5) +
   geom_line(aes(group = iter),
@@ -502,11 +590,15 @@ posterior_samples(fit4) %>%
   facet_wrap(~key, scales = "free", ncol = 2)
 ```
 
+> You can see in Figure 21.5 that the estimate of the slope (and of the intercept) is more certain in the right panel than in the left panel. The 95% HDI on the slope, $\beta_1$, is much wider in the left panel than in the right panel, and you can see that the logistic curves in the left panel have greater variation in steepness than the logistic curves in the right panel. The analogous statements hold true for the intercept parameter.
+>
+> Thus, if you are doing an experimental study and you can manipulate the $x$ values, you will want to select $x$ values that yield about equal numbers of 0’s and 1’s for the $y$ values overall. If you are doing an observational study, such that you cannot control any independent variables, then you should be aware that the parameter estimates may be surprisingly ambiguous if your data have only a small proportion of 0’s or 1’s. (pp. 631--632)
+
 ### 21.2.3 Correlated predictors
 
 "Another important cause of parameter uncertainty is correlated predictors. This issue was previously discussed at length, but the context of logistic regression provides novel illustration in terms of level contours" (p. 632).
 
-As far as I can tell, Kruschke chose about $n = 200$ for the data in this example. After messing around with correlations for a but, It seems  $\rho_{x_1, x_2} = .975$ looks about right. To my knowledge, the best way to simulate multivariate Gaussian data with a particular correlation is with the [`MASS::mvrnorm()` function](https://www.rdocumentation.org/packages/MASS/versions/7.3-51.1/topics/mvrnorm). Since we'll be using standardized $x$-variables, we'll need to specify our $n$, the desired correlation matrix, and a vector of means. Then we'll be ready to do the actual simulation with `mvrnorm()`.
+As far as I can tell, Kruschke chose about $n = 200$ for the data in this example. After messing around with correlations for a but, It seems $\rho_{x_1, x_2} = .975$ looks about right. To my knowledge, the best way to simulate multivariate Gaussian data with a particular correlation is with the [`MASS::mvrnorm()` function](https://www.rdocumentation.org/packages/MASS/versions/7.3-51.1/topics/mvrnorm). Since we'll be using standardized $x$-variables, we'll need to specify our $n$, the desired correlation matrix, and a vector of means. Then we'll be ready to do the actual simulation with `mvrnorm()`.
 
 ```{r}
 n <- 200
@@ -544,7 +636,7 @@ set.seed(21)
 d <-
   d %>% 
   mutate(mu = b0 + b1 * x1 + b2 * x2) %>% 
-  mutate(y = rbinom(n, size = 1, prob = 1 / (1 + exp(-mu))))
+  mutate(y  = rbinom(n, size = 1, prob = 1 / (1 + exp(-mu))))
 ```
 
 Fit the model with the highly-correlated predictors.
@@ -553,8 +645,8 @@ Fit the model with the highly-correlated predictors.
 fit5 <-
   brm(data = d, family = binomial,
       y | trials(1) ~ 1 + x1 + x2,
-      prior = c(prior(normal(0, 4), class = Intercept),
-                prior(normal(0, 4), class = b)),
+      prior = c(prior(normal(0, 2), class = Intercept),
+                prior(normal(0, 2), class = b)),
       iter = 2500, warmup = 500, chains = 4, cores = 4,
       seed = 21)
 ```
@@ -662,7 +754,7 @@ posterior_samples(fit5) %>%
 
 ### 21.2.4 Interaction of metric predictors
 
-Kruschke didn't walk through an analysis, but it's worth the practice. Let's simulate data based on the formula he gave in Figure 21.7, top right.
+Kruschke didn't walk through an analysis in this section, but it's worth the practice. Let's simulate data based on the formula he gave in Figure 21.7, top right.
 
 ```{r}
 n  <- 500
@@ -680,19 +772,19 @@ d <-
   mutate(y = rbinom(n, size = 1, prob = 1 / (1 + exp(-mu))))
 ```
 
-Fit the interaction model.
+To fit the interaction model, let's go back to the Bernoulli likelihood.
 
 ```{r fit6, cache = T, message = F, warning = F}
 fit6 <-
-  brm(data = d, family = binomial,
-      y | trials(1) ~ 1 + x1 + x2 + x1:x2,
-      prior = c(prior(normal(0, 4), class = Intercept),
-                prior(normal(0, 4), class = b)),
+  brm(data = d, family = bernoulli,
+      y ~ 1 + x1 + x2 + x1:x2,
+      prior = c(prior(normal(0, 2), class = Intercept),
+                prior(normal(0, 2), class = b)),
       iter = 2500, warmup = 500, chains = 4, cores = 4,
       seed = 21)
 ```
 
-Based on the summary, looks like the model did a nice job recapturing the population parameters.
+Looks like the model did a nice job recapturing the population parameters.
 
 ```{r}
 print(fit6)
@@ -701,9 +793,11 @@ print(fit6)
 I'm not quite sure how to expand Kruschke's equation from the top of page 629 to our interaction model. But no worries. We can take a slightly different approach to show the consequences of our interaction model on the probability $y = 1$. First, we define our `newdata` and then get the `Estimate`s from `fitted()`. Then we wrangle as usual.
 
 ```{r}
+length <- 100
+
 nd <- 
-  tibble(x1 = seq(from = -3, to = 3, length.out = 100),
-         x2 = seq(from = -3, to = 3, length.out = 100)) %>% 
+  tibble(x1 = seq(from = -3.5, to = 3.5, length.out = length),
+         x2 = seq(from = -3.5, to = 3.5, length.out = length)) %>% 
   expand(x1, x2)
 
 f <-
@@ -727,23 +821,32 @@ f %>%
             aes(label = y, color = y == 1),
             size = 2.75, show.legend = F) +
   scale_color_manual(values = c("white", "black")) +
-  scale_fill_viridis_c(option = "A", begin = .15, end = .95) +
+  scale_fill_viridis_c(option = "A", begin = .15) +
   scale_x_continuous(expand = c(0, 0)) +
   scale_y_continuous(expand = c(0, 0)) +
-  coord_cartesian(xlim = -3:3,
-                  ylim = -3:3)
+  coord_cartesian(xlim = range(nd$x1),
+                  ylim = range(nd$x2))
 ```
 
-Instead of a simple threshold line, we get an entire probability plane.
+Instead of a simple threshold line, we get to visualize our interaction as a checkerboard-like probability plane.
 
 ## 21.3. Robust logistic regression
 
-Here's what Kruschke's `beta(1, 9)` prior looks like.
+Okay, with the robust logistic regression approach,
+
+> we will describe the data as being a mixture of two different sources. One source is the logistic function of the predictor(s). The other source is sheer randomness or “guessing,” whereby the $y$ value comes from the flip of a fair coin: $y \sim \text{Bernoulli} (\mu = 1/2)$. We suppose that every data point has a small chance, $\alpha$, of being generated by the guessing process, but usually, with probability $1 - \alpha$, the $y$ value comes from the logistic function of the predictor. With the two sources combined, the predicted probability that $y = 1$ is
+>
+>$\mu = \alpha \cdot \frac{1}{2} + (1 - \alpha) \cdot \text{logistic} \bigg ( \beta_0  + \sum_j \beta_j x_j \bigg )$
+>
+> Notice that when the guessing coefficient is zero, then the conventional logistic model is completely recovered. When the guessing coefficient is one, then the y values are completely random. (p. 635)
+
+Here's what Kruschke's `beta(1, 9)` prior for $\alpha$ looks like.
 
 ```{r, fig.width = 3, fig.height = 2.75}
 tibble(x = seq(from = 0, to = 1, length.out = 200)) %>% 
   
   ggplot(aes(x = x)) +
+  # did you catch our `ymax` trick?
   geom_ribbon(aes(ymin = 0, ymax = dbeta(x, 1, 9)),
               size = 0, fill = "grey50") +
   scale_y_continuous(NULL, breaks = NULL) +
@@ -757,24 +860,24 @@ To fit the brms analogue to Kruschke's rogust logistic regression model, we'll n
 ```{r fit7, cache = T, message = F, warning = F}
 fit7 <-
   brm(data = my_data, 
-      family = binomial(link = "identity"),
-      bf(male | trials(1) ~ a * .5 + (1 - a) * 1 / (1 + exp(-1 * (b0 + b1 * weight_z))),
+      family = bernoulli(link = identity),
+      bf(male ~ a * .5 + (1 - a) * 1 / (1 + exp(-1 * (b0 + b1 * weight_z))),
          a + b0 + b1  ~ 1,
          nl = TRUE),
-      prior = c(prior(normal(0, 4), nlpar = "b0"),
-                prior(normal(0, 4), nlpar = "b1"),
+      prior = c(prior(normal(0, 2), nlpar = "b0"),
+                prior(normal(0, 2), nlpar = "b1"),
                 prior(beta(1, 9),   nlpar = "a")),
       iter = 2500, warmup = 500, chains = 4, cores = 4,
       seed = 21)
 ```
 
-To explain what's going on with our syntax, above, I think it's best to quite Bürkner at length:
+And just for clarity, you can do the same thing with `family = binomial(link = identity)`, too. Just don’t forget to specify the number of trials with `trials()`. But to explain what's going on with our syntax, above, I think it's best to quite Bürkner at length:
 
 > When looking at the above code, the first thing that becomes obvious is that we changed the `formula` syntax to display the non-linear formula including predictors (i.e., [`weight_z`]) and parameters (i.e., [`a`, `b0`, and `b1`]) wrapped in a call to [the `bf()` function]. This stands in contrast to classical **R** formulas, where only predictors are given and parameters are implicit. The argument [`a + b0 + b1 ~ 1`] serves two purposes. First, it provides information, which variables in `formula` are parameters, and second, it specifies the linear predictor terms for each parameter. In fact, we should think of non-linear parameters as placeholders for linear predictor terms rather than as parameters themselves (see also the following examples). In the present case, we have no further variables to predict [`a`,  `b0`, and `b1`] and thus we just fit intercepts that represent our estimates of [$\alpha$, $\beta_0$, and  $\beta_1$]. The formula [`a + b0 + b1 ~ 1`] is a short form of [`a ~ 1, b0 ~ 1, b1 ~ 1`] that can be used if multiple non-linear parameters share the same formula. Setting `nl = TRUE` tells **brms** that the formula should be treated as non-linear.
 >
 > In contrast to generalized linear models, priors on population-level parameters (i.e., 'fixed effects') are often mandatory to identify a non-linear model. Thus, **brms** requires the user to explicitely specify these priors. In the present example, we used a [`beta(1, 9)` prior on (the population-level intercept of) `a`, while we used a `normal(0, 4)` prior on both (population-level intercepts of) `b0` and `b1`]. Setting priors is a non-trivial task in all kinds of models, especially in non-linear models, so you should always invest some time to think of appropriate priors. Quite often, you may be forced to change your priors after fitting a non-linear model for the first time, when you observe different MCMC chains converging to different posterior regions. This is a clear sign of an idenfication problem and one solution is to set stronger (i.e., more narrow) priors. (**emphasis** in the original)
  
-Behold the summary.
+Now, behold the summary.
 
 ```{r}
 print(fit7)
@@ -792,8 +895,9 @@ marginal_effects(fit7) %>%
 The way we prep for our version of Figure 21.8 is just the same as what we did for Figure 21.3, above.
 
 ```{r}
-n_iter <- 20
-nd <- tibble(weight_z = seq(from = -2, to = 3.5, length.out = 200))
+length <- 200
+
+nd <- tibble(weight_z = seq(from = -2, to = 3.5, length.out = length))
 
 f <-
   fitted(fit7,
@@ -803,8 +907,8 @@ f <-
   as_tibble() %>% 
   gather() %>% 
   mutate(weight_z = rep(nd$weight_z, each = n_iter),
-         iter = rep(1:n_iter, times = 200)) %>% 
-  mutate(weight = weight_z * sd(my_data$weight) + mean(my_data$weight))
+         iter     = rep(1:n_iter, times = length)) %>% 
+  mutate(weight   = weight_z * sd(my_data$weight) + mean(my_data$weight))
 
 thresholds <-
   f %>% 
@@ -852,14 +956,18 @@ posterior_samples(fit7) %>%
   facet_wrap(~key, scales = "free", ncol = 3)
 ```
 
-Our posteriors are a little more skewed than Kruschke's, but they are overall in the same ballpark. Here are the `pairs()` plots.
+Here are the `pairs()` plots.
 
 ```{r, fig.width = 3.75, fig.height = 3.5}
 pairs(fit7,
       off_diag_args = list(size = 1/5, alpha = 1/5))
 ```
 
+Look at how that sweet HMC reduced the correlation between $\beta_0$ and $\beta_1$.
+
 ## 21.4. Nominal predictors
+
+"We now turn our attention from metric predictors to nominal predictors" (p. 636).
 
 ### 21.4.1 Single group
 
@@ -913,13 +1021,46 @@ tibble(m_0 = rep(0:1, each = 3),
   facet_wrap(~key, scales = "free_y", labeller = label_parsed)
 ```
 
-Here's the basic brms analogue to Kruschke's JAGS code at the top of page 641.
+So the prior distribution doesn't even flatten out until you're somewhere between $S_0 = 1$ and $S_0 = 2$. Just for kicks, here we break that down a little further.
+
+```{r, fig.width = 8, fig.height = 2}
+# wrangle
+tibble(m_0 = rep(0, times = 3),
+       s_0 = c(1.25, 1.5, 1.75)) %>% 
+  mutate(key = str_c("mu == logistic(beta %~%", " N(", m_0, ", ", s_0, "))"),
+         sim = pmap(list(1e7, m_0, s_0), rnorm)) %>% 
+  unnest() %>% 
+  mutate(sim = logistic(sim)) %>% 
+  
+  # plot
+  ggplot(aes(x = sim,
+             y = ..density..)) +
+  geom_histogram(color = "grey92", fill = "grey67",
+                 size = 1/3, bins = 20, boundary = 0) +
+  geom_line(stat = "density", size = 3/4) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  xlab(expression(mu)) +
+  theme(panel.grid = element_blank()) +
+  facet_wrap(~key, scales = "free_y", labeller = label_parsed, ncol = 3)
+```
+
+Here's the basic brms analogue to Kruschke's JAGS code at the bottom of page 639.
 
 ```{r, eval = F}
 fit <-
   brm(data = my_data, 
-      family = binomial(),
-      y | trials(1) ~ 1,
+      family = bernoulli(link = identity),
+      y ~ 1,
+      prior(beta(1, 1), class = Intercept))
+```
+
+Here's the brms analogue to Kruschke's JAGS code at the top of page 641.
+
+```{r, eval = F}
+fit <-
+  brm(data = my_data, 
+      family = bernoulli,
+      y ~ 1,
       prior(normal(0, 2), class = "Intercept"))
 ```
 
@@ -931,7 +1072,7 @@ If there's only one group, we don't need a grouping variable. But that's a speci
 
 Load the baseball data.
 
-```{r}
+```{r, warning = F, message = F}
 my_data <- read_csv("data.R/BattingAverage.csv")
 
 glimpse(my_data)
@@ -953,7 +1094,7 @@ $$
 \end{eqnarray}
 $$
 
-Here's the model in brms.
+Here's how to fit the model in brms. Notice we're finally making good use of the `trials()` syntax. This is because we're fitting an aggregated binomial model. Instead of our criterion variable `Hits` being a vector of 0s and 1s, it’s the number of successful trials given the total number of trials, which is listed in the `AtBats` vector. Aggregated binomial.
 
 ```{r fit8, cache = T, message = F, warning = F}
 fit8 <-
@@ -968,7 +1109,7 @@ fit8 <-
 
 #### 21.4.2.3 Results
 
-Before we start plotting, behold the model summary.
+Before we start plotting, review the model summary.
 
 ```{r}
 print(fit8)
@@ -987,10 +1128,10 @@ nd <-
 
 # push the model through `fitted()` and wrangle
 fitted(fit8,
-       newdata = nd,
+       newdata    = nd,
        re_formula = Hits  | trials(AtBats) ~ 1 + (1 | PriPos),
-       scale = "linear",
-       summary = F) %>% 
+       scale      = "linear",
+       summary    = F) %>% 
   as_tibble() %>% 
   gather() %>% 
   transmute(probability = inv_logit_scaled(value)) %>% 
@@ -1013,27 +1154,30 @@ fitted(fit8,
         axis.text.y  = element_text(hjust = 0))
 ```
 
-For kicks and giggles, we depicted the grand mean probability as the white vertical line in the background with the `geom_vline()` code.
+For kicks and giggles, we depicted the grand mean probability as the white vertical line in the background with the `geom_vline()` line.
 
 However, we can make our plot more directly analogous to Kruschke’s if we’re willing to stretch a little. Recall that Kruschke used the beta distribution with the $\omega-\kappa$ parameterization in both his statistical model and his plot code—both of which you can find detailed in his `Jags-Ybinom-Xnom1fac-Mlogistic.R`. file. We didn’t use the beta distribution in our `brm()` model and the parameters from that model didn’t have as direct correspondences to the beta distribution the way those from Kruschke’s JAGS model did. However, recall that we can re-parameterize the beta distribution in terms of its mean $\mu$ and sample size $n$, folowing the form
 
 $$
-\alpha & = & mu n \\
-\beta & = & (1 - mu) n 
+\begin{eqnarray}
+\alpha & = & \mu n \\
+\beta & = & (1 - \mu) n 
+\end{eqnarray}
 $$
 
-When we take the inverse logit of our intercepts, we do get vales in a probability metric. We might consider inserting those probabilities into the $\mu$ parameter. Furthermore, we can take our sample sizes and insert them directly into $n$. As before, we’ll use the average sample size per position.
+When we take the inverse logit of our intercepts, we do get vales in a probability metric. We might consider inserting those probabilities into the $\mu$ parameter. Furthermore, we can take our `AtBats` sample sizes and insert them directly into $n$. As before, we’ll use the average sample size per position.
 
 ```{r, fig.width = 8, fig.height = 3.75}
 nd %>% 
-  add_fitted_draws(fit8, n = 20,
+  add_fitted_draws(fit8, 
+                   n = 20,
                    re_formula = Hits  | trials(AtBats) ~ 1 + (1 | PriPos),
                    dpar = c("mu")) %>% 
-  mutate(alpha = mu * AtBats, 
-         beta  = (1 - mu) * AtBats) %>% 
+  mutate(alpha   = mu * AtBats, 
+         beta    = (1 - mu) * AtBats) %>% 
   mutate(ll      = qbeta(.025, shape1 = alpha, shape2 = beta),
          ul      = qbeta(.975, shape1 = alpha, shape2 = beta)) %>% 
-  mutate(theta  = map2(ll, ul, seq, length.out = 100)) %>% 
+  mutate(theta   = map2(ll, ul, seq, length.out = 100)) %>% 
   mutate(density = pmap(list(theta, alpha, beta), dbeta)) %>% 
   unnest() %>% 
   group_by(.draw) %>% 
@@ -1060,7 +1204,7 @@ nd %>%
         legend.key        = element_rect(fill = "transparent", color = "transparent"))
 ```
 
-Since we didn’t actually presume the beta distribution anywhere in our `brm()` statistical model, I wouldn’t attempt to present this workflow in a scientific outlet. Go with the previous plot This attempt seems dishonest. But it is kinda fun to see how far we can push our results.
+Since we didn’t actually presume the beta distribution anywhere in our `brm()` statistical model, I wouldn’t attempt to present this workflow in a scientific outlet. Go with the previous plot. This attempt seems dishonest. But it is kinda fun to see how far we can push our results.
 
 Happily, our contrasts will be less contentious. Here’s the initial wrangling.
 
@@ -1094,7 +1238,7 @@ Here are our versions of the middle two panels of Figure 21.13.
 ```{r, fig.width = 6, fig.height = 2.5, warning = F, message = F}
 f %>% 
   # compute the differences and put the data in the long format
-  transmute(`Pitcher vs. Catcher` = Pitcher - Catcher,
+  transmute(`Pitcher vs. Catcher`  = Pitcher - Catcher,
             `Catcher vs. 1st Base` = Catcher - `1st Base`) %>% 
   gather() %>% 
   mutate(key = factor(key, levels = c("Pitcher vs. Catcher", "Catcher vs. 1st Base"))) %>% 
@@ -1117,7 +1261,7 @@ And here are our versions of the bottom two panels of Figure 21.13.
 f %>% 
   # do the transformation before computing the differences
   mutate_all(inv_logit_scaled) %>% 
-  transmute(`Pitcher vs. Catcher` = Pitcher - Catcher,
+  transmute(`Pitcher vs. Catcher`  = Pitcher - Catcher,
             `Catcher vs. 1st Base` = Catcher - `1st Base`) %>% 
   gather() %>% 
   mutate(key = factor(key, levels = c("Pitcher vs. Catcher", "Catcher vs. 1st Base"))) %>% 
@@ -1134,7 +1278,7 @@ f %>%
   facet_wrap(~key, scales = "free", ncol = 2)
 ```
 
-Note how ours are described as differences in probability, rather than in omega.
+Note how ours are described as differences in probability, rather than in $\omega$.
 
 ## References {-}
 
@@ -1148,7 +1292,7 @@ sessionInfo()
 
 ```{r, message = F, echo = F}
 # Here we'll remove our objects
-rm(my_data)
+rm(my_data, p, fit1, length, n_iter, nd, f, thresholds, fit2, post, b0, b1, n, d_rare, fit3, d_not_rare, fit4, s, m, d, b2, fit5, different_seed, b3, fit6, fit7, logistic, positions)
 
 theme_set(theme_grey())
 ```
