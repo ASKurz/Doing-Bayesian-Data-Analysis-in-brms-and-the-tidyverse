@@ -418,7 +418,49 @@ ggplot(data = tibble(x = seq(from = -.8, to = .8, by = .01)),
 
 ### Highest density interval (HDI).
 
-Figure 4.5.a. 
+> The HDI indicates which points of a distribution are most credible, and which cover most of the distribution. Thus, the HDI summarizes the distribution by specifying an interval that spans most of the distribution, say 95% of it, such that every point inside the interval has higher credibility than any point outside the interval. (p. 87)
+
+In chapter 10 (p. 294), Kruschke briefly mentions his `HDIofICDF()` function, the code for which you can find in his `DBDA2E-utilities.R` file. It's a handy function which we'll put to use from time to time. Here's a mild reworking of his code.
+
+```{r}
+hdi_of_icdf <- function(name, width = .95, tol = 1e-8, ... ) {
+  # Arguments:
+  #   `name` is R's name for the inverse cumulative density function
+  #   of the distribution.
+  #   `width` is the desired mass of the HDI region.
+  #   `tol` is passed to R's optimize function.
+  # Return value:
+  #   Highest density iterval (HDI) limits in a vector.
+  # Example of use: For determining HDI of a beta(30, 12) distribution, type
+  #   `hdi_of_icdf(qbeta, shape1 = 30, shape2 = 12)`
+  #   Notice that the parameters of the `name` must be explicitly stated;
+  #   e.g., `hdi_of_icdf(qbeta, 30, 12)` does not work.
+  # Adapted and corrected from Greg Snow's TeachingDemos package.
+  incredible_mass <-  1.0 - width
+  interval_width  <- function(low_tail_prob, name, width, ...) {
+    name(width + low_tail_prob, ...) - name(low_tail_prob, ...)
+  }
+  opt_info            <- optimize(interval_width, c(0, incredible_mass), 
+                                  name = name, width = width, 
+                                  tol = tol, ...)
+  hdi_lower_tail_prob <- opt_info$minimum
+  return(c(name(hdi_lower_tail_prob, ...),
+           name(width + hdi_lower_tail_prob, ...)))
+}
+```
+
+Now we already know from the text, and perhaps from prior experience, what the 95% HDIs for the unit normal. But it's nice to be able to confirm that with a function.
+
+```{r}
+h <-
+  hdi_of_icdf(name = qnorm,
+              mean = 0,
+              sd   = 1)
+
+h
+```
+
+Now we've saved those values in `h`, we can use then to make our version of Figure 4.5.a. 
 
 ```{r, fig.width = 4.5, fig.height = 2}
 ggplot(data = tibble(x = seq(from = -3.5, to = 3.5, by = .05)),
@@ -426,11 +468,11 @@ ggplot(data = tibble(x = seq(from = -3.5, to = 3.5, by = .05)),
   geom_ribbon(aes(ymin = 0,
                   ymax = dnorm(x, mean = 0, sd = 1)),
               fill = "grey75") +
-  geom_ribbon(data = tibble(x = seq(from = -1.96, to = 1.96, by = .05)),
+  geom_ribbon(data = tibble(x = seq(from = h[1], to = h[2], by = .05)),
               aes(ymin = 0,
                   ymax = dnorm(x, mean = 0, sd = 1)),
               fill = "grey50") +
-  geom_line(data = tibble(x = c(-1.94, 1.94),
+  geom_line(data = tibble(x = c(h[1] + .02, h[2] - .02),
                           y = c(.059, .059)),
             aes(x = x, y = y),
             arrow = arrow(length = unit(.2, "cm"), 
@@ -444,40 +486,30 @@ ggplot(data = tibble(x = seq(from = -3.5, to = 3.5, by = .05)),
   theme(panel.grid = element_blank())
 ```
 
-We'll want the tidybayes package to help compute HDIs for the next step.
-
-```{r, warning = F, message = F}
-library(tidybayes)
-```
-
-As far as I could tell, Figure 4.5.b is of a beta distribution, which Kruschke covers in greater detail starting in chapter 6. I got the `shape1` and `shape2` values from playing around. If you have a more principled approach, [do share](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues).
+As far as I could tell, Figure 4.5.b is of a beta distribution, which Kruschke covers in greater detail starting in chapter 6. I got the `shape1` and `shape2` values from playing around. If you have a more principled approach, [do share](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues). But anyway, we can use our `hdi_of_icdf()` funciton to ge the correct values.
 
 ```{r}
-mode_hdi(tibble(x = rbeta(5e2, shape1 = 15, shape2 = 4))) %>% 
-  select(x:.width) %>% 
-  gather() %>% 
-  pull()
+h <-
+  hdi_of_icdf(name   = qbeta,
+              shape1 = 15, 
+              shape2 = 4)
+
+h
 ```
 
+Let's put those `h` values to work.
 
 ```{r, fig.width = 4.5, fig.height = 2}
-set.seed(434)
-h <- 
-  mode_hdi(tibble(x = rbeta(5e6, shape1 = 15, shape2 = 4))) %>% 
-  select(x:.width) %>%
-  gather() %>% 
-  pull()
-
-ggplot(data = tibble(x = seq(from = 0, to = 1, by = .01)),
-       aes(x = x)) +
+tibble(x = seq(from = 0, to = 1, by = .01)) %>% 
+  ggplot(aes(x = x)) +
   geom_ribbon(aes(ymin = 0,
                   ymax = dbeta(x, shape1 = 15, shape2 = 4)),
               fill = "grey75") +
-  geom_ribbon(data = tibble(x = seq(from = h[2], to = h[3], by = .01)),
+  geom_ribbon(data = tibble(x = seq(from = h[1], to = h[2], by = .01)),
               aes(ymin = 0,
                   ymax = dbeta(x, shape1 = 15, shape2 = 4)),
               fill = "grey50") +
-  geom_line(data = tibble(x = c(h[2] + .005, h[3] - .002),
+  geom_line(data = tibble(x = c(h[1] + .005, h[2] - .002),
                           y = c(.74, .74)),
             aes(x = x, y = y),
             arrow = arrow(length = unit(.2, "cm"),
@@ -487,31 +519,43 @@ ggplot(data = tibble(x = seq(from = 0, to = 1, by = .01)),
   annotate("text", x = .8, y = 1.1, 
            label = "95% HDI", color = "grey92") +
   coord_cartesian(xlim = c(.4, 1)) +
-  labs(y = "p(x)") +
+  ylab("p(x)") +
   theme(panel.grid = element_blank())
 ```
 
 Figure 4.5.c was also a lot of trial and error. It seemed the easiest way to reproduce the shape was to mash two Gaussians together. After playing around with `rnorm()`, I ended up with this.
 
 ```{r}
-set.seed(1.5)
+set.seed(4)
 d <-
-  tibble(x = c(rnorm(6e4, mean = 1.50, sd = .5),
-               rnorm(4e4, mean = 4.75, sd = .5)))
+  tibble(x = c(rnorm(6e5, mean = 1.50, sd = .5),
+               rnorm(4e5, mean = 4.75, sd = .5)))
 
 glimpse(d)
 ```
 
-Here we compute the HDIs and put them in a tibble.
+As you'll see, it's not exactly right. But it's close enough to give you a sense of what's going on. But anyway, since we're working with simulated data rather than an analytic solution, we'll want to use a powerful convenience function from the tidybayes package. 
+
+```{r, warning = F, message = F}
+library(tidybayes)
+```
+
+
+Kay's tidybayes package
+
+> provides a family of functions for generating point summaries and intervals from draws in a tidy format. These functions follow the naming scheme `[median|mean|mode]_[qi|hdi]`, for example, `median_qi`, `mean_qi`, `mode_hdi`, and so on. The first name (before the `_`) indicates the type of point summary, and the second name indicates the type of interval. `qi` yields a quantile interval (a.k.a. equi-tailed interval, central interval, or percentile interval) and `hdi` yields a highest (posterior) density interval. (from [here](https://mjskay.github.io/tidybayes/articles/tidy-brms.html))
+
+Here we'll use `mode_hdi()` to compute the HDIs and put them in a tibble. We'll be using a lot of `mode_hdi()` in this project.
 
 ```{r}
 h <- 
   d %>% 
-  mode_hdi() %>% 
-  select(.lower, .upper)
+  mode_hdi()
 
 h
 ```
+
+Usually, `mode_hdi()` will return a tibble with just one row. But in this case, since we had a bimodal distribution, it returned two rows—one for each of the two distinct regions. Oh, and in case it wasn’t clear, that first column `x` is the measure of central tendency—the mode, in this case. Though I acknowledge, it’s a little odd to speak of central tendency in a bimodal distribution. Again, this won’t happen much.
 
 In order to fill the bimodal density with the split HDIs, you need to use the `density()` function to transform the `d` data to a tibble with the values for the x-axis in an x vector and the corresponding density values in a y vector. 
 
@@ -532,22 +576,22 @@ ggplot(data = dens,
   geom_ribbon(aes(ymin = 0, ymax = y),
               size = 0, fill = "grey75") +
   # Note the use of `pull()`, which extracts the values, rather than return a tibble  
-  geom_ribbon(data = dens %>% filter(x > h[1, 1] %>% pull() & 
-                                       x < h[1, 2] %>% pull()),
+  geom_ribbon(data = dens %>% filter(x > h[1, 2] %>% pull() & 
+                                       x < h[1, 3] %>% pull()),
               aes(ymin = 0, ymax = y),
               size = 0, fill = "grey50") +
-  geom_ribbon(data = dens %>% filter(x > h[2, 1] %>% pull() & 
-                                       x < h[2, 2] %>% pull()),
+  geom_ribbon(data = dens %>% filter(x > h[2, 2] %>% pull() & 
+                                       x < h[2, 3] %>% pull()),
               aes(ymin = 0, ymax = y),
               size = 0, fill = "grey50") +
-  geom_line(data = tibble(x = c(h[1, 1] %>% pull(), h[1, 2] %>% pull()),
+  geom_line(data = tibble(x = c(h[1, 2] %>% pull(), h[1, 3] %>% pull()),
                           y = c(.06, .06)),
             aes(x = x, y = y),
             arrow = arrow(length = unit(.2,"cm"),
                           ends = "both",
                           type = "closed"),
             color = "grey92") +
-  geom_line(data = tibble(x = c(h[2, 1] %>% pull(), h[2, 2] %>% pull()),
+  geom_line(data = tibble(x = c(h[2, 2] %>% pull(), h[2, 3] %>% pull()),
                           y = c(.06, .06)),
             aes(x = x, y = y),
             arrow = arrow(length = unit(.2,"cm"),
@@ -559,11 +603,33 @@ ggplot(data = dens,
   annotate("text", x = 4.75, y = .1, 
            label = "95% HDI", color = "grey92") +
   scale_x_continuous(breaks = 0:6) +
-  scale_y_continuous(breaks = c(0, .1, .2, .3, .4, .5)) +
+  scale_y_continuous("p(x)", breaks = c(0, .1, .2, .3, .4, .5)) +
   coord_cartesian(xlim = c(0, 6.3)) +
-  labs(y = "p(x)") +
   theme(panel.grid = element_blank())
 ```
+
+## Two-way distributions
+
+Here's a way to compute the marginals from the inner cells of Table 4.1.
+
+```{r}
+d1 <-
+  tibble(eye_color = c("brown", "blue", "hazel", "green"),
+       black     = c(.11, .03, .03, .01),
+       brunette  = c(.2, .14, .09, .05),
+       red       = c(.04, .03, .02, .02),
+       blond     = c(.01, .16, .02, .03)) %>% 
+  mutate(marginal_eye_color = black + brunette + red + blond)
+
+d2 <-
+  d1 %>% 
+  summarise_if(is.double, sum) %>% 
+  mutate(eye_color = "marginal_hair_color") %>% 
+  select(eye_color, everything())
+
+bind_rows(d1, d2)
+```
+
 
 ## References {-}
 
@@ -577,5 +643,5 @@ sessionInfo()
 
 ```{r, message = F, warning = F, echo = F}
 # Here we'll remove our objects
-rm(N, p_heads, my_flip, end_prop, HtWtDataGenerator, d, d_bin_2, s, d_bin_3, h, dens)
+rm(N, p_heads, my_flip, end_prop, HtWtDataGenerator, d, d_bin_2, s, d_bin_3, hdi_of_icdf, h, dens, d1, d2)
 ```
