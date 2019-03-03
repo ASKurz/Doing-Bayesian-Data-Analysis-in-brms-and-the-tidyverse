@@ -18,27 +18,28 @@ David Draper discussed some of the history of MCMC in his lecture, [*Bayesian St
 
 ## Approximating a distribution with a large sample
 
+Like in chapters 4 and 6, let's define our `hdi_of_icdf()` function.
+
 ```{r}
-hdi_of_icdf <- function(ICDFname, credible_mass = .95, tol = 1e-8, ... ) {
-  incredible_mass <-  1.0 - credible_mass
-  interval_width  <- function(low_tail_prob, ICDFname, credible_mass, ...) {
-    ICDFname(credible_mass + low_tail_prob, ...) - ICDFname(low_tail_prob, ...)
+hdi_of_icdf <- function(name, width = .95, tol = 1e-8, ... ) {
+  incredible_mass <-  1.0 - width
+  interval_width  <- function(low_tail_prob, name, width, ...) {
+    name(width + low_tail_prob, ...) - name(low_tail_prob, ...)
   }
-  opt_info            <- optimize(interval_width, c(0, incredible_mass), 
-                                  ICDFname = ICDFname, credible_mass = credible_mass, 
-                                  tol = tol, ...)
+  opt_info <- optimize(interval_width, c(0, incredible_mass), 
+                       name = name, width = width, 
+                       tol = tol, ...)
   hdi_lower_tail_prob <- opt_info$minimum
-  return(c(ICDFname(hdi_lower_tail_prob, ...),
-           ICDFname(credible_mass + hdi_lower_tail_prob, ...)))
+  return(c(name(hdi_lower_tail_prob, ...),
+           name(width + hdi_lower_tail_prob, ...)))
 }
 ```
 
 ```{r}
-(hdi <-
-  hdi_of_icdf(ICDFname      = qbeta,
-              shape1        = 15,
-              shape2        = 7,
-              credible_mass = .95)
+(h <-
+  hdi_of_icdf(name   = qbeta,
+              shape1 = 15,
+              shape2 = 7)
  )
 ```
 
@@ -60,18 +61,14 @@ tibble(theta = seq(from = 0, to = 1, length.out = 100)) %>%
                                shape1 = 15, 
                                shape2 = 7)),
               fill = "grey67") +
-  geom_segment(aes(x = hdi[1], xend = hdi[2], y = 0, yend = 0),
+  geom_segment(aes(x = h[1], xend = h[2], y = 0, yend = 0),
                size = .75) +
   geom_point(aes(x = omega, y = 0),
              size = 1.5, shape = 19) +
-  geom_text(data = tibble(
-    theta = .675,
-    p     = .3,
-    label = "95% HDI"),
-    aes(y = p, label = label),
-            color = "grey92") +
-  scale_x_continuous(breaks = c(0, hdi, omega, 1),
-                     labels = c("0", hdi %>% round(2), omega, "1")) +
+  annotate(x = .675, y = .3, label = "95% HDI", 
+           geom = "text", color = "grey92") +
+  scale_x_continuous(breaks = c(0, h, omega, 1),
+                     labels = c("0", h %>% round(2), omega, "1")) +
   coord_cartesian(ylim = c(-.125, 4)) +
   labs(title = "Exact distribution",
        x = expression(theta),
@@ -96,7 +93,7 @@ d <-
 head(d)
 ```
 
-With the data in hand, we're ready to plot the remaining panels for Figure 7.1. We'll use the handy `stat_pointintervalh()` function from the [tidybayes package](https://github.com/mjskay/tidybayes) to mark off the mode and 95% HDIs.
+With the data in hand, we're ready to plot the remaining panels for Figure 7.1. This time, we'll use the handy `stat_pointintervalh()` function from the [tidybayes package](https://github.com/mjskay/tidybayes) to mark off the mode and 95% HDIs.
 
 ```{r, fig.width = 10, fig.height = 2.75, warning = F, message = F}
 library(tidybayes)
@@ -214,18 +211,15 @@ tibble(theta = positions) %>%
 Here's the middle portion of Figure 7.2.
 
 ```{r, fig.width = 6, fig.height = 2.5}
-tibble(t = 1:5e4,
+tibble(t     = 1:5e4,
        theta = positions) %>% 
   slice(1:500) %>% 
   
-  ggplot(aes(x = t, y = theta)) +
-  geom_line(size = 1/4, color = "grey50") +
+  ggplot(aes(x = theta, y = t)) +
+  geom_path(size = 1/4, color = "grey50") +
   geom_point(size = 1/2, alpha = 1/2) +
-  scale_x_log10(breaks = c(1, 2, 5, 20, 100, 500)) +
-  scale_y_continuous(breaks = 1:7) +
-  coord_flip() +
-  labs(x = "Time Step",
-       y = expression(theta)) +
+  scale_y_log10("Time Step", breaks = c(1, 2, 5, 20, 100, 500)) +
+  scale_x_continuous(expression(theta), breaks = 1:7) +
   theme(panel.grid = element_blank())
 ```
 
@@ -237,9 +231,8 @@ tibble(x = 1:7,
   
   ggplot(aes(x = x, y = y)) +
   geom_col(width = .2) +
-  scale_x_continuous(breaks = 1:7) +
-  labs(x = expression(theta),
-       y = expression(paste("p(", theta, ")"))) +
+  scale_x_continuous(expression(theta), breaks = 1:7) +
+  ylab(expression(paste("p(", theta, ")"))) +
   theme(panel.grid = element_blank())
 ```
 
@@ -249,15 +242,73 @@ Unfortunately, the computations behind Figure 7.3 are beyond my math + programmi
 
 ## The Metropolis algorithm more generally
 
-```{r}
-(proposed_jump <- rnorm(1, mean = 0, sd = 0.2))
+"The procedure described in the previous section was just a special case of a more general procedure known as the Metropolis algorithm, named after the first author of a famous article ([Metropolis, Rosenbluth, Rosenbluth, Teller, & Teller, 1953](https://bayes.wustl.edu/Manual/EquationOfState.pdf))" (p. 156).
 
+Here's how to generate a proposed jump from a zero-mean normal distribuiton with a standard deviation of 0.2.
+
+```{r}
+rnorm(1, mean = 0, sd = 0.2)
+```
+
+To get a sense of what this looks like in the long run, we might plot.
+
+```{r, fig.width = 5, fig.height = 3}
+mu    <- 0
+sigma <- 0.2
+
+# how many proposals would you like?
+n  <- 500
+
+set.seed(7)
+tibble(proposed_jump = rnorm(n, mean = mu, sd = sigma)) %>% 
+  
+  ggplot(aes(x = proposed_jump, y = 0)) +
+  geom_jitter(width = 0, height = .1, 
+              size = 1/2, alpha = 1/2) +
+  stat_function(fun = dnorm, args = list(mean = mu, sd = sigma),
+                color = "grey50") +
+  scale_x_continuous(breaks = seq(from = -0.6, to = 0.6, length.out = 7)) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  labs(title = "Jump proposals",
+       subtitle = "The gray line shows the data generating distribution.") +
+  theme(panel.grid = element_blank())
+```
+
+Anyway, 
+
+> having generated a proposed new position, the algorithm then decides whether or not to accept the proposal. The decision rule is exactly what was already specified in Equation 7.1. In detail, this is accomplished by computing the ratio $p_\text{move} = P(\theta_\text{proposed}) / P(\theta_\text{current})$. Then a random number from the uniform interval $[0, 1]$ is generated; in R, this can be accomplished with the command `runif(1)`. If the random number is between 0 and pmove, then the move is accepted. (p. 157)
+
+We'll see what that might look like in the next section. In the meantime, here's how to use `runif()`.
+
+```{r}
 runif(1)
 ```
 
+Just for kicks, here's what that looks like in bulk.
+
+```{r, fig.width = 5, fig.height = 2}
+# how many proposals would you like?
+n  <- 500
+
+set.seed(7)
+tibble(draw = runif(n)) %>% 
+  
+  ggplot(aes(x = draw, y = 0)) +
+  geom_jitter(width = 0, height = 1/4, 
+              size = 1/2, alpha = 1/2) +
+  stat_function(fun = dunif,
+                color = "grey50") +
+  scale_y_continuous(NULL, breaks = NULL, limits = c(-1/3, 5/3)) +
+  labs(title = "Uniform draws",
+       subtitle = "The gray line shows the data generating distribution.") +
+  theme(panel.grid = element_blank())
+```
+
+No concentration towards the mean, this time.
+
 ### Metropolis algorithm applied to Bernoulli likelihood and beta prior.
 
-You can find Kruschke's code in the "BernMetrop.R" file. I'm going to break it up a little.
+You can find Kruschke's code in the `BernMetrop.R` file. I'm going to break it up a little.
 
 ```{r}
 # Specify the data, to be used in the likelihood function.
@@ -267,8 +318,8 @@ my_data <- c(rep(0, 6), rep(1, 14))
 # The argument theta could be a vector, not just a scalar.
 likelihood <- function(theta, data) {
   z <- sum(data)
-  N <- length(data)
-  p_data_given_theta <- theta^z * (1 - theta)^(N - z)
+  n <- length(data)
+  p_data_given_theta <- theta^z * (1 - theta)^(n - z)
   # The theta values passed into this function are generated at random,
   # and therefore might be inadvertently greater than 1 or less than 0.
   # The likelihood for theta > 1 or for theta < 0 is zero:
@@ -277,7 +328,7 @@ likelihood <- function(theta, data) {
 }
 
 # Define the prior density function. 
-prior <- function(theta) {
+prior_d <- function(theta) {
   p_theta <- dbeta(theta, 1, 1)
   # The theta values passed into this function are generated at random,
   # and therefore might be inadvertently greater than 1 or less than 0.
@@ -290,7 +341,7 @@ prior <- function(theta) {
 # as a function of vector theta. For our application, this
 # target distribution is the unnormalized posterior distribution.
 target_rel_prob <- function(theta, data) {
-  target_rel_prob <- likelihood(theta, data) * prior(theta)
+  target_rel_prob <- likelihood(theta, data) * prior_d(theta)
   return(target_rel_prob)
 }
 
@@ -311,7 +362,7 @@ n_accepted <- 0
 n_rejected <- 0
 ```
 
-That first part follows what he put in his script. I'm going to bundel the next large potion in a fucntion, `my_metropolis()` which will make it easier to plug the code into a `map()` function.
+That first part follows what Kruschke put in his script. I'm going to bundel the next large potion in a fucntion, `my_metropolis()` which will make it easier to plug the code into the `purrr::map()` function.
 
 ```{r}
 my_metropolis <- function(proposal_sd){
@@ -376,9 +427,12 @@ glimpse(d)
 With `d` in hand, here's the top portion of Figure 7.4.
 
 ```{r, fig.width = 10, fig.height = 2.75}
-d %>% 
-  mutate(proposal_sd = str_c("Proposal SD = ", proposal_sd)) %>% 
+d <-
+  d %>% 
+  mutate(proposal_sd = str_c("Proposal SD = ", proposal_sd),
+         iter        = rep(1:50000, times = 3))
   
+d %>% 
   ggplot(aes(x = accepted_traj)) +
   geom_histogram(boundary = 0, binwidth = .02, size = .2,
                  color = "grey92", fill = "grey67") +
@@ -397,18 +451,15 @@ Here's the middle of Figure 7.4.
 
 ```{r, fig.width = 10, fig.height = 2.75}
 d %>% 
-  mutate(proposal_sd = str_c("Proposal SD = ", proposal_sd),
-         iter = rep(1:50000, times = 3)) %>% 
-  
-  ggplot(aes(x = iter, y = accepted_traj)) +
-  geom_line(size = 1/4, color = "grey50") +
+  ggplot(aes(x = accepted_traj, y = iter)) +
+  geom_path(size = 1/4, color = "grey50") +
   geom_point(size = 1/2, alpha = 1/2) +
-  coord_flip(xlim = 49900:50000,
-             ylim = 0:1) +
-  scale_y_continuous(breaks = seq(from = 0, to = 1, length.out = 6)) +
+  coord_cartesian(xlim = 0:1,
+                  ylim = 49900:50000) +
+  scale_x_continuous(breaks = seq(from = 0, to = 1, length.out = 6)) +
   labs(title = "End of Chain",
-       x = "Step in Chain",
-       y = expression(theta)) +
+       x = expression(theta),
+       y = "Step in Chain") +
   theme(panel.grid = element_blank()) +
   facet_wrap(~ proposal_sd, ncol = 3)
 ```
@@ -417,23 +468,28 @@ The bottom:
 
 ```{r, fig.width = 10, fig.height = 2.75}
 d %>% 
-  mutate(proposal_sd = str_c("Proposal SD = ", proposal_sd),
-         iter = rep(1:50000, times = 3)) %>% 
-  
-  ggplot(aes(x = iter, y = accepted_traj)) +
-  geom_line(size = 1/4, color = "grey50") +
+  ggplot(aes(x = accepted_traj, y = iter)) +
+  geom_path(size = 1/4, color = "grey50") +
   geom_point(size = 1/2, alpha = 1/2) +
-  coord_flip(xlim = 1:100,
-             ylim = 0:1) +
-  scale_y_continuous(breaks = seq(from = 0, to = 1, length.out = 6)) +
-  labs(title = "Beginning of Chain",
-       x = "Step in Chain",
-       y = expression(theta)) +
+  coord_cartesian(xlim = 0:1,
+                 ylim = 1:100) +
+  scale_x_continuous(breaks = seq(from = 0, to = 1, length.out = 6)) +
+  labs(title = "End of Chain",
+       x = expression(theta),
+       y = "Step in Chain") +
   theme(panel.grid = element_blank()) +
   facet_wrap(~ proposal_sd, ncol = 3)
 ```
 
+### Summary of Metropolis algorithm.
+
+> The motivation for methods like the Metropolis algorithm is that they provide a high-resolution picture of the posterior distribution, even though in complex models we cannot explicitly solve the mathematical integral in Bayes’ rule. The idea is that we get a handle on the posterior distribution by generating a large sample of representative values. The larger the sample, the more accurate is our approximation. As emphasized previously, this is a sample of representative credible parameter values from the posterior distribution; it is not a resampling of data (there is a fixed data set).
+>
+> The cleverness of the method is that representative parameter values can be randomly sampled from complicated posterior distributions without solving the integral in Bayes’ rule, and by using only simple proposal distributions for which efficient random number generators already exist. (p. 161)
+
 ## Toward Gibbs sampling: Estimating two coin biases 
+
+"The Metropolis method is very useful, but it can be inefficient. Other methods can be more efficient in some situations" (p. 162).
 
 ### Prior, likelihood and posterior for two biases.
 
@@ -441,8 +497,8 @@ d %>%
 
 The plots in the left column of Figure 7.5 are outside of my skill set. I believe they are referred to as wireframe plots and it's my understanding that ggplot2 does not support wireframe plots at this time. However, I can reproduce versions of the right hand column. For our initial attempt for the upper right corner, we'll simulate.
 
-```{r betas, cache = T, fig.width = 3.25, fig.height = 3}
-set.seed(7.5)
+```{r betas, cache = T, fig.height = 3}
+set.seed(7)
 betas <-
   tibble(theta_1 = rbeta(1e5, shape1 = 2, shape2 = 2),
          theta_2 = rbeta(1e5, shape1 = 2, shape2 = 2))
@@ -450,6 +506,7 @@ betas <-
 betas %>% 
   ggplot(aes(x = theta_1, y = theta_2)) +
   stat_density_2d() +
+  coord_equal() +
   labs(x = expression(theta[1]),
        y = expression(theta[2])) +
   theme(panel.grid = element_blank())
@@ -457,12 +514,13 @@ betas %>%
 
 Instead of the contour lines, one might use color to depict the density variable, instead.
 
-```{r, fig.width = 4.075, fig.height = 3}
+```{r, fig.height = 3}
 betas %>% 
   ggplot(aes(x = theta_1, y = theta_2)) +
   stat_density_2d(aes(fill = stat(density)), 
                   geom = "raster", contour = F) +
   scale_fill_viridis_c(option = "A") +
+  coord_equal() +
   labs(x = expression(theta[1]),
        y = expression(theta[2])) +
   theme(panel.grid = element_blank())
@@ -470,7 +528,7 @@ betas %>%
 
 But with careful use of `dbeta()`, we can be more precise.
 
-```{r, fig.width = 4.7, fig.height = 3}
+```{r, fig.height = 3}
 theta_sequence <- seq(from = 0, to = 1, by = .01)
 
 tibble(theta_1 = theta_sequence,
@@ -484,26 +542,27 @@ tibble(theta_1 = theta_sequence,
   ggplot(aes(x = theta_1, y = theta_2, fill = prior_1 * prior_2)) +
   geom_tile() +
   scale_fill_viridis_c(option = "A") +
+  coord_equal() +
   labs(x = expression(theta[1]),
        y = expression(theta[2])) +
   theme(panel.grid = element_blank())
 ```
 
-We'll need the `Bernoulli_likelihood` function from back in chapter 6 for the middle right of Figure 7.5.
+We'll need the `bernoulli_likelihood` function from back in chapter 6 for the middle right of Figure 7.5.
 
 ```{r}
-Bernoulli_likelihood <- function(theta, data) {
+bernoulli_likelihood <- function(theta, data) {
   # theta = success probability parameter ranging from 0 to 1
   # data = the vector of data (i.e., a series of 0s and 1s)
-  N <- length(data)
+  n <- length(data)
   z <- sum(data)
-  return(theta^z * (1 - theta)^(N - sum(data)))
+  return(theta^z * (1 - theta)^(n - sum(data)))
   }
 ```
 
-With the `Bernoulli_likelihood()` function in hand, here's our version of the middle right panel of Figure 7.5.
+With the `bernoulli_likelihood()` function in hand, here's our version of the middle right panel of Figure 7.5.
 
-```{r, fig.width = 5.35, fig.height = 3}
+```{r, fig.width = 5.5, fig.height = 3}
 theta_sequence <- seq(from = 0, to = 1, by = .01)
 
 theta_1_data <- rep(0:1, times = c(8 - 6, 6))
@@ -511,15 +570,16 @@ theta_2_data <- rep(0:1, times = c(7 - 2, 2))
 
 tibble(theta_1 = theta_sequence,
        theta_2 = theta_sequence) %>%
-  mutate(likelihood_1 = Bernoulli_likelihood(theta = theta_sequence,
-                                           data = theta_1_data),
-         likelihood_2 = Bernoulli_likelihood(theta = theta_sequence,
-                                           data = theta_2_data)) %>% 
+  mutate(likelihood_1 = bernoulli_likelihood(theta = theta_sequence,
+                                             data  = theta_1_data),
+         likelihood_2 = bernoulli_likelihood(theta = theta_sequence,
+                                             data  = theta_2_data)) %>% 
   expand(nesting(theta_1, likelihood_1), nesting(theta_2, likelihood_2)) %>%
   
   ggplot(aes(x = theta_1, y = theta_2, fill = likelihood_1 * likelihood_2)) +
   geom_tile() +
   scale_fill_viridis_c(option = "A") +
+  coord_equal() +
   labs(x = expression(theta[1]),
        y = expression(theta[2])) +
   theme(panel.grid = element_blank())
@@ -527,7 +587,7 @@ tibble(theta_1 = theta_sequence,
 
 Here's the two-dimensional posterior, the lower right panel of Figure 7.5.
 
-```{r, fig.width = 4.25, fig.height = 3}
+```{r, fig.width = 4.5, fig.height = 3}
 # we've already defined these, but here they are again
 theta_sequence <- seq(from = 0, to = 1, by = .01)
 theta_1_data   <- rep(0:1, times = c(8 - 6, 6))
@@ -545,10 +605,10 @@ prior_tibble <-
 likelihood_tibble <-
   tibble(theta_1 = theta_sequence,
          theta_2 = theta_sequence) %>%
-  mutate(likelihood_1 = Bernoulli_likelihood(theta = theta_sequence,
-                                             data = theta_1_data),
-         likelihood_2 = Bernoulli_likelihood(theta = theta_sequence,
-                                             data = theta_2_data)) %>% 
+  mutate(likelihood_1 = bernoulli_likelihood(theta = theta_sequence,
+                                             data  = theta_1_data),
+         likelihood_2 = bernoulli_likelihood(theta = theta_sequence,
+                                             data  = theta_2_data)) %>% 
   expand(nesting(theta_1, likelihood_1), nesting(theta_2, likelihood_2))
 
 # Here we cobine `prior_tibble` and `likelihood_tibble`
@@ -563,6 +623,7 @@ prior_tibble %>%
   ggplot(aes(x = theta_1, y = theta_2, fill = posterior)) +
   geom_tile() +
   scale_fill_viridis_c(option = "A") +
+  coord_equal() +
   labs(x = expression(theta[1]),
        y = expression(theta[2])) +
   theme(panel.grid = element_blank())
@@ -588,34 +649,35 @@ These, recall, are the data.
 d <-
   tibble(z1 = 6, 
          z2 = 2,
-         N1 = 8,
-         N2 = 7)
+         n1 = 8,
+         n2 = 7)
 ```
 
 Kruschke said he was starting us out simply. But within the brms context, this is an intercepts-only multivariate model, which isn't the simplest of things to code into brms. There are a couple ways to code a [multivariate model in brms](https://cran.r-project.org/web/packages/brms/vignettes/brms_multivariate.html). With this one, it makes sense to specify the model for each sequence of flips separately. This results in two models, which we'll call `model_1` and `model_2`.
 
 ```{r}
-model_1 <- bf(z1 | trials(N1) ~ 1)
-model_2 <- bf(z2 | trials(N2) ~ 1)
+model_1 <- bf(z1 | trials(n1) ~ 1)
+model_2 <- bf(z2 | trials(n2) ~ 1)
 ```
 
 Before we fit, we’ll have to address a technicality. The brms package does allow for multivariate Bernoulli models. However, it does not support such models with different numbers of trials across the variables. Since our first variable is of 8 trials and the second is of 7, brms will not support this model using the Bernoulli likelihood. However, we can fit the model in brms as an aggregated binomial model. The main difficulty is that the regularizing `beta(2, 2)` prior won’t make sense, here. So we’ll opt for the regularizing `normal(0, 1)`, instead.
 
 ```{r fit1, cache = T, warning = F, message = F, results = 'hide'}
 fit1 <-
-  brm(data = d, family = binomial,
+  brm(data = d, family = binomial(),
       model_1 + model_2,
-      set_prior("normal(0, 1)", class = "Intercept"),
-      iter = 25500, warmup = 500, cores = 1, chains = 1)
+      prior(normal(0, 1), class = Intercept),
+      iter = 25500, warmup = 500, cores = 1, chains = 1,
+      seed = 7)
 ```
 
-The results:
+Here are the results.
 
 ```{r}
-print(fit1) 
+print(fit1)
 ```
 
-As we'll learn in later chapters, the parameters of a typical aggregated binomial model are in the log-odds scale. Over time, you can learn how to interpret them. But for now, just be happy that brms offers the `inv_logit_scaled()` function, which can convert our results back to the probability scale.
+As we'll learn in later chapters, the parameters of a typical aggregated binomial model are in the log-odds scale. Over time, you will learn how to interpret them. But for now, just be happy that brms offers the `inv_logit_scaled()` function, which can convert our results back to the probability scale.
 
 ```{r}
 fixef(fit1)[, 1] %>% inv_logit_scaled()
@@ -629,7 +691,7 @@ post <- posterior_samples(fit1, add_chain = T)
 
 With `post` in hand, we're ready to make our version of Figure 7.8. To reduce the overplotting, we're only looking at the first 500 post-warmup iterations.
 
-```{r, fig.width = 6, fig.height = 5.5, warning = F}
+```{r, fig.height = 5, warning = F}
 post %>% 
   mutate(theta_1 = b_z1_Intercept %>% inv_logit_scaled(), 
          theta_2 = b_z2_Intercept %>% inv_logit_scaled()) %>% 
@@ -638,8 +700,8 @@ post %>%
   ggplot(aes(x = theta_1, y = theta_2)) +
   geom_point(alpha = 1/4) +
   geom_path(size = 1/10, alpha = 1/2) +
-  coord_cartesian(xlim = 0:1,
-                  ylim = 0:1) +
+  coord_equal(xlim = 0:1,
+              ylim = 0:1) +
   labs(x = expression(theta[1]),
        y = expression(theta[2])) +
   theme(panel.grid = element_blank())
@@ -690,9 +752,9 @@ Here are our data.
 
 ```{r}
 z <- 35
-N <- 50
+n <- 50
 
-d <- tibble(y = rep(0:1, times = c(N - z, z)))
+d <- tibble(y = rep(0:1, times = c(n - z, z)))
 ```
 
 Here we fit the model. Note how since we're just univariate, it's easy to switch back to directly modeling with the Bernoulli likelihood.
@@ -700,10 +762,11 @@ Here we fit the model. Note how since we're just univariate, it's easy to switch
 ```{r fit2, cache = T, warning = F, message = F}
 fit2 <-
   brm(data = d, 
-      family = bernoulli(link = "identity"),
+      family = bernoulli(link = identity),
       y ~ 1,
-      set_prior("beta(2, 2)", class = "Intercept"),
-      iter = 10000, warmup = 500, cores = 3, chains = 3)
+      prior(beta(2, 2), class = Intercept),
+      iter = 10000, warmup = 500, cores = 3, chains = 3,
+      seed = 7)
 ```
 
 On page 179, Kruschke discussed *burn-in* steps within the Gibbs framework:
@@ -714,7 +777,7 @@ For each HMC chain, the first $n$ iterations are warmups. In this example, $n = 
 
 It appears that the upshot of all this is that many of the packages in the Stan ecosystem don’t make it easy to extract the warmup values. For example, the `brms::plot()` function excludes them from the trace plot without the option to include them.
 
-```{r, fig.width = 10, fig.height = 1.5}
+```{r, fig.width = 8, fig.height = 1.25}
 plot(fit2)
 ```
 
@@ -725,13 +788,13 @@ warmups <-
   c(fit2$fit@sim$samples[[1]]$b_Intercept[1:500], 
     fit2$fit@sim$samples[[2]]$b_Intercept[1:500], 
     fit2$fit@sim$samples[[3]]$b_Intercept[1:500]) %>% 
-  # since these come form lists, here we'll convert them to a tibble
-  as_tibble() %>% 
-  rename(b_Intercept = value) %>% 
+  # since these come from lists, here we'll convert them to a data frame
+  as.data.frame() %>% 
+  rename(b_Intercept = ".") %>% 
   # we'll need to recapture the iteration and chain information
-  mutate(iter = rep(1:500, times = 3),
+  mutate(iter  = rep(1:500, times = 3),
          chain = rep(1:3, each = 500)) %>% 
-  mutate(chain = factor(chain, levels = c("1","2","3")))
+  mutate(chain = factor(chain, levels = c("1", "2", "3")))
 
 warmups %>% 
   head()
@@ -810,14 +873,14 @@ mcmc_acf(post, pars = "b_Intercept", lags = 40) +
 
 As with the warmups, above, the post-warmup autocorrelation plots indicate substantially lower autocorrelations yielded by HMC as implemented by Stan than what Kruschke generated with the MH algorithm. This is one of the reasons folks using HMC tend to use fewer iterations than those using MH or Gibbs.
 
-Here are the overlaid densities. 
+Here are the overlaid densities.
 
 ```{r, fig.width = 4, fig.height = 2, message = F, warning = F}
 mcmc_dens_overlay(post, pars = c("b_Intercept")) +
   theme(panel.grid = element_blank())
 ```
 
-And now that we're focusing on the post-warmup iteratios, we can make a shrink factor plot. We'll do so with the `coda::gelman.plot()` function. But you can’t just dump your `brm()` fit object into `coda::gelman.plot()`. It’s the wrong object type. However, brms offers the `as.mcmc()` function which will convert `brm()` objects for use in coda package functions.
+And now that we're focusing on the post-warmup iterations, we can make a shrink factor plot. We'll do so with the `coda::gelman.plot()` function. But you can’t just dump your `brm()` fit object into `coda::gelman.plot()`. It’s the wrong object type. However, brms offers the `as.mcmc()` function which will convert `brm()` objects for use in coda package functions.
 
 ```{r, message = F, warning = F}
 fit2_c <- as.mcmc(fit2)
@@ -971,7 +1034,7 @@ lagged_post_wide %>%
   lowerCor(digits = 3)
 ```
 
-For out version of the bottom of Figure 7.12, we'll use the `bayesplot::mcmc_acf_bar()` function to get the autocorrelation bar plot, by chain.
+For our version of the bottom of Figure 7.12, we'll use the `bayesplot::mcmc_acf_bar()` function to get the autocorrelation bar plot, by chain.
 
 ```{r, fig.width = 4, fig.height = 5}
 mcmc_acf_bar(post,
@@ -1016,5 +1079,5 @@ sessionInfo()
 
 ```{r, message = F, warning = F, echo = F}
 # Here we'll remove our objects
-rm(d, my_mode_simulation, sim, num_days, positions, current, proposed_jump, my_data, likelihood, prior, target_rel_prob, traj_length, trajectory, burn_in, n_accepted, n_rejected, my_metropolis, betas, theta_sequence, Bernoulli_likelihood, theta_1_data, theta_2_data, prior_tibble, likelihood_tibble, model_1, model_2, fit1, post, z, N, fit2, warmups, fit2_c, lagged_post, p1, p2, p3)
+rm(hdi_of_icdf, h, omega, d, my_mode_simulation, sim, num_days, positions, current, proposed_jump, my_data, likelihood, prior_d, target_rel_prob, traj_length, trajectory, burn_in, n_accepted, n_rejected, my_metropolis, betas, theta_sequence, bernoulli_likelihood, theta_1_data, theta_2_data, prior_tibble, likelihood_tibble, model_1, model_2, fit1, post, z, n, fit2, warmups, fit2_c, lagged_post, p1, p2, p3)
 ```
