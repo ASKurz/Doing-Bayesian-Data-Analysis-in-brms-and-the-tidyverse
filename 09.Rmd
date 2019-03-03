@@ -8,17 +8,17 @@ output:
 
 # Hierarchical Models
 
-As Kruschke put it: "There are many realistic situations that involve meaningful hierarchical structure. Bayesian modeling software makes it straightforward to specify and analyze complex hierarchical models" (p. 221). IMO, brms makes it even easier than JAGS.
+As Kruschke put it, "There are many realistic situations that involve meaningful hierarchical structure. Bayesian modeling software makes it straightforward to specify and analyze complex hierarchical models" (p. 221). IMO, brms makes it even easier than JAGS.
 
 ## A single coin from a single mint
 
 Recall from the last chapter that our likelihood is the Bernoulli distribution:
 
-$$y_{i} \sim Bernoulli(\theta)$$
+$$y_{i} \sim \text{Bernoulli} (\theta)$$
 
 We'll use the Beta density for our prior distribution for $\theta$:
 
-$$\theta \sim Beta(\alpha, \beta)$$
+$$\theta \sim \text{Beta} (\alpha, \beta)$$
 
 And we can re-express $\alpha$ and $\beta$ in terms of the mode $\omega$ and concentration $\kappa$, such that
 
@@ -26,7 +26,7 @@ $$\alpha = \omega(\kappa - 2) + 1 \textrm{ and } \beta = (1 - \omega)(\kappa - 2
 
 The consequence of this is that we can re-express $\theta$ as
 
-$$\theta \sim Beta(\omega(\kappa - 2) + 1, (1 - \omega)(\kappa - 2) + 1)$$
+$$\theta \sim \text{Beta} (\omega(\kappa - 2) + 1, (1 - \omega)(\kappa - 2) + 1)$$
 
 On page 224, Kruschke wrote: "The value of $\kappa$ governs how near $\theta$ is to $\omega$, with larger values of $\kappa$ generating values of $\theta$ more concentrated near $\omega$." To give a sense of that, we'll simulate 20 beta distributions, all with $\omega = .25$ but with $\theta$ increasing from 10 to 200, by 10.
 
@@ -52,9 +52,8 @@ tibble(k = seq(from = 10, to = 200, by = 10)) %>%
   geom_vline(xintercept = c(0, .25, .5), color = "grey85", size = 1/2) +
   geom_ridgeline(size = 1/4, color = "white", scale = 2) +
   scale_fill_viridis_c(expression(kappa), option = "A") +
-  scale_y_continuous(breaks = seq(from = 10, to = 200, by = 10)) +
-  labs(x = expression(theta),
-       y = expression(kappa)) +
+  scale_y_continuous(expression(kappa), breaks = seq(from = 10, to = 200, by = 10)) +
+  xlab(expression(theta)) +
   theme(panel.grid = element_blank())
 ```
 
@@ -62,7 +61,7 @@ Holding $\omega$ constant, the density gets more concentrated around $\omega$ as
 
 ### Posterior via grid approximation.
 
-Given $\alpha$ and $\beta$, we can compute their mode $\omega$. To foreshadow, consider $\text{Beta} (2, 2)$.
+Given $\alpha$ and $\beta$, we can compute the corresponding mode $\omega$. To foreshadow, consider $\text{Beta} (2, 2)$.
 
 ```{r}
 alpha <- 2
@@ -81,13 +80,17 @@ First, we'll make a custom function, `make_prior()` based on the formulas.
 
 ```{r}
 make_prior <- function(theta, omega){
-  dbeta(x = theta,
-        shape1 =      omega  * (kappa - 2) + 1,
-        shape2 = (1 - omega) * (kappa - 2) + 1) *
-    dbeta(x = omega,
-          shape1 = alpha,
-          shape2 = beta)
-  }
+  # p(theta | omega)
+  t <- dbeta(x = theta,
+             shape1 =      omega  * (kappa - 2) + 1,
+             shape2 = (1 - omega) * (kappa - 2) + 1)
+  # p(omega)
+  o <- dbeta(x = omega,
+             shape1 = alpha,
+             shape2 = beta)
+  # p(theta, omega) = p(theta | omega) * p(omega)
+  return(t * o)
+}
 ```
 
 We already assigned values to `alpha` and `beta`, above. They're both 2. Next we'll define the parameter space as a sequence from 0 to 1 and assign the value of 100 to `kappa`.
@@ -99,25 +102,43 @@ kappa <- 100
 
 Our `make_prior()` function had five variables. We've saved the values of three of them into working memory (i.e., `alpha`, `beta`, and `kappa`). Now we'll use `parameter_space` to define the ranges for the final two variables, `theta` and `omega`, which we'll save in a tibble. We'll then feed the `theta` and `omega` values into our function via `purrr::map2()`, which will return a nested tibble. Once we `unnest()` the tibble, we'll be ready to plot the top middle panel of Figure 9.2.
 
-```{r, fig.width = 3.5, fig.height = 3}
+```{r, fig.height = 3}
 d <-
+  # these first two functions define the grid for our grid approximation
   tibble(theta = parameter_space,
          omega = parameter_space) %>%
   expand(theta, omega) %>% 
+  # compute the joint prior
   mutate(prior = map2(theta, omega, make_prior)) %>% 
-  unnest() %>% 
-  # here we normalize (i.e., translate the prior from the density metric to the probability metric)
-  mutate(prior = prior / sum(prior))
+  unnest()
 
+# we'll save the normalizing constant for later
+sum_of_prior <-
+  d %>% 
+  summarise(sum_of_prior = sum(prior)) %>% 
+  pull()
+
+# here we convert the prior from the density metric to the probability metric
+d <-
+  d %>% 
+  mutate(prior = prior / sum_of_prior)
+```
+
+Let's plot.
+ 
+```{r, fig.height = 3}
 d %>% 
   ggplot(aes(x = theta, y = omega, fill = prior)) +
-  geom_tile() +
+  geom_raster(interpolate = T) +
   scale_fill_viridis_c(option = "A") +
   labs(x = expression(theta),
        y = expression(omega)) +
+  coord_equal() +
   theme(panel.grid = element_blank(),
         legend.position = "none")
 ```
+
+Note, you could also make this with `geom_tile()`. But `geom_raster()` with the `interpolate = T` argument smooths the edges.
 
 If we collapse "the joint prior across $\theta$" (i.e., `group_by(omega)` and then `sum(prior)`), we plot the marginal distribution for $p(\omega)$ as seen in the top right panel.
 
@@ -153,13 +174,14 @@ d %>%
   theme(panel.grid = element_blank())
 ```
 
-With a little `filter()`ing and wrangling, we’ll be in good shape to make the two short plots in the right panel of the second row from the top.
+We’ll use the `filter()` function to take the two slices from the posterior grid. Remember that `sum_of_prior` value we saved a little while back? It finally comes into play, here. If we multiply our `prior` variable by that, we can renormalize the two slices "so that they are individually proper probability densities that sum to 1.0 over $\theta$" (p. 226).
 
 ```{r, fig.width = 3.5, fig.height = 3}
 d %>% 
   filter(omega %in% c(.25, .75)) %>% 
-  mutate(label = str_c("omega == ", omega)) %>% 
-  mutate(label = factor(label, levels = c("omega == 0.75", "omega == 0.25"))) %>% 
+  mutate(prior = prior * sum_of_prior) %>% 
+  mutate(label = factor(str_c("omega == ", omega), 
+                        levels = c("omega == 0.75", "omega == 0.25"))) %>% 
   
   ggplot(aes(x = theta,
              ymin = 0,
@@ -208,53 +230,53 @@ tibble(theta = rep(parameter_space, times = 2),
 We need the Bernoulli likelihood function for the lower three rows of Figure 9.2.
 
 ```{r}
-Bernoulli_likelihood <- function(theta, data) {
-  # theta = success probability parameter ranging from 0 to 1
-  # data = the vector of data (i.e., a series of 0s and 1s)
-  N <- length(data)
+bernoulli_likelihood <- function(theta, data) {
+  n <- length(data)
   z <- sum(data)
-  return(theta^z * (1 - theta)^(N - sum(data)))
+  return(theta^z * (1 - theta)^(n - sum(data)))
   }
 ```
 
-Time to feed `theta` and our data into `Bernoulli_likelihood()`, which will allow us to make the 2-dimensional density plot in the middle of Figure 9.2.
+Time to feed `theta` and our data into the `bernoulli_likelihood()` function, which will allow us to make the 2-dimensional density plot in the middle of Figure 9.2.
 
-```{r, fig.width = 3.5, fig.height = 3}
-N <- 12
+```{r, fig.height = 3}
+n <- 12
 z <- 9
 
-trial_data <- rep(0:1, times = c(N - z, z))
+trial_data <- rep(0:1, times = c(n - z, z))
 
 d <-
   d %>% 
-  mutate(likelihood = Bernoulli_likelihood(theta = theta, 
+  mutate(likelihood = bernoulli_likelihood(theta = theta, 
                                            data  = trial_data))
 
 d %>%
   ggplot(aes(x = theta, y = omega, fill = likelihood)) +
-  geom_tile() +
+  geom_raster(interpolate = T) +
   scale_fill_viridis_c(option = "A") +
   labs(x = expression(theta),
        y = expression(omega)) +
+  coord_equal() +
   theme(panel.grid = element_blank(),
         legend.position = "none")
 ```
 
-From formula 9.1, the posterior $p(\theta, \omega| D)$ is proportional to $p(D|\theta) p(\theta|\omega) p(\omega)$. Divide by the normalizing constant and we'll have it in a proper probability metric.
+From formula 9.1, the posterior $p(\theta, \omega| D)$ is proportional to $p(D | \theta) p(\theta|\omega) p(\omega)$. Divide by the normalizing constant and we'll have it in a proper probability metric. Recall that we've already saved the results of $p(\theta|\omega) p(\omega)$ in the `prior` column. So we just need to multiply `prior` by `likelihood` and divide by their sum.
 
 Our first depiction will be the middle panel of the second row from the bottom.
 
-```{r, fig.width = 3.5, fig.height = 3}
+```{r, fig.height = 3}
 d <-
   d %>% 
-  mutate(posterior = (likelihood * prior * omega) / sum(likelihood * prior * omega)) 
+  mutate(posterior = (likelihood * prior) / sum(likelihood * prior)) 
 
 d %>% 
   ggplot(aes(x = theta, y = omega, fill = posterior)) +
-  geom_tile() +
+  geom_raster(interpolate = T) +
   scale_fill_viridis_c(option = "A") +
   labs(x = expression(theta),
        y = expression(omega)) +
+  coord_equal() +
   theme(panel.grid = element_blank(),
         legend.position = "none")
 ```
@@ -291,13 +313,15 @@ d %>%
   theme(panel.grid = element_blank())
 ```
 
-And like above, we'll `filter()` and wrangle to make the short plots in the lower right panel of Figure 9.2.
+Note that after we slice with `filter()`, the next two wrangling lines renormalize those posterior slices into probability metrics. That is, when we take a slice through the joint posterior at a particular value of $\omega$, and renormalize by dividing the sum of discrete probability masses in that slice, we get the conditional distribution $p(\theta | \omega, D)$ (p. 228).
 
 ```{r, fig.width = 3.5, fig.height = 3}
 d %>% 
   filter(omega %in% c(.25, .75)) %>% 
-  mutate(label = str_c("omega == ", omega)) %>% 
-  mutate(label = factor(label, levels = c("omega == 0.75", "omega == 0.25"))) %>% 
+  group_by(omega) %>% 
+  mutate(posterior = posterior / sum(posterior)) %>% 
+  mutate(label = factor(str_c("omega == ", omega),
+                        levels = c("omega == 0.75", "omega == 0.25"))) %>% 
   
   ggplot(aes(x = theta,
              ymin = 0,
@@ -305,7 +329,6 @@ d %>%
   geom_ribbon(fill = "grey67") +
   labs(x = expression(theta),
        y = expression(paste("p(", theta, "|", omega, ")"))) +
-  # coord_cartesian(ylim = 0:10) +
   theme(panel.grid = element_blank()) +
   facet_wrap(~label, ncol = 1, labeller = label_parsed, scales = "free")
 ```
@@ -331,7 +354,7 @@ d <-
 
 d %>% 
   ggplot(aes(x = theta, y = omega, fill = prior)) +
-  geom_tile() +
+  geom_raster(interpolate = T) +
   scale_fill_viridis_c(option = "A") +
   labs(x = expression(theta),
        y = expression(omega)) +
@@ -395,12 +418,12 @@ Now we're ready for the likelihood.
 ```{r, fig.width = 3.5, fig.height = 3}
 d <-
   d %>% 
-  mutate(likelihood = Bernoulli_likelihood(theta = theta, 
+  mutate(likelihood = bernoulli_likelihood(theta = theta, 
                                            data  = trial_data))
 
 d %>%
   ggplot(aes(x = theta, y = omega, fill = likelihood)) +
-  geom_tile() +
+  geom_raster(interpolate = T) +
   scale_fill_viridis_c(option = "A") +
   labs(x = expression(theta),
        y = expression(omega)) +
@@ -413,12 +436,11 @@ Here's the posterior, $p(\theta|\text{D})$. Our first depiction will be the midd
 ```{r, fig.width = 3.5, fig.height = 3}
 d <-
   d %>% 
-  # mutate(marginal_likelihood = sum(prior * likelihood)) %>% 
   mutate(posterior = (likelihood * prior * omega) / sum(likelihood * prior * omega)) 
 
 d %>% 
   ggplot(aes(x = theta, y = omega, fill = posterior)) +
-  geom_tile() +
+  geom_raster(interpolate = T) +
   scale_fill_viridis_c(option = "A") +
   labs(x = expression(theta),
        y = expression(omega)) +
@@ -510,7 +532,7 @@ The left and middle columns of the top two rows are the same save for their indi
 ```{r, fig.width = 3.5, fig.height = 3}
 d %>% 
   ggplot(aes(x = theta_1, y = omega, fill = prior_1)) +
-  geom_tile() +
+  geom_raster(interpolate = T) +
   scale_fill_viridis_c(option = "A") +
   labs(x = expression(theta[1]),
        y = expression(omega)) +
@@ -554,27 +576,27 @@ Now we'll add the likelihoods and make the plots in the middle row of Figure 9.5
 
 ```{r, fig.width = 3.5, fig.height = 3}
 # D1: 3 heads, 12 tails
-N <- 15
+n <- 15
 z <- 3
 
-trial_data_1 <- rep(0:1, times = c(N - z, z))
+trial_data_1 <- rep(0:1, times = c(n - z, z))
 
 # D2: 4 heads, 1 tail
 N <- 5
 z <- 4
 
-trial_data_2 <- rep(0:1, times = c(N - z, z))
+trial_data_2 <- rep(0:1, times = c(n - z, z))
 d <-
   d %>% 
-  mutate(likelihood_1 = Bernoulli_likelihood(theta = theta_1, 
+  mutate(likelihood_1 = bernoulli_likelihood(theta = theta_1, 
                                              data  = trial_data_1),
-         likelihood_2 = Bernoulli_likelihood(theta = theta_2, 
+         likelihood_2 = bernoulli_likelihood(theta = theta_2, 
                                              data  = trial_data_2))
 
 # likelihood_1
 d %>%
   ggplot(aes(x = theta_1, y = omega, fill = likelihood_1)) +
-  geom_tile() +
+  geom_raster(interpolate = T) +
   scale_fill_viridis_c(option = "A") +
   labs(x = expression(theta[1]),
        y = expression(omega)) +
@@ -584,7 +606,7 @@ d %>%
 # likelihood_2
 d %>%
   ggplot(aes(x = theta_2, y = omega, fill = likelihood_2)) +
-  geom_tile() +
+  geom_raster(interpolate = T) +
   scale_fill_viridis_c(option = "A") +
   labs(x = expression(theta[2]),
        y = expression(omega)) +
@@ -603,7 +625,7 @@ d <-
 # posterior_1
 d %>% 
   ggplot(aes(x = theta_1, y = omega, fill = posterior_1 * omega)) +
-  geom_tile() +
+  geom_raster(interpolate = T) +
   scale_fill_viridis_c(option = "A") +
   labs(x = expression(theta[1]),
        y = expression(omega)) +
@@ -613,7 +635,7 @@ d %>%
 # posterior_2
 d %>% 
   ggplot(aes(x = theta_2, y = omega, fill = posterior_2)) +
-  geom_tile() +
+  geom_raster(interpolate = T) +
   scale_fill_viridis_c(option = "A") +
   labs(x = expression(theta[2]),
        y = expression(omega)) +
@@ -693,7 +715,7 @@ d <-
 # 2-D prior density for theta_1
 d %>% 
   ggplot(aes(x = theta_1, y = omega, fill = prior_1)) +
-  geom_tile() +
+  geom_raster(interpolate = T) +
   scale_fill_viridis_c(option = "A") +
   labs(x = expression(theta[1]),
        y = expression(omega)) +
@@ -734,15 +756,15 @@ Likelihoods:
 ```{r, fig.width = 3.5, fig.height = 3}
 d <-
   d %>% 
-  mutate(likelihood_1 = Bernoulli_likelihood(theta = theta_1, 
+  mutate(likelihood_1 = bernoulli_likelihood(theta = theta_1, 
                                              data  = trial_data_1),
-         likelihood_2 = Bernoulli_likelihood(theta = theta_2, 
+         likelihood_2 = bernoulli_likelihood(theta = theta_2, 
                                              data  = trial_data_2))
 
 # likelihood_1
 d %>%
   ggplot(aes(x = theta_1, y = omega, fill = likelihood_1)) +
-  geom_tile() +
+  geom_raster(interpolate = T) +
   scale_fill_viridis_c(option = "A") +
   labs(x = expression(theta[1]),
        y = expression(omega)) +
@@ -752,7 +774,7 @@ d %>%
 # likelihood_2
 d %>%
   ggplot(aes(x = theta_2, y = omega, fill = likelihood_2)) +
-  geom_tile() +
+  geom_raster(interpolate = T) +
   scale_fill_viridis_c(option = "A") +
   labs(x = expression(theta[2]),
        y = expression(omega)) +
@@ -771,7 +793,7 @@ d <-
 # posterior_1
 d %>% 
   ggplot(aes(x = theta_1, y = omega, fill = posterior_1)) +
-  geom_tile() +
+  geom_raster(interpolate = T) +
   scale_fill_viridis_c(option = "A") +
   labs(x = expression(theta[1]),
        y = expression(omega)) +
@@ -781,7 +803,7 @@ d %>%
 # posterior_2
 d %>% 
   ggplot(aes(x = theta_2, y = omega, fill = posterior_2)) +
-  geom_tile() +
+  geom_raster(interpolate = T) +
   scale_fill_viridis_c(option = "A") +
   labs(x = expression(theta[2]),
        y = expression(omega)) +
