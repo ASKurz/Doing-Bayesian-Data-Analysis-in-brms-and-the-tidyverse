@@ -50,7 +50,7 @@ tibble(k = seq(from = 10, to = 200, by = 10)) %>%
              height = theta,
              group = k, fill = k)) +
   geom_vline(xintercept = c(0, .25, .5), color = "grey85", size = 1/2) +
-  geom_ridgeline(size = 1/4, color = "white", scale = 2) +
+  geom_ridgeline(size = 1/5, color = "grey92", scale = 2) +
   scale_fill_viridis_c(expression(kappa), option = "A") +
   scale_y_continuous(expression(kappa), breaks = seq(from = 10, to = 200, by = 10)) +
   xlab(expression(theta)) +
@@ -407,7 +407,7 @@ d %>%
 
 Now we're ready for the likelihood.
 
-```{r, fig.width = 3.5, fig.height = 3}
+```{r, fig.height = 3}
 # compute
 d <-
   d %>% 
@@ -421,13 +421,14 @@ d %>%
   scale_fill_viridis_c(option = "A") +
   labs(x = expression(theta),
        y = expression(omega)) +
+  coord_equal() +
   theme(panel.grid = element_blank(),
         legend.position = "none")
 ```
 
 Here's the posterior, $p(\theta|\text{D})$. Our first depiction will be the middle panel of the second row from the bottom of Figure 9.3.
 
-```{r, fig.width = 3.5, fig.height = 3}
+```{r, fig.height = 3}
 # compute the posterior
 d <-
   d %>% 
@@ -440,6 +441,7 @@ d %>%
   scale_fill_viridis_c(option = "A") +
   labs(x = expression(theta),
        y = expression(omega)) +
+  coord_equal() +
   theme(panel.grid = element_blank(),
         legend.position = "none")
 ```
@@ -630,7 +632,7 @@ head(d)
 
 Now after a little `group_by()` followed by `summarise()` we can plot the two marginal likelihoods, the two plots in the middle row of Figure 9.5.
 
-```{r, fig.width = 3.5, fig.height = 3}
+```{r, fig.height = 3}
 # likelihood_1
 d %>%
   group_by(theta_1, omega) %>% 
@@ -813,7 +815,7 @@ d %>%
 
 Let's get those likelihoods in there and plot.
 
-```{r, fig.width = 3.5, fig.height = 3}
+```{r, fig.height = 3}
 # D1: 3 heads, 12 tails
 n <- 15
 z <- 3
@@ -952,20 +954,23 @@ d %>%
 
 ### A realistic model with MCMC.
 
-Here' a look at the gamma densities of Figure 9.8.
+"Because the value of $\kappa − 2$ must be non-negative, the prior distribution on $\kappa − 2$ must not allow negative values" (p. 237). Gamma is one of the distributions with that property. The gamma distribution is defined by two parameters, its *shape* and *rate*. To get a sense of how those play out, here' a look at the gamma densities of Figure 9.8.
 
 ```{r, fig.width = 6, fig.height = 5}
+# how many points do you want in your sequence of x values?
 length <- 100
 
-tibble(x = seq(from = 0, to = 200, length.out = length) %>% 
-         rep(., times = 4)) %>% 
-  mutate(shape = rep(c(.01, 1.56, 1, 6.25), each = length),
-         rate = rep(c(.01, .0312, .02, .125), each = length)) %>% 
-  mutate(mean = shape * 1/rate,
-         sd = sqrt(shape * (1 / rate)^2)) %>% 
+# wrangle
+tibble(shape = c(.01, 1.56, 1, 6.25),
+       rate  = c(.01, .0312, .02, .125)) %>% 
+  expand(nesting(shape, rate),
+         x = seq(from = 0, to = 200, length.out = length)) %>% 
+  mutate(mean  = shape * 1 / rate,
+         sd    = sqrt(shape * (1 / rate)^2)) %>% 
   mutate(label = str_c("shape = ", shape, ", rate = ", rate, 
                        "\nmean = ", mean, ", sd = ", sd)) %>% 
   
+  # plot
   ggplot(aes(x = x, 
              ymin = 0, 
              ymax = dgamma(x = x, shape = shape, rate = rate))) +
@@ -978,7 +983,7 @@ tibble(x = seq(from = 0, to = 200, length.out = length) %>%
   facet_wrap(~label)
 ```
 
-You can find the formulas for the mean and $SD$ for a given gamma distribution [here](http://astrostatistics.psu.edu/su07/R/html/stats/html/GammaDist.html). We use those formulas in the second `mutate()` statement for the data-prep stage of our Figure 9.8.
+You can find the formulas for the mean and $SD$ for a given gamma distribution [here](http://astrostatistics.psu.edu/su07/R/html/stats/html/GammaDist.html). We used those formulas in the second `mutate()` statement for the data-prep stage of that last figure.
 
 Kruschke's equations 9.7 and 9.8 are as follows:
 
@@ -1014,6 +1019,8 @@ gamma_s_and_r_from_mean_sd(mean = 10, sd = 100)
 gamma_s_and_r_from_mode_sd(mode = 10, sd = 100)
 ```
 
+Here's a more detailed look at the structure of their output.
+
 ```{r}
 gamma_param <- gamma_s_and_r_from_mode_sd(mode = 10, sd = 100)
 
@@ -1025,6 +1032,8 @@ str(gamma_param)
 Unlike JAGS, the brms `formula` will not correspond as closely to Figure 9.7. You'll see in just a bit.
 
 ### Example: Therapeutic touch.
+
+Load the data from the `TherapeuticTouchData.csv` file.
 
 ```{r, warning = F, message = F}
 my_data <- read_csv("data.R/TherapeuticTouchData.csv")
@@ -1072,27 +1081,28 @@ library(brms)
 
 In applied statistics, the typical way to model a Bernoulli variable is with logistic regression. Instead of going through the pain of setting up a model in brms that mirror’s the one in the text, I’m going to set up a hierarchical logistic regression model, instead. 
 
-Note the `family = bernoulli(link = "logit")` argument. In work-a-day regression with vanilla Gaussian variables, the prediction space is unbounded. But when we want to model the probability of a success for a Bernoulli variable (i.e., $\theta$), we need to constrain the model to only produce predictions between 0 and 1. With logistic regression, we use a link function to do just that. The consequence is that instead of modeling the probability, $\theta$, we’re modeling the logit probability.
+Note the `family = bernoulli(link = logit)` argument. In work-a-day regression with vanilla Gaussian variables, the prediction space is unbounded. But when we want to model the probability of a success for a Bernoulli variable (i.e., $\theta$), we need to constrain the model to only produce predictions between 0 and 1. With logistic regression, we use a link function to do just that. The consequence is that instead of modeling the probability, $\theta$, we’re modeling the logit probability.
 
 In case you're curious, the logit of $\theta$ is:
 
-$$logit(\theta) = log(\theta/(1 - \theta))$$
+$$\text{logit} (\theta) = \text{log} (\theta/(1 - \theta))$$
 
-But anyway, we'll be doing logistic regression using the logit link. Kruschke will cover this in detail in chapter 21.
+But anyway, we'll be doing logistic regression using the logit link. Kruschke will cover this in detail in Cchapter 21.
 
-The next new part of our syntax is `(1 | s)`. As in the popular frequentist [lme4 package](https://cran.r-project.org/web/packages/lme4/index.html), you specify random effects or group-level parameters with the `(|)` syntax in brms. On the left side of the `|`, you tell brms what parameters you'd like to make random (i.e., vary by group). On the right side of the `|`, you tell brms what variable you want to group the parameters by. In our case, we want the intercepts to be grouped by `s`.
+The next new part of our syntax is `(1 | s)`. As in the popular frequentist [lme4 package](https://cran.r-project.org/web/packages/lme4/index.html), you specify random effects or group-level parameters with the `(|)` syntax in brms. On the left side of the `|`, you tell brms what parameters you'd like to make random (i.e., vary by group). On the right side of the `|`, you tell brms what variable you want to group the parameters by. In our case, we want the intercepts to vary over the grouping variable `s`.
 
 ```{r fit1, cache = T, warning = F, message = F, results = 'hide'}
 fit1 <-
   brm(data = my_data,
-      family = bernoulli(link = "logit"),
+      family = bernoulli(link = logit),
       y ~ 1 + (1 | s),
       prior = c(prior(normal(0, 1.5), class = Intercept),
                 prior(normal(0, 1), class = sd)),
-      iter = 20000, warmup = 1000, thin = 10, chains = 4, cores = 4)
+      iter = 20000, warmup = 1000, thin = 10, chains = 4, cores = 4,
+      seed = 9)
 ```
 
-As it turns out, the $N(0, 1.5)$ prior is flat in the probability space for the intercept in a logistic regression model. We’ll explore that a little further down. The $N(0, 1)$ prior for the random effect is actually a half-Normal. That’s because brms defaults to bound $SD$ parameters to zero and above. The half $N(0, 1)$ prior for a hierarchical $SD$ parameter is weakly regularizing and is conservative in the sense that it presumes some pooling is preferable to no pooling. If you wanted to take a lighter approach, you might use something like a `cauchy(0, 5)`, instead. See the [prior wiki](https://github.com/stan-dev/stan/wiki/Prior-Choice-Recommendations) by the Stan team for more. 
+As it turns out, the $N(0, 1.5)$ prior is flat in the probability space for the intercept in a logistic regression model. We’ll explore that a little further down. The $N(0, 1)$ prior for the random effect is actually a half Normal. That’s because brms defaults to bound $SD$ parameters to zero and above. The half Normal prior for a hierarchical $SD$ parameter in a logistic regression model is weakly regularizing and is conservative in the sense that it presumes some pooling is preferable to no pooling. If you wanted to take a lighter approach, you might use something like a `cauchy(0, 5)`, instead. See the [prior wiki](https://github.com/stan-dev/stan/wiki/Prior-Choice-Recommendations) by the Stan team for more ideas on priors. 
 
 Here are the trace plots and posterior densities of the main parameters.
 
@@ -1136,18 +1146,18 @@ Here's a numeric summary of the model:
 print(fit1)
 ```
 
-We'll need `brms::inv_logit_scaled()` to convert the model parameters to predict $\theta$ rather than $logit(\theta)$. After the conversions, we'll be ready to make the histograms in the lower portion of Figure 9.10.
+We'll need `brms::inv_logit_scaled()` to convert the model parameters to predict $\theta$ rather than $\text{logit} (\theta)$. After the conversions, we'll be ready to make the histograms in the lower portion of Figure 9.10.
 
 ```{r, fig.width = 8, fig.height = 4, warning = F, message = F}
 library(tidybayes)
 
 post_small <-
   post %>% 
-  # converting the linter model to the probability space with `inv_logit_scaled()`
+  # convert the linter model to the probability space with `inv_logit_scaled()`
   mutate(`theta[1]`  = (b_Intercept + `r_s[S01,Intercept]`) %>% inv_logit_scaled(),
          `theta[14]` = (b_Intercept + `r_s[S14,Intercept]`) %>% inv_logit_scaled(),
          `theta[28]` = (b_Intercept + `r_s[S28,Intercept]`) %>% inv_logit_scaled()) %>% 
-  # making the difference distributions
+  # make the difference distributions
   mutate(`theta[1] - theta[14]`  = `theta[1]`  - `theta[14]`,
          `theta[1] - theta[28]`  = `theta[1]`  - `theta[28]`,
          `theta[14] - theta[28]` = `theta[14]` - `theta[28]`) %>% 
@@ -1240,7 +1250,7 @@ post %>%
 
 I'm not aware there's a straight conversion to get $\sigma$ in a probability metric. As far as I can tell, you have to first use `coef()` to "extract [the] model coefficients, which are the sum of population-level effects and corresponding group-level effects" (p. 39 of the [user's guide for brms](https://cran.r-project.org/web/packages/brms/brms.pdf) version 2.5.0). With the model coefficient draws in hand, you can index them by posterior iteration, group them by that index, compute the iteration-level $SD$s, and then plot the distribution of the $SD$s.
 
-```{r, fig.width = 3.25, fig.height = 2.5}
+```{r, fig.width = 3.25, fig.height = 2.5, warning = F}
 # the tibble of the primary data
 sigmas <-
   coef(fit1, summary = F)$s %>% 
@@ -1291,9 +1301,9 @@ coef(fit1, summary = F)$s %>%
 
 Did you see how we slipped in that `color_scheme_set("gray")` line? When we used `theme_set()`, earlier, that changed the global theme settings for our ggplot2 plots. The `color_scheme_set()` function is specific to bayesplot plots and it sets the color palette within them. Setting the color palette "gray" changed the colors depicted in the dots and bars of the `mcmc_pairs()`-based scatter plots and histograms, respectively. 
 
-Kruschke used a beta(1, 1) prior for $\omega$. If you randomly draw from that prior and plot a histogram, you’ll see it was flat.
+Kruschke used a Beta(1, 1) prior for $\omega$. If you randomly draw from that prior and plot a histogram, you’ll see it was flat.
 
-```{r, fig.width = 4, fig.height = 3}
+```{r, fig.width = 3.5, fig.height = 3}
 set.seed(1)
 tibble(prior = rbeta(n = 1e5, 1, 1)) %>% 
   ggplot(aes(x = prior)) +
@@ -1335,23 +1345,50 @@ tibble(sd = seq(from = .25, to = 3, by = .25)) %>%
 
 It appears that as $\sigma$ goes lower than 1.25, the prior becomes increasingly regularizing, pulling the estimate for $\theta$ to a neutral .5. However, as the prior’s $\sigma$ gets larger than 1.25, more and more of the probability mass ends up at extreme values.
 
-Here's the diagonal of the lower grid of Figure 9.11.
+Next, Kruschke examined the prior distribution. There are a few ways to do this. The one we’ll explore involved adding the `sample_prior = "only"` argument to the `brm()` function. When you do so, the results of the model are just the prior. That is, `brm()` leaves out the likelihood. This returns a bunch of samples from the prior predictive distribution.
+
+```{r fit1_prior, cache = T, warning = F, message = F, results = 'hide'}
+fit1_prior <-
+  brm(data = my_data,
+      family = bernoulli(link = logit),
+      y ~ 1 + (1 | s),
+      prior = c(prior(normal(0, 1.5), class = Intercept),
+                prior(normal(0, 1), class = sd)),
+      iter = 20000, warmup = 1000, thin = 10, chains = 4, cores = 4,
+      seed = 9,
+      sample_prior = "only")
+```
+
+If we feed `fit1_prior` into the `posterior_samples()` function, we'll get back a data frame of samples from the prior, but with the same parameter names we'd get from the posterior.
+
+```{r}
+prior <-
+  posterior_samples(fit1_prior) %>% 
+  as_tibble()
+
+head(prior)
+```
+
+And here we’ll take a subset of the columns in `prior`, transform the results to the probability metric, and save the results as `prior_samples`.
+
+```{r}
+prior_samples <-
+  prior %>% 
+  transmute(`theta[1]` = b_Intercept + `r_s[S01,Intercept]`,
+            `theta[14]` = b_Intercept + `r_s[S14,Intercept]`,
+            `theta[28]` = b_Intercept + `r_s[S28,Intercept]`) %>% 
+  mutate_all(.funs = inv_logit_scaled)
+
+head(prior_samples)
+```
+
+
+Now we can use our `prior_samples` object to make the diagonal of the lower grid of Figure 9.11.
 
 ```{r, fig.width = 8, fig.height = 2.5}
-n <- 1e4
-
-set.seed(1)
-intercept_prior <- rnorm(n = n, mean = 0, sd = 1.5)
-sigma_prior     <- rnorm(n = n, mean = 0, sd = 1) %>% abs()
- 
-prior_samples <-
-  tibble(`theta[1]`  = rnorm(n = n, mean = intercept_prior, sd = sigma_prior) %>% inv_logit_scaled(),
-         `theta[14]` = rnorm(n = n, mean = intercept_prior, sd = sigma_prior) %>% inv_logit_scaled(),
-         `theta[28]` = rnorm(n = n, mean = intercept_prior, sd = sigma_prior) %>% inv_logit_scaled())
-
 prior_samples %>% 
   gather() %>% 
-
+  
   ggplot(aes(x = value)) +
   geom_histogram(fill = "grey67", color = "grey92", size = .2,
                 binwidth = .05, boundary = 0) +
@@ -1410,7 +1447,19 @@ p3 <-
 grid.arrange(p1, p2, p3, ncol = 3)
 ```
 
+In case you were curious, here are the Pearson's correlation coefficients among the priors.
+
+```{r}
+cor(prior_samples) %>% round(digits = 2)
+```
+
 ## Shrinkage in hierarchical models
+
+"In typical hierarchical models, the estimates of low-level parameters are pulled closer together than they would be if there were not a higher-level distribution. This pulling together is called *shrinkage* of the estimates" (p. 245, *emphasis* in the original)
+
+Further,
+
+> shrinkage is a rational implication of hierarchical model structure, and is (usually) desired by the analyst because the shrunken parameter estimates are less affected by random sampling noise than estimates derived without hierarchical structure. Intuitively, shrinkage occurs because the estimate of each low-level parameter is influenced from two sources: (1) the subset of data that are directly dependent on the low-level parameter, and (2) the higher-level parameters on which the low-level parameter depends. The higher- level parameters are affected by all the data, and therefore the estimate of a low-level parameter is affected indirectly by all the data, via their influence on the higher-level parameters. (p. 247)
 
 Recall formula 9.4 from page 223.
 
@@ -1444,27 +1493,29 @@ tibble(x = seq(from = 0, to = 1, by = .001)) %>%
 
 ## Speeding up ~~JAGS~~ brms
 
-Here we'll compare the time it takes to fit `fit1` as either `bernoulli(link = "logit")` or `binomial(link = "logit")`.
+Here we'll compare the time it takes to fit `fit1` as either `bernoulli(link = logit)` or `binomial(link = logit)`.
 
 ```{r bernoulli_vs_binomial, cache = T, message = F, warning = F, results = 'hide'}
 # bernoulli
 start_time_bernoulli <- proc.time()
 brm(data = my_data,
-      family = bernoulli(link = "logit"),
+      family = bernoulli(link = logit),
       y ~ 1 + (1 | s),
       prior = c(prior(normal(0, 1.5), class = Intercept),
                 prior(normal(0, 1), class = sd)),
-      iter = 20000, warmup = 1000, thin = 10, chains = 4, cores = 4)
+      iter = 20000, warmup = 1000, thin = 10, chains = 4, cores = 4,
+      seed = 9)
 stop_time_bernoulli <- proc.time()
 
 # binomial
 start_time_binomial <- proc.time()
 brm(data = my_data,
-      family = bernoulli(link = "logit"),
-      y ~ 1 + (1 | s),
+      family = binomial(link = logit),
+      y | trials(1) ~ 1 + (1 | s),
       prior = c(prior(normal(0, 1.5), class = Intercept),
                 prior(normal(0, 1), class = sd)),
-      iter = 20000, warmup = 1000, thin = 10, chains = 4, cores = 4)
+      iter = 20000, warmup = 1000, thin = 10, chains = 4, cores = 4,
+      seed = 9)
 stop_time_binomial <- proc.time()
 ```
 
@@ -1481,20 +1532,24 @@ As to the issue of parallel processing, we’ve been doing this all along. Note 
 
 ## Extending the hierarchy: Subjects within categories
 
+> Many data structures invite hierarchical descriptions that may have multiple levels. Software such as ~~JAGS~~ [brms] makes it easy to implement hierarchical models, and Bayesian inference makes it easy to interpret the parameter estimates, even for complex nonlinear hierarchical models. Here, we take a look at one type of extended hierarchical model. (p. 251)
+
+Here we depart a little from Kruschke, again. Though we will be fitting a hierarchical model with subjects $s$ within categories $c$, the higher-level parameters will not be $\omega$ and $\kappa$. As we’ll go over, below, we’ll be using the binomial distribution within a more conventional hierarchical logistic regression paradigm. In this paradigm, we have an overall intercept, often called $\alpha$ or $\beta_0$, which will be our analogue to Kruschke’s overall $\omega$. For the two grouping categories, $s$ and $c$, we will have $\sigma$ estimates, which express the variability within those grouping. You’ll see when we get there.
+
 ### Example: Baseball batting abilities by position.
 
-Here are the batting average data, `ba`.
+Here are the batting average data.
 
 ```{r, warning = F, message = F}
-ba <- read_csv("data.R/BattingAverage.csv")
+my_data <- read_csv("data.R/BattingAverage.csv")
 
-glimpse(ba)
+glimpse(my_data)
 ```
 
-And here are the number of occasions by primary position, `PriPos`, with their median at bat, `AtBats`, values.
+To give a sense of the data, here are the number of occasions by primary position, `PriPos`, with their median at bat, `AtBats`, values.
 
 ```{r}
-ba %>% 
+my_data %>% 
   group_by(PriPos) %>% 
   summarise(n      = n(),
             median = median(AtBats)) %>% 
@@ -1507,13 +1562,14 @@ Also note the `(1 | PriPos) + (1 | PriPos:Player)` syntax. In this model, we hav
 
 ```{r fit2, cache = T, warning = F, message = F, results = 'hide'}
 fit2 <-
-  brm(data = ba,
-      family = binomial(link = "logit"),
+  brm(data = my_data,
+      family = binomial(link = logit),
       Hits  | trials(AtBats) ~ 1 + (1 | PriPos) + (1 | PriPos:Player),
       prior = c(prior(normal(0, 1.5), class = Intercept),
                 prior(normal(0, 1), class = sd)),
       iter = 3500, warmup = 500, chains = 3, cores = 3,
-      control = list(adapt_delta = .99))
+      control = list(adapt_delta = .99),
+      seed = 9)
 ```
 
 The chains look good.
@@ -1575,7 +1631,7 @@ post_small <-
 head(post_small)
 ```
 
-If you take a glance at Figures 9.14 through 9.16, we'll be making a lot of histograms of the same basic structure. We can make a histogram plotting function to streamline our code.
+If you take a glance at Figures 9.14 through 9.16 in the text, we'll be making a lot of histograms of the same basic structure. To streamline our code a bit, we can make a custom histogram plotting function.
 
 ```{r}
 make_histogram <- function(data, mapping, title, xlim, ...){
@@ -1715,14 +1771,14 @@ post_small %>%
 
 For Figures 9.15 and 9.16, Kruschke drilled down further into the posterior. To drill along with him, we'll take the opportunity to showcase `fitted()`, the third way brms affords us for plotting group-level parameters.
 
-```{r, fig.width = 3.5, fig.height = 2.5}
+```{r, fig.width = 3.5, fig.height = 2.5, warning = F}
 # this will make life easier. just go with it
 name_list <- c("Kyle Blanks", "Bruce Chen", "ShinSoo Choo", "Ichiro Suzuki", 
                "Mike Leake", "Wandy Rodriguez", "Andrew McCutchen", "Brett Jackson")
 
 # we'll define the data we'd like to feed into `fitted()`, here
 nd <-
-  ba %>% 
+  my_data %>% 
   filter(Player %in% c(name_list)) %>% 
   # these last two lines aren't typically necessary, 
   # but they allow us to arrange the rows in the same order we find the names in Figures 9.15 and 9.16
@@ -1736,14 +1792,7 @@ fitted_players <-
        summary = F) %>% 
   as_tibble() %>% 
   # rename the values as returned by `as_tibble()`
-  transmute(`Kyle Blanks`      = V1, 
-            `Bruce Chen`       = V2, 
-            `ShinSoo Choo`     = V3,
-            `Ichiro Suzuki`    = V4,
-            `Mike Leake`       = V5,
-            `Wandy Rodriguez`  = V6,
-            `Andrew McCutchen` = V7,
-            `Brett Jackson`    = V8) %>% 
+  set_names(name_list) %>% 
   # convert the values from the logit scale to the probability scale
   mutate_all(inv_logit_scaled) %>% 
   # in this last section, we make our difference distributions 
@@ -1757,7 +1806,7 @@ glimpse(fitted_players)
 
 Note our use of the `scale = "linear"` argument in the `fitted()` function. By default, `fitted()` returns predictions on the scale of the criterion. But we don't want a list of successes and failures; we want player-level parameters. When you specify `scale = "linear"`, you request `fitted()` return the values in the parameter scale.
 
-Figure 9.15, left:
+Here's the left portion of Figure 9.15.
 
 ```{r, fig.width = 6, fig.height = 4.5}
 p1 <-
@@ -1883,6 +1932,8 @@ fitted_players %>%
   mutate_if(is.double, round, digits = 3)
 ```
 
+> Finally, we have only looked at a tiny fraction of the relations among the 968 parameters. We could investigate many more comparisons among parameters if we were specifically interested. In traditional statistical testing based on $p$-values (which will be discussed in Chapter 11), we would pay a penalty for even intending to make more comparisons. This is because a $p$ value depends on the space of counter-factual possibilities created from the testing intentions. In a Bayesian analysis, however, decisions are based on the posterior distribution, which is based only on the data (and the prior), not on the testing intention. More discussion of multiple comparisons can be found in Section 11.4. (pp. 259--260)
+
 ## References {-}
 
 Kruschke, J. K. (2015). *Doing Bayesian data analysis, Second Edition: A tutorial with R, JAGS, and Stan.* Burlington, MA: Academic Press/Elsevier.
@@ -1893,9 +1944,9 @@ Kruschke, J. K. (2015). *Doing Bayesian data analysis, Second Edition: A tutoria
 sessionInfo()
 ```
 
-```{r, message = F, warning = F, echo = F}
+```{r, echo = F}
 # Here we'll remove our objects
-rm(beta_by_k, alpha, beta, make_prior, parameter_space, kappa, d, text, Bernoulli_likelihood, N, z, trial_data, length, gamma_s_and_r_from_mean_sd, gamma_s_and_r_from_mode_sd, gamma_param, my_data, fit1, post, post_small, p1, p2, p3, labels, sigmas, r_norm, n, prior_samples, omega, kappa1, kappa2, stop_time_bernoulli, start_time_bernoulli, stop_time_binomial, start_time_binomial, ba, fit2, make_histogram, make_point, p4, coef_primary_position, coef_small, name_list, nd, fitted_players)
+rm(beta_by_k, alpha, beta, make_prior, parameter_space, d, text, bernoulli_likelihood, z, trial_data, length, gamma_s_and_r_from_mean_sd, gamma_s_and_r_from_mode_sd, gamma_param, my_data, fit1, post, post_small, p1, p2, p3, labels, sigmas, r_norm, n, prior_samples, omega, kappa1, kappa2, stop_time_bernoulli, start_time_bernoulli, stop_time_binomial, start_time_binomial, fit2, make_histogram, make_point, p4, coef_primary_position, coef_small, name_list, nd, fitted_players)
 
 theme_set(theme_grey())
 ```
