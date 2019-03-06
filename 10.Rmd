@@ -21,13 +21,13 @@ So far we have spoken of
 * the data, denoted by $D$ or $y$,
 * the model parameters, generically denoted by $\theta$,
 * the likelihood function, denoted by $p(D | \theta)$, and 
-* the prior distribution, denoted by $p(\theta)$
+* the prior distribution, denoted by $p(\theta)$.
 
 Now we add to that $m$, which is a model index with $m = 1$ standing for the first model, $m = 2$ standing for the second model, and so on. So when we have more than one model in play, we might refer to the likelihood as $p_m(y | \theta_m, m)$ and the prior as $p_m(\theta_m | m)$. It's also the case, then, that each model can be given a prior probability $p(m)$.
 
 "The Bayes factor (BF) is the ratio of the probabilities of the data in models 1 and 2" (p. 268).
 
-$$\text{BF} = \frac{p(D|m = 1)}{p(D|m = 2)}$$
+$$\text{BF} = \frac{p(D | m = 1)}{p(D | m = 2)}$$
 
 > One convention for converting the magnitude of the BF to a discrete decision about the models is that there is "substantial" evidence for model $m = 1$ when the BF exceeds 3.0 and, equivalently, "substantial" evidence for model $m = 2$ when the BF is less than 1/3 ([Jeffreys, 1961](https://global.oup.com/academic/product/theory-of-probability-9780198503682?cc=us&lang=en&); [Kass & Raftery, 1995](http://xyala.cap.ed.ac.uk/teaching/tutorials/phylogenetics/Bayesian_Workshop/PDFs/Kass%20and%20Raftery%201995.pdf); [Wetzels et al., 2011](https://pdfs.semanticscholar.org/1874/4e6c84087ccc20bc0f6db28020bc48c81b4a.pdf)).
 
@@ -38,22 +38,26 @@ Kruschke considered the coin bias of two factories, each described by the beta d
 ```{r, warning = F, message = F}
 library(tidyverse)
 
-tibble(factory = 1:2,
-       omega   = c(.25, .75),
-       kappa   = 12) %>% 
-  mutate(alpha =       omega * (kappa - 2) + 1,
+d <-
+  tibble(factory = 1:2,
+         omega   = c(.25, .75),
+         kappa   = 12) %>% 
+  mutate(alpha =      omega  * (kappa - 2) + 1,
          beta  = (1 - omega) * (kappa - 2) + 1)
+
+d %>% 
+  knitr::kable()
 ```
 
-Thus given $\omega_1 = .25$, $\omega_2 = .75$ and $\kappa = 12$, we can describe the bias of the two coin factories as $\text{B}_1(3.5, 8.5)$ and $\text{B}_2(8.5, 3.5)$. We can construct a similar tibble to make the densities of Figure 10.2.
+Thus given $\omega_1 = .25$, $\omega_2 = .75$ and $\kappa = 12$, we can describe the bias of the two coin factories as $\text{B}_1(3.5, 8.5)$ and $\text{B}_2(8.5, 3.5)$. With a little wrangling, we canuse our `d` tibble to make the densities of Figure 10.2.
 
 ```{r, fig.width = 6, fig.height = 2}
-n_points <- 100
+length <- 101
 
-tibble(theta   = seq(from = 0, to = 1, length.out = n_points) %>% rep(., times = 2),
-       factory = rep(c("B(3.5, 8.5)", "B(8.5, 3.5)"), each = n_points),
-       alpha   = rep(c(3.5, 8.5), each = n_points),
-       beta    = rep(c(8.5, 3.5), each = n_points)) %>% 
+d %>% 
+  expand(nesting(factory, alpha, beta),
+         theta = seq(from = 0, to = 1, length.out = length)) %>%
+  mutate(label = str_c("factory ", factory)) %>% 
   
   ggplot(aes(x = theta, 
              ymin = 0, 
@@ -62,7 +66,7 @@ tibble(theta   = seq(from = 0, to = 1, length.out = n_points) %>% rep(., times =
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(expression(theta)) +
   theme(panel.grid = element_blank()) +
-  facet_wrap(~factory)
+  facet_wrap(~label)
 ```
 
 We might recreate the top panel with `geom_col()`.
@@ -75,16 +79,17 @@ tibble(Model = c("1", "2"),
   geom_col(width = .75, fill = "grey50") +
   scale_y_continuous(NULL, breaks = NULL) +
   ggtitle(expression(paste(italic(P)[italic(m)]))) +
-  theme(panel.grid = element_blank(),
+  theme(panel.grid   = element_blank(),
         axis.ticks.x = element_blank())
 ```
 
 Consider the Bernoulli bar plots in the bottom panels of Figure 10.2. The heights of the bars are arbitrary and just intended to give a sense of the Bernoulli distribution. If we wanted the heights to correspond to the Beta distributions above them, we might do so like this.
 
 ```{r, fig.width = 6, fig.height = 2}
-tibble(Model = rep(c("Model 1", "Model 2"), each  = 2),
-       flip  = rep(c("tails"  , "heads"  ), times = 2),
-       prob  = c(.25, .75, .75, .25)) %>% 
+tibble(factory = rep(str_c("factory ", 1:2), each  = 2),
+       flip    = rep(c("tails", "heads"), times = 2) %>% 
+         factor(., levels = c("tails", "heads")),
+       prob    = c(.75, .25, .25, .75)) %>% 
   
   ggplot(aes(x = flip, y = prob)) +
   geom_col(width = .75, fill = "grey50") +
@@ -92,52 +97,80 @@ tibble(Model = rep(c("Model 1", "Model 2"), each  = 2),
   xlab(NULL) +
   theme(panel.grid = element_blank(),
         axis.ticks.x = element_blank()) +
-  facet_wrap(~Model)
+  facet_wrap(~factory)
 ```
+
+But now
+
+> suppose we flip the coin nine times and get six heads. Given those data, what are the posterior probabilities of the coin coming from the head-biased or tail-biased factories? We will pursue the answer three ways: via formal analysis, grid approximation, and MCMC. (p. 270)
 
 ### 10.2.1. Solution by formal analysis.
 
-If you would like to compute $p(D|m)$, don't use this function. If suffers from underflow with large values.
+Here we rehearse if we have $\text{beta} (\theta, a, b)$ prior for $\theta$ of the Bernoulli likelihood function, then the analytic solution for the posterior is $\text{beta} (\theta | z + a, N – z + b)$. Within this paradigm, if you would like to compute $p(D | m)$, don't use the following function. If suffers from [underflow](https://en.wikipedia.org/wiki/Arithmetic_underflow) with large values.
 
-```{r}
-p_d <- function(z, N, a, b) { 
-  beta(z + a, N - z + b) / beta(a, b) 
+```{r, eval = F}
+p_d <- function(z, n, a, b) { 
+  beta(z + a, n - z + b) / beta(a, b) 
 }
 ```
 
-Use this one instead.
+This version is more robust.
 
-```{r}
-p_d <- function(z, N, a, b) { 
-  exp(lbeta(z + a, N - z + b) - lbeta(a, b)) 
+```{r p_d}
+p_d <- function(z, n, a, b) { 
+  exp(lbeta(z + a, n - z + b) - lbeta(a, b)) 
 }
 ```
 
 You'd use it like this to compute $p(D|m_1)$.
 
 ```{r}
-p_d(z = 6, N = 9, a = 3.5, b = 8.5)
+p_d(z = 6, n = 9, a = 3.5, b = 8.5)
 ```
 
 So to compute our BF, $\frac{p(D|m_1)}{p(D|m_2)}$, you might use the `p_d()` function like this.
 
 ```{r}
-p_d_1 <- p_d(z = 6,   N = 9, 
-             a = 3.5, b = 8.5)
-p_d_2 <- p_d(z = 6,   N = 9, 
-             a = 8.5, b = 3.5)
+p_d_1 <- p_d(z = 6, n = 9, a = 3.5, b = 8.5)
+p_d_2 <- p_d(z = 6, n = 9, a = 8.5, b = 3.5)
 
 p_d_1 / p_d_2
 ```
+
+And if we computed the BF the other way, it'd look like this.
+
+```{r}
+p_d_2 / p_d_1
+```
+
+Since the BF itself is only $\text{BF} = \frac{p(D | m = 1)}{p(D | m = 2)}$, we'd need to bring in the priors for the models themselves to get the posterior probabilities, which follows the form
+
+$$\frac{p(m = 1 | D)}{p(m = 2 | D)} = \bigg (\frac{p(D | m = 1)}{p(D | m = 2)} \bigg ) \bigg ( frac{p(m = 1)}{p(m = 2)} \bigg)$$
+
+If for both our models, $p(m) = .5$, then 
+
+```{r}
+(p_d_1 * .5) / (p_d_2 * .5)
+```
+
+As Kruschke pointed out, because we’re working in the probability metric, the sum of $p(m = 1 | D )$ and $p(m = 2 | D )$ must be 1. By simple algebra then, 
+
+$$p(m = 2 | D ) = 1 - p(m = 1 | D )$$
+
+Therefore, it's also the case that
+
+$$\frac{p(m = 1 | D)}{1 - p(m = 1 | D)} = 0.2135266$$
+
+And with just a little more 
+
+
 
 ### 10.2.2. Solution by grid approximation.
 
 We won't be able to make the wireframe plots on the left of Figure 10.3, but we can do some of the others. Here's the upper right panel.
 
 ```{r, fig.width = 3.5, fig.height = 3}
-n_points <- 101
-
-tibble(omega = seq(from = 0, to = 1, length.out = n_points)) %>% 
+tibble(omega = seq(from = 0, to = 1, length.out = length)) %>% 
   mutate(m_p = ifelse(omega %in% c(.25, .75), 15, 0)) %>% 
   
   ggplot(aes(x = omega, 
@@ -155,9 +188,9 @@ Building on that, here's the upper middle panel of the "two [prior] dorsal fins"
 
 ```{r, fig.width = 3.5, fig.height = 3}
 d <-
-  tibble(omega = seq(from = 0, to = 1, length.out = n_points)) %>% 
+  tibble(omega = seq(from = 0, to = 1, length.out = length)) %>% 
   expand(omega, 
-         theta = seq(from = 0, to = 1, length.out = n_points)) %>% 
+         theta = seq(from = 0, to = 1, length.out = length)) %>% 
   mutate(prior = ifelse(omega == .25, dbeta(theta, 3.5, 8.5),
                           ifelse(omega == .75, dbeta(theta, 8.5, 3.5),
                                  0)))
@@ -207,7 +240,7 @@ grid.arrange(p1, p2)
 We can continue to build on those sensibilities for the middle panel of the same row. Here we're literally adding $p_{m = 1}(\theta)$ to $p_{m = 2}(\theta)$ and taking their average.
 
 ```{r, fig.width = 3.5, fig.height = 3}
-tibble(theta = seq(from = 0, to = 1, length.out = n_points)) %>% 
+tibble(theta = seq(from = 0, to = 1, length.out = length)) %>% 
   mutate(d_75 = dbeta(x = theta, shape1 = 8.5, shape2 = 3.5),
          d_25 = dbeta(x = theta, shape1 = 3.5, shape2 = 8.5)) %>% 
   mutate(mean_prior = (d_75 + d_25) / 2) %>% 
@@ -225,26 +258,24 @@ tibble(theta = seq(from = 0, to = 1, length.out = n_points)) %>%
 We need the Bernoulli likelihood function for the next step.
 
 ```{r}
-Bernoulli_likelihood <- function(theta, data) {
-  # theta = success probability parameter ranging from 0 to 1
-  # data = the vector of data (i.e., a series of 0s and 1s)
-  N <- length(data)
+bernoulli_likelihood <- function(theta, data) {
+  n <- length(data)
   z <- sum(data)
-  return(theta^z * (1 - theta)^(N - sum(data)))
+  return(theta^z * (1 - theta)^(n - sum(data)))
   }
 ```
 
-Time to feed our data and the parameter space into `Bernoulli_likelihood()`, which will allow us to make the 2-dimensional density plot at the heart of Figure 10.3.
+Time to feed our data and the parameter space into `bernoulli_likelihood()`, which will allow us to make the 2-dimensional density plot at the heart of Figure 10.3.
 
 ```{r, fig.width = 3.5, fig.height = 3}
-N <- 9
+n <- 9
 z <- 6
 
-trial_data <- rep(0:1, times = c(N - z, z))
+trial_data <- rep(0:1, times = c(n - z, z))
 
 d <-
   d %>% 
-  mutate(likelihood = Bernoulli_likelihood(theta = theta, 
+  mutate(likelihood = bernoulli_likelihood(theta = theta, 
                                            data  = trial_data))
 
 d %>%
@@ -363,7 +394,7 @@ Kruschke started with: "For large, complex models, we cannot derive $p(D|m)$ ana
 
 Before you get excited, Kruschke warned: "For complex models, this method might not be tractable. [But] for the simple application here, however, the method works well, as demonstrated in the next section" (p. 277).
 
-#### 10.3.1.1. Implementation with JAGS.
+#### 10.3.1.1. Implementation with ~~JAGS~~ brms.
 
 Load brms.
 
@@ -385,7 +416,7 @@ omega <- .75
 kappa <- 12
 
 stanvars <-
-  stanvar(omega * (kappa - 2) + 1, name = "my_alpha") +
+  stanvar(     omega  * (kappa - 2) + 1, name = "my_alpha") +
   stanvar((1 - omega) * (kappa - 2) + 1, name = "my_beta")
 ```
 
@@ -394,10 +425,11 @@ Fit the first model (i.e., the model for which $\omega = .75$).
 ```{r fit1, cache = T, warning = F, message = F}
 fit1 <-
   brm(data = trial_data, 
-      family = bernoulli(link = "identity"),
+      family = bernoulli(link = identity),
       y ~ 1,
       prior = prior(beta(my_alpha, my_beta), class = Intercept),
       iter = 11000, warmup = 1000, chains = 4, cores = 4,
+      seed = 10,
       stanvars = stanvars,
       control = list(adapt_delta = .999),
       # This will let us use `prior_samples()` later on
@@ -444,7 +476,7 @@ b_post <- (1 - mean_theta) * ( mean_theta * (1 - mean_theta) / sd_theta^2 - 1)
 Recall we've already defined:
 
 ```{r}
-N     <- 9
+n     <- 9
 z     <- 6
 omega <- .75
 kappa <- 12
@@ -455,7 +487,7 @@ Thus we'll use them to compute $\frac{1}{p(D)}$. Here we'll express Kruschke's `
 ```{r}
 one_over_pd <- function(theta) {
   mean(dbeta(theta, a_post, b_post ) / 
-         (theta^z * (1 - theta)^(N - z) * 
+         (theta^z * (1 - theta)^(n - z) * 
             dbeta(theta, omega * (kappa - 2) + 1, (1 - omega) * (kappa - 2) + 1 )))
 }
 ```
@@ -473,7 +505,7 @@ That's pretty close to Kruschke's value! Let's rinse, wash, and repeat for $\ome
 omega <- .25
 
 stanvars <-
-  stanvar(omega * (kappa - 2) + 1, name = "my_alpha") +
+  stanvar(     omega  * (kappa - 2) + 1, name = "my_alpha") +
   stanvar((1 - omega) * (kappa - 2) + 1, name = "my_beta")
 ```
 
@@ -484,6 +516,7 @@ fit2 <-
   update(fit1, 
          prior = prior(beta(my_alpha, my_beta), class = Intercept),
          iter = 11000, warmup = 1000, chains = 4, cores = 4,
+         seed = 10,
          stanvars = stanvars)
 ```
 
@@ -510,11 +543,11 @@ I'm not aware of a way to specify a model like this in brms. If you know of a wa
 
 <**Introduce information criteria and model weighting**>
 
-```{r}
+```{r loo, cache = T}
 loo(fit1, fit2)
 ```
 
-```{r}
+```{r mw, cache = T}
 (mw <- model_weights(fit1, fit2))
 ```
 
@@ -523,17 +556,17 @@ mw[1] / mw[2]
 ```
 
 
-```{r}
+```{r pp_averaged, cache = T}
 nd <- tibble(y = 1)
 
 pp_averaged <-
   pp_average(fit1, fit2, 
-           newdata = nd,
-           method = "fitted",
-           summary = F) %>% 
+             newdata = nd,
+             method = "fitted",
+             summary = F) %>% 
   as_tibble()
-  
-head(pp_averaged)  
+
+head(pp_averaged) 
 ```
 
 We can plot our model-averaged $\theta$ with a little help from good old `tidybayes::geom_halfeyeh()`.
@@ -569,7 +602,7 @@ mcmc_acf(posterior_samples(fit1, add_chain = T),
 Our autocorrelations were a little high for HMC, but nowhere near pathological. The results for `fit2` were similar. As you might imagine from the moderate autocorrelations, the $N_{eff}/N$ ratio for `b_Intercept` wasn't great.
 
 ```{r, fig.width = 6, fig.height = 1.25}
-neff_ratio(fit1)[1]%>% 
+neff_ratio(fit1)[1] %>% 
   mcmc_neff() +
   yaxis_text(hjust = 0)
 ```
@@ -630,7 +663,7 @@ d %>%
 ```
 
 
-```{r}
+```{r fit3_and_fit4, cache = T}
 fit3 <-
   brm(data = d,
       family = gaussian,
@@ -656,7 +689,7 @@ posterior_summary(fit4) %>% round(digits = 2)
 
 We can compare them using information criteria.
 
-```{r}
+```{r l_fit3_andl_fit4, cache = T}
 l_fit3 <- loo(fit3)
 l_fit4 <- loo(fit4)
 
@@ -779,9 +812,9 @@ tibble(theta = seq(from = 0, to = 1, length.out = n) %>% rep(., times = 2),
 ```{r}
 # the data summaries
 z <- 15
-N <- 20
+n <- 20
 
-p_d(z, N, a = 500, b = 500) / p_d(z, N, a = 1, b = 1)
+p_d(z, n, a = 500, b = 500) / p_d(z, n, a = 1, b = 1)
 ```
 
 If you're confused about where those `a` and `b` values came from, you can do the math like this.
@@ -799,12 +832,13 @@ Let's try again with different data.
 ```{r}
 # the data summaries
 z <- 11
-N <- 20
+n <- 20
 
-p_d(z, N, a = 500, b = 500) / p_d(z, N, a = 1, b = 1)
+p_d(z, n, a = 500, b = 500) / p_d(z, n, a = 1, b = 1)
 ```
 
 > The anything’s-possible model loses because it pays the price of having a small prior probability on the values of $\theta$ near the data proportion, while the must-be- fair model has large prior probability on $\theta$ values sufficiently near the data proportion to be credible. Thus, in Bayesian model comparison, a simpler model can win if the data are consistent with it, even if the complex model fits just as well. The complex model pays the price of having small prior probability on parameter values that describe simple data. (p. 291)
+
 ## 10.6. Extreme sensitivity to prior distribution
 
 ### 10.5.1. Caveats regarding nested model comparison.
@@ -819,15 +853,15 @@ In the two BFs to follow, we compare the must-be-fair model with similar diffuse
 
 ```{r}
 z <- 65
-N <- 100 
+n <- 100 
 
-p_d(z, N, a = 500, b = 500) / p_d(z, N, a = 1, b = 1)
+p_d(z, n, a = 500, b = 500) / p_d(z, n, a = 1, b = 1)
 ```
 
 Now we compare the must-be-fair model with the Haldane prior, which sets the two parameters within the beta distribution to be a) equivalent and b) quite small (i.e., 0.01 in this case).
 
 ```{r}
-p_d(z, N, a = 500, b = 500) / p_d(z, N, a = .01, b = .01)
+p_d(z, n, a = 500, b = 500) / p_d(z, n, a = .01, b = .01)
 ```
 
 Here's how those two priors of interest compare to one another.
@@ -854,20 +888,20 @@ tibble(theta = seq(from = 0, to = 1, length.out = n) %>% rep(., times = 2),
   facet_wrap(~model)
 ```
 
-Before we can complete the analyses of this subsection, we'll need to define our version of Kruschke's `HDIofICDF function()`, `hdi_of_icdf`(). 
+Before we can complete the analyses of this subsection, we'll need to define our version of Kruschke's `HDIofICDF function()`, `hdi_of_icdf`(). Like we've done in previous chapters, here we mildly reformat the funciton.
 
 ```{r}
-hdi_of_icdf <- function(ICDFname, credible_mass = .95, tol = 1e-8, ... ) {
-  incredible_mass <-  1.0 - credible_mass
-  interval_width  <- function(low_tail_prob, ICDFname, credible_mass, ...) {
-    ICDFname(credible_mass + low_tail_prob, ...) - ICDFname(low_tail_prob, ...)
+hdi_of_icdf <- function(name, width = .95, tol = 1e-8, ... ) {
+  incredible_mass <-  1.0 - width
+  interval_width  <- function(low_tail_prob, name, width, ...) {
+    name(width + low_tail_prob, ...) - name(low_tail_prob, ...)
   }
-  opt_info            <- optimize(interval_width, c(0, incredible_mass), 
-                                  ICDFname = ICDFname, credible_mass = credible_mass, 
-                                  tol = tol, ...)
+  opt_info<- optimize(interval_width, c(0, incredible_mass), 
+                      name = name, width = width, 
+                      tol = tol, ...)
   hdi_lower_tail_prob <- opt_info$minimum
-  return(c(ICDFname(hdi_lower_tail_prob, ...),
-           ICDFname(credible_mass + hdi_lower_tail_prob, ...)))
+  return(c(name(hdi_lower_tail_prob, ...),
+           name(width + hdi_lower_tail_prob, ...)))
 }
 ```
 
@@ -875,9 +909,9 @@ Compute the HDI for the uniform-prior-based model, beta(1, 1).
 
 ```{r}
 (hdi_1 <-
-  hdi_of_icdf(ICDFname      = qbeta,
-              shape1        = 66,
-              shape2        = 36)
+  hdi_of_icdf(name   = qbeta,
+              shape1 = 66,
+              shape2 = 36)
  )
 ```
 
@@ -885,9 +919,9 @@ Now compute the HDI for the Haldane-prior-based model, beta(0.01, 0.01).
 
 ```{r}
 (hdi_2 <-
-  hdi_of_icdf(ICDFname      = qbeta,
-              shape1        = 65.01,
-              shape2        = 36.01)
+  hdi_of_icdf(name   = qbeta,
+              shape1 = 65.01,
+              shape2 = 36.01)
  )
 ```
 
@@ -917,11 +951,11 @@ tibble(prior = c("Uniform", "Haldane"),
 
 ```{r}
 z <- 65 - 6
-N <- 100 - 10
+n <- 100 - 10
 
-p_d(z, N, a = 500 + 6, b = 500 + 10 - 6) / p_d(z, N, a = 1 + 6, b = 1 + 10 - 6)
+p_d(z, n, a = 500 + 6, b = 500 + 10 - 6) / p_d(z, n, a =   1 + 6, b =   1 + 10 - 6)
 
-p_d(z, N, a = 500 + 6, b = 500 + 10 - 6) / p_d(z, N, a = .01 + 6, b = .01 + 10 - 6)
+p_d(z, n, a = 500 + 6, b = 500 + 10 - 6) / p_d(z, n, a = .01 + 6, b = .01 + 10 - 6)
 ```
 
 Now the two Bayes Factors are nearly the same.
@@ -936,7 +970,9 @@ Kruschke, J. K. (2015). *Doing Bayesian data analysis, Second Edition: A tutoria
 sessionInfo()
 ```
 
-```{r, message = F, warning = F, echo = F}
+```{r, echo = F}
 # Here we'll remove our objects
-rm(n_points, p_d, p_d_1, p_d_2, d, p1, p2, Bernoulli_likelihood, N, z, trial_data, omega, kappa, stanvars, fit1, theta, mean_theta, sd_theta, a_post, b_post, one_over_pd, fit2, mw, nd, pp_averaged, n, fit3, fit4, l_fit3, l_fit4, hdi_of_icdf, hdi_1, hdi_2)
+rm(length, p_d, p_d_1, p_d_2, d, p1, p2, bernoulli_likelihood, n, z, trial_data, omega, kappa, stanvars, fit1, theta, mean_theta, sd_theta, a_post, b_post, one_over_pd, fit2, mw, nd, pp_averaged, n, fit3, fit4, l_fit3, l_fit4, hdi_of_icdf, hdi_1, hdi_2)
+
+theme_set(theme_grey())
 ```
