@@ -161,9 +161,41 @@ Therefore, it's also the case that
 
 $$\frac{p(m = 1 | D)}{1 - p(m = 1 | D)} = 0.2135266$$
 
-And with just a little more 
+Thus, 0.2135266 is in an odds metric. If you want to convert odds to a probability, you follow the formula
 
+$$\text{odds} = \frac{\text{probability}}{\text{probability}}$$
 
+And with more algegraic manipulation, you can solve for the probability.
+
+$$
+\begin{eqnarray}
+\text{odds} & = & \frac{\text{probability}}{1 - \text{probability}} \\
+\text{odds} - \text{odds} \cdot \text{probability} & = & \text{probability} \\
+\text{odds} & = & \text{probability} + \text{odds} \cdot \text{probability} \\
+\text{odds} & = & \text{probability} (1 + \text{odds}) \\
+\frac{\text{odds}}{1 + \text{odds}} & = & \text{probability}
+\end{eqnarray}
+$$
+
+Thus, the posterior probability for $m = 1$ is
+
+$$p(m = 1 | D) = \frac{0.2135266}{1 + 0.2135266}$$
+
+In code:
+
+```{r}
+odds <- (p_d_1 * .5) / (p_d_2 * .5)
+
+odds / (1 + odds)
+```
+
+Relative to $m = 2$, our posterior probability for $m = 1$ is about .18. And therefore, the posterior probability of $m = 2$ is 1 minus that.
+
+```{r}
+1 - (odds / (1 + odds))
+```
+
+Given the data, the two models and the prior assumption they were equally credible, we conclude $m = 2$ is .82 probable.
 
 ### 10.2.2. Solution by grid approximation.
 
@@ -186,7 +218,7 @@ tibble(omega = seq(from = 0, to = 1, length.out = length)) %>%
 
 Building on that, here's the upper middle panel of the "two [prior] dorsal fins" (p. 271).
 
-```{r, fig.width = 3.5, fig.height = 3}
+```{r, fig.height = 3}
 d <-
   tibble(omega = seq(from = 0, to = 1, length.out = length)) %>% 
   expand(omega, 
@@ -196,10 +228,11 @@ d <-
                                  0)))
 d %>% 
   ggplot(aes(x = theta, y = omega, fill = prior)) +
-  geom_tile() +
+  geom_raster(interpolate = T) +
   scale_fill_viridis_c(option = "A") +
   labs(x = expression(theta),
        y = expression(omega)) +
+  coord_equal() +
   theme(panel.grid = element_blank(),
         legend.position = "none")
 ```
@@ -267,7 +300,7 @@ bernoulli_likelihood <- function(theta, data) {
 
 Time to feed our data and the parameter space into `bernoulli_likelihood()`, which will allow us to make the 2-dimensional density plot at the heart of Figure 10.3.
 
-```{r, fig.width = 3.5, fig.height = 3}
+```{r, fig.height = 3}
 n <- 9
 z <- 6
 
@@ -280,17 +313,18 @@ d <-
 
 d %>%
   ggplot(aes(x = theta, y = omega, fill = likelihood)) +
-  geom_tile() +
+  geom_raster(interpolate = T) +
   scale_fill_viridis_c(option = "A") +
   labs(x = expression(theta),
        y = expression(omega)) +
+  coord_equal() +
   theme(panel.grid = element_blank(),
         legend.position = "none")
 ```
 
 Now we just need the marginal likelihood, $p(D)$, to compute the posterior. Our first depiction will be the middle panel of the second row from the bottom--the panel with the uneven dolphin fins.
 
-```{r, fig.width = 3.5, fig.height = 3}
+```{r, fig.height = 3}
 d <-
   d %>% 
   mutate(marginal_likelihood = sum(prior * likelihood)) %>% 
@@ -298,10 +332,11 @@ d <-
 
 d %>% 
   ggplot(aes(x = theta, y = omega, fill = posterior)) +
-  geom_tile() +
+  geom_raster(interpolate = T) +
   scale_fill_viridis_c(option = "A") +
   labs(x = expression(theta),
        y = expression(omega)) +
+  coord_equal() +
   theme(panel.grid = element_blank(),
         legend.position = "none")
 ```
@@ -373,7 +408,9 @@ d %>%
   facet_wrap(~omega, ncol = 1, labeller = label_parsed)
 ```
 
-Using the grid, you might get the BF presented on page 273 like this:
+Hopefully that helps build the intuition of what Kruschke meant when he wrote "*visual inspection suggests that the ratio of the heights is about 5 to 1, which matches the Bayes factor of 4.68 that we computed exactly in the previous section*" (p. 273, *emphasis* in the original).
+
+Using the grid, you might compute that BF like this:
 
 ```{r}
 d %>% 
@@ -388,7 +425,7 @@ d %>%
 
 ## 10.3. Solution by MCMC
 
-Kruschke started with: "For large, complex models, we cannot derive $p(D|m)$ analytically or with grid approximation, and therefore we will approximate the posterior probabilities using MCMC methods" (p. 274). He's not kidding. Welcome to modern Bayes.
+Kruschke started with: "For large, complex models, we cannot derive $p(D | m)$ analytically or with grid approximation, and therefore we will approximate the posterior probabilities using MCMC methods" (p. 274). He's not kidding. Welcome to modern Bayes.
 
 ### 10.3.1. Nonhierarchical MCMC computation of each model’s marginal likelihood.
 
@@ -409,7 +446,7 @@ trial_data <-
   tibble(y = trial_data)
 ```
 
-We'll need to make our `stanvars` object to insert our $\omega$- and $\kappa$-themed prior values into `brm()`.
+Let's learn a new brms skill. When you want to enter variables into the parameters defining priors in `brms::brm()`, you need to specify them using the `stanvar()` function. Since we want to do this for two variables, we’ll use `stanvar()` twice and save the results as an object, conveniently named `stanvars`.
 
 ```{r}
 omega <- .75
@@ -420,23 +457,25 @@ stanvars <-
   stanvar((1 - omega) * (kappa - 2) + 1, name = "my_beta")
 ```
 
-Fit the first model (i.e., the model for which $\omega = .75$).
+Now we have our `stanvars` object, we are ready to fit the first model (i.e., the model for which $\omega = .75$). 
 
 ```{r fit1, cache = T, warning = F, message = F}
 fit1 <-
   brm(data = trial_data, 
       family = bernoulli(link = identity),
       y ~ 1,
-      prior = prior(beta(my_alpha, my_beta), class = Intercept),
+      prior(beta(my_alpha, my_beta), class = Intercept),
       iter = 11000, warmup = 1000, chains = 4, cores = 4,
       seed = 10,
       stanvars = stanvars,
       control = list(adapt_delta = .999),
       # This will let us use `prior_samples()` later on
-      sample_prior = "only")
+      sample_prior = "yes")
 ```
 
-We may as well inspect the chains.
+Note how we fed our `stanvars` object into the `stanvars` function.
+
+Anyway, let's inspect the chains.
 
 ```{r, fig.width = 8, fig.height = 1}
 plot(fit1)
@@ -499,7 +538,7 @@ theta %>%
   summarise(pd = 1 / one_over_pd(theta = b_Intercept))
 ```
 
-That's pretty close to Kruschke's value! Let's rinse, wash, and repeat for $\omega = .25$. First, we'll need to redefine `omega` and our `stanvars`.
+That matches up nicely with Kruschke's value! Let's rinse, wash, and repeat for $\omega = .25$. First, we'll need to redefine `omega` and our `stanvars`.
 
 ```{r}
 omega <- .25
@@ -513,11 +552,14 @@ Fit the model.
 
 ```{r fit2, cache = T, warning = F, message = F, results = 'hide'}
 fit2 <-
-  update(fit1, 
-         prior = prior(beta(my_alpha, my_beta), class = Intercept),
-         iter = 11000, warmup = 1000, chains = 4, cores = 4,
-         seed = 10,
-         stanvars = stanvars)
+  brm(data = trial_data, 
+      family = bernoulli(link = identity),
+      y ~ 1,
+      prior(beta(my_alpha, my_beta), class = Intercept),
+      iter = 11000, warmup = 1000, chains = 4, cores = 4,
+      seed = 10,
+      stanvars = stanvars,
+      control = list(adapt_delta = .999))
 ```
 
 We'll do the rest in bulk.
@@ -541,13 +583,15 @@ Boom!
 
 I'm not aware of a way to specify a model like this in brms. If you know of a way, [share your code](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues).
 
+However, we do have options.
+
 <**Introduce information criteria and model weighting**>
 
-```{r loo, cache = T}
+```{r loo_fit1_fit2, cache = T}
 loo(fit1, fit2)
 ```
 
-```{r mw, cache = T}
+```{r mw_fit1_fit2, cache = T}
 (mw <- model_weights(fit1, fit2))
 ```
 
@@ -556,7 +600,7 @@ mw[1] / mw[2]
 ```
 
 
-```{r pp_averaged, cache = T}
+```{r pp_averaged_fit1_fit2, cache = T}
 nd <- tibble(y = 1)
 
 pp_averaged <-
@@ -972,7 +1016,7 @@ sessionInfo()
 
 ```{r, echo = F}
 # Here we'll remove our objects
-rm(length, p_d, p_d_1, p_d_2, d, p1, p2, bernoulli_likelihood, n, z, trial_data, omega, kappa, stanvars, fit1, theta, mean_theta, sd_theta, a_post, b_post, one_over_pd, fit2, mw, nd, pp_averaged, n, fit3, fit4, l_fit3, l_fit4, hdi_of_icdf, hdi_1, hdi_2)
+rm(length, p_d, p_d_1, p_d_2, d, p1, p2, bernoulli_likelihood, n, z, trial_data, omega, kappa, stanvars, fit1, theta, mean_theta, sd_theta, a_post, b_post, one_over_pd, fit2, mw, nd, pp_averaged, fit3, fit4, l_fit3, l_fit4, hdi_of_icdf, hdi_1, hdi_2)
 
 theme_set(theme_grey())
 ```
