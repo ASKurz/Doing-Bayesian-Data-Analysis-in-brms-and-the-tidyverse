@@ -145,7 +145,7 @@ p_d_2 / p_d_1
 
 Since the BF itself is only $\text{BF} = \frac{p(D | m = 1)}{p(D | m = 2)}$, we'd need to bring in the priors for the models themselves to get the posterior probabilities, which follows the form
 
-$$\frac{p(m = 1 | D)}{p(m = 2 | D)} = \bigg (\frac{p(D | m = 1)}{p(D | m = 2)} \bigg ) \bigg ( frac{p(m = 1)}{p(m = 2)} \bigg)$$
+$$\frac{p(m = 1 | D)}{p(m = 2 | D)} = \bigg (\frac{p(D | m = 1)}{p(D | m = 2)} \bigg ) \bigg ( \frac{p(m = 1)}{p(m = 2)} \bigg)$$
 
 If for both our models, $p(m) = .5$, then 
 
@@ -626,7 +626,7 @@ model_weights(fit1, fit2, weights = "waic")
 
 Similar, for sure. But not the same. The stacking method via the brms default `weights = "loo2"` is the current preferred method by the folks on the Stan team (e.g., the authors of the above linked paper).
 
-But anyway, the cool thing about all this model weighting stuff is that you can use those model weight to average across the models. Again, we’re not weighting the models by posterior probabilities like we did following along with Kruschke earlier in the text. However, the spirit is similar. We can use the `brms::pp_average()` function to make posterior predictive prediction with mixtures of the models, weighted by our chosen weighting scheme. Here, we’ll go with the default stacking weights.
+But anyway, the cool thing about all this model weighting stuff is that you can use those model weights to average across the models. Again, we’re not weighting the models by posterior probabilities like we did following along with Kruschke earlier in the text. However, the spirit is similar. We can use the `brms::pp_average()` function to make posterior predictive prediction with mixtures of the models, weighted by our chosen weighting scheme. Here, we’ll go with the default stacking weights.
 
 ```{r pp_averaged_fit1_fit2, cache = T}
 nd <- tibble(y = 1)
@@ -660,9 +660,9 @@ pp_averaged %>%
   theme(panel.grid = element_blank())
 ```
 
-Interestingly enough, that looks a lot like the one we made with grid approximation, doesn't it? For more on stacking and other weighting schemes, see Vehtari and Gabry’s vignette [*Bayesian Stacking and Pseudo-BMA weights using the loo package*](https://cran.r-project.org/web/packages/loo/vignettes/loo2-weights.html) or Vehtari's [modelselection_tutorial GitHub repository](https://github.com/avehtari/modelselection_tutorial). We will have more opportunities to practice with information criteria, model weights, and such later in this project.
+Interestingly enough, that looks a lot like the one we made with grid approximation, doesn't it? For more on stacking and other weighting schemes, see Vehtari and Gabry’s vignette [*Bayesian Stacking and Pseudo-BMA weights using the loo package*](https://cran.r-project.org/web/packages/loo/vignettes/loo2-weights.html) or Vehtari's [modelselection_tutorial GitHub repository](https://github.com/avehtari/modelselection_tutorial). But don't worry. We will have more opportunities to practice with information criteria, model weights, and such later in this project.
 
-#### 10.3.2.1. Using pseudo-priors to reduce autocorrelation.
+#### 10.3.2.1. ~~Using~~ [No need to use] pseudo-priors to reduce autocorrelation.
 
 Since we didn't use Kruschke's method from the last subsection, we don't have the same worry about autocorrelation. For example, here are the autocorrelation plots for `fit1`.
 
@@ -688,13 +688,13 @@ But we specified a lot of post-warmup iterations, so we're still in good shape. 
 rhat(fit1)[1]
 ```
 
-### 10.3.3. Models with different "noise" distributions in JAGS.
+### 10.3.3. Models with different "noise" distributions in ~~JAGS~~ brms.
 
 Kruschke tells us
 
-> probability distribution[s are] sometimes [called “noise”] distribution[s] because [the describe] the random variability of the data values around the underlying trend. In more general applications, different models can have different noise distributions. For example, one model might describe the data as log-normal distributed, while another model might describe the data as gamma distributed. (p. 288)
+> probability distribution[s are] sometimes [called "noise"] distribution[s] because [the describe] the random variability of the data values around the underlying trend. In more general applications, different models can have different noise distributions. For example, one model might describe the data as log-normal distributed, while another model might describe the data as gamma distributed. (p. 288)
 
-If there are more than one plausible noise distributions for our data, we might want to compare the models. As Kruschke put it, we might want to examine $p_1 (D | \theta_1, m_1) \text{ versus } p_2 (D | \theta_2, m_2)$. Kruschke then gave us a general trick in the form of this JAGS code:
+If there are more than one plausible noise distributions for our data, we might want to compare the models. Kruschke then gave us a general trick in the form of this JAGS code:
 
 ```{r, eval = F}
 data {
@@ -716,17 +716,17 @@ data {
 }
 ```
 
-I'm not aware that we can do this within the brms framework. If I'm in error and you know how, [please share your code](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues). However, we do have options. Consider Gaussian-like data with thick tails. We might generate some like this:
+I'm not aware that we can do this within the Stan/brms framework. If I'm in error and you know how, [please share your code](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues). However, we do have options. Consider Gaussian-like data with thick tails. We might generate some like this:
 
 ```{r}
 # how many draws would you like?
 n <- 1e3
 
-set.seed(10.33)
+set.seed(10)
 (d <- tibble(y = rt(n, df = 7)))
 ```
 
-They look like this.
+The resulting data look like this.
 
 ```{r, fig.width = 3.5, fig.height = 2.5}
 d %>% 
@@ -737,32 +737,52 @@ d %>%
   theme(panel.grid = element_blank())
 ```
 
+As you'd expect with a small-$\nu$ Student's $t$, some of our values are quite distinct from the central clump. If you don't recall, Student's $t$-distribution has three parameters: $\nu$, $\mu$, and $\sigma$. The Gaussian is a special case of Student's $t$ for which $\nu = \infty$. When $\nu$ gets small, the consequence is the distribution allocates more mass in the tails. From a Gaussian perspective, the small-$\nu$ Student's $t$ expects more outliers--though it's a little odd calling them outliers from a small-$\nu$ Student's $t$ perspective.
 
-```{r fit3_and_fit4, cache = T}
+Let's see how well the Gaussian versus the Student's $t$ likelihoods handle the data. Here we'll use fairly liberal priors.
+
+```{r fit3_and_fit4, cache = T, results = "hide", message = F}
 fit3 <-
   brm(data = d,
       family = gaussian,
       y ~ 1,
-      prior = c(prior(normal(0, 10), class = Intercept),
-                prior(normal(0, 10), class = sigma)),  # by default, this has a lower bound of 0
+      prior = c(prior(normal(0, 5), class = Intercept),
+                prior(normal(0, 5), class = sigma)),  # by default, this has a lower bound of 0
       chains = 4, cores = 4)  
 
 fit4 <-
   brm(data = d,
       family = student,
       y ~ 1,
-      prior = c(prior(normal(0, 10), class = Intercept),
-                prior(normal(0, 10), class = sigma),
+      prior = c(prior(normal(0, 5), class = Intercept),
+                prior(normal(0, 5), class = sigma),
                 prior(gamma(2, 0.1), class = nu)),  # this is the brms default prior for nu
       chains = 4, cores = 4) 
 ```
+
+In case you were curious, here's what that default `gamma(2, 0.1)` prior on `nu` looks like.
+
+```{r, fig.width = 4, fig.height = 2}
+tibble(x = seq(from = 0, to = 110, by = 1)) %>% 
+  ggplot(aes(x = x, ymin = 0,
+             ymax = dgamma(x, 2, 0.1))) +
+  geom_ribbon(size = 0, fill = "grey67") +
+  scale_y_continuous(NULL, breaks = NULL) +
+  xlab(expression(paste(italic(p), (nu)))) +
+  coord_cartesian(xlim = 0:100) +
+  theme(panel.grid = element_blank())
+```
+
+That prior puts most of the probability mass below 50, but the right tail gently fades off into the triple digits, allowing for the possibility of larger estimates.
+
+We can use the `posterior_summary()` function to get a compact look at the model summaries.
 
 ```{r}
 posterior_summary(fit3) %>% round(digits = 2)
 posterior_summary(fit4) %>% round(digits = 2)
 ```
 
-We can compare them using information criteria.
+Now we can compare the two approaches using information criteria.
 
 ```{r l_fit3_andl_fit4, cache = T}
 l_fit3 <- loo(fit3)
@@ -771,13 +791,15 @@ l_fit4 <- loo(fit4)
 compare_ic(l_fit3, l_fit4)
 ```
 
-We can compare them using model weights. Here we'll use the default weighting scheme.
+Based on the LOO difference, we hace some support for preferring the Student’s $t$, but do notice how wide that `SE` was. We can also compare the models using model weights. Here we'll use the default weighting scheme.
 
 ```{r, warning = F, message = F}
 model_weights(fit3, fit4)
 ```
 
-In this, virtually all the weight was placed on the Student's-$t$ model, `fit4`.
+In this, virtually all the weight was placed on the Student's-$t$ model, `fit4`. 
+
+Remember what that $p(\nu)$ looked like? Here’s our posterior distribution for $\nu$.
 
 ```{r, fig.width = 3.5, fig.height = 2.5}
 posterior_samples(fit4) %>% 
@@ -785,10 +807,22 @@ posterior_samples(fit4) %>%
   geom_histogram(color = "grey92", fill = "grey67",
                  size = .2, bins = 30) +
   scale_y_continuous(NULL, breaks = NULL) +
+  coord_cartesian(xlim = 0:20) +
   labs(subtitle = expression(paste("Recall that for the Gaussian, ", nu, " = infinity.")),
-       x = expression(nu)) +
+       x = expression(paste(italic(p), "(", nu, "|", italic(D), ")"))) +
   theme(panel.grid = element_blank())
 ```
+
+Even though our prior for $\nu$ was relatively weak, the posterior ended up pretty concentrated on small values. Recall the data-generating value was 7.
+
+We can also compare the models using posterior-predictive checks. There are a variety of ways we might do this, but the most convenient way is with `brms::pp_check()`, which is itself a wrapper for the family of `ppc` functions from the bayesplot package.
+
+```{r, fig.width = 4, fig.height = 2, message = F}
+pp_check(fit3)
+pp_check(fit4)
+```
+
+The default `pp_check()` setting allows us to compare the density of the data $y$ (i.e., the dark blue) with 10 density’s simulated from the posterior $y_\text{rep}$ (i.e., the light blue). We prefer model that produce $y_\text{rep}$ distributions that resemble $y$. Though the results from both models were similar, the simulated distributions from `fit4` mimicked the original data a little more convincingly. To learn more about this approach, check out Gabry's vignette [*Graphical posterior predictive checks using the bayesplot package*](https://cran.r-project.org/web/packages/bayesplot/vignettes/graphical-ppcs.html).
 
 ## 10.4. Prediction: Model averaging
 
