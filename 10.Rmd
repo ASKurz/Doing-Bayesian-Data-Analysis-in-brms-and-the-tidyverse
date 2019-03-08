@@ -581,24 +581,52 @@ Boom!
 
 ### 10.3.2. Hierarchical MCMC computation of relative model probability.
 
-I'm not aware of a way to specify a model like this in brms. If you know of a way, [share your code](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues).
+I'm not aware of a way to specify a model "in which the top-level parameter is the index across models" in brms (p. 278). If you know of a way, [share your code](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues).
 
-However, we do have options.
-
-<**Introduce information criteria and model weighting**>
+However, we do have options. We can compare and weight models using information criteria, about which you can learn more [here](https://youtu.be/t0pRuy1_190?t=978). In brms, the LOO and WAIC are two primary information criteria available. You can compute them for a given model with the `loo()` and `waic()` functions, respectively. Here we use `loo()` and save the output as objects. 
 
 ```{r loo_fit1_fit2, cache = T}
-loo(fit1, fit2)
+l_fit1 <- loo(fit1)
+l_fit2 <- loo(fit2)
 ```
+
+Here's the basic LOO summary for fit1.
+
+```{r}
+print(l_fit1)
+```
+
+You get a wealth of output, more of which can be seen with `str(l_fit1)`. First, notice the message "All Pareto k estimates are good (k < 0.5)." Pareto $k$ values can be [used for diagnostics](https://cran.r-project.org/web/packages/loo/vignettes/loo2-example.html#plotting-pareto-k-diagnostics). Each case in the data gets its own $k$ value and we like it when those $k$s are low. The makers of the [loo package](https://github.com/stan-dev/loo) get worried when $k$ values exceed 0.7 and, as a result, `loo()` returns a warning message when they do. Happily, we have no such warning messages in this example.
+
+In the main section, we get estimates for the expected log predictive density (`elpd_loo`), the estimated effective number of parameters (`p_loo`), and the Pareto smoothed importance-sampling leave-one-out cross-validation (PSIS-LOO; `looic`). Each come with a standard error (i.e., `SE`). Like other information criteria, the LOO values aren't of interest in and of themselves. However, the estimate of one model's LOO relative to that of another is of great interest. We generally prefer models with lower information criteria. With the `compare_ic()` function, we can compute a formal difference score between multiple loo objects.
+
+```{r}
+compare_ic(l_fit1, l_fit2)
+```
+
+Each difference score also comes with a standard error. In this case, `fit1` has the lower estimates, but the standard error of their difference score is large relative to the size of their difference. So the LOO difference score puts them on similar footing. You can do a similar analysis with the WAIC estimates.
+
+In addition to difference-score comparisons, you can also use the LOO or WAIC for AIC-type model weighting. In brms, you do this with the `model_weights()` function.
 
 ```{r mw_fit1_fit2, cache = T}
 (mw <- model_weights(fit1, fit2))
 ```
 
+I don't know that I'd call these weights probabilities, but they do sum to one. In this case, the analysis suggests we put about five times more weight to `fit1` relative to `fit2`. 
+
 ```{r}
 mw[1] / mw[2]
 ```
 
+With `brms::model_weights()`, we have a variety of weighting schemes avaliable to us. Since we didn't specify any in the `weights` argument, we used the default `"loo2"`, which is--perhaps confusingly given the name--the stacking method according to the [paper by Yao, Vehtari, Simpson, and Gelman](http://www.stat.columbia.edu/~gelman/research/published/stacking_paper_discussion_rejoinder.pdf). Vehtari has [written about the paper](https://statmodeling.stat.columbia.edu/2017/04/11/stacking-pseudo-bma-and-aic-weights/) on Gelman's blog, too. But anyway, the point is that different weighting schemes might not produce the same results. For example, here's the result from weighting using the WAIC.
+
+```{r}
+model_weights(fit1, fit2, weights = "waic")
+```
+
+Similar, for sure. But not the same. The stacking method via the brms default `weights = "loo2"` is the current preferred method by the folks on the Stan team (e.g., the authors of the above linked paper).
+
+But anyway, the cool thing about all this model weighting stuff is that you can use those model weight to average across the models. Again, we’re not weighting the models by posterior probabilities like we did following along with Kruschke earlier in the text. However, the spirit is similar. We can use the `brms::pp_average()` function to make posterior predictive prediction with mixtures of the models, weighted by our chosen weighting scheme. Here, we’ll go with the default stacking weights.
 
 ```{r pp_averaged_fit1_fit2, cache = T}
 nd <- tibble(y = 1)
@@ -606,10 +634,13 @@ nd <- tibble(y = 1)
 pp_averaged <-
   pp_average(fit1, fit2, 
              newdata = nd,
+             # this line is not necessary, but you should see how to choose weighing methods
+             weights = "loo2",
              method = "fitted",
              summary = F) %>% 
   as_tibble()
 
+# what does this produce?
 head(pp_averaged) 
 ```
 
@@ -629,7 +660,7 @@ pp_averaged %>%
   theme(panel.grid = element_blank())
 ```
 
-Looks a lot like the one we made with grid approximation, doesn't it?
+Interestingly enough, that looks a lot like the one we made with grid approximation, doesn't it? For more on stacking and other weighting schemes, see Vehtari and Gabry’s vignette [*Bayesian Stacking and Pseudo-BMA weights using the loo package*](https://cran.r-project.org/web/packages/loo/vignettes/loo2-weights.html) or Vehtari's [modelselection_tutorial GitHub repository](https://github.com/avehtari/modelselection_tutorial). We will have more opportunities to practice with information criteria, model weights, and such later in this project.
 
 #### 10.3.2.1. Using pseudo-priors to reduce autocorrelation.
 
