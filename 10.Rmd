@@ -816,7 +816,9 @@ Okay, while the concept of model averaging is of great interest, we aren't going
 
 That is, the posterior for `fit1`. 
 
-```{r, fig.width = 3.5, fig.height = 3}
+```{r, fig.width = 3.5, fig.height = 3, warning = F, message = F}
+library(tidybayes)
+
 posterior_samples(fit1) %>% 
   ggplot(aes(x = b_Intercept)) +
   geom_histogram(color = "grey92", fill = "grey67",
@@ -870,9 +872,11 @@ As Kruschke concluded, "you can see the contribution of $p(\theta | D, \omega = 
 
 ## 10.5. Model complexity naturally accounted for
 
-> Bayesian model comparison compensates for model complexity by the fact that each model must have a prior distribution over its parameters, and more complex models must dilute their prior distributions over larger parameter spaces than simpler models. Thus, even if a complex model has some particular combination of parameter values that fit the data well, the prior probability of that particular combination must be small because the prior is spread thinly over the broad parameter space. (p. 290)
+> A complex model (usually) has an inherent advantage over a simpler model because the complex model can find some combination of its parameter values that match the data better than the simpler model. There are so many more parameter options in the complex model that one of those options is likely to fit the data better than any of the fewer options in the simpler model. The problem is that data are contaminated by random noise, and we do not want to always choose the more complex model merely because it can better fit noise. Without some way of accounting for model complexity, the presence of noise in data will tend to favor the complex model.
+>
+> Bayesian model comparison compensates for model complexity by the fact that each model must have a prior distribution over its parameters, and more complex models must dilute their prior distributions over larger parameter spaces than simpler models. Thus, even if a complex model has some particular combination of parameter values that fit the data well, the prior probability of that particular combination must be small because the prior is spread thinly over the broad parameter space. (pp. 289--290)
 
-Our two models are
+Now our two models are:
 
 * $p(\theta | D, \kappa = 2000)$ (i.e., the "must-be-fair" model) and
 * $p(\theta | D, \kappa = 2)$ (i.e., the "anything's-possible" model).
@@ -883,14 +887,17 @@ They look like this.
 # how granular to you want the theta sequence?
 n <- 1e3
 
-tibble(theta = seq(from = 0, to = 1, length.out = n) %>% rep(., times = 2),
-       omega = .5,
-       kappa = rep(c(1000, 2), each = n),
-       model = rep(c("The must-be-fair model", "The anything's-possible model"), each = n)) %>% 
+# simulate the data
+tibble(omega = .5,
+       kappa = c(1000, 2),
+       model = c("The must-be-fair model", "The anything's-possible model")) %>% 
+  expand(nesting(omega, kappa, model),
+         theta = seq(from = 0, to = 1, length.out = n)) %>% 
   mutate(density = dbeta(theta, 
                          shape1 =      omega  * (kappa - 2) + 1, 
                          shape2 = (1 - omega) * (kappa - 2) + 1)) %>% 
   
+  # plot
   ggplot(aes(x = theta, ymin = 0, ymax = density)) +
   geom_ribbon(fill = "grey67") + 
   scale_y_continuous(NULL, breaks = NULL) +
@@ -900,6 +907,18 @@ tibble(theta = seq(from = 0, to = 1, length.out = n) %>% rep(., times = 2),
   facet_wrap(~model)
 ```
 
+Here's how you might compute the $\alpha$ and $\beta$ values for the corresponding Beta distributions.
+
+```{r}
+tibble(omega = .5,
+       kappa = c(1000, 2),
+       model = c("The must-be-fair model", "The anything's-possible model")) %>%
+  mutate(alpha =      omega  * (kappa - 2) + 1,
+         beta  = (1 - omega) * (kappa - 2) + 1)
+```
+
+With those in hand, we can use our `p_d()` function to compute the Bayes factor based on flipping a coin $N = 20$ times and observing $z = 15$ heads.
+
 ```{r}
 # the data summaries
 z <- 15
@@ -908,31 +927,75 @@ n <- 20
 p_d(z, n, a = 500, b = 500) / p_d(z, n, a = 1, b = 1)
 ```
 
-If you're confused about where those `a` and `b` values came from, you can do the math like this.
+Let's try again, this time supposing we observe $z = 15$ heads out of $N = 20$ coin flips.
 
 ```{r}
-tibble(omega = .5,
-       kappa = c(1000, 2),
-       model = c("The must-be-fair model", "The anything's-possible model")) %>% 
-  mutate(a   =      omega  * (kappa - 2) + 1,
-         b   = (1 - omega) * (kappa - 2) + 1)
-```
-
-Let's try again with different data.
-
-```{r}
-# the data summaries
 z <- 11
-n <- 20
 
 p_d(z, n, a = 500, b = 500) / p_d(z, n, a = 1, b = 1)
 ```
 
 > The anything’s-possible model loses because it pays the price of having a small prior probability on the values of $\theta$ near the data proportion, while the must-be- fair model has large prior probability on $\theta$ values sufficiently near the data proportion to be credible. Thus, in Bayesian model comparison, a simpler model can win if the data are consistent with it, even if the complex model fits just as well. The complex model pays the price of having small prior probability on parameter values that describe simple data. (p. 291)
 
-## 10.6. Extreme sensitivity to prior distribution
-
 ### 10.5.1. Caveats regarding nested model comparison.
+
+> A frequently encountered special case of comparing models of different complexity occurs when one model is "nested" within the other. Consider a model that implements all the meaningful parameters we can contemplate for the particular application. We call that the full model. We might consider various restrictions of those parameters, such as setting some of them to zero, or forcing some to be equal to each other. A model with such a restriction is said to be nested within the full model. (p. 291)
+
+Kruschke didn't walk out the examples in this section. But for the sake of practice, let's work throug the first one. "Recall the hierarchical model of baseball batting abilities" from Chapter 9 (p. 291). Let's reload those data.
+
+```{r, warning = F, message = F}
+my_data <- read_csv("data.R/BattingAverage.csv")
+
+glimpse(my_data)
+```
+
+"The full model has a distinct modal batting ability, ωc , for each of the nine fielding positions. The full model also has distinct concentration parameters for each of the nine positions" (p. 291). Let's fit that model again.
+
+```{r fit5, cache = T, warning = F, message = F, results = 'hide'}
+fit5 <-
+  brm(data = my_data,
+      family = binomial(link = logit),
+      Hits  | trials(AtBats) ~ 1 + (1 | PriPos) + (1 | PriPos:Player),
+      prior = c(prior(normal(0, 1.5), class = Intercept),
+                prior(normal(0, 1), class = sd)),
+      iter = 3500, warmup = 500, chains = 3, cores = 3,
+      control = list(adapt_delta = .99),
+      seed = 10)
+```
+
+Next we'll consider a restricted version of `fit5` "in which all infielders (first base, second base, etc.) are grouped together versus all outfielders (right field, center field, and left field). In this restricted model, we are forcing the modal batting abilities of all the outfielders to be the same, that is, $\omega_\text{left field} = \omega_\text{center field} = \omega_\text{right field}$" (p. 291). To fit that model, we'll need to make a new variable `PriPos_small` which is identical to its parent variable `PriPos` except that it collapses those three positions into our new category `Outfield`.
+
+```{r}
+ my_data <-
+  my_data %>% 
+  mutate(PriPos_small = ifelse(PriPos %in% c("Center Field", "Left Field", "Right Field"), "Outfield", PriPos))
+```
+
+Now use `update()` to fit the restricted model.
+
+```{r fit6, cache = T, warning = F, message = F, results = 'hide'}
+fit6 <-
+  update(fit5,
+         newdata = my_data,
+         formula = Hits  | trials(AtBats) ~ 1 + (1 | PriPos_small) + (1 | PriPos_small:Player),
+         iter = 3500, warmup = 500, chains = 3, cores = 3,
+         control = list(adapt_delta = .99),
+         seed = 10)
+```
+
+Unlike with what Kruschke alluded to in the prose, here we’ll compare the two models with the LOO information criteria.
+
+```{r loo_fit5_fit6, cache = T, warning = F}
+loo(fit5, fit6)
+```
+
+Based on the LOO difference score, there’s little difference. Now let’s see how their model weights shake out. Here we’ll continue to use the default stacking method.
+
+```{r  md_fit5_fit6, cache = T, warning = F}
+model_weights(fit5, fit6)
+```
+
+Though most of the weight went to the parsimonious `fit6`, we should be skeptical. "Does that mean we should believe that [these positions] have literally identical batting abilities? Probably not" (p. 292). It’s good to be cautious of unnecessary model expansion. But we should also use good substantive reasoning, too. Just because you can restrict a model, that doesn’t necessarily mean it leads to better science.
 
 ## 10.6. Extreme sensitivity to the prior distribution
 
@@ -1063,7 +1126,7 @@ sessionInfo()
 
 ```{r, echo = F}
 # Here we'll remove our objects
-rm(length, p_d, p_d_1, p_d_2, d, p1, p2, bernoulli_likelihood, n, z, trial_data, omega, kappa, stanvars, fit1, theta, mean_theta, sd_theta, a_post, b_post, one_over_pd, fit2, mw, nd, pp_averaged, fit3, fit4, l_fit3, l_fit4, hdi_of_icdf, hdi_1, hdi_2)
+rm(length, p_d, p_d_1, p_d_2, d, p1, p2, bernoulli_likelihood, n, z, trial_data, omega, kappa, stanvars, fit1, theta, mean_theta, sd_theta, a_post, b_post, one_over_pd, fit2, mw, nd, pp_averaged, fit3, fit4, l_fit3, l_fit4, my_data, fit5, fit6, hdi_of_icdf, hdi_1, hdi_2)
 
 theme_set(theme_grey())
 ```
