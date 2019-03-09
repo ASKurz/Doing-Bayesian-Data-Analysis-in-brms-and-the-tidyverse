@@ -468,9 +468,7 @@ fit1 <-
       iter = 11000, warmup = 1000, chains = 4, cores = 4,
       seed = 10,
       stanvars = stanvars,
-      control = list(adapt_delta = .999),
-      # This will let us use `prior_samples()` later on
-      sample_prior = "yes")
+      control = list(adapt_delta = .999))
 ```
 
 Note how we fed our `stanvars` object into the `stanvars` function.
@@ -585,7 +583,7 @@ I'm not aware of a way to specify a model "in which the top-level parameter is t
 
 However, we do have options. We can compare and weight models using information criteria, about which you can learn more [here](https://youtu.be/t0pRuy1_190?t=978). In brms, the LOO and WAIC are two primary information criteria available. You can compute them for a given model with the `loo()` and `waic()` functions, respectively. Here we use `loo()` and save the output as objects. 
 
-```{r loo_fit1_fit2, cache = T}
+```{r l_fit1_fit2, cache = T}
 l_fit1 <- loo(fit1)
 l_fit2 <- loo(fit2)
 ```
@@ -608,7 +606,7 @@ Each difference score also comes with a standard error. In this case, `fit1` has
 
 In addition to difference-score comparisons, you can also use the LOO or WAIC for AIC-type model weighting. In brms, you do this with the `model_weights()` function.
 
-```{r mw_fit1_fit2, cache = T}
+```{r mw_fit1_and_fit2, cache = T}
 (mw <- model_weights(fit1, fit2))
 ```
 
@@ -803,7 +801,6 @@ $$p_b(\hat y | D, m = b) = \int \text d \theta_b p_b (\hat{y} | \theta_b, m = b)
 $$
 \begin{eqnarray}
 p (\hat y | D) & = & \sum_m p (\hat y | D, m) p (m | D) \\
-
 & = & \sum_m \int \text d \theta_m p_m (\hat{y} | \theta_m, m) p_m(\theta_m | D, m) p (m | D)
 \end{eqnarray}
 $$
@@ -949,7 +946,7 @@ my_data <- read_csv("data.R/BattingAverage.csv")
 glimpse(my_data)
 ```
 
-"The full model has a distinct modal batting ability, ωc , for each of the nine fielding positions. The full model also has distinct concentration parameters for each of the nine positions" (p. 291). Let's fit that model again.
+"The full model has a distinct modal batting ability, $\omega_c$ , for each of the nine fielding positions. The full model also has distinct concentration parameters for each of the nine positions" (p. 291). Let's fit that model again.
 
 ```{r fit5, cache = T, warning = F, message = F, results = 'hide'}
 fit5 <-
@@ -968,7 +965,8 @@ Next we'll consider a restricted version of `fit5` "in which all infielders (fir
 ```{r}
  my_data <-
   my_data %>% 
-  mutate(PriPos_small = ifelse(PriPos %in% c("Center Field", "Left Field", "Right Field"), "Outfield", PriPos))
+  mutate(PriPos_small = ifelse(PriPos %in% c("Center Field", "Left Field", "Right Field"), 
+                               "Outfield", PriPos))
 ```
 
 Now use `update()` to fit the restricted model.
@@ -989,7 +987,7 @@ Unlike with what Kruschke alluded to in the prose, here we’ll compare the two 
 loo(fit5, fit6)
 ```
 
-Based on the LOO difference score, there’s little difference. Now let’s see how their model weights shake out. Here we’ll continue to use the default stacking method.
+Based on the LOO difference score, they're near equivalent. Now let’s see how their model weights shake out. Here we’ll continue to use the default stacking method.
 
 ```{r  md_fit5_fit6, cache = T, warning = F}
 model_weights(fit5, fit6)
@@ -1003,7 +1001,7 @@ Though most of the weight went to the parsimonious `fit6`, we should be skeptica
 
 However, "the sensitivity of Bayes factors to prior distributions is well known in the literature (e.g., [Kass & Raftery, 1995](https://www.stat.washington.edu/raftery/Research/PDF/kass1995.pdf); [Liu & Aitkin, 2008](http://psycnet.apa.org/record/2008-17435-006); [Vanpaemel, 2010](https://ppw.kuleuven.be/okp/_pdf/Vanpaemel2010PSITT.pdf))," and furthermore, when comparing Bayesian models using the methods Kruschke outlined in this chapter of the text, "different forms of vague priors can yield very different Bayes factors" (p. 293). 
 
-In the two BFs to follow, we compare the must-be-fair model with similar diffuse priors. In the first case, we use the good-old uniform beta(1, 1).
+In the two BFs to follow, we compare the must-be-fair model and the anything’s-possible models from 10.5 to new data: $z = 65, N = 100$.
 
 ```{r}
 z <- 65
@@ -1012,37 +1010,43 @@ n <- 100
 p_d(z, n, a = 500, b = 500) / p_d(z, n, a = 1, b = 1)
 ```
 
-Now we compare the must-be-fair model with the Haldane prior, which sets the two parameters within the beta distribution to be a) equivalent and b) quite small (i.e., 0.01 in this case).
+The resulting `r round(p_d(z, n, a = 500, b = 500) / p_d(z, n, a = 1, b = 1), 2)` favored the anything’s-possible model.
+
+Another way to express the anything’s-possible model is with the Haldane prior, which sets the two parameters within the beta distribution to be a) equivalent and b) quite small (i.e., 0.01 in this case).
 
 ```{r}
 p_d(z, n, a = 500, b = 500) / p_d(z, n, a = .01, b = .01)
 ```
 
-Here's how those two priors of interest compare to one another.
+Now we flipped to favoring the must-be-fair model. You might be asking, *Wait, kind of distribution did that Haldane prior produce?* Here we compare it to the Beta(1, 1).
 
 ```{r, fig.width = 7, fig.height = 3}
 # how granular to you want the theta sequence?
-n <- 1e3
+length <- 1e3
 
-tibble(theta = seq(from = 0, to = 1, length.out = n) %>% rep(., times = 2),
-       alpha = rep(c(1, .01), each = n),
-       beta  = rep(c(1, .01), each = n),
-       model = rep(c("Uninformative prior, beta(1, 1)", "Haldane prior, beta(0.01, 0.01)"), each = n)) %>% 
-  mutate(model = factor(model, levels = c("Uninformative prior, beta(1, 1)", "Haldane prior, beta(0.01, 0.01)"))) %>% 
+# simulate the data
+tibble(alpha = c(1, .01),
+       beta  = c(1, .01),
+       model = factor(c("Uninformative prior, Beta(1, 1)", "Haldane prior, Beta(0.01, 0.01)"),
+                      levels = c("Uninformative prior, Beta(1, 1)", "Haldane prior, Beta(0.01, 0.01)"))) %>%
+  expand(nesting(alpha, beta, model),
+         theta = seq(from = 0, to = 1, length.out = length)) %>% 
   mutate(density = dbeta(theta, 
                          shape1 = alpha, 
                          shape2 = beta)) %>% 
   
+  # plot
   ggplot(aes(x = theta, ymin = 0, ymax = density)) +
   geom_ribbon(fill = "grey67") + 
   scale_y_continuous(NULL, breaks = NULL) +
-  labs(subtitle = "These y-axes are on the same scale.",
+  labs(title    = "We have two anything’s-possible models.",
+       subtitle = "These y-axes are on the same scale.",
        x        = expression(theta)) +
   theme(panel.grid = element_blank()) +
   facet_wrap(~model)
 ```
 
-Before we can complete the analyses of this subsection, we'll need to define our version of Kruschke's `HDIofICDF function()`, `hdi_of_icdf`(). Like we've done in previous chapters, here we mildly reformat the funciton.
+Before we can complete the analyses of this subsection, we'll need to define our version of Kruschke's `HDIofICDF function()`, `hdi_of_icdf`(). Like we've done in previous chapters, here we mildly reformat the function.
 
 ```{r}
 hdi_of_icdf <- function(name, width = .95, tol = 1e-8, ... ) {
@@ -1050,47 +1054,61 @@ hdi_of_icdf <- function(name, width = .95, tol = 1e-8, ... ) {
   interval_width  <- function(low_tail_prob, name, width, ...) {
     name(width + low_tail_prob, ...) - name(low_tail_prob, ...)
   }
-  opt_info<- optimize(interval_width, c(0, incredible_mass), 
-                      name = name, width = width, 
-                      tol = tol, ...)
+  opt_info <- optimize(interval_width, c(0, incredible_mass), 
+                       name = name, width = width, 
+                       tol = tol, ...)
   hdi_lower_tail_prob <- opt_info$minimum
   return(c(name(hdi_lower_tail_prob, ...),
            name(width + hdi_lower_tail_prob, ...)))
 }
 ```
 
-Compute the HDI for the uniform-prior-based model, beta(1, 1).
+And here we'll make a custom variant to be more useful within the context of `map2()`.
 
 ```{r}
-(hdi_1 <-
-  hdi_of_icdf(name   = qbeta,
-              shape1 = 66,
-              shape2 = 36)
+hdi_of_qbeta <- function(shape1, shape2) {
+  hdi_of_icdf(name = qbeta,
+              shape1 = shape1,
+              shape2 = shape2) %>% 
+    data.frame() %>% 
+    mutate(level = c("ll", "ul")) %>% 
+    spread(key = level, value = ".")
+}
+```
+
+Recall that when we combine a $\text{Beta} (\theta | \alpha, \beta)$ prior with the results of a Bernoulli likelihood, we get a posterior defined by $\text{Beta} (\theta | z + \alpha, N - z + \beta)$.
+
+```{r}
+d <-
+  tibble(model   = c("Uniform", "Haldane"),
+         prior_a = c(1, .01),
+         prior_b = c(1, .01)) %>% 
+  mutate(posterior_a = z + prior_a,
+         posterior_b = n - z + prior_b)
+
+d
+```
+
+Now we'll use our custom `hdi_of_qbeta()` to compute the HDIs.
+
+```{r}
+(
+  d <- 
+  d %>% 
+  mutate(levels = map2(posterior_a, posterior_b, hdi_of_qbeta)) %>% 
+  unnest(levels)
  )
 ```
 
-Now compute the HDI for the Haldane-prior-based model, beta(0.01, 0.01).
-
-```{r}
-(hdi_2 <-
-  hdi_of_icdf(name   = qbeta,
-              shape1 = 65.01,
-              shape2 = 36.01)
- )
-```
-
-And for kicks and giggles, we can compare those intervals in a plot.
+Let's compare them in a plot.
 
 ```{r, fig.width = 3.5, fig.height = 1.5}
-tibble(prior = c("Uniform", "Haldane"),
-       ll = c(hdi_1[1], hdi_2[1]),
-       ul = c(hdi_1[2], hdi_2[2])) %>% 
-  
+d %>% 
   ggplot(aes(x = ll,    xend = ul,
-             y = prior, yend = prior)) +
+             y = model, yend = model)) +
   geom_segment(size = .75) +
   coord_cartesian(xlim = 0:1) +
-  labs(subtitle = "Those two HDIs are quite similar. It almost\nseems silly their respective BFs are so\ndifferent.",
+  labs(subtitle = "Those two sets of HDIs are quite similar.\nIt almost seems silly their respective BFs\nare so different.",
        x        = expression(theta),
        y        = NULL) +
   theme(panel.grid   = element_blank(),
@@ -1098,21 +1116,121 @@ tibble(prior = c("Uniform", "Haldane"),
         axis.text.y  = element_text(hjust = 0))
 ```
 
-
 ### 10.6.1. Priors of different models should be equally informed.
 
-"We have established that seemingly innocuous changes in the vagueness of a vague prior can dramatically change a model’s marginal likelihood, and hence its Bayes factor in comparison with other models. What can be done to ameliorate the problem" (p. 294)? Kruschke posed one method might be taking a small representative portion of the data in hand and use them to make an empirically-based prior for the remaining set of data. From our previous example, "suppose that the 10% subset has 6 heads in 10 flips, so the remaining 90% of the data has $z = 65 − 6$ and $N  = 100 − 10$" (p. 294). Here are the new Bayes Factors.
+"We have established that seemingly innocuous changes in the vagueness of a vague prior can dramatically change a model’s marginal likelihood, and hence its Bayes factor in comparison with other models. What can be done to ameliorate the problem" (p. 294)? Kruschke posed one method might be taking a small representative portion of the data in hand and use them to make an empirically-based prior for the remaining set of data. From our previous example, "suppose that the 10% subset has 6 heads in 10 flips, so the remaining 90% of the data has $z = 65 − 6$ and $N  = 100 − 10$" (p. 294). 
+
+Here are the new Bayes factors based on that method.
 
 ```{r}
 z <- 65 - 6
 n <- 100 - 10
 
+# Peaked vs Uniform
 p_d(z, n, a = 500 + 6, b = 500 + 10 - 6) / p_d(z, n, a =   1 + 6, b =   1 + 10 - 6)
 
+# Peaked vs Haldane
 p_d(z, n, a = 500 + 6, b = 500 + 10 - 6) / p_d(z, n, a = .01 + 6, b = .01 + 10 - 6)
 ```
 
 Now the two Bayes Factors are nearly the same.
+
+It’s not in the text, but let’s compare these three models using brms, information criteria, model weights, model averaging, and posterior predictive checks. First, we’ll save the $z$ and $N$ information as a tibble with a series of 0s and 1s.
+
+```{r}
+z <- 65
+n <- 100
+
+trial_data <- tibble(y = rep(0:1, times = c(n - z, z)))
+
+glimpse(trial_data)
+```
+
+Next, fit the three models with `brms::brm()`.
+
+```{r fit7_through_fit9, cache = T, warning = F, message = F}
+fit7 <-
+  brm(data = trial_data, 
+      family = bernoulli(link = identity),
+      y ~ 1,
+      prior(beta(500, 500), class = Intercept),
+      iter = 11000, warmup = 1000, chains = 4, cores = 4,
+      seed = 10)
+
+fit8 <-
+  brm(data = trial_data, 
+      family = bernoulli(link = identity),
+      y ~ 1,
+      # Uniform
+      prior(beta(1, 1), class = Intercept),
+      iter = 11000, warmup = 1000, chains = 4, cores = 4,
+      seed = 10)
+
+fit9 <-
+  brm(data = trial_data, 
+      family = bernoulli(link = identity),
+      y ~ 1,
+      # Haldane
+      prior(beta(0.01, 0.01), class = Intercept),
+      iter = 11000, warmup = 1000, chains = 4, cores = 4,
+      seed = 10)
+```
+
+Compare them by the LOO.
+
+```{r l_fit7_through_fit9, cache = T}
+loo(fit7, fit8, fit9)
+```
+
+Based on the LOO comparisons, none of the three models was a clear favorite. Although both versions of the anything’s-possible model (i.e., `fit8` and `fit9`) had lower numeric estimates than the must-be-fair model (i.e., `fit7`), the standard errors on the difference scores were the same magnitude as the difference estimates themselves. As for comparing the two variants of the anything’s-possible model directly, their LOO estimates were almost indistinguishable.
+
+Now let's see what happens when we compute their model weights.
+
+```{r md_fit7_through_fit9, cache = T}
+(mw <- model_weights(fit7, fit8, fit9))
+```
+
+If you don't like scientific notation, just `round()`.
+
+```{r}
+round(mw, digits = 2)
+```
+
+Here most of the stacking weight went to `fit8`, the model with the Beta(1, 1) prior.
+
+Like we did earlier with `fit1` and `fit2`, we can use the `pp_average()` function to compute the stacking weighted posterior for $\theta$.
+
+```{r, fig.width = 3.5, fig.height = 3}
+pp_average(fit7, fit8, fit9, 
+           newdata = nd,
+           weights = mw,
+           method = "fitted",
+           summary = F) %>% 
+  as_tibble() %>%
+  
+  ggplot(aes(x = V1)) +
+  geom_histogram(color = "grey92", fill = "grey67",
+                 size = .2, bins = 30) +
+  stat_pointintervalh(aes(y = 0), 
+                      point_interval = mode_hdi, .width = c(.95, .5)) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  labs(subtitle = "The posterior for the probability, given the\nweighted combination of fit7, fit8, and fit9",
+       x = expression(paste(italic(p), "(", theta, "|", italic(D), ")"))) +
+  coord_cartesian(xlim = 0:1) +
+  theme(panel.grid = element_blank())
+```
+
+Did you notice the `weights = mw` argument, there? From the `pp_average` section of the [brms reference manual (version 2.7.0)](https://cran.r-project.org/web/packages/brms/brms.pdf), we read: "Alternatively, weights can be a numeric vector of pre-specified weights." Since we saved the results of `model_weights()` as an object `mw`, we were able to capitalize on that feature. If you leave out that argument, you’ll have to wait a bit for brms to precompute those weights again from scratch.
+
+And just for the sake of practice, we can also compare the models with separate posterior predictive checks using `pp_check()`.
+
+```{r, fig.width = 4, fig.height = 2, message = F}
+pp_check(fit7, type = "bars", nsamples = 1e3)
+pp_check(fit8, type = "bars", nsamples = 1e3)
+pp_check(fit9, type = "bars", nsamples = 1e3)
+```
+
+Instead of the default 10, this time we used 1000 posterior simulations from each fit, which we summarized with dot and error bars. This method did a great job showing how little `fit7` learned from the data. Another nice thing about this method is it reveals how similar the results are between `fit8` and `fit9`, the two alternate versions of the anything’s-possible model.
 
 ## References {-}
 
@@ -1126,7 +1244,7 @@ sessionInfo()
 
 ```{r, echo = F}
 # Here we'll remove our objects
-rm(length, p_d, p_d_1, p_d_2, d, p1, p2, bernoulli_likelihood, n, z, trial_data, omega, kappa, stanvars, fit1, theta, mean_theta, sd_theta, a_post, b_post, one_over_pd, fit2, mw, nd, pp_averaged, fit3, fit4, l_fit3, l_fit4, my_data, fit5, fit6, hdi_of_icdf, hdi_1, hdi_2)
+rm(length, p_d, p_d_1, p_d_2, d, p1, p2, bernoulli_likelihood, n, z, trial_data, omega, kappa, stanvars, fit1, theta, mean_theta, sd_theta, a_post, b_post, one_over_pd, fit2, mw, nd, pp_averaged, fit3, fit4, l_fit3, l_fit4, my_data, fit5, fit6, hdi_of_icdf, hdi_of_qbeta, fit7, fit8, fit9)
 
 theme_set(theme_grey())
 ```
