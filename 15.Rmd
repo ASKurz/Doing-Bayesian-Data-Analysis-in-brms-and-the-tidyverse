@@ -100,11 +100,58 @@ $$y = \beta_0 + \beta_1 x_1 + \dots + \beta_K x_K$$
 
 $$= \beta_0 + \sum_{k = 1}^K \beta_k x_k$$
 
-Figure 15.2 is outside of our ggplot2 capabilities.
+We won't be able to reproduce the wireframe plots of Figure 15.2, exactly. But we can use some `geom_raster()` tricks from back in Chapter 10 to express the third y dimension as fill gradients. 
+
+```{r, fig.height = 4}
+tibble(x1 = seq(from = 0, to = 10, by = .5)) %>% 
+  expand(x1, x2 = seq(from = 0, to = 10, by = .5)) %>% 
+  mutate(`y[1] == 0 + 1 * x[1] + 0 * x[2]` = 0 + 1 * x1 + 0 * x2,
+         `y[2] == 0 + 0 * x[1] + 2 * x[2]` = 0 + 0 * x1 + 2 * x2,
+         `y[3] == 0 + 1 * x[1] + 2 * x[2]` = 0 + 1 * x1 + 2 * x2,
+         `y[4] == 10 + 1 * x[1] + 2 * x[2]` = 10 + 1 * x1 + 2 * x2) %>%
+  gather(key, y, -x1, -x2) %>% 
+  
+  ggplot(aes(x = x1, y = x2, fill = y)) +
+  geom_raster() +
+  scale_fill_viridis_c(option = "D") +
+  scale_x_continuous(expression(x[1]), expand = c(0, 0),
+                     breaks = seq(from = 0, to = 10, by = 2)) +
+  scale_y_continuous(expression(x[2]), expand = c(0, 0),
+                     breaks = seq(from = 0, to = 10, by = 2)) +
+  coord_equal() +
+  theme(panel.grid = element_blank()) +
+  facet_wrap(~key, labeller = label_parsed)
+```
+
+Here we've somewhat reproduced Kruschke's grid aesthetic by keeping the `by` argument within `seq()` somewhat coarse and omitting the `interpolate = T` argument from `geom_raster()`. If you'd prefer smoother fill transitions for the y-values, set `by = .1` and `interpolate = T`.
 
 ### Nonadditive interaction of metric predictors.
 
-Figure 15.3 is outside of our ggplot2 capabilities.
+Here's our version of Figure 15.3.
+
+```{r, fig.height = 4}
+tibble(x1 = seq(from = 0, to = 10, by = .5)) %>% 
+  expand(x1, x2 = seq(from = 0, to = 10, by = .5)) %>% 
+  mutate(`y[1] == 0 + 0 * x[1] + 0 * x[2] + 0.2 * x[1] * x[2]` = 0 + 0 * x1 + 0 * x2 + 0.2 * x1 * x2,
+         `y[2] == 0 + 1 * x[1] + 1 * x[2] + 0 * x[1] * x[2]` = 0 + 1 * x1 + 1 * x2 + 0 * x1 * x2,
+         `y[3] == 0 + 1 * x[1] + 1 * x[2] + -0.3 * x[1] * x[2]` = 0 + 1 * x1 + 1 * x2 + -0.3 * x1 * x2,
+         `y[4] == 0 + -1 * x[1] + 1 * x[2] + 0.2 * x[1] * x[2]` = 0 + -1 * x1 + 1 * x2 + 0.2 * x1 * x2) %>%
+  gather(key, y, -x1, -x2) %>% 
+  
+  ggplot(aes(x = x1, y = x2, fill = y)) +
+  geom_raster() +
+  scale_fill_viridis_c(option = "D") +
+  scale_x_continuous(expression(x[1]), expand = c(0, 0),
+                     breaks = seq(from = 0, to = 10, by = 2)) +
+  scale_y_continuous(expression(x[2]), expand = c(0, 0),
+                     breaks = seq(from = 0, to = 10, by = 2)) +
+  coord_equal() +
+  theme(panel.grid = element_blank(),
+        strip.text = element_text(size = 8)) +
+  facet_wrap(~key, labeller = label_parsed)
+```
+
+Our fill grids start to look interesting when we add interaction terms to the $y_i$ equations.
 
 ### Nominal predictors.
 
@@ -278,7 +325,7 @@ We can make the sexy logistic curves of Figure 15.6 with `stat_function()`, into
 
 ```{r, fig.width = 3.25, fig.height = 3.5}
 make_logistic <- function(x, gamma, theta){
-  1/(1 + exp(-gamma* (x - theta)))
+  1 / (1 + exp(-gamma * (x - theta)))
 }
 
 # we'll need this for the annotation
@@ -389,12 +436,46 @@ d %>%
 
 The only way I could figure how to tip multiple densities on their sides was with `ggridges:: geom_ridgeline()` followed by `coord_flip()`. However, that ended up tipping the densities on their right sides, whereas Kruschke tipped his to the left. If you know of a better way to mimic Kruschke’s left-tipped densities, [please share your code](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues). But anyways, here's the top panel for Figure 15.9.
 
+```{r}
+sigma <- 2
+
+n_samples <- 750
+
+tibble(group = c(-7.5, -2.5, 2.5, 7.5)) %>% 
+  mutate(ll = qnorm(.025, mean = group, sd = sigma),
+         ul = qnorm(.975, mean = group, sd = sigma)) %>% 
+  mutate(x = map2(ll, ul, seq, length.out = 100)) %>% 
+  mutate(density  = pmap(list(x, group, sigma), dnorm)) %>% 
+  unnest() %>% 
+  # in the next two lines, we rescale `density` to range from 0 to 2.5
+  mutate(density = density - min(density)) %>% 
+  mutate(density = 2.5 * density / max(density)) %>% 
+  
+  # plot
+  ggplot(aes(x = x, y = group)) +
+  geom_vline(xintercept = 0, color = "white") +
+  geom_hline(yintercept = 0, color = "white") +
+  geom_point(data = tibble(group = runif(n = n_samples, -10, 10)) %>% 
+               mutate(x = rnorm(n = n_samples, mean = 10 + 2 * group, sd = 2)),
+             aes(x = x, y = group),
+             size = 1/3) +
+  geom_abline(intercept = -5, slope = 1/2,
+              size = 1, color = "grey50") +
+  geom_path(aes(x = x - density, y = group + x, group = group)) +
+  # coord_flip(xlim = -10:30) +
+  labs(title = "Normal PDF around Linear Function",
+       y = "y") +
+  theme(panel.grid = element_blank()) 
+```
+
+
 ```{r, fig.width = 4, fig.height = 3.75, message = F, warning = F}
 library(ggridges)
 
 n_samples <- 750
 
 tibble(group = c(-7.5, -2.5, 2.5, 7.5)) %>% 
+  
   expand(group, x = seq(from = -15, to = 35, by = .1)) %>% 
   
   ggplot(aes(x = x, y = group, 
@@ -410,6 +491,7 @@ tibble(group = c(-7.5, -2.5, 2.5, 7.5)) %>%
               size = 1, color = "grey50") +
   geom_ridgeline(size = 2/3, fill = "grey67", color = "grey50",
                  min_height = .025, alpha = 3/4) +
+  scale_y_reverse() +
   coord_flip(xlim = -10:30) +
   labs(title = "Normal PDF around Linear Function",
        x = "y", 
