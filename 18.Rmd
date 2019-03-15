@@ -12,9 +12,9 @@ output:
 
 ## Multiple linear regression
 
-If $y ~ N(\mu, \sigma)$ and $\mu = \beta_0 + \beta_1 x_1 + \beta_2 x_2$, then it's also the case that we can rewrite the formula for $y$ as:
+If $y \sim \text{Normal} (\mu, \sigma)$ and $\mu = \beta_0 + \beta_1 x_1 + \beta_2 x_2$, then it's also the case that we can rewrite the formula for $y$ as:
 
-$$y ~ N(\beta_0 + \beta_1 x_1 + \beta_2 x_2, \sigma)$$
+$$y \sim \text{Normal} (\beta_0 + \beta_1 x_1 + \beta_2 x_2, \sigma)$$
 
 As Kruschke pointed out, the basic model "assumes homogeneity of variance, which means that at all values of $x_1$ and $x_2$, the variance $\sigma^2$ of $y$ is the same" (p. 510).
 
@@ -25,7 +25,7 @@ library(tidyverse)
 
 n <- 300
 
-set.seed(18.1)
+set.seed(18)
 d <-
   tibble(x_1 = runif(n = n, 0, 10),
          x_2 = runif(n = n, 0, 10)) %>% 
@@ -57,7 +57,7 @@ d %>%
   geom_point(alpha = 2/3)
 ```
 
-As in previous chapters, I'm not aware that ggplot2 allows for three-dimensional plots of the kind in the upper left panel. If you'd like to make one in base R, have at it. But with respect to the plots in the off-diagonal, I have no idea what Kruschke did with the compressed and diagonal grids. If you have that figured out, please [share your code](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues). 
+As in previous chapters, I'm not aware that ggplot2 allows for three-dimensional wireframe plots of the kind in the upper left panel. If you'd like to make one in base R, have at it. But with respect to the plots in the off-diagonal, I have no idea what Kruschke did with the compressed and diagonal grids. If you have that figured out, please [share your code](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues). 
 
 For Figure 18.2, the $x$ variables look to be multivariate normal with a correlation of about -.95. We can simulate such data with help from the MASS package.
 
@@ -90,9 +90,8 @@ d <-
                 Sigma     = covs, 
                 empirical = T) %>% 
   as_tibble() %>% 
-  rename(x_1 = V1,
-         x_2 = V2) %>% 
-  mutate(y   = rnorm(n = n, mean = 10 + x_1 + 2 * x_2))
+  set_names("x_1", "x_2") %>%  
+  mutate(y = rnorm(n = n, mean = 10 + x_1 + 2 * x_2))
 ```
 
 Now we have our simulated data in hand, we're ready for three of the four panels of Figure 18.2.
@@ -181,14 +180,11 @@ Let's open brms.
 library(brms)
 ```
 
-Here we'll save our exponential prior value with `stanvar()`.
+Now we're ready to fit the model. As Kruschke pointed out, the priors on the standardized predictors are set with
 
-```{r}
-stanvars <- 
-  stanvar(1/29, name = "one_over_twentynine")
-```
+> an arbitrary standard deviation of 2.0. This value was chosen because standardized regression coefficients are algebraically constrained to fall between −1 and +1 in least-squares regression, and therefore, the regression coefficients will not exceed those limits by much. A normal distribution with standard deviation of 2.0 is reasonably flat over the range from −1 to +1. (p. 516)
 
-Now we're ready to fit the model.
+With data like this, even a `prior(normal(0, 1), class = b)` would be only mildly regularizing.
 
 ```{r fit1, cache = T, message = F, warning = F}
 fit1 <-
@@ -200,7 +196,8 @@ fit1 <-
                 prior(normal(0, 1), class = sigma),
                 prior(exponential(one_over_twentynine), class = nu)),
       chains = 4, cores = 4,
-      stanvars = stanvars)
+      stanvars = stanvar(1/29, name = "one_over_twentynine"),
+      seed = 18)
 ```
 
 The model summary is as follows:
@@ -229,7 +226,7 @@ post <- posterior_samples(fit1)
 head(post)
 ```
 
-Let's wrap the consequences of equation 18.1 into two functions.
+Like we did in Chapter 17, let's wrap the consequences of equation 18.1 into two functions.
 
 ```{r}
 make_beta_0 <- function(zeta_0, zeta_1, zeta_2, sd_x_1, sd_x_2, sd_y, m_x_1, m_x_2, m_y){
@@ -316,7 +313,7 @@ The `brms::bayes_R2()` function makes it easy to compute a Bayesian $R^2$. Simpl
 bayes_R2(fit1)
 ```
 
-I'm not going to go into the technical details here, but you should be aware that the Bayeisan $R^2$ is not calculated the same as it is with OLS. If you want to dive in, check out the paper by [Gelman, Goodrich, Gabry, and Ali](https://github.com/jgabry/bayes_R2/blob/master/bayes_R2.pdf). Anyway, if you'd like to view the Bayesian $R^2$ distribution rather than just get the summaries, specify `summary = F`, convert the output to a tibble, and plot as usual.
+I'm not going to go into the technical details here, but you should be aware that the Bayeisan $R^2$ returned from the `bayes_R2()` function is not calculated the same as it is with OLS. If you want to dive in, check out the paper by [Gelman, Goodrich, Gabry, and Ali](https://github.com/jgabry/bayes_R2/blob/master/bayes_R2.pdf). Anyway, if you'd like to view the Bayesian $R^2$ distribution rather than just get the summaries, specify `summary = F`, convert the output to a tibble, and plot as usual.
 
 ```{r, fig.width = 2, fig.height = 2}
 bayes_R2(fit1, summary = F) %>% 
@@ -324,7 +321,7 @@ bayes_R2(fit1, summary = F) %>%
   
   ggplot(aes(x = R2)) +
   geom_histogram(color = "grey92", fill = "grey67",
-                 size = .2, bins = 20) +
+                 size = .2, bins = 25) +
   stat_pointintervalh(aes(y = 0), 
                       point_interval = mode_hdi, .width = .95) +
   scale_y_continuous(NULL, breaks = NULL) +
@@ -365,7 +362,7 @@ post %>%
 
 Kruschke finished the subsection with the observations "Sometimes we are interested in using the linear model to predict $y$ values for $x$ values of interest. It is straight forward to generate a large sample of credible $y$ values for specified $x$ values" (p. 519).
 
-The simplest way to do so in brms is with the `fitted()` function. For a quick example, say we wanted to know what the model would predict if we were to have a standard-score increase in spending and a simultaneous standard-score decrease in the percent taking the exam. We'd just specify those values in a tibble and feed that tibble into `fitted()` along with the model.
+Like we practiced with in the last chapter, the simplest way to do so in brms is with the `fitted()` function. For a quick example, say we wanted to know what the model would predict if we were to have a standard-score increase in spending and a simultaneous standard-score decrease in the percent taking the exam. We'd just specify those values in a tibble and feed that tibble into `fitted()` along with the model.
 
 ```{r}
 nd <-
@@ -409,6 +406,11 @@ glimpse(my_data)
 
 We're ready to fit the redundant-predictor model.
 
+prior(normal(0, 2), class = b, coef = "Intercept"),
+                prior(normal(0, 2), class = b, coef = "Spend_z"),
+                prior(normal(0, 2), class = b, coef = "PrcntTake_z"),
+                prior(normal(0, 2), class = b, coef = "PropNotTake_z"),
+                
 ```{r fit2, cache = T, message = F, warning = F}
 fit2 <-
   brm(data = my_data,
@@ -421,12 +423,13 @@ fit2 <-
                 prior(normal(0, 1), class = sigma),
                 prior(exponential(one_over_twentynine), class = nu)),
       chains = 4, cores = 4,
-      stanvars = stanvars,
+      stanvars = stanvar(1/29, name = "one_over_twentynine"),
+      seed = 18,
       # This will let us use `prior_samples()` later on
-      sample_prior = T)
+      sample_prior = "yes")
 ```
 
-You might notice a few things about the `brm()` code. First, we have used the `~ 0 + Intercept + ...` syntax instead of the default syntax for intercepts. In normal situations, we would have been in good shape using the typical `~ 1 + ...` syntax for the intercept, especially given our use of standardized data. However, since brms version 2.5.0, using `sample_prior = T` will no longer allow us to return prior samples from the typical brms intercept. Bürkner addressed the issue on the [Stan forums](https://discourse.mc-stan.org/t/prior-intercept-samples-no-longer-saved-in-brms-2-5-0/6107). As he pointed out, if you want to get prior samples from an intercept, you’ll have to use the alternative syntax. The other thing to point out is that even though we used the same prior on all the predictors, including the intercept, we still explicitly spelled each out with the `coef` argument. If we hadn’t been explicit like this, we would only get a single `b` vector from the `prior_samples()` function. But since we want separate vectors for each of our predictors, we used the verbose code. If you’re having a difficult time understanding these two points, experiment. Fit the model in a few different ways with either the typical or the alternative intercept syntax and with either the verbose prior code or the simplified `prior(normal(0, 2), class = b)` code. And after each, execute `prior_samples(fit2)`. You’ll see.
+You might notice a few things about the `brm()` code. First, we have used the `~ 0 + Intercept + ...` syntax instead of the default syntax for intercepts. In normal situations, we would have been in good shape using the typical `~ 1 + ...` syntax for the intercept, especially given our use of standardized data. However, since brms version 2.5.0, using the `sample_prior` argument to draw samples from the prior distribution will no longer allow us to return samples from the typical brms intercept. Bürkner addressed the issue on the [Stan forums](https://discourse.mc-stan.org/t/prior-intercept-samples-no-longer-saved-in-brms-2-5-0/6107). As he pointed out, if you want to get prior samples from an intercept, you’ll have to use the alternative syntax. The other thing to point out is that even though we used the same prior on all the predictors, including the intercept, we still explicitly spelled each out with the `coef` argument. If we hadn’t been explicit like this, we would only get a single `b` vector from the `prior_samples()` function. But since we want separate vectors for each of our predictors, we used the verbose code. If you’re having a difficult time understanding these two points, experiment. Fit the model in a few different ways with either the typical or the alternative intercept syntax and with either the verbose prior code or the simplified `prior(normal(0, 2), class = b)` code. And after each, execute `prior_samples(fit2)`. You’ll see.
 
 Let's move on. Kruschke mentioned high autocorrelations in the prose. Here are the autocorrelation plots for our $\beta$s.
 
@@ -500,29 +503,29 @@ m_y    <- mean(my_data$SATT)
 
 post <-
   post %>% 
-  transmute(Intercept              = make_beta_0(zeta_0 = b_Intercept,
-                                                 zeta_1 = b_Spend_z,
-                                                 zeta_2 = b_PrcntTake_z,
-                                                 zeta_3 = b_PropNotTake_z,
-                                                 sd_x_1 = sd_x_1,
-                                                 sd_x_2 = sd_x_2,
-                                                 sd_x_3 = sd_x_3,
-                                                 sd_y   = sd_y,
-                                                 m_x_1  = m_x_1,
-                                                 m_x_2  = m_x_2,
-                                                 m_x_3  = m_x_3,
-                                                 m_y    = m_y),
-            Spend                 = make_beta_j(zeta_j = b_Spend_z,
-                                                sd_j   = sd_x_1,
-                                                sd_y   = sd_y),
-            `Percent Take`        = make_beta_j(zeta_j = b_PrcntTake_z,
-                                                sd_j   = sd_x_2,
-                                                sd_y   = sd_y),
+  transmute(Intercept = make_beta_0(zeta_0 = b_Intercept,
+                                    zeta_1 = b_Spend_z,
+                                    zeta_2 = b_PrcntTake_z,
+                                    zeta_3 = b_PropNotTake_z,
+                                    sd_x_1 = sd_x_1,
+                                    sd_x_2 = sd_x_2,
+                                    sd_x_3 = sd_x_3,
+                                    sd_y   = sd_y,
+                                    m_x_1  = m_x_1,
+                                    m_x_2  = m_x_2,
+                                    m_x_3  = m_x_3,
+                                    m_y    = m_y),
+            Spend = make_beta_j(zeta_j = b_Spend_z,
+                                sd_j   = sd_x_1,
+                                sd_y   = sd_y),
+            `Percent Take` = make_beta_j(zeta_j = b_PrcntTake_z,
+                                         sd_j   = sd_x_2,
+                                         sd_y   = sd_y),
             `Proportion not Take` = make_beta_j(zeta_j = b_PropNotTake_z,
                                                 sd_j   = sd_x_3,
                                                 sd_y   = sd_y),
-            Scale                 = sigma * sd_y,
-            Normality             = nu %>% log10())
+            Scale     = sigma * sd_y,
+            Normality = nu %>% log10())
 
 glimpse(post)
 ```
@@ -551,7 +554,7 @@ post %>%
   mcmc_pairs(off_diag_args = list(size = 1/8, alpha = 1/8))
 ```
 
-Here are the Pearson's correlations:
+Here are the Pearson's correlations.
 
 ```{r}
 post %>% 
@@ -563,29 +566,29 @@ Figure 18.7 is all about the prior predictive distribution. Here we'll extract t
 ```{r}
 prior <- 
   prior_samples(fit2) %>% 
-  transmute(Intercept             = make_beta_0(zeta_0 = b_Intercept,
-                                                zeta_1 = b_Spend_z,
-                                                zeta_2 = b_PrcntTake_z,
-                                                zeta_3 = b_PropNotTake_z,
-                                                sd_x_1 = sd_x_1,
-                                                sd_x_2 = sd_x_2,
-                                                sd_x_3 = sd_x_3,
-                                                sd_y   = sd_y,
-                                                m_x_1  = m_x_1,
-                                                m_x_2  = m_x_2,
-                                                m_x_3  = m_x_3,
-                                                m_y    = m_y),
-            Spend                 = make_beta_j(zeta_j = b_Spend_z,
-                                                sd_j   = sd_x_1,
-                                                sd_y   = sd_y),
-            `Percent Take`        = make_beta_j(zeta_j = b_PrcntTake_z,
-                                                sd_j   = sd_x_2,
-                                                sd_y   = sd_y),
+  transmute(Intercept = make_beta_0(zeta_0 = b_Intercept,
+                                    zeta_1 = b_Spend_z,
+                                    zeta_2 = b_PrcntTake_z,
+                                    zeta_3 = b_PropNotTake_z,
+                                    sd_x_1 = sd_x_1,
+                                    sd_x_2 = sd_x_2,
+                                    sd_x_3 = sd_x_3,
+                                    sd_y   = sd_y,
+                                    m_x_1  = m_x_1,
+                                    m_x_2  = m_x_2,
+                                    m_x_3  = m_x_3,
+                                    m_y    = m_y),
+            Spend = make_beta_j(zeta_j = b_Spend_z,
+                                sd_j   = sd_x_1,
+                                sd_y   = sd_y),
+            `Percent Take` = make_beta_j(zeta_j = b_PrcntTake_z,
+                                         sd_j   = sd_x_2,
+                                         sd_y   = sd_y),
             `Proportion not Take` = make_beta_j(zeta_j = b_PropNotTake_z,
                                                 sd_j   = sd_x_3,
                                                 sd_y   = sd_y),
-            Scale                 = sigma * sd_y,
-            Normality             = nu %>% log10()) 
+            Scale     = sigma * sd_y,
+            Normality = nu %>% log10()) 
 
 glimpse(prior)
 ```
@@ -613,14 +616,14 @@ prior %>%
   mcmc_pairs(off_diag_args = list(size = 1/8, alpha = 1/8))
 ```
 
-And finally, the Pearson's correlation coefficients:
+And finally, here are those Pearson's correlation coefficients for the priors.
 
 ```{r}
 prior %>% 
   psych::lowerCor(digits = 3)
 ```
 
-At the top of page 523, Kruschke asked us to "Notice that the posterior distribution in Figure 18.6 has ranges for the redundant parameters that are only a little smaller than their priors." With a little wrangling, we can compare the prior/posterior distributions for our redundant parameters more directly.
+At the top of page 523, Kruschke asked us to "notice that the posterior distribution in Figure 18.6 has ranges for the redundant parameters that are only a little smaller than their priors." With a little wrangling, we can compare the prior/posterior distributions for our redundant parameters more directly.
 
 ```{r, fig.width = 6, fig.height = 3}
 post %>% 
@@ -648,11 +651,11 @@ post %>%
   facet_grid(key~parameter, scales = "free")
 ```
 
-He was right. The posterior distributions are only slightly narrower than the priors for those two.
+He was right. The posterior distributions are only slightly narrower than the priors for those two. With our combination of data and model, we learned virtually nothing beyond the knowledge we encoded in those priors.
 
 Kruschke mentioned SEM as a possible solution to multicollinearity. brms [isn’t fully capable of SEM, at the moment](https://github.com/paul-buerkner/brms/issues/304), but its [multivariate syntax](https://cran.r-project.org/web/packages/brms/vignettes/brms_multivariate.html) does allow for [path analysis](http://www.imachordata.com/bayesian-sem-with-brms/) and [IRT models](https://github.com/paul-buerkner/brms/issues/203). However, you can currently fit a variety of Bayesian SEMs with the [blavaan package](https://cran.r-project.org/web/packages/blavaan/index.html). I'm not aware of any textbooks highlighting blavaan. If you've seen any, [please share](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues).
 
-### Informative priors, sparse data, and correlated predictors
+### Informative priors, sparse data, and correlated predictors.
 
 It's worth reproducing some of Kruschke's prose from this subsection.
 
@@ -698,10 +701,11 @@ fit3 <-
                 prior(normal(0, 1), class = sigma),
                 prior(exponential(one_over_twentynine), class = nu)),
       chains = 4, cores = 4,
-      stanvars = stanvars)
+      stanvars = stanvar(1/29, name = "one_over_twentynine"),
+      seed = 18)
 ```
 
-The `summary()` looks like this:
+Inspect the `summary()`.
 
 ```{r}
 summary(fit3)
@@ -714,7 +718,9 @@ vcov(fit3, correlation = T) %>%
   round(digits = 3)
 ```
 
-Time to convert to the unstandardized metric.
+> We can see that the interaction variable is strongly correlated with both predictors. Therefore, we know that there will be strong trade-offs among the regression coefficients, and the marginal distributions of single regression coefficients might be much wider than when there was no interaction included. (p. 528)
+
+Let's convert to the unstandardized metric.
 
 ```{r}
 sd_x_3 <- sd(my_data$interaction)
@@ -722,29 +728,29 @@ m_x_3  <- mean(my_data$interaction)
 
 post <- 
   posterior_samples(fit3) %>% 
-  transmute(Intercept              = make_beta_0(zeta_0 = b_Intercept,
-                                                 zeta_1 = b_Spend_z,
-                                                 zeta_2 = b_PrcntTake_z,
-                                                 zeta_3 = b_interaction_z,
-                                                 sd_x_1 = sd_x_1,
-                                                 sd_x_2 = sd_x_2,
-                                                 sd_x_3 = sd_x_3,
-                                                 sd_y   = sd_y,
-                                                 m_x_1  = m_x_1,
-                                                 m_x_2  = m_x_2,
-                                                 m_x_3  = m_x_3,
-                                                 m_y    = m_y),
-            Spend                  = make_beta_j(zeta_j = b_Spend_z,
-                                                 sd_j   = sd_x_1,
-                                                 sd_y   = sd_y),
-            `Percent Take`         = make_beta_j(zeta_j = b_PrcntTake_z,
-                                                 sd_j   = sd_x_2,
-                                                 sd_y   = sd_y),
+  transmute(Intercept = make_beta_0(zeta_0 = b_Intercept,
+                                    zeta_1 = b_Spend_z,
+                                    zeta_2 = b_PrcntTake_z,
+                                    zeta_3 = b_interaction_z,
+                                    sd_x_1 = sd_x_1,
+                                    sd_x_2 = sd_x_2,
+                                    sd_x_3 = sd_x_3,
+                                    sd_y   = sd_y,
+                                    m_x_1  = m_x_1,
+                                    m_x_2  = m_x_2,
+                                    m_x_3  = m_x_3,
+                                    m_y    = m_y),
+            Spend = make_beta_j(zeta_j = b_Spend_z,
+                                sd_j   = sd_x_1,
+                                sd_y   = sd_y),
+            `Percent Take` = make_beta_j(zeta_j = b_PrcntTake_z,
+                                         sd_j   = sd_x_2,
+                                         sd_y   = sd_y),
             `Spend : Percent Take` = make_beta_j(zeta_j = b_interaction_z,
                                                  sd_j   = sd_x_3,
                                                  sd_y   = sd_y),
-            Scale                  = sigma * sd_y,
-            Normality              = nu %>% log10()) 
+            Scale     = sigma * sd_y,
+            Normality = nu %>% log10())
 
 glimpse(post)
 ```
@@ -765,54 +771,51 @@ post %>%
   facet_wrap(~key, scales = "free", ncol = 3)
 ```
 
-To make the middle panel of Figure 18.9, we'll make a custom function, push various values of `PrcntTake` through that function within `purrr::map()`, wrangle a bit, and plot with `geom_pointrange()`.
+"To properly understand the credible slopes on the two predictors, we must consider the credible slopes on each predictor as a function of the value of the other predictor" (p. 528). This is our motivation for the middle panel of Figure 18.9. To make it, we'll need to `expand()` our `post`, wrangle a bit, and plot with `geom_pointrange()`.
 
-```{r, fig.width = 6, fig.height = 2.25}
-# custom function to use in `purrr::map()`
-spend_slope <- function(PrcntTake){
-  post %>% 
-    transmute(slope = Spend + `Spend : Percent Take` * PrcntTake)
-}
+```{r, fig.width = 6, fig.height = 2.5}
+# this will come in handy in `expand()`
+bounds <- range(my_data$PrcntTake)
 
-# tibble containing values of `PrcntTake`
-tibble(PrcntTake = seq(from = min(my_data$PrcntTake),
-                       to   = max(my_data$PrcntTake),
-                       length.out = 20)) %>% 
-  mutate(slope = map(PrcntTake, spend_slope)) %>% 
-  unnest() %>% 
+# wrangle
+post %>% 
+  expand(nesting(Spend, `Spend : Percent Take`),
+         PrcntTake = seq(from = bounds[1], to = bounds[2], length.out = 20)) %>% 
+  mutate(slope = Spend + `Spend : Percent Take` * PrcntTake) %>% 
   group_by(PrcntTake) %>% 
   median_hdi(slope) %>% 
   
-  # finally, the plot
+  # plot
   ggplot(aes(x = PrcntTake, y = slope,
              ymin = .lower, ymax = .upper)) +
   geom_hline(yintercept = 0, color = "white") +
   geom_pointrange(color = "grey50") +
   labs(x = "Value of PrcntTake",
-       y = "Slope on Spend")
+       y = "Slope on Spend",
+       title = expression(paste("Slope on Spend is ", beta[1] + beta[3] %.% "PrcntTake")))
 ```
 
 That worked like a charm. We'll follow the same basic order of operations for the final panel.
 
-```{r, fig.width = 6, fig.height = 2.25}
-percent_take_slope <- function(spend){
-  post %>% 
-    transmute(slope = `Percent Take` + `Spend : Percent Take` * spend)
-}
+```{r, fig.width = 6, fig.height = 2.5}
+# this will come in handy in `expand()`
+bounds <- range(my_data$Spend)
 
-tibble(Spend = seq(from = min(my_data$Spend),
-                   to   = max(my_data$Spend),
-                   length.out = 20)) %>% 
-  mutate(slope = map(Spend, percent_take_slope)) %>% 
-  unnest() %>% 
+# wrangle
+post %>% 
+  expand(nesting(`Percent Take`, `Spend : Percent Take`),
+         Spend = seq(from = bounds[1], to = bounds[2], length.out = 20)) %>% 
+  mutate(slope = `Percent Take` + `Spend : Percent Take` * Spend) %>% 
   group_by(Spend) %>% 
   median_hdi(slope) %>% 
   
+  # plot
   ggplot(aes(x = Spend, y = slope,
              ymin = .lower, ymax = .upper)) +
   geom_pointrange(color = "grey50") +
   labs(x = "Value of Spend",
-       y = "Slope on PrcntTake")
+       y = "Slope on PrcntTake",
+       title = expression(paste("Slope on PrcntTake is ", beta[2] + beta[3] %.% "Spend")))
 ```
 
 Kruschke outlined all this in the opening paragraphs of page 530. His parting words of this subsection warrant repeating: "if you include an interaction term, you cannot ignore it even if its marginal posterior distribution includes zero" (p. 530).
@@ -826,7 +829,7 @@ Kruschke outlined all this in the opening paragraphs of page 530. His parting wo
 That's what this section is all about. We'll make our random noise predictors with `rnorm()`.
 
 ```{r}
-set.seed(18.3)
+set.seed(18)
 my_data <-
   my_data %>% 
   mutate(x_rand_1  = rnorm(n = n(), 0, 1),
@@ -851,7 +854,8 @@ Here's the naïve model.
 fit4 <-
   update(fit1, 
          newdata = my_data,
-         formula = SATT_z ~ 1 + PrcntTake_z + Spend_z + x_rand_1 + x_rand_2 + x_rand_3 + x_rand_4 + x_rand_5 + x_rand_6 + x_rand_7 + x_rand_8 + x_rand_9 + x_rand_10 + x_rand_11 + x_rand_12)
+         formula = SATT_z ~ 1 + PrcntTake_z + Spend_z + x_rand_1 + x_rand_2 + x_rand_3 + x_rand_4 + x_rand_5 + x_rand_6 + x_rand_7 + x_rand_8 + x_rand_9 + x_rand_10 + x_rand_11 + x_rand_12,
+         seed = 18)
 ```
 
 Its parameter summary is as follows:
@@ -1045,7 +1049,7 @@ bayes_R2(fit4, summary = F) %>%
   
   ggplot(aes(x = R2)) +
   geom_histogram(color = "grey92", fill = "grey67",
-                 size = .2, bins = 20) +
+                 size = .2, bins = 25) +
   stat_pointintervalh(aes(y = 0), 
                       point_interval = mode_hdi, .width = .95) +
   scale_y_continuous(NULL, breaks = NULL) +
@@ -1084,16 +1088,16 @@ post %>%
   
   ggplot(aes(x = value, y = reorder(key, value), group = reorder(key, value))) +
   geom_vline(xintercept = 0, color = "white") +
-  geom_density_ridges(scale = 4, fill = "grey67", color = "grey50", size = 1/5) +
+  geom_density_ridges(scale = 4, fill = "grey50", color = "grey50", alpha = 3/4, size = 1/5) +
   labs(x = NULL,
        y = NULL) +
   theme(axis.text.y  = element_text(hjust = 0),
         axis.ticks.y = element_blank())
 ```
 
-In brms, we can fit something like the model Kruschke displayed in Figure 18.12 with the `horseshoe()` prior. From the `horseshoe` section of the [brms (version 2.6.0) reference manual](https://cran.r-project.org/web/packages/brms/brms.pdf):
+In brms, we can fit something like the model Kruschke displayed in Figure 18.12 with the `horseshoe()` prior. From the `horseshoe` section of the [brms (version 2.7.0) reference manual](https://cran.r-project.org/web/packages/brms/brms.pdf):
 
-> The horseshoe prior is a special shrinkage prior initially proposed by Carvalho et al. (2009). It is symmetric around zero with fat tails and an infinitely large spike at zero. This makes it ideal for sparse models that have many regression coefficients, although only a minority of them is non-zero. The horseshoe prior can be applied on all population-level effects at once (excluding the intercept) by using `set_prior("horseshoe(1)")`. The 1 implies that the student-t prior of the local shrinkage parameters has 1 degrees of freedom.
+> The horseshoe prior is a special shrinkage prior initially proposed by [Carvalho et al. (2009)](http://proceedings.mlr.press/v5/carvalho09a/carvalho09a.pdf). It is symmetric around zero with fat tails and an infinitely large spike at zero. This makes it ideal for sparse models that have many regression coefficients, although only a minority of them is non-zero. The horseshoe prior can be applied on all population-level effects at once (excluding the intercept) by using `set_prior("horseshoe(1)")`. The `1` implies that the student-t prior of the local shrinkage parameters has 1 degrees of freedom.
 
 Based on the quote, here's the horseshoe-prior model:
 
@@ -1105,7 +1109,8 @@ fit5 <-
          prior = c(prior(normal(0, 2), class = Intercept),
                    prior(horseshoe(1), class = b),
                    prior(normal(0, 1), class = sigma),
-                   prior(exponential(one_over_twentynine), class = nu)))
+                   prior(exponential(one_over_twentynine), class = nu)),
+         seed = 18)
 ```
 
 Why not use `posterior_summary()` to get the parameter summary?
@@ -1235,7 +1240,7 @@ post %>%
   facet_wrap(~key, scales = "free", ncol = 3)
 ```
 
-Based on the distributions for the random predictors, it looks like our brms horseshoe prior was a little more aggressively regularizing than Kruschke’s hierarchical prior in the text. And interestingly, look how our marginal posterior for `Spend` is bimodal. 
+Based on the distributions for the random predictors, it looks like our brms horseshoe prior regularized more aggressively than Kruschke’s hierarchical prior in the text. And interestingly, look how our marginal posterior for `Spend` is bimodal. 
 
 For kicks and giggles, here's the corresponding coefficient plot for $\beta_1$ through $\beta_{14}$.
 
@@ -1262,7 +1267,7 @@ bayes_R2(fit5, summary = F) %>%
   
   ggplot(aes(x = R2)) +
   geom_histogram(color = "grey92", fill = "grey67",
-                 size = .2, bins = 20) +
+                 size = .2, bins = 25) +
   stat_pointintervalh(aes(y = 0), 
                       point_interval = mode_hdi, .width = .95) +
   scale_y_continuous(NULL, breaks = NULL) +
@@ -1279,7 +1284,7 @@ We can rewrite the linear regression model to accommodate whether it includes a 
 
 $$\mu_i = \beta_0 + \sum_j \delta_j \beta_j x_{j, i}$$
 
-where $\delta$ is a dummy for which 0 = *not included* 1 = *included*. I'm not aware of a way to use $\delta$ as an inclusion indicator in brms the way Kruschke implemented it in JAGS. And in fact, it appears this might be [unfeasible within the Stan framework](https://discourse.mc-stan.org/t/include-extra-coefficient-multiplied-with-regression-weight-inclusion-weight-a-la-kruschke/5768). But if you know of a way, please [share your code](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues). However, this issue can lead to a similar approach: information criteria, about which you can learn more about [here](https://www.youtube.com/watch?v=t0pRuy1_190&t=1331s&frags=pl%2Cwn). To do so, let's follow Kruschke's basic flow and use the first model from way back in subsection 18.1.1 as a starting point. The model formula was as follows.
+where $\delta$ is a dummy for which 0 = *not included* 1 = *included*. I'm not aware of a way to use $\delta$ as an inclusion indicator in brms the way Kruschke implemented it in JAGS. And in fact, it appears this might be [unfeasible within the Stan framework](https://discourse.mc-stan.org/t/include-extra-coefficient-multiplied-with-regression-weight-inclusion-weight-a-la-kruschke/5768). But if you know of a way, please [share your code](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues). However, this issue can lead to a similar approach: information criteria. To do so, let's follow Kruschke's basic flow and use the first model from way back in subsection 18.1.1 as a starting point. The model formula was as follows.
 
 ```{r}
 fit1$formula
@@ -1298,11 +1303,13 @@ Let's fit those models.
 ```{r fit6_7_and_8, cache = T, message = F, warning = F, results = 'hide'}
 fit6 <-
   update(fit1,
-         formula = SATT_z ~ 1 + Spend_z)
+         formula = SATT_z ~ 1 + Spend_z,
+         seed = 18)
 
 fit7 <-
   update(fit1,
-         formula = SATT_z ~ 1 + PrcntTake_z)
+         formula = SATT_z ~ 1 + PrcntTake_z,
+         seed = 18)
 
 fit8 <-
   brm(data = my_data,
@@ -1312,35 +1319,19 @@ fit8 <-
                 prior(normal(0, 1), class = sigma),
                 prior(exponential(one_over_twentynine), class = nu)),
       chains = 4, cores = 4,
-      stanvars = stanvars)
+      stanvars = stanvar(1/29, name = "one_over_twentynine"),
+      seed = 18)
 ```
 
-In brms, the LOO and WAIC are two primary information criteria available. You can compute them for a given model with the `loo()` and `waic()` functions, respectively. Here we use `loo()` and save the output as objects.
+We'll compare our models with the LOO information criterion. Like other information criteria, the LOO values aren't of interest in and of themselves. However, the values of one model's LOO relative to that of another is of great interest. We generally prefer models with lower estimates.
 
 ```{r}
-l_fit1 <- loo(fit1)
-l_fit6 <- loo(fit6)
-l_fit7 <- loo(fit7)
-l_fit8 <- loo(fit8)
+loo(fit1, fit6, fit7, fit8)
 ```
 
-Here's the basic LOO summary for `fit1`.
+In this case, `fit1` and `fit7` clearly have the lowest estimates, but the standard error of their difference score is about the same size as their difference. So the LOO difference score puts them on similar footing. Recall that you can do a similar analysis with the `waic()` function.
 
-```{r}
-print(l_fit1)
-```
-
-You get a wealth of output, more of which can be seen with `str(l_fit1)`. First, notice the message "All Pareto k estimates are good (k < 0.5)." Pareto $k$ values can be [used for diagnostics](https://cran.r-project.org/web/packages/loo/vignettes/loo2-example.html#plotting-pareto-k-diagnostics). Each case in the data gets its own $k$ value and we like it when those $k$s are low. The makers of the loo package get worried when $k$ values exceed 0.7 and, as a result, `loo()` returns a warning message when they do. Happily, we have no such warning messages in this example.
-
-In the main section, we get estimates for the expected log predictive density (`elpd_loo`), the estimated effective number of parameters (`p_loo`), and the Pareto smoothed importance-sampling leave-one-out cross-validation (PSIS-LOO; `looic`). Each come with a standard error. Like other information criteria, the LOO values aren't of interest in and of themselves. However, the values of one model's LOO relative to that of another is of great interest. We generally prefer models with lower information criteria. With the `compare_ic()` function, we can compute a formal difference score between multiple loo objects.
-
-```{r}
-compare_ic(l_fit1, l_fit6, l_fit7, l_fit8)
-```
-
-Each difference score also comes with a standard error. In this case, `fit1` and `fit7` clearly have the lowest estimates, but the standard error of their difference score is about the same size as their difference. So the LOO difference score puts them on similar footing. You can do a similar analysis with the WAIC.
-
-In addition to difference-score comparisons, you can also use the LOO or WAIC for AIC-type model weighting. In brms, you do this with the `model_weights()` function.
+Let's compare that with the insights from the `model_weights()` function.
 
 ```{r}
 (mw <- model_weights(fit1, fit6, fit7, fit8))
@@ -1350,40 +1341,25 @@ If you don't like scientific notation, you can always wrangle and plot.
 
 ```{r, fig.width = 6, fig.height = 1.5}
 mw %>% 
-  as_data_frame() %>% 
+  as.data.frame() %>% 
   rownames_to_column() %>% 
+  set_names("fit", "estimate") %>% 
   
-  ggplot(aes(x = value, y = reorder(rowname, value))) +
-  geom_text(aes(label = value %>% round(3) %>% as.character())) +
+  ggplot(aes(x = estimate, y = reorder(fit, estimate))) +
+  geom_text(aes(label = estimate %>% round(3) %>% as.character())) +
   coord_cartesian(xlim = 0:1) +
   labs(x = "stacking weight",
        y = NULL) +
   theme(axis.ticks.y = element_blank())
 ```
 
-Based on this weighting scheme, almost all the weight was placed in the full model, `fit1`.  The `model_weights()` function offers a variety of weighting schemes via the `weights` argument. The default is  `loo2`, which entails stacking or pseudo-BMA weighting. For more on stacking and competing weighting schemes, see Vehtari and Gabry’s [*Bayesian Stacking and Pseudo-BMA weights using the loo package*](https://cran.r-project.org/web/packages/loo/vignettes/loo2-weights.html). To give a sense, you might use WAIC-type weighting like this.
-
-```{r, fig.width = 6, fig.height = 1.5}
-model_weights(fit1, fit6, fit7, fit8,
-              weights = "waic") %>% 
-  as_data_frame() %>% 
-  rownames_to_column() %>% 
-  
-  ggplot(aes(x = value, y = reorder(rowname, value))) +
-  geom_text(aes(label = value %>% round(3) %>% as.character())) +
-  coord_cartesian(xlim = 0:1) +
-  labs(x = "WAIC weight",
-       y = NULL) +
-  theme(axis.ticks.y = element_blank())
-```
-
-Both methods place the greatest weight on the full model. In the intro of their vignette, Vehtari and Gabry opined:
+Based on this weighting scheme, almost all the weight went to the full model, `fit1`. But note, in the intro of their vignette on the topic, Vehtari and Gabry opined:
 
 > Ideally, we would avoid the Bayesian model combination problem by extending the model to include the separate models as special cases, and preferably as a continuous expansion of the model space. For example, instead of model averaging over different covariate combinations, all potentially relevant covariates should be included in a predictive model (for causal analysis more care is needed) and a prior assumption that only some of the covariates are relevant can be presented with regularized horseshoe prior ([Piironen and Vehtari, 2017a](https://projecteuclid.org/euclid.ejs/1513306866)). For variable selection we recommend projective predictive variable selection (Piironen and Vehtari, 2017a; [projpred package](https://cran.r-project.org/web/packages/projpred/index.html)).
 
 Perhaps unsurprisingly, their thoughts on the topic are similar with the Gelman et al quotation Kruschke provided on page 536.
 
-> Some prominent authors eschew the variable-selection approach for typical applications in their fields. For example, Gelman et al. (2013, p. 369) said, "For the regressions we typically see, we do not believe any coefficients to be truly zero and we do not generally consider it a conceptual (as opposed to computational) advantage to get point estimates of zero—but regularized estimates such as obtained by lasso can be much better than those resulting from simple least squares and flat prior distributions ...we are not comfortable with an underlying model in which the coefficients can be exactly zero."
+> Some prominent authors eschew the variable-selection approach for typical applications in their fields. For example, [Gelman et al. (2013, p. 369)](http://www.stat.columbia.edu/~gelman/book/) said, "For the regressions we typically see, we do not believe any coefficients to be truly zero and we do not generally consider it a conceptual (as opposed to computational) advantage to get point estimates of zero—but regularized estimates such as obtained by lasso can be much better than those resulting from simple least squares and flat prior distributions ...we are not comfortable with an underlying model in which the coefficients can be exactly zero."
 
 For more on some of these methods, check out Vehtari's [modelselection_tutorial GitHub repository](https://github.com/avehtari/modelselection_tutorial).
 
@@ -1401,15 +1377,15 @@ posterior_samples(fit1) %>%
   gather() %>% 
   # within `bind_rows()`, we extract and wrangle the posterior draws from `fit7` and them insert them below those from `fit1`
   bind_rows(
-    posterior_samples(fit7) %>% 
+    posterior_samples(fit7) %>%
       transmute(value = make_beta_j(zeta_j = b_PrcntTake_z,
                                     sd_j   = sd_x_2,
                                     sd_y   = sd_y)) %>% 
       mutate(key = "PrcntTake")
   ) %>% 
   # now we just need a little indexing and factor ordering
-  mutate(model = rep(c("fit1", "fit7"), times = c(8000, 4000)),
-         key = factor(key, levels = c("Spend", "PrcntTake"))) %>% 
+  mutate(model = rep(c("fit1", "fit7"), times = c(8000, 4000)), 
+         key   = factor(key, levels = c("Spend", "PrcntTake"))) %>% 
   
   # we finally plot!
   ggplot(aes(x = value, fill = model)) +
@@ -1428,7 +1404,7 @@ posterior_samples(fit1) %>%
 
 To follow along, let's fit the models with the updated $SD = 1$ on the $\beta_{1+}$ priors code.
 
-```{r fit9_through_12, cache = T, message = F, warning = F}
+```{r fit9_through_12, cache = T, message = F, warning = F, results = "hide"}
 fit9 <-
   update(fit1,
          prior = c(prior(normal(0, 1), class = Intercept),
@@ -1436,60 +1412,54 @@ fit9 <-
                    prior(normal(0, 1), class = sigma),
                    prior(exponential(one_over_twentynine), class = nu)),
          chains = 4, cores = 4,
-         stanvars = stanvars)
+         stanvars = stanvar(1/29, name = "one_over_twentynine"),
+         seed = 18)
 
 fit10 <-
   update(fit9,
          formula = SATT_z ~ 1 + Spend_z,
-         chains = 4, cores = 4,
-         stanvars = stanvars)
+         seed = 18)
 
 fit11 <-
   update(fit9,
          formula = SATT_z ~ 1 + PrcntTake_z,
-         chains = 4, cores = 4,
-         stanvars = stanvars)
+         seed = 18)
 
 fit12 <-
   update(fit8,
          prior = c(prior(normal(0, 1), class = Intercept),
                    prior(normal(0, 1), class = sigma),
                    prior(exponential(one_over_twentynine), class = nu)),
-         chains = 4, cores = 4,
-         stanvars = stanvars)
+         seed = 18)
 ```
 
 And now we'll fit the models with the updated $SD = 10$.
 
-```{r fit13_through_16, cache = T, message = F, warning = F}
+```{r fit13_through_16, cache = T, message = F, warning = F, results = "hide"}
 fit13 <-
   update(fit9,
          prior = c(prior(normal(0, 10), class = Intercept),
                    prior(normal(0, 10), class = b),
                    prior(normal(0, 10), class = sigma),
                    prior(exponential(one_over_twentynine), class = nu)),
-         chains = 4, cores = 4,
-         stanvars = stanvars)
+         seed = 18)
 
 fit14 <-
   update(fit13,
          formula = SATT_z ~ 1 + Spend_z,
-         chains = 4, cores = 4,
-         stanvars = stanvars)
+         seed = 18)
 
 fit15 <-
   update(fit13,
          formula = SATT_z ~ 1 + PrcntTake_z,
-         chains = 4, cores = 4,
-         stanvars = stanvars)
+         seed = 18)
 
 fit16 <-
   update(fit12,
          prior = c(prior(normal(0, 10), class = Intercept),
                    prior(normal(0, 10), class = sigma),
                    prior(exponential(one_over_twentynine), class = nu)),
-         chains = 4, cores = 4,
-         stanvars = stanvars)
+         seed = 18)
 ```
 
 Now we've fit the models, we're ready to examine how altering the $SD$s on the $\beta_j$ priors influenced the model comparisons via `model_weights()`. Here we'll use the default stacking method.
@@ -1501,8 +1471,8 @@ mw %>%
   as_tibble() %>% 
   set_names("1, 1", "1, 0", "0, 1", "0, 0") %>% 
   gather() %>% 
-  mutate(prior = rep(c("SD = 2", "SD = 10", "SD = 1"), times = 4)) %>%
-  mutate(prior = factor(prior, levels = c("SD = 10", "SD = 2", "SD = 1"))) %>% 
+  mutate(prior = rep(c("SD = 2", "SD = 10", "SD = 1"), times = 4) %>% 
+           factor(., levels = c("SD = 10", "SD = 2", "SD = 1"))) %>% 
   
   ggplot(aes(x = value, y = reorder(key, value))) +
   geom_text(aes(label = value %>% round(3) %>% as.character())) +
@@ -1516,7 +1486,7 @@ mw %>%
 So unlike in the depictions in Figure 18.14, the stacking method was *insensitive* to the $SD$s on our $\beta_j$ priors. We might compare LOO difference scores, too.
 
 ```{r}
-compare_ic(l_fit1, l_fit6, l_fit7, l_fit8)
+loo(fit1, fit6, fit7, fit8)
 loo(fit9, fit10, fit11, fit12)
 loo(fit13, fit14, fit15, fit16)
 ```
@@ -1533,7 +1503,8 @@ posterior_samples(fit9) %>%
                                     sd_j   = sd_x_2,
                                     sd_y   = sd_y)) %>% 
   gather() %>% 
-  # within `bind_rows()`, we extract and wrangle the posterior draws from `fit11` and them insert them below those from `fit9`
+  # within `bind_rows()`, we extract and wrangle the posterior draws from `fit11` and 
+  # then insert them below those from `fit9`
   bind_rows(
     posterior_samples(fit11) %>% 
       transmute(value = make_beta_j(zeta_j = b_PrcntTake_z,
@@ -1544,7 +1515,7 @@ posterior_samples(fit9) %>%
   # now we just need a little indexing and factor ordering
   mutate(model = rep(c("fit9", "fit11"), times = c(8000, 4000)) %>% 
            factor(., levels = c("fit9", "fit11")),
-         key = factor(key, levels = c("Spend", "PrcntTake"))) %>%
+         key   = factor(key, levels = c("Spend", "PrcntTake"))) %>%
   
   # we finally plot!
   ggplot(aes(x = value, fill = model)) +
@@ -1579,7 +1550,7 @@ posterior_samples(fit13) %>%
   ) %>% 
   mutate(model = rep(c("fit13", "fit15"), times = c(8000, 4000)) %>% 
            factor(., levels = c("fit13", "fit15")),
-         key = factor(key, levels = c("Spend", "PrcntTake"))) %>%
+         key   = factor(key, levels = c("Spend", "PrcntTake"))) %>%
   
   ggplot(aes(x = value, fill = model)) +
   geom_histogram(color = "grey92",
@@ -1597,7 +1568,7 @@ Kurschke concluded this subsection with
 
 > Bayesian model comparison can be strongly affected by the degree of vagueness in the priors, even though explicit estimates of the parameter values may be minimally affected. Therefore, be very cautious when interpreting the results of Bayesian variable selection. The next section discusses a way to inform the prior by using concurrent data instead of previous data. (p. 542)
 
-We should note that while the method in text was "strongly affected by the degree of vagueness in the priors", the information-criteria method, above, was not. If you're interested in comparing models within the Bayesian paradigm, choose your method with care.
+We should note that while the method in text was "strongly affected by the degree of vagueness in the priors", the information-criteria and model weighting methods, above, were not. If you're interested in comparing models within the Bayesian paradigm, choose your method with care.
 
 ### Variable selection with hierarchical shrinkage.
 
@@ -1629,7 +1600,16 @@ gamma_s_and_r_from_mode_sd <- function(mode, sd) {
 Here are the values.
 
 ```{r}
-gamma_s_and_r_from_mode_sd(mode = 1, sd = 10) %>% str()
+(p <- gamma_s_and_r_from_mode_sd(mode = 1, sd = 10) %>% as.numeric())
+```
+
+```{r, fig.width = 4, fig.height = 2}
+tibble(x = seq(from = 0, to = 55, length.out = 1e3)) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = dgamma(x, p[1], p[2]))) +
+  geom_ribbon(size = 0, fill = "grey67") +
+  scale_y_continuous(NULL, breaks = NULL) +
+  xlab("Our gamma prior") +
+  coord_cartesian(xlim = 0:50)
 ```
 
 We can code those values in with arbitrary precision with the `stanvar()` function.
@@ -1637,8 +1617,8 @@ We can code those values in with arbitrary precision with the `stanvar()` functi
 ```{r}
 stanvars <- 
   stanvar(1/29, name = "one_over_twentynine") +
-  stanvar(gamma_s_and_r_from_mode_sd(mode = 1, sd = 10)[["shape"]], name = "my_shape") +
-  stanvar(gamma_s_and_r_from_mode_sd(mode = 1, sd = 10)[["rate"]],  name = "my_rate") +
+  stanvar(p[1], name = "my_shape") +
+  stanvar(p[2], name = "my_rate") +
   stanvar(scode = "  real<lower=0> tau;", block = "parameters")
 ```
 
@@ -1668,7 +1648,9 @@ fit_1111 <-
                 prior(normal(0, 1), class = sigma),
                 prior(exponential(one_over_twentynine), class = nu)),
       chains = 4, cores = 4,
-      stanvars = stanvars)
+      control = list(adapt_delta = .99),
+      stanvars = stanvars,
+      seed = 18)
 
 fit_0111 <-
   update(fit_1111,
@@ -1742,7 +1724,7 @@ vcov(fit_1111, correlation = T) %>%
 
 Once again, the HMC correlations differ from Kruschke's JAGS correlations. Moving on--behold the model weights.
 
-```{r mw_fit_1111_to_fit_0000, cache = T, message = F, warning = F}
+```{r mw_fit_1111_through_fit_0000, cache = T, message = F, warning = F}
 (
   mw <-
   model_weights(fit_1111, 
@@ -1757,11 +1739,12 @@ We'll plot our model weights like before.
 
 ```{r, fig.width = 6, fig.height = 4}
 mw %>% 
-  as_data_frame() %>% 
+  as.data.frame() %>% 
   rownames_to_column() %>% 
+  set_names("fit", "weight") %>% 
   
-  ggplot(aes(x = value, y = reorder(rowname, value))) +
-  geom_text(aes(label = value %>% round(4) %>% as.character()),
+  ggplot(aes(x = weight, y = reorder(fit, weight))) +
+  geom_text(aes(label = weight %>% round(3) %>% as.character()),
             size = 3) +
   coord_cartesian(xlim = 0:1) +
   labs(x = "Stacking weight",
@@ -1811,15 +1794,6 @@ posterior_samples(fit_0100) %>%
       gather() %>% 
       mutate(fit = "fit_1100")
     )  %>% 
-  # fit_1000
-  bind_rows(
-    posterior_samples(fit_1000) %>% 
-      transmute(Spend     = make_beta_j(zeta_j = b_Spend_z,
-                                        sd_j   = sd_x_1,
-                                        sd_y   = sd_y)) %>% 
-      gather() %>% 
-      mutate(fit = "fit_1000")
-    )  %>% 
   # fit_0001
   bind_rows(
     posterior_samples(fit_0001) %>% 
@@ -1829,21 +1803,30 @@ posterior_samples(fit_0100) %>%
       gather() %>% 
       mutate(fit = "fit_0001")
     )  %>% 
-  # fit_0101
+  # fit_1000
   bind_rows(
-    posterior_samples(fit_0101) %>% 
-      transmute(PrcntTake = make_beta_j(zeta_j = b_PrcntTake_z,
-                                        sd_j   = sd_x_2,
-                                        sd_y   = sd_y),
-                Salary    = make_beta_j(zeta_j = b_Salary_z,
-                                        sd_j   = sd_x_4,
+    posterior_samples(fit_1000) %>% 
+      transmute(Spend     = make_beta_j(zeta_j = b_Spend_z,
+                                        sd_j   = sd_x_1,
                                         sd_y   = sd_y)) %>% 
       gather() %>% 
-      mutate(fit = "fit_0101")
+      mutate(fit = "fit_1000")
+    )  %>% 
+  # fit_1010
+  bind_rows(
+    posterior_samples(fit_1010) %>% 
+      transmute(Spend     = make_beta_j(zeta_j = b_Spend_z,
+                                        sd_j   = sd_x_1,
+                                        sd_y   = sd_y),
+                StuTeaRat = make_beta_j(zeta_j = b_StuTeaRat_z,
+                                        sd_j   = sd_x_3,
+                                        sd_y   = sd_y)) %>% 
+      gather() %>% 
+      mutate(fit = "fit_1010")
     ) %>% 
   # the next two lines just help order the grid the plots appear in
   mutate(key = factor(key, levels = c("Spend", "PrcntTake", "StuTeaRat", "Salary")),
-         fit = factor(fit, levels = c("fit_0100", "fit_0111", "fit_1100", "fit_1000", "fit_0001", "fit_0101"))) %>%
+         fit = factor(fit, levels = c("fit_0100", "fit_0111", "fit_1100", "fit_0001", "fit_1000", "fit_1010"))) %>%
   
   # finally, the plot!
   ggplot(aes(x = value, fill = fit)) +
@@ -1858,7 +1841,7 @@ posterior_samples(fit_0100) %>%
   facet_grid(fit~key, scales = "free")
 ```
 
-Like Kruschke's results in the text, the most likely predictor based on our top six models was `PrcntTake`. Unlike Kruschke's results, our second most likely predictor was `Salary`, with `Spend` ending up third.
+Like Kruschke's results in the text, `PrcntTake` was the most prominant predictor.
 
 ### What to report and what to conclude.
 
@@ -1866,13 +1849,13 @@ Kruschke made a great point in the opening paragraph of this subsection.
 
 > It might make sense to use the single most credible model, especially if it is notably more credible than the runner up, and if the goal is to have a parsimonious explanatory description of the data. But it is important to recognize that using the single best model, when it excludes some predictors, is concluding that the regression coefficients on the excluded predictors are exactly zero. (p. 546)
 
-Later he added "A forthright report should state the posterior probabilities of the several top models. Additionally, it can be useful to report, for each model, the ratio of its posterior probability relative to that of the best model" (p. 546). Pragmatically speaking, I suspect that for a lot of manuscripts this is probably only feasible in supplementary materials. 
+Later he added "A forthright report should state the posterior probabilities of the several top models. Additionally, it can be useful to report, for each model, the ratio of its posterior probability relative to that of the best model" (p. 546). With our information criteria and model weights approach, we don't have posterior probabilities for the models themselves. But we can report on their information criteria comparisons and weights. 
 
 In the final paragraph of the subsection, Kruschke wrote:
 
 > When the goal is prediction of $y$ for interesting values of the predictors, as opposed to parsimonious explanation, then it is usually not appropriate to use only the single most probable model. Instead, predictions should be based on as much information as possible, using all models to the extent that they are credible. This approach is called Bayesian model averaging (BMA). (p. 547)
 
-It's worth it to walk this out a bit. In brms, one can use `brms::pp_average()` to get the weighted posterior distributions for the model parameters. 
+It's worth it to walk this out a bit. In brms, one can use `brms::pp_average()` to get the weighted posterior distributions for the model parameters. This is a natural extension of our model weights comparisons. 
 
 ```{r pp_average_1, cache = T, warning = F}
 # how many points on the x-axis?
@@ -1880,10 +1863,10 @@ n_points <- 30
 
 # what vales of the predictors would we like to evaluate the weighted posterior over?
 nd <-
-  tibble(Spend_z = seq(from = -3, to = 3, length.out = n_points),
+  tibble(Spend_z     = seq(from = -3, to = 3, length.out = n_points),
          PrcntTake_z = 0, 
          StuTeaRat_z = 0, 
-         Salary_z = 0)
+         Salary_z    = 0)
 
 pp <-
   # the first things we feed into `pp_average()` are the `brm()` fits we'd like to average over
@@ -1921,14 +1904,17 @@ n_points <- 30
 # what vales of the predictors would we like to evaluate the weighted posterior over?
 nd <-
   tibble(Spend_z     = c(seq(from = -3, to = 3, length.out = n_points),
-                         rep(0, times = n_points*3)),
+                         rep(0, times = n_points * 3)),
+         
          PrcntTake_z = c(rep(0, times = n_points),
                          seq(from = -3, to = 3, length.out = n_points),
-                         rep(0, times = n_points*2)), 
-         StuTeaRat_z = c(rep(0, times = n_points*2),
+                         rep(0, times = n_points * 2)), 
+         
+         StuTeaRat_z = c(rep(0, times = n_points * 2),
                          seq(from = -3, to = 3, length.out = n_points),
                          rep(0, times = n_points)), 
-         Salary_z    = c(rep(0, times = n_points*3),
+         
+         Salary_z    = c(rep(0, times = n_points * 3),
                          seq(from = -3, to = 3, length.out = n_points)))
 
 pp <-
@@ -1967,6 +1953,16 @@ pp %>%
   facet_grid(predictor ~ ., scales = "free")
 ```
 
+Based on the weighted average across the models, the `PrcntTake_z` predictor was the pmost potent.
+
+### Caution: Computational methods.
+
+> To conclude this section regarding variable selection, it is appropriate to recapitulate the considerations at the beginning of the section. Variable selection is a reasonable approach only if it is genuinely plausible and meaningful that candidate predictors have zero relation to the predicted variable. The results can be surprisingly sensitive to the seemingly innocuous choice of prior for the regression coefficients, and, of course, the prior for the inclusion probability. Because of these limitations, hierarchical shrinkage priors may be a more meaningful approach. (p. 548)
+
+### Caution: Interaction variables.
+
+> When interaction terms are included in a model that also has hierarchical shrinkage on regression coefficients, the interaction coefficients should not be put under the same higher-level prior distribution as the individual component coefficients, because interaction coefficients are conceptually from a different class of variables than individual components. (pp. 548--549)
+
 ## References {-}
 
 Kruschke, J. K. (2015). *Doing Bayesian data analysis, Second Edition: A tutorial with R, JAGS, and Stan.* Burlington, MA: Academic Press/Elsevier.
@@ -1977,11 +1973,10 @@ Kruschke, J. K. (2015). *Doing Bayesian data analysis, Second Edition: A tutoria
 sessionInfo()
 ```
 
-```{r, message = F, warning = F, echo = F}
+```{r, echo = F}
 # Here we'll remove our objects
-rm(n, d, mus, sds, cors, covs, my_data, standardize, stanvars, fit1, post, make_beta_0, make_beta_j, sd_x_1, sd_x_2, sd_y, m_x_1, m_x_2, m_y, percent_take, fit2, sd_x_3, m_x_3, prior, fit3, spend_slope, percent_take_slope, fit4, sd_x_4, sd_x_5, sd_x_6, sd_x_7, sd_x_8, sd_x_9, sd_x_10, sd_x_11, sd_x_12, sd_x_13, sd_x_14, m_x_4, m_x_5, m_x_6, m_x_7, m_x_8, m_x_9, m_x_10, m_x_11, m_x_12, m_x_13, m_x_13, fit5, fit6, fit7, fit8, l_fit1, l_fit6, l_fit7, l_fit8, mw, fit9, fit10, fit11, fit12, fit13, fit14, fit15, fit16, gamma_s_and_r_from_mode_sd, fit_1111, fit_0111, fit_1011, fit_1101, fit_1110, fit_0011, fit_0101, fit_0110, fit_1001, fit_1010, fit_1100, fit_0001, fit_0010, fit_0100, fit_1000, fit_0000, n_points, nd, pp)
+rm(n, d, mus, sds, cors, covs, my_data, standardize, stanvars, fit1, post, make_beta_0, make_beta_j, sd_x_1, sd_x_2, sd_y, m_x_1, m_x_2, m_y, percent_take, fit2, sd_x_3, m_x_3, prior, fit3, fit4, sd_x_4, sd_x_5, sd_x_6, sd_x_7, sd_x_8, sd_x_9, sd_x_10, sd_x_11, sd_x_12, sd_x_13, sd_x_14, m_x_4, m_x_5, m_x_6, m_x_7, m_x_8, m_x_9, m_x_10, m_x_11, m_x_12, m_x_13, fit5, fit6, fit7, fit8, mw, fit9, fit10, fit11, fit12, fit13, fit14, fit15, fit16, gamma_s_and_r_from_mode_sd, fit_1111, fit_0111, fit_1011, fit_1101, fit_1110, fit_0011, fit_0101, fit_0110, fit_1001, fit_1010, fit_1100, fit_0001, fit_0010, fit_0100, fit_1000, fit_0000, n_points, nd, pp)
 
 theme_set(theme_grey())
 ```
-
 
