@@ -120,19 +120,19 @@ d %>%
 
 ## Traditional analysis of variance
 
-> The terminology, “analysis of variance,” comes from a decomposition of overall data variance into within-group variance and between-group variance ([Fisher, 1925](http://psycnet.apa.org/record/1925-15003-000)). Algebraically, the sum of squared deviations of the scores from their overall mean equals the sum of squared deviations of the scores from their respective group means plus the sum of squared deviations of the group means from the overall mean. In other words, the total variance can be partitioned into within-group variance plus between-group variance. Because one definition of the word “analysis” is separation into constituent parts, the term ANOVA accurately describes the underlying algebra in the traditional methods. That algebraic relation is not used in the hierarchical Bayesian approach presented here. The Bayesian method can estimate component variances, however. Therefore, the Bayesian approach is not ANOVA, but is analogous to ANOVA. (p. 556)
+> The terminology, "analysis of variance," comes from a decomposition of overall data variance into within-group variance and between-group variance ([Fisher, 1925](http://psycnet.apa.org/record/1925-15003-000)). Algebraically, the sum of squared deviations of the scores from their overall mean equals the sum of squared deviations of the scores from their respective group means plus the sum of squared deviations of the group means from the overall mean. In other words, the total variance can be partitioned into within-group variance plus between-group variance. Because one definition of the word "analysis" is separation into constituent parts, the term ANOVA accurately describes the underlying algebra in the traditional methods. That algebraic relation is not used in the hierarchical Bayesian approach presented here. The Bayesian method can estimate component variances, however. Therefore, the Bayesian approach is not ANOVA, but is analogous to ANOVA. (p. 556)
 
 ## Hierarchical Bayesian approach
 
-"Our goal is to estimate its parameters in a Bayesian framework. Therefore, all the parameters need to be given a meaningfully structured prior distribution" (p. 557). However, our approach will depart a little from the one in the text. All our parameters will **not** "have generic noncommittal prior distributions" (p. 557). Most importantly, we will not follow the example in [Gelman (2006)](http://www.stat.columbia.edu/~gelman/research/published/taumain.pdf) of putting a broad uniform prior on $\sigma_y$. Rather, we will continue using the half-Gaussian prior, as [recommended by the Stan team](https://github.com/stan-dev/stan/wiki/Prior-Choice-Recommendations). However, we will follow Kruschke's lead for the overall intercept and use a Gaussian prior "made broad on the scale of the data" (p. 557). And like Kruschke, we will estimate $\sigma_{\beta}$ from the data.
+"Our goal is to estimate its parameters in a Bayesian framework. Therefore, all the parameters need to be given a meaningfully structured prior distribution" (p. 557). However, our approach will depart a little from the one in the text. All our parameters will **not** "have generic noncommittal prior distributions" (p. 557). Most importantly, we will not follow the example in [Gelman (2006)](http://www.stat.columbia.edu/~gelman/research/published/taumain.pdf) of putting a broad uniform prior on $\sigma_y$. Rather, we will continue using the half-Gaussian prior, as [recommended by the Stan team](https://github.com/stan-dev/stan/wiki/Prior-Choice-Recommendations). However, we will follow Kruschke's lead for the overall intercept and use a Gaussian prior "made broad on the scale of the data" (p. 557). And like Kruschke, we will estimate $\sigma_\beta$ from the data.
 
 Later on, Kruschke opined
 
-> A crucial pre-requisite for estimating σβ from all the groups is an assumption that all the groups are representative and informative for the estimate. It only makes sense to influence the estimate of one group with data from the other groups if the groups can be meaningfully described as representative of a shared higher-level distribution. (p. 559)
+> A crucial pre-requisite for estimating $\sigma_\beta$ from all the groups is an assumption that all the groups are representative and informative for the estimate. It only makes sense to influence the estimate of one group with data from the other groups if the groups can be meaningfully described as representative of a shared higher-level distribution. (p. 559)
 
 Although I agree with him in spirit, this doesn't appear to strictly be the case. As odd and paradoxical as this sounds, partial pooling can be of use even when the some of the cases are of a different kind. For more on the topic, see [Efron and Morris's classic paper](http://statweb.stanford.edu/~ckirby/brad/other/Article1977.pdf) and [my project](https://github.com/ASKurz/James-Stein-and-Bayesian-partial-pooling) walking out one of their examples in brms.
 
-### Implementation in ~~JAGS~~ brms
+### Implementation in ~~JAGS~~ brms.
 
 The brms setup, of course, differs a bit from JAGS.
 
@@ -149,7 +149,7 @@ fit <-
 
 The noise standard deviation $\sigma_y$ is depicted in the prior statement at with the `class` argument set to `sigma`. The grand mean is depicted by the first `1` in the modle formula and its prior is indicated by the `class = Intercept` argument. We indicate we'd like group-based deviations from the grand mean with the `(1 | categirical_variable)` syntax, where the `1` on the left side of the bar indicates we'd like our intercepts to vary by group and the `categirical_variable` part simply representing the name of a given categorical variable we'd like those intercepts to vary by. The brms default is to do this with deviance scores, the mean for which will be zero. Although it's not obvious in the formula syntax, the model presumes the group-based deviations are normally distributed with a mean of zero and a standard deviation, which Kruschke termed $\sigma_\beta$. There is no prior for the mean. It's set at zero. But there is a prior for $\sigma_\beta$, which is denoted by the argument `class = sd`. We, of course, are not using a uniform prior on any of our variance parameters. But in order to be weakly informative, we will use the half-Cauchy. Recall that since the brms default is to set the lower bound for any variance parameter to 0, there's no need to worry about doing so ourselves. So even though the syntax only indicates `cauchy`, it's understood to mean Cauchy with a lower bound at zero; since the mean is usually 0, that makes is a half-Cauchy. 
 
-Kruschke set the upper bound for his $\sigma_y$ to 10 times the standard deviation of the criterion variable. The tails of the half-Cauchy are sufficiently fat that, in practice, I've found it doesn't matter much what you set the SD of its prior to. One is often a sensible default for reasonably scaled data. But if we want to taka a more principled approach, we can set it to the size of the criterion's $SD$ or perhaps even 10 times that.
+Kruschke set the upper bound for his $\sigma_y$ to 10 times the standard deviation of the criterion variable. The tails of the half-Cauchy are sufficiently fat that, in practice, I've found it doesn't matter much what you set the $SD$ of its prior to. One is often a sensible default for reasonably scaled data. But if we want to taka a more principled approach, we can set it to the size of the criterion's $SD$ or perhaps even 10 times that.
 
 Kruschke suggested using a gamma on $\sigma_\beta$, which is a sensible alternative to half-Cauchy often used within the Stan universe. Especially in situations in which you would like to (a) keep the variance parameter above zero, but (b) still allow it to be arbitrarily close to zero, and also (c) let the likelihood dominate the posterior, the Stan team recommends the gamma(2, 0) prior, based on the [paper by Chung and colleagues](http://www.stat.columbia.edu/~gelman/research/published/chung_etal_Pmetrika2013.pdf). But you should note that I don't mean a literal 0 for the second parameter in the gamma distribution, but rather some small value like 0.1 or so. This is all clarified in [Chung et al](http://www.stat.columbia.edu/~gelman/research/published/chung_etal_Pmetrika2013.pdf). Here's what gamma(2, 0.1) looks like. 
 
@@ -159,7 +159,7 @@ tibble(x = seq(from = 0, to = 110, by = .1)) %>%
   ggplot(aes(x    = x,
              ymin = 0,
              ymax = dgamma(x, 2, .1))) +
-  geom_ribbon() +
+  geom_ribbon(size = 0, fill = "grey67") +
   scale_y_continuous(NULL, breaks = NULL) +
   coord_cartesian(xlim = 0:100) +
   theme(panel.grid = element_blank())
@@ -196,18 +196,18 @@ tibble(x = seq(from = 0, to = 50, by = .01)) %>%
   ggplot(aes(x    = x,
              ymin = 0,
              ymax = dgamma(x, s_r$shape, s_r$rate))) +
-  geom_ribbon() +
-  scale_x_continuous(breaks = c(0, 1, 5, 10)) +
+  geom_ribbon(size = 0, fill = "grey67") +
+  scale_x_continuous(breaks = c(0, 1, 5, 10, 20)) +
   scale_y_continuous(NULL, breaks = NULL) +
-  coord_cartesian(xlim = 0:10) +
+  coord_cartesian(xlim = 0:20) +
   theme(panel.grid = element_blank())
 ```
 
 In the parameter space that matters, from zero to one, that gamma is pretty noninformative. It peaks between the two, slopes very gently rightward, but has the nice steep slope on the left keeping the estimates off the zero boundary. And even though that right slope is very gentle given the scale of the data, it’s aggressive enough that it should keep the MCMC chains from spending a lot of time in ridiculous parts of the parameter space. I.e., when working with finite numbers of iterations, we want our MCMC chains wasting exactly zero iterations investigating what the density might be for $\sigma_\beta \approx 1e10$ for standardized data.
 
-### Example: Sex and death
+### Example: Sex and death.
 
-Let's load and `glimpse()` at the data.
+Let's load and `glimpse()` at the fruit fly data.
 
 ```{r, message = F}
 my_data <- read_csv("data.R/FruitflyDataReduced.csv")
@@ -217,7 +217,7 @@ glimpse(my_data)
 
 We can use `geom_density_ridges()` to help get a sense of how our criterion `Longevity` is distributed across groups of `CompanionNumber`.
 
-```{r, fig.width = 6, fig.height = 2.5}
+```{r, fig.width = 6, fig.height = 2.5, message = F}
 my_data %>% 
   group_by(CompanionNumber) %>% 
   mutate(group_mean = mean(Longevity)) %>% 
@@ -260,19 +260,19 @@ stanvars <-
   stanvar(s_r$rate,  name = "beta")
 ```
 
-Now fit the model, our hierarchical Bayesian alternative to ANOVA.
+Now fit the model, our hierarchical Bayesian alternative to an ANOVA.
 
 ```{r fit1, cache = T, message = F, warning = F}
 fit1 <-
   brm(data = my_data,
       family = gaussian,
       Longevity ~ 1 + (1 | CompanionNumber),
-      prior = c(prior(normal(mean_y, sd_y * 10), class = Intercept),
+      prior = c(prior(normal(mean_y, sd_y * 5), class = Intercept),
                 prior(gamma(alpha, beta), class = sd),
                 prior(cauchy(0, sd_y), class = sigma)),
       iter = 4000, warmup = 1000, chains = 4, cores = 4,
       seed = 19,
-      control = list(adapt_delta = 0.999),
+      control = list(adapt_delta = 0.99),
       stanvars = stanvars)
 ``` 
 
@@ -301,13 +301,13 @@ Here's the model summary.
 print(fit1)
 ```
 
-Here are the summaries of the group-specific deflections.
+With the `ranef()` function, we can get the summaries of the group-specific deflections.
 
 ```{r}
 ranef(fit1)
 ```
 
-And here are those same group-level summaries in a non-deflection metric.
+And with the `coef()` function, we can get those same group-level summaries in a non-deflection metric.
 
 ```{r}
 coef(fit1)
@@ -408,7 +408,7 @@ densities %>%
   # pretty much everything below this line is aesthetic fluff
   scale_x_continuous(breaks = seq(from = 0, to = 100, by = 25)) +
   coord_cartesian(xlim = 0:110,
-                  ylim = c(1.25, 5.5)) +
+                  ylim = c(1.25, 5.25)) +
   labs(title = "Data with Posterior Predictive Distrib.", 
        y = NULL) +
   theme(axis.ticks.y = element_blank(),
@@ -421,7 +421,7 @@ To return to the more substantive interpretation, the top panel of
 
 > Figure 19.3 suggests that the normal distributions with homogeneous variances appear to be reasonable descriptions of the data. There are no dramatic outliers relative to the posterior predicted curves, and the spread of the data within each group appears to be reasonably matched by the width of the posterior normal curves. (Be careful when making visual assessments of homogeneity of variance because the visual spread of the data depends on the sample size; for a reminder see the right panel of Figure 15.9, p. 442.) The range of credible group means, indicated by the peaks of the normal curves, suggests that the group Virgin8 is clearly lower than the others, and the group Virgin1 might be lower than the controls. To find out for sure, we need to examine the differences of group means, which we do in the next section. (p. 564)
 
-### Contrasts
+### Contrasts.
 
 > It is straight forward to examine the posterior distribution of credible differences. Every step in the MCMC chain provides a combination of group means that are jointly credible, given the data. Therefore, every step in the MCMC chain provides a credible difference between groups...
 >
@@ -532,14 +532,31 @@ differences %>%
 
 > In traditional ANOVA, analysts often perform a so-called omnibus test that asks whether it is plausible that all the groups are simultaneously exactly equal. I find that the omnibus test is rarely meaningful, however.... In the hierarchical Bayesian estimation used here, there is no direct equivalent to an omnibus test in ANOVA, and the emphasis is on examining all the meaningful contrasts. (p. 567)
 
-If you really wanted to, I suppose one rough analogue would be to use information criteria to compare the hierarchical model to one that includes a single intercept with no group-level deflections. Here’s what the simpler model would look like.
+Speaking of all meaningful contrasts, if you’d like to make all pairwise comparisons in a hierarchical model of this form, [tidybayes offers a convenient way to do so](https://mjskay.github.io/tidybayes/articles/tidy-brms.html). Here we’ll demonstrate with `geom_halfeyeh()`.
+
+```{r, fig.height = 4.5, fig.width = 6}
+fit1 %>%
+  # these two lines are where the magic is at
+  spread_draws(r_CompanionNumber[CompanionNumber,]) %>%
+  compare_levels(r_CompanionNumber, by = CompanionNumber) %>%
+  
+  ggplot(aes(x = r_CompanionNumber, y = CompanionNumber)) +
+  geom_vline(xintercept = 0, color = "white") +
+  geom_halfeyeh(point_interval = mode_hdi, .width = c(.95, .5)) +
+  labs(x = "Contrast",
+       y = NULL) +
+  theme(axis.ticks.y = element_blank(),
+        axis.text.y  = element_text(hjust = 0))
+```
+
+But back to that omnibus test notion. If you really wanted to, I suppose one rough analogue would be to use information criteria to compare the hierarchical model to one that includes a single intercept with no group-level deflections. Here’s what the simpler model would look like.
 
 ```{r fit1_without_deflections, cache = T, message = F, warning = F}
 fit1_without_deflections <-
   brm(data = my_data,
       family = gaussian,
       Longevity ~ 1,
-      prior = c(prior(normal(mean_y, sd_y * 10), class = Intercept),
+      prior = c(prior(normal(mean_y, sd_y * 5), class = Intercept),
                 prior(cauchy(0, sd_y), class = sigma)),
       iter = 4000, warmup = 1000, chains = 4, cores = 4,
       seed = 19,
@@ -571,7 +588,7 @@ mw %>%
   round(digits = 3)
 ```
 
-Yep, in complimenting the LOO difference, virtually all the stacking weight went to the hierarchical model. You might think of this another way. The conceptual question we're asking is does it make sense to say that the $\sigma_\beta$ parameter is zero. Is zero a credible value? We'll, I suppose we could just look at the posterior to assess for that.
+Yep, in complimenting the LOO difference, virtually all the stacking weight went to the hierarchical model. You might think of this another way. The conceptual question we're asking is *Does it make sense to say that the* $\sigma_\beta$ *parameter is zero? Is zero a credible value?* We'll, I suppose we could just look at the posterior to assess for that.
 
 ```{r, fig.width = 4, fig.height = 2.5}
 post %>% 
@@ -589,7 +606,7 @@ post %>%
 
 Yeah, zero and other values close to zero don't look credible for that parameter. 95% of the mass is between 5 and 30, with the bulk hovering around 10. We don't need an $F$-test or even a LOO model comparison to see the writing on wall.
 
-### Multiple comparisons and shrinkage
+### Multiple comparisons and shrinkage.
 
 > The previous section suggested that an analyst should investigate all contrasts of interest. This recommendation can be thought to conflict with traditional advice in the context on null hypothesis significance testing, which instead recommends that a minimal number of comparisons should be conducted in order to maximize the power of each test while keeping the overall false alarm rate capped at 5% (or whatever maximum is desired).... Instead, a Bayesian analysis can mitigate false alarms by incorporating prior knowledge into the model. In particular, hierarchical structure (which is an expression of prior knowledge) produces shrinkage of estimates, and shrinkage can help rein in estimates of spurious outlying data. For example, in the posterior distribution from the fruit fly data, the modal values of the posterior group means have a range of 23.2. The sample means of the groups have a range of 26.1. Thus, there is some shrinkage in the estimated means. The amount of shrinkage is dictated only by the data and by the prior structure, not by the intended tests. (p. 568)
 
@@ -607,7 +624,7 @@ For our hierarchical model `fit1`, the posterior means are rank ordered in the s
 ```{r}
 coef(fit1)$CompanionNumber[, , "Intercept"] %>% 
   data.frame() %>% 
-  rownames_to_column() %>% 
+  rownames_to_column(var = "companion_number") %>% 
   arrange(Estimate) %>% 
   mutate_if(is.double, round, digits = 1)
 ```
@@ -620,7 +637,7 @@ coef(fit1)$CompanionNumber[, , "Intercept"] %>%
   summarise(range = max(Estimate) - min(Estimate))
 ```
 
-But this isn't fully Bayesian of us. Those means and their difference carry uncertainty with them and that uncertainty can be fully expressed if we use all the posterior samples.
+But this isn't fully Bayesian of us. Those means and their difference carry uncertainty with them and that uncertainty can be fully expressed if we use all the posterior draws (i.e., use `summary = F` and wrangle).
 
 ```{r}
 coef(fit1, summary = F)$CompanionNumber[, , "Intercept"] %>% 
@@ -631,7 +648,7 @@ coef(fit1, summary = F)$CompanionNumber[, , "Intercept"] %>%
 
 Happily, the central tendency of the range is near equivalent with both methods, but now we have 95% intervals, too. Do note how wide they are.
 
-### The two-group case
+### The two-group case.
 
 > A special case of our current scenario is when there are only two groups. The model of the present section could, in principle, be applied to the two-group case, but the hierarchical structure would do little good because there is virtually no shrinkage when there are so few groups (and the top-level prior on $\sigma_\beta$ is broad as assumed here). (p. 568)
 
@@ -643,7 +660,8 @@ fit2 <-
          newdata = my_data %>% 
            filter(CompanionNumber %in% c("Pregnant1", "Virgin8")),
          control = list(adapt_delta = 0.999,
-                        max_treedepth = 12))
+                        max_treedepth = 12),
+         seed = 19)
 ```
 
 Even with just two groups, there were no gross issues with fitting the model.
@@ -672,14 +690,14 @@ And indeed, the range between the two groups is larger. Now the posterior mode f
 
 >  That is why the two-group model in Section 16.3 did not use hierarchical structure, as illustrated in Figure 16.11 (p. 468). That model also used a $t$ distribution to accommodate outliers in the data, and that model allowed for heterogeneous variances across groups. Thus, for two groups, it is more appropriate to use the model of Section 16.3. The hierarchical multi-group model is generalized to accommodate outliers and heterogeneous variances in Section 19.5. (p. 568)
 
-As a refresher, here's what the brms code for that chapter 16 model looked like.
+As a refresher, here's what the brms code for that Chapter 16 model looked like.
 
 ```{r, eval = F}
 fit3 <-
   brm(data = my_data,
       family = student,
       bf(Score ~ 0 + Group, sigma ~ 0 + Group),
-      prior = c(prior(normal(mean_y, sd_y*100), class = b),
+      prior = c(prior(normal(mean_y, sd_y*10), class = b),
                 prior(normal(0, log(sd_y)), class = b, dpar = sigma),
                 prior(exponential(one_over_twentynine), class = nu)),
       chains = 4, cores = 4,
@@ -779,7 +797,7 @@ And the $j$ subscript, recall, denotes group membership. In this context, it oft
 >$$
 > (pp. 569--570)
 
-### Example: Sex, death, and size
+### Example: Sex, death, and size.
 
 Kruschke recalled `fit1`'s estimate for $\sigma_y$ had a posterior mode around 14.8. Let's confirm with a plot.
 
@@ -870,7 +888,7 @@ dif %>%
 
 If you want a quick and dirty plot of the relation between `Thorax_c` and `Longevity`, you can use  `brms::marginal_effects()`.
 
-```{r, fig.width = 2.75, fig.height = 3}
+```{r, fig.width = 3, fig.height = 3}
 marginal_effects(fit4)
 ```
 
@@ -881,21 +899,21 @@ But to make plots like the ones at the top of Figure 19.5, we'll have to work a 
 mean(r)
 ```
 
-Next, we'll make the data necessary for our side-tipped Gaussians. For kicks and giggles, we'll choose 80 draws, instead of 20. But do note how we used our `r` values, from above, so specify both `Thorax` and `Thorax_c` values in addition to the `CompanionNumber` categories for the `newdata` argument. Otherwise, this workflow is very much the same as in previous plots.
+Next, we'll make the data necessary for our side-tipped Gaussians. For kicks and giggles, we'll choose 80 draws instead of 20. But do note how we used our `r` values, from above, to specify both `Thorax` and `Thorax_c` values in addition to the `CompanionNumber` categories for the `newdata` argument. Otherwise, this workflow is very much the same as in previous plots.
 
 ```{r}
 n_draws <- 80
 
 densities <-
   tibble(Thorax = c(r[1], mean(r), r[2])) %>% 
-  mutate(Thorax_c = Thorax - mean(my_data$Thorax)) %>% 
-  expand(CompanionNumber = distinct(my_data, CompanionNumber),
-         nesting(Thorax, Thorax_c)) %>% 
+  mutate(Thorax_c = Thorax - mean(my_data$Thorax)) %>%
+  expand(nesting(Thorax, Thorax_c),
+         CompanionNumber = distinct(my_data, CompanionNumber)) %>% 
   add_fitted_draws(fit4, n = n_draws, seed = 19, dpar = c("mu", "sigma")) %>%
   mutate(ll = qnorm(.025, mean = mu, sd = sigma),
          ul = qnorm(.975, mean = mu, sd = sigma)) %>% 
   mutate(Longevity = map2(ll, ul, seq, length.out = 100)) %>% 
-  mutate(density = pmap(list(Longevity, mu, sigma), dnorm)) %>% 
+  mutate(density   = pmap(list(Longevity, mu, sigma), dnorm)) %>% 
   unnest()
 
 glimpse(densities)
@@ -907,8 +925,8 @@ Here, we'll use a simplified workflow to extract the `fitted()` values in order 
 f <-
   tibble(Thorax = c(.4, 1.2)) %>% 
   mutate(Thorax_c = Thorax - mean(my_data$Thorax)) %>% 
-  expand(CompanionNumber = distinct(my_data, CompanionNumber),
-         nesting(Thorax, Thorax_c)) %>% 
+  expand(nesting(Thorax, Thorax_c),
+         CompanionNumber = distinct(my_data, CompanionNumber)) %>% 
   add_fitted_draws(fit4, n = n_draws, seed = 19, value = "Longevity")
 
 glimpse(f)
@@ -939,7 +957,7 @@ densities %>%
   facet_wrap(~CompanionNumber, ncol = 5)
 ```
 
-Now we have a covariate in the model, we have to decide on which of its values we want to base our group comparisons. Unless there's a substantive reason for another value, the mean is a standard choice. And since the covariate `Thorax_c` is already mean centered, that means we can effectively leave it out of the equation. Here they are in the simple difference metric.
+Now we have a covariate in the model, we have to decide on which of its values we want to base our group comparisons. Unless there's a substantive reason for another value, the mean is a good standard choice. And since the covariate `Thorax_c` is already mean centered, that means we can effectively leave it out of the equation. Here they are in the simple difference metric.
 
 ```{r, fig.width = 8, fig.height = 2.5}
 post <- posterior_samples(fit4)
@@ -968,7 +986,7 @@ differences %>%
   facet_wrap(~key, scales = "free_x", ncol = 4)
 ```
 
-Now in the effect size metric.
+Now we'll look at the differences in the effect size metric. Since we saved our work above, it's really easy to just convert the differences in bulk with `mutate_all()`.
 
 ```{r, fig.width = 8, fig.height = 2.5}
 differences %>% 
@@ -988,28 +1006,28 @@ differences %>%
 
 "The HDI widths of all the contrasts have gotten smaller by virtue of including the covariate in the analysis" (p. 571).
 
-### Analogous to traditional ANCOVA
+### Analogous to traditional ANCOVA.
 
 In contrast with ANCOVA,
 
 > Bayesian methods do not partition the least-squares variance to make estimates, and therefore the Bayesian method is analogous to ANCOVA but is not ANCOVA. Frequentist practitioners are urged to test (with $p$ values) whether the assumptions of (a) equal slope in all groups, (b) equal standard deviation in all groups, and (c) normally distributed noise can be rejected. In a Bayesian approach, the descriptive model is generalized to address these concerns, as will be discussed in Section 19.5. (p. 572)
 
-### Relation to hierarchical linear regression
+### Relation to hierarchical linear regression.
 
-Here Kruschke contrasts our last model with the one from way back in chapter 17, section 3. As a refresher, here's what that code looked like.
+Here Kruschke contrasts our last model with the one from way back in Chapter 17, section 3. As a refresher, here's what that code looked like.
 
 ```{r, eval = F}
 fit4 <-
   brm(data = my_data,
       family = student,
       Y_z ~ 1 + X_z + (1 + X_z || Subj),
-      prior = c(prior(normal(0, 100), class = Intercept),
-                prior(normal(0, 100), class = b),
-                prior(normal(0, 1), class = sigma),
-                prior(normal(0, 1), class = sd),
+      prior = c(prior(normal(0, 10), class = Intercept),
+                prior(normal(0, 10), class = b),
+                prior(normal(0, 1),  class = sigma),
+                prior(normal(0, 1),  class = sd),
                 prior(exponential(one_over_twentynine) + 1, class = nu)),
       chains = 4, cores = 4,
-      stanvars = stanvars)
+      stanvars = stanvar(1/29, name = "one_over_twentynine"))
 ```
 
 And for convenience, here's the code from the model we just fit.
@@ -1028,7 +1046,7 @@ fit5 <-
       stanvars = stanvars)
 ``` 
 
-It's easy to get lost in the differences in the priors and the technical details  with the model chains and such. The main thing to notice, here, is the differences in the model formulas (i.e., the likelihoods). Both models had intercepts and slopes. But whereas the model from 17.3 set both parameters to random, only the intercept in our last modes was random. The covariate `Thorax_c` was fixed--it did not vary by group. Had we wanted it to, our formula syntax would have been something like `Longevity ~ 1 + Thorax_c + (1 + Thorax_c || CompanionNumber)`. And again, as noted in chapter 17, the `||` portion of the syntax set the random intercepts and slopes to be orthogonal. As we'll see, this will often not be the case. But let's not get ahead of ourselves.
+It's easy to get lost in the differences in the priors and the technical details  with the model chains and such. The main thing to notice, here, is the differences in the model formulas (i.e., the likelihoods). Both models had intercepts and slopes. But whereas the model from 17.3 set both parameters to random, only the intercept in our last modes was random. The covariate `Thorax_c` was fixed--it did not vary by group. Had we wanted it to, our `formula` syntax would have been something like `Longevity ~ 1 + Thorax_c + (1 + Thorax_c || CompanionNumber)`. And again, as noted in Chapter 17, the `||` portion of the syntax set the random intercepts and slopes to be orthogonal (i.e., correlate exactly at zero). As we'll see, this will often not be the case. But let's not get ahead of ourselves.
 
 > Conceptually, the main difference between the models is merely the focus of attention. In the hierarchical linear regression model, the focus was on the slope coefficient. In that case, we were trying to estimate the magnitude of the slope, simultaneously for individuals and overall. The intercepts, which describe the levels of the nominal predictor, were of ancillary interest. In the present section, on the other hand, the focus of attention is reversed. We are most interested in the intercepts and their differences between groups, with the slopes on the covariate being of ancillary interest. (p. 573)
 
@@ -1038,7 +1056,7 @@ On page 574, Kruschke laid out the schematic for a hierarchical Student's-$t$ mo
 
 * modeling the log of $\sigma$,
 * indicating its grand mean with the `sigma ~ 1` syntax,
-* modeling the group-level deviations as Gaussian with a mean of 0 and standard deviation $\sigma_\sigma$ estimated from the data,
+* modeling the group-level deflections as Gaussian with a mean of 0 and standard deviation $\sigma_\sigma$ estimated from the data,
 * and choosing a sensible prior for $\sigma_\sigma$ that is left-bound at 0 and gently slopes to the right (i.e., a folded $t$ or gamma distribution).
 
 Since we're modeling $\text{log}(\sigma)$, we might use Gaussian prior centered on `sd(my_data$y) %>% log()` and a reasonable spread like 1. We can simulate a little to get a sense of what those distributions look like.
@@ -1052,7 +1070,7 @@ tibble(prior = rnorm(n_draws, mean = log(1), sd = 1)) %>%
   gather(key, value) %>% 
 
   ggplot(aes(x = value)) +
-  geom_density(fill = "black", color = "transparent") +
+  geom_density(fill = "grey50", color = "transparent") +
   facet_wrap(~key, scales = "free")
 ```
 
@@ -1064,7 +1082,7 @@ tibble(prior = rnorm(n_draws, mean = log(1), sd = 2)) %>%
   mutate(prior_exp = exp(prior)) %>% 
 
   ggplot(aes(x = prior_exp)) +
-  geom_density(fill = "black", color = "transparent") +
+  geom_density(fill = "grey50", color = "transparent") +
   coord_cartesian(xlim = 0:17)
 ```
 
@@ -1099,17 +1117,19 @@ fit <-
       bf(Longevity ~ 1 + (1 | CompanionNumber), 
          sigma     ~ 1 + (1 | CompanionNumber)),
       prior = c(# grand means
-                prior(normal(mean_y, sd_y * 10), class = Intercept),
+                prior(normal(mean_y, sd_y * 5), class = Intercept),
                 prior(normal(log(sd_y), 1), class = Intercept, dpar = sigma),
+                
                 # the priors controlling the spread for our hierarchical deflections
                 prior(gamma(alpha, beta), class = sd),
                 prior(normal(0, 1), class = sd, dpar = sigma),
+                
                 # don't forget our student-t nu
                 prior(exponential(one_over_twentynine), class = nu)),
       stanvars = stanvars)
 ``` 
 
-### Example: Contrast of means with different variances
+### Example: Contrast of means with different variances.
 
 Let's load and take a look at Kruschke's simulated data.
 
@@ -1147,7 +1167,7 @@ stanvars <-
   stanvar(s_r$rate,  name = "beta")
 ```
 
-Now fit the homogeneous-variances model.
+Now fit the ANOVA-like homogeneous-variances model.
 
 ```{r fit5, cache = T, message = F, warning = F}
 fit5 <-
@@ -1172,7 +1192,7 @@ print(fit5)
 Let's get ready to make our version of the top of Figure 19.7. First we wrangle.
 
 ```{r}
-# How many model-implied Gaussians would you like?
+# how many model-implied Gaussians would you like?
 n_draws <- 20
 
 densities <-
@@ -1206,7 +1226,7 @@ densities %>%
   coord_cartesian(xlim = 75:125,
                   ylim = c(1.25, 4.5)) +
   labs(title = "Data with Posterior Predictive Distrib.", 
-       y = NULL) +
+       y     = NULL) +
   theme(axis.ticks.y = element_blank(),
         axis.text.y  = element_text(hjust = 0))
 ```
@@ -1235,7 +1255,7 @@ differences %>%
   facet_wrap(~key, scales = "free_x", ncol = 4)
 ```
 
-And here are the effect sizes at the bottom of the figure.
+Now here are the effect sizes at the bottom of the figure.
 
 ```{r, fig.width = 4, fig.height = 2.5}
 differences %>% 
@@ -1253,7 +1273,27 @@ differences %>%
   facet_wrap(~key, scales = "free_x", ncol = 4)
 ```
 
-Here are the `stanvars` for the robust hierarchical variances model.
+Oh and remember, if you'd like to get all the possible contrasts in bulk, tidybayes has got your back.
+
+```{r, fig.height = 4, fig.width = 6}
+fit5 %>%
+  spread_draws(r_Group[Group,]) %>%
+  compare_levels(r_Group, by = Group) %>%
+  # these next two lines allow us to reorder the contrasts along the y
+  ungroup() %>% 
+  mutate(Group = reorder(Group, r_Group)) %>%
+  
+  ggplot(aes(x = r_Group, y = Group)) +
+  geom_vline(xintercept = 0, color = "white") +
+  geom_halfeyeh(point_interval = mode_hdi, .width = c(.95, .5)) +
+  labs(x = "Contrast",
+       y = NULL) +
+  coord_cartesian(ylim = c(1.33, 6.5)) +
+  theme(axis.ticks.y = element_blank(),
+        axis.text.y  = element_text(hjust = 0))
+```
+
+But to get back on track, here are the `stanvars` for the robust hierarchical variances model.
 
 ```{r}
 stanvars <- 
@@ -1264,7 +1304,7 @@ stanvars <-
   stanvar(1/29,      name = "one_over_twentynine")
 ```
 
-Now fit the robust model.
+Now fit that robust better-than-ANOVA model.
 
 ```{r fit6, cache = T, message = F, warning = F}
 fit6 <-
@@ -1275,9 +1315,11 @@ fit6 <-
       prior = c(# grand means
                 prior(normal(mean_y, sd_y * 10), class = Intercept),
                 prior(normal(log(sd_y), 1), class = Intercept, dpar = sigma),
+                
                 # the priors controlling the spread for our hierarchical deflections
                 prior(gamma(alpha, beta), class = sd),
                 prior(normal(0, 1), class = sd, dpar = sigma),
+                
                 # don't forget our student-t nu
                 prior(exponential(one_over_twentynine), class = nu)),
       iter = 4000, warmup = 1000, chains = 4, cores = 4,
@@ -1384,7 +1426,7 @@ post %>%
 
 Notice that because (a) the sigma parameters were heterogeneous and (b) they were estimated on the log scale, we had to do quite a bit more data processing before they effect size estimates were ready. 
 
-"Finally, because each group has its own estimated scale (i.e., $\sigma_j$), we can investigate differences in scales across groups" (p. 578). That's not a bad idea. Even though Kruschke didn't do this in the text, we may as well give it a go.
+"Finally, because each group has its own estimated scale (i.e., $\sigma_j$), we can investigate differences in scales across groups" (p. 578). That's not a bad idea. Even though Kruschke didn't show this in the text, we may as well give it a go.
 
 ```{r, fig.width = 8, fig.height = 2.5}
 post %>% 
@@ -1415,7 +1457,7 @@ Kruschke, J. K. (2015). *Doing Bayesian data analysis, Second Edition: A tutoria
 sessionInfo()
 ```
 
-```{r, message = F, echo = F}
+```{r, echo = F}
 # Here we'll remove our objects
 rm(generate_data, n, grand_mean, d, densities, arrow, betas, gamma_a_b_from_omega_sigma, sd_y, omega, sigma, s_r, my_data, mean_y, stanvars, fit1, post, n_draws, post_draws, fit1_without_deflections, mw, fit2, fit3, my_small_data, sd_Thorax_c, fit4, dif, r, f, differences, fit5, fit6)
 
