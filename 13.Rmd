@@ -22,7 +22,7 @@ The three research goals Kruschke dealt with in this chapter were:
 * to confirm the legitimacy of a particular parameter value
 * to estimate a parameter with reasonable precision
 
-All these could, of course, be extended to contexts involving multiple parameters. And all of these were dealt with with respect to 95% HDIs.
+All these could, of course, be extended to contexts involving multiple parameters. And all of these were dealt with respect to 95% HDIs.
 
 ### 13.1.2 Power
 
@@ -44,8 +44,8 @@ Kruschke then laid out a five-step procedure to compute power within a Bayesian 
 
 ### 13.1.3 Sample size.
 
-> *The best that a large sample can do is exactly reflect the data- generating distribution.* If the data-generating distribution has considerable mass straddling the null value, then the best we can do is get estimates that include and straddle the null value. As a simple example, suppose that we think that a coin may be biased, and the data-generating hypothesis entertains four possible values of $\theta$ , with $\text{p} (\theta = 0.5) = 25 \%$, $\text{p} (\theta = 0.6) = 25 \%$, $\text{p} (\theta = 0.7) = 25 \%$, and $\text{p} (\theta = 0.8) = 25 \%$. Because $25 \%$ of the simulated data come from a fair coin, the maximum probability of excluding $\theta = 0.5$, even with a huge sample, is $75 \%$. 
-
+> *The best that a large sample can do is exactly reflect the data-generating distribution.* If the data-generating distribution has considerable mass straddling the null value, then the best we can do is get estimates that include and straddle the null value. As a simple example, suppose that we think that a coin may be biased, and the data-generating hypothesis entertains four possible values of $\theta$ , with $\text{p} (\theta = 0.5) = 25 \%$, $\text{p} (\theta = 0.6) = 25 \%$, $\text{p} (\theta = 0.7) = 25 \%$, and $\text{p} (\theta = 0.8) = 25 \%$. Because $25 \%$ of the simulated data come from a fair coin, the maximum probability of excluding $\theta = 0.5$, even with a huge sample, is $75 \%$. 
+>
 > Therefore, when planning the sample size for an experiment, it is crucial to decide what a realistic goal is. If there are good reasons to posit a highly certain data-generating hypothesis, perhaps because of extensive previous results, then a viable goal may be to exclude a null value. On the other hand, if the data-generating hypothesis is somewhat vague, then a more reasonable goal is to attain a desired degree of precision in the posterior. (p. 364, *emphasis* in the original)
 
 ### 13.1.4 Other expressions of goals.
@@ -62,119 +62,96 @@ I'm going to skip over these.
 
 > Usually it is more intuitively accessible to get prior data, or to think of idealized prior data, than to directly specify a distribution over parameter values. For example, based on knowledge about the application domain, we might have 2000 actual or idealized flips of the coin for which the result showed 65% heads. Therefore we’ll describe the data-generating hypothesis as a beta distribution with a mode of 0.65 and concentration based on 2000 flips after a uniform "proto-prior": $\text{beta} (\theta | 0.65 \cdot (2000 - 2) + 1, (1 - 0.65) \cdot (2000 - 2) + 1)$.
 
-We might express that in code as follows:
+We might express that in code like this.
 
 ```{r, fig.width = 4, fig.height = 2, message = F, warning = F}
 library(tidyverse)
 
-concentration <- 2000
-mode          <- .65
+kappa <- 2000
+omega <- .65
 
 tibble(theta = seq(from = 0, to = 1, by = .001)) %>% 
-  mutate(likelihood = dbeta(theta, 
-                            shape1 = mode * (concentration - 2) + 1,
-                            shape2 = (1 - mode) * (concentration - 2) + 1)) %>% 
+  mutate(prior = dbeta(theta,
+                       shape1 =      omega  * (kappa - 2) + 1,
+                       shape2 = (1 - omega) * (kappa - 2) + 1)) %>% 
   
-  ggplot(aes(x = theta, ymin = 0, ymax = likelihood)) +
-  geom_ribbon() +
+  ggplot(aes(x = theta, ymin = 0, ymax = prior)) +
+  geom_ribbon(size = 0, fill = "grey67") +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(title = "Behold our prior. It's rather peaked.",
        x = NULL) +
   theme(panel.grid = element_blank())
 ```
 
+If we wanted to take some random draws from that prior, say 5, we'd do something like this.
+
 ```{r}
-set.seed(13.21)
+n <- 5
 
-bias <-
-  rbeta(n = 1, 
-        shape1 = mode * (concentration - 2) + 1,
-        shape2 = (1 - mode) * (concentration - 2) + 1)
-
-bias
+set.seed(13)
+rbeta(n,
+      shape1 =      omega  * (kappa - 2) + 1,
+      shape2 = (1 - omega) * (kappa - 2) + 1)
 ```
 
+Now let's just take one draw and call it `bias`.
+
+```{r}
+n <- 1
+
+set.seed(13)
+bias <-
+  rbeta(n,
+        shape1 =      omega  * (kappa - 2) + 1,
+        shape2 = (1 - omega) * (kappa - 2) + 1)
+
+print(bias)
+```
+
+Now we
+
+> simulate flipping a coin with that bias $N$ times. The simulated data have $z$ heads and $N − z$ tails. The proportion of heads, $z/N$, will tend to be around [`r round(bias, 3)`], but will be higher or lower because of randomness in the flips. (p. 367)
 
 ```{r}
 # pick some large number
 n <- 1e3
 
-tibble(flips = rbinom(n = n, size = 1, prob = bias)) %>% 
-  summarise(N = n(),
+set.seed(13)
+tibble(flips  = rbernoulli(n = n, p = bias)) %>% 
+  summarise(n = n(),
             z = sum(flips)) %>% 
-  mutate(`proportion of heads` = z / N)
+  mutate(`proportion of heads` = z / n)
 ```
 
+We'll walk through the rest of the steps in the next section.
 
 ### 13.2.2 Formal solution and implementation in R.
 
-I've been playing around with this a bit. If you look closely at the code block on page 369, you'll see that Kruschke's `minNforHDIpower()` function requires the `HDIofICDF()` function from his `DBDA2E-utilities.R` file. The code for that required function looks like this.
+I've been playing around with this a bit. If you look closely at the code block on page 369, you'll see that Kruschke's `minNforHDIpower()` function requires the `HDIofICDF()` function from his `DBDA2E-utilities.R` file, which we usually recast as `hdi_of_icdf()`.
 
 ```{r}
-hdi_of_icdf <- function(ICDFname, credible_mass = .95, tol = 1e-8, ... ) {
-  # Arguments:
-  #   `ICDFname()` is R's name for the inverse cumulative density function
-  #     of the distribution.
-  #   `credible_mass` is the desired mass of the HDI region.
-  #   `tol` is the "the desired accuracy" passed to R's optimize function
-  #     (see https://stat.ethz.ch/R-manual/R-devel/library/stats/html/optimize.html).
-  # Return value:
-  #   Highest density iterval (HDI) limits in a vector.
-  # Example of use: For determining HDI of a beta(30, 12) distribution, type
-  #   `hdi_of_icdf(qbeta, shape1 = 30, shape2 = 12)`
-  #   Notice that the parameters of the ICDFname must be explicitly named;
-  #   e.g., `hdi_of_icdf(qbeta, 30, 12)` does not work.
-  # Adapted and corrected from Greg Snow's TeachingDemos package.
-  incredible_mass <-  1.0 - credible_mass
-  interval_width  <- function(low_tail_prob, ICDFname, credible_mass, ...) {
-    ICDFname(credible_mass + low_tail_prob, ...) - ICDFname(low_tail_prob, ...)
+hdi_of_icdf <- function(name, width = .95, tol = 1e-8, ... ) {
+  incredible_mass <-  1.0 - width
+  interval_width  <- function(low_tail_prob, name, width, ...) {
+    name(width + low_tail_prob, ...) - name(low_tail_prob, ...)
   }
-  opt_info            <- optimize(interval_width, c(0, incredible_mass), 
-                                  ICDFname = ICDFname, credible_mass = credible_mass, 
-                                  tol = tol, ...)
+  opt_info <- optimize(interval_width, c(0, incredible_mass), 
+                       name = name, width = width, 
+                       tol = tol, ...)
   hdi_lower_tail_prob <- opt_info$minimum
-  return(c(ICDFname(hdi_lower_tail_prob, ...),
-           ICDFname(credible_mass + hdi_lower_tail_prob, ...)))
+  return(c(name(hdi_lower_tail_prob, ...),
+           name(width + hdi_lower_tail_prob, ...)))
 }
 ```
 
-I've altered Kruschke's formatting a little bit, but the guts of the code are unchanged. Our `hdi_of_icdf()` function will take the name of an "inverse cumulative density function" and it's parameters and then return an HDI range. To get a sense, consider a Gaussian for which $\mu = 0$ and $\sigma = 1$.
+Just to warm up, consider a Beta distribution for which $\omega = .5$ and $\kappa = 2000$. Here are the 95% HDIs.
 
 ```{r}
-hdi_of_icdf(ICDFname      = qnorm,
-            mean          = 0,
-            sd            = 1,
-            credible_mass = .95)
-```
+omega <- .5
 
-And now consider one based on the IQ distribution.
-
-```{r}
-hdi_of_icdf(ICDFname      = qnorm,
-            mean          = 100,
-            sd            = 15,
-            credible_mass = .95)
-```
-
-If we were to randomly generate data based on those parameters and compute their HDI with `tidybayes::hdi()`, we'd get those values within rounding error. E.g.,
-
-```{r}
-set.seed(13.22)
-iq <- rnorm(1e6, mean = 100, sd = 15)
-
-tidybayes::hdi(iq, .width = .95)
-```
-
-And just as in Kruschke's code in the text, `hdi_of_icdf()` works with `ICDFname = qbeta`, too. So, consider a beta distribution for which $\omega = .5$ and $\kappa = 2000$.
-
-```{r}
-mode          <- .5
-concentration <- 2000
-
-hdi_of_icdf(ICDFname      = qbeta,
-            shape1 = mode * (concentration - 2) + 1,
-            shape2 = (1 - mode) * (concentration - 2) + 1,
-            credible_mass = .95)
+hdi_of_icdf(name   = qbeta,
+            shape1 =      omega  * (kappa - 2) + 1,
+            shape2 = (1 - omega) * (kappa - 2) + 1)
 ```
 
 Those look a whole lot like the ROPE values Kruschke specified in his example at the bottom of page 370. But we're getting ahead of ourselves. Now that we have our `hdi_of_icdf()` function, we’re ready to define our version of `minNforHDIpower()`, which I’m calling `min_n_for_hdi_power()`.
@@ -191,9 +168,9 @@ min_n_for_hdi_power <-
     stop("One and only one of `hdi_max_width` and `null_value` must be specified.")
   }
   # Convert prior mode and N to a, b parameters of beta distribution:
-  gen_prior_a <- gen_prior_mode * (gen_prior_n - 2) + 1
+  gen_prior_a <-        gen_prior_mode  * (gen_prior_n - 2) + 1
   gen_prior_b <- (1.0 - gen_prior_mode) * (gen_prior_n - 2) + 1
-  aud_prior_a <- aud_prior_mode * (aud_prior_n - 2) + 1
+  aud_prior_a <-        aud_prior_mode  * (aud_prior_n - 2) + 1
   aud_prior_b <- (1.0 - aud_prior_mode) * (aud_prior_n - 2) + 1
   # Initialize loop for incrementing `sample_size`:
   sample_size <- init_samp_size
@@ -213,7 +190,7 @@ min_n_for_hdi_power <-
       hdi_matrix[z_id_x, ] <- hdi_of_icdf(qbeta,
                                           shape1 = z + aud_prior_a,
                                           shape2 = sample_size - z + aud_prior_b,
-                                          credible_mass = hdi_mass)
+                                          width  = hdi_mass)
 }
 # Compute HDI widths:
 hdi_width <- hdi_matrix[, 2] - hdi_matrix[, 1]
@@ -243,7 +220,7 @@ if (power_hdi > desired_power) {  # If desired power is attained,
 }
 ```
 
-Other than altering Kruschke's formatting a little bit, the only meaningful change I made to the code was removing the line that checked for the `HDIofICD()` function and then `source()`ed it, if necessary. Following along with Kruschke, here's an example.
+Other than altering Kruschke's formatting a little bit, the only meaningful change I made to the code was removing the line that checked for the `HDIofICD()` function and then `source()`ed it, if necessary. Following along with Kruschke on page 370, here's an example for which $\omega_\text{data generating} = .75$, $kappa = 2000$, the ROPE is $[.48, .52]$, and the desired power is the conventional .8.
 
 ```{r}
 min_n_for_hdi_power(gen_prior_mode = .75, 
@@ -259,23 +236,25 @@ min_n_for_hdi_power(gen_prior_mode = .75,
                     verbose        = TRUE)
 ```
 
+Just like in the text, the necessary $N = 30$.
+
 Unlike in the text, I increased the value of `init_samp_size` from 5 to 20 to keep the output a reasonable length. To clarify what we just did,
 
-> In that function call, the data-generating distribution has a mode of 0.75 and concentration of 2000, which means that the hypothesized world is pretty certain that coins have a bias of 0.75. The goal is to exclude a null value of 0.5 with a ROPE from 0.48 to 0.52. The desired power [is] 80%. The audience prior is uniform. When the function is executed, it displays the power for increasing values of sample size, until stopping at $N = 30$. (p. 370)
+> in that function call, the data-generating distribution has a mode of 0.75 and concentration of 2000, which means that the hypothesized world is pretty certain that coins have a bias of 0.75. The goal is to exclude a null value of 0.5 with a ROPE from 0.48 to 0.52. The desired power [is] 80%. The audience prior is uniform. When the function is executed, it displays the power for increasing values of sample size, until stopping at $N = 30$. (p. 370)
 
 If it's unclear why the "audience prior is uniform", consider this.
 
 ```{r, fig.width = 4, fig.height = 2}
-concentration <- 2
-mode          <- .5
+kappa <- 2
+omega <- .5
 
-tibble(theta = seq(from = 0, to = 1, by = .1)) %>% 
-  mutate(likelihood = dbeta(theta, 
-                            shape1 = mode * (concentration - 2) + 1,
-                            shape2 = (1 - mode) * (concentration - 2) + 1)) %>% 
+tibble(theta = seq(from = 0, to = 1, by = .01)) %>% 
+  mutate(prior = dbeta(theta,
+                       shape1 =      omega  * (kappa - 2) + 1,
+                       shape2 = (1 - omega) * (kappa - 2) + 1)) %>% 
   
-  ggplot(aes(x = theta, ymin = 0, ymax = likelihood)) +
-  geom_ribbon() +
+  ggplot(aes(x = theta, ymin = 0, ymax = prior)) +
+  geom_ribbon(size = 0, fill = "grey67") +
   scale_y_continuous(NULL, breaks = NULL) +
   coord_cartesian(ylim = c(0, 1.25)) +
   labs(title = "Behold the uniform audience prior.",
@@ -283,7 +262,7 @@ tibble(theta = seq(from = 0, to = 1, by = .1)) %>%
   theme(panel.grid = element_blank())
 ```
 
-If you work out the algebra with `mode` and `concentration`, you’ll see this is a $\text{beta} (1, 1)$. Thus, `aud_prior_n` is $\kappa$.
+If you work out the algebra with `omega` and `kappa`, you’ll see this is a $\text{Beta} (1, 1)$. Thus, `aud_prior_n` is $\kappa$ and `aud_prior_mode` is $\omega$.
 
 Here we'll wrap our `min_n_for_hdi_power()` function into a simple `sim_power()` function for use with `purrr::map2()`.
 
@@ -316,7 +295,7 @@ sim <-
 The results look like this.
 
 ```{r}
-sim
+print(sim)
 ```
 
 It takes just a tiny bit of wrangling to reproduce Table 13.1.
@@ -329,32 +308,51 @@ sim %>%
 
 ### 13.2.3 When the goal is precision.
 
+Recall that if we have $\text{Beta} (\theta, a, b)$ prior for $\theta$ of the Bernoulli likelihood function, then the analytic solution for the posterior is $\text{Beta} (\theta | z + a, N – z + b)$. In our first example, $z = 6$ out of $N = 10$ randomly selected voters preferred candidate A and we started with a flat $\text{Beta} (\theta, 1, 1)$ prior. We can check that our posterior is indeed $\text{Beta} (7, 5)$ by working through the algebra.
+
+```{r}
+z <- 6
+n <- 10
+
+# posterior alpha
+z + 1
+
+# posterior beta
+n - z + 1
+```
+
+Here's how we compute the 95% HDIs.
+
+```{r}
+(h <-
+  hdi_of_icdf(name   = qbeta,
+              shape1 = 7,
+              shape2 = 5)
+)
+```
+
 The $\text{beta} (7, 5)$ distribution looks like this.
 
 ```{r, fig.width = 4, fig.height = 2}
 tibble(theta = seq(from = 0, to = 1, by = .01)) %>% 
-  mutate(likelihood = dbeta(theta, 
-                            shape1 = 7,
-                            shape2 = 5)) %>% 
+  mutate(density = dbeta(theta,
+                         shape1 = 7,
+                         shape2 = 5)) %>% 
   
-  ggplot(aes(x = theta, ymin = 0, ymax = likelihood)) +
-  geom_ribbon() +
+  ggplot(aes(x = theta, ymin = 0, ymax = density)) +
+  geom_ribbon(size = 0, fill = "grey67") +
+  geom_segment(x = h[1], xend = h[2],
+               y = 0,    yend = 0,
+               size = 1) +
+  annotate(geom = "text",
+           x = .6, y = 1/3, label = "95% HDI") +
+  scale_x_continuous(NULL, breaks = c(0, h[1], z / n, h[2], 1) %>% round(2)) +
   scale_y_continuous(NULL, breaks = NULL) +
-  labs(title = "beta (7, 5)",
-       x = NULL) +
+  ggtitle("Beta (7, 5)") +
   theme(panel.grid = element_blank())
 ```
 
-And we calculate the 95% HDI like so.
-
-```{r}
-hdi_of_icdf(ICDFname      = qbeta,
-            shape1        = 7,
-            shape2        = 5,
-            credible_mass = .95)
-```
-
-"It turns out, in this case, that we can never have a sample size large enough to achieve the goal of 80% of the HDIs falling above $\theta = 0.5$. To see why," keep reading in the text (p. 371). However, 
+"It turns out, in this case, that we can never have a sample size large enough to achieve the goal of 80% of the HDIs falling above $\theta = 0.5$. To see why," keep reading in the text (p. 371). Happily, 
 
 > there is a more useful goal, however. Instead of trying to reject a particular value of $\theta$, we set as our goal a desired degree of precision in the posterior estimate. For example, our goal might be that the 95% HDI has width less than 0.2, at least 80% of the time. (p. 371)
 
@@ -363,7 +361,7 @@ If you look back up at our `min_n_for_hdi_power()` defining code, above, you'll 
 ```{r}
 min_n_for_hdi_power(gen_prior_mode = .75, 
                     gen_prior_n    = 10,
-                    hdi_max_width  = .2, 
+                    hdi_max_width  = .2,  # look here
                     null_value     = NULL, 
                     rope           = NULL,
                     desired_power  = .8,
@@ -398,7 +396,7 @@ sim <-
   unnest()
 ```
 
-Let's make a table.
+Let's make that table.
 
 ```{r}
 sim %>%
@@ -406,17 +404,19 @@ sim %>%
   knitr::kable()
 ```
 
+What did that audience prior look like?
+
 ```{r, fig.width = 4, fig.height = 2}
-concentration <- 2
-mode          <- .5
+kappa <- 2
+omega <- .5
 
 tibble(theta = seq(from = 0, to = 1, by = .1)) %>% 
-  mutate(likelihood = dbeta(theta, 
-                            shape1 = mode * (concentration - 2) + 1,
-                            shape2 = (1 - mode) * (concentration - 2) + 1)) %>% 
+  mutate(density = dbeta(theta,
+                         shape1 =      omega  * (kappa - 2) + 1,
+                         shape2 = (1 - omega) * (kappa - 2) + 1)) %>% 
   
-  ggplot(aes(x = theta, ymin = 0, ymax = likelihood)) +
-  geom_ribbon() +
+  ggplot(aes(x = theta, ymin = 0, ymax = density)) +
+  geom_ribbon(size = 0, fill = "grey67") +
   scale_y_continuous(NULL, breaks = NULL) +
   coord_cartesian(ylim = c(0, 1.25)) +
   labs(title = "Behold the uniform audience prior.",
@@ -424,34 +424,244 @@ tibble(theta = seq(from = 0, to = 1, by = .1)) %>%
   theme(panel.grid = element_blank())
 ```
 
-Here are what those corresponding beta distributions look like.
+Here are what the Beta distributions based on the `sim` look like.
 
 ```{r, fig.width = 8, fig.height = 2.5}
 sim %>% 
   rename(n = results) %>% 
   expand(nesting(mode, power, n), theta = seq(from = 0, to = 1, by = .01)) %>% 
   mutate(density = dbeta(theta,
-                         shape1 = mode * (n - 2) + 1,
+                         shape1 =      mode  * (n - 2) + 1,
                          shape2 = (1 - mode) * (n - 2) + 1)) %>% 
+  mutate(mode = str_c("omega == ", mode)) %>% 
   
   ggplot(aes(x = theta, ymin = 0, ymax = density)) +
-  geom_ribbon() +
+  geom_vline(xintercept = .5, color = "white") +
+  geom_ribbon(size = 0, fill = "grey67") +
   scale_x_continuous(labels = c("0", "", ".5", "", "1")) +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(title = "The power and mode values are in the rows and columns, respectively.",
        x = NULL) +
   theme(panel.grid = element_blank()) +
-  facet_grid(power ~ mode, scales = "free_y")
+  facet_grid(power ~ mode, scales = "free_y", labeller = label_parsed)
+```
+
+Toward the end of the section, Kruschke mentioned the required sample size shoots up if our desired HDI width is 0.1. Here's the simulation.
+
+```{r, results = "hide"}
+sim_power <- function(mode, power) {
+    min_n_for_hdi_power(gen_prior_mode = mode, 
+                        gen_prior_n    = 10,
+                        hdi_max_width  = .1, 
+                        null_value     = NULL, 
+                        rope           = NULL,
+                        desired_power  = power,
+                        aud_prior_mode = .5, 
+                        aud_prior_n    = 2,
+                        hdi_mass       = .95, 
+                        init_samp_size = 300,  # save some time and up this parameter 
+                        verbose        = TRUE)
+}
+
+sim <-
+  tibble(mode = seq(from = .6, to = .85, by = .05)) %>% 
+  expand(mode, power = c(.7, .8, .9)) %>% 
+  mutate(results = purrr::map2(mode, power, sim_power)) %>% 
+  unnest()
+```
+
+Display the results in a table like before.
+
+```{r}
+sim %>%
+  spread(key = mode, value = results) %>%
+  knitr::kable()
 ```
 
 ### 13.2.4 Monte Carlo approximation of power.
 
 > The previous sections illustrated the ideas of power and sample size for a simple case in which the power could be computed by mathematical derivation. [If your field is like mine, this will not be the norm for your research projects.] In this section, we approximate the power by Monte Carlo simulation. The R script for this simple case serves as a template for more realistic applications. The R script is named `Jags-Ydich-Xnom1subj-MbernBeta-Power.R`, which is the name for the JAGS program for dichotomous data from a single "subject" suffixed with the word "Power." As you read through the script, presented below, remember that you can find information about any general R command by using the help function in R, as explained in Section 3.3.1 (p. 39). (p. 372)
 
+The code in Kruschke’s `Jags-Ydich-Xnom1subj-MbernBeta-Power.R` file also makes use of the content in his `Jags-Ydich-Xnom1subj-MbernBeta.R` file. As is often the case, the code in both is JAGS and base R centric. We'll be taking a different approach. I’ll walk you through. First, let’s fire up brms.
+
+```{r, warning = F, message = F}
+library(brms)
+```
+
+This won’t be of much concern for some of the complex models we’ll be fitting in later chapters. But for simple models like this, a lot of the time you spend waiting for `brms::brm()` to return your posterior and its summary has to do with compilation time. The issue of compilation goes into technical details I just don’t have the will to go through. But if we can avoid or minimize compilation time, it’ll be a big boon for our power simulations. As it turns out, we can. The first time we fit our desired model, we have to compile. Once we have that initial fit in hand, we can reuse it with the `update()` function. So that’s what we’re going to do, here. We’re going to fit the model once and save it.
+
+```{r fit, cache = T, message = F, results = "hide"}
+# how many rows of 0s and 1s should we have in the data?
+n     <- 74
+
+# should the values in the data be of single draws (i.e., 1), or summaries?
+size  <- 1
+
+# what is the population mode for theta we'd like to base this all on?
+omega <- .7
+
+# fit that joint
+fit <-
+  brm(data = tibble(y = rbinom(n, size, omega)),
+      family = bernoulli(link = identity),
+      y ~ 1,
+      prior(beta(1, 1), class = Intercept),
+      warmup = 1000, iter = 3000, chains = 4, cores = 4,
+      seed = 13,
+      control = list(adapt_delta = .9))
+```
 
 
+Our practice, here, will be to keep all the specifications in `fit` constant across the simulations. So choose them wisely. If you look deep into the bowels of the `Jags-Ydich-Xnom1subj-MbernBeta.R` file, you'll see Kruschke used the flat $\text{Beta}(1, 1)$ prior, which is where our `prior(beta(1, 1), class = Intercept)` code came from. This is the audience prior. We aren’t particularly concerned about the data we simulated with the `data = tibble(y = rbinom(n, size, omega))` line. The main thing is that they follow the same basic structure our subsequent data will.
 
+To make sure we're not setting ourselves up to fail, we might make sure the chains look okay.
 
+```{r, fig.width = 8, fig.height = 1.5}
+plot(fit)
+```
+
+Looks like a dream. Let's move forward and run the simulation proper. In his script file, Kruschke suggested we simulate with large $N$s like 1000 or so. Since this is just an example, I’m gonna cut that to 100. 
+
+```{r fits1, cache = T, message = F, results = "hide"}
+# how many simulations would you like?
+n_sim <- 100
+
+# specify omega and kappa of the hypothetical parameter distribution
+omega <- .7
+kappa <- 2000
+
+# make it reproducible
+set.seed(13)
+
+fits1 <-
+  # define some of the parameters
+  tibble(n     = n,
+         size  = size,
+         theta = rbeta(n_sim, 
+                       shape1 =      omega  * (kappa - 2) + 1,
+                       shape2 = (1 - omega) * (kappa - 2) + 1)) %>% 
+  # simulate the data
+  mutate(data = pmap(list(n, size, theta), rbinom)) %>% 
+  # fit the models on the simulated data
+  mutate(fit  = map(data, ~update(fit, newdata = list(y = .))))
+```
+
+*What have we done?*, you might ask.
+
+```{r}
+head(fits1)
+```
+
+The `theta` column contains the draws from the hypothesized parameter distribution, which we’ve indicated is hovering tightly around .7. The `data` column is nested in that within each row, we’ve saved an entire $N = 74$ row tibble. Most importantly, the `fit` column contains the brmsfit objects for each of our 100 simulations. See that last `mutate()` line, above? That’s where those came from. Within `purrr::map()`, we fed our simulated data sets, one row at a time, into the `update()` function via the `newdata` argument. Because we used `update()` based on our initial `fit`, we avoided subsequent compilation times and just samples like a boss. 
+
+Before we move on, I should give some credit. The foundations of this workflow come from Wickham’s talk [*Managing many models with R*] (https://www.youtube.com/watch?time_continue=426&v=rz3_FDVt9eg). I also got some additional [help on twitter](https://twitter.com/PStrafo/status/1107447953709383681) from [Phil Straforelli]( @PStrafo).
+
+We still have some work to do. Next, we'll want to make a custom function that will make it easy to compute the intercept HDIs for each of our fits.
+
+```{r}
+get_hdi <- function(fit){
+  fit %>% 
+    posterior_samples() %>% 
+    tidybayes::mode_hdi(b_Intercept) %>% 
+    select(.lower:.upper)
+}
+
+# how does it work?
+get_hdi(fit)
+```
+
+Now we’ll apply that function to our `fits` tibble to pull those simulated HDIs. Then we’ll program in the markers for the ROPE and HDI width criteria, perform logical tests to see whether they were passes within each of the 100 simulations, and summarize the tests.
+
+```{r}
+fits1 %>% 
+  # get those HDIs and `unnest()`
+  mutate(hdi = map(fit, get_hdi)) %>% 
+  unnest(hdi) %>% 
+  # define our test criteria
+  mutate(rope_ll   = .48,
+         rope_ul   = .52,
+         hdi_width = .2) %>% 
+  # perform the tests
+  mutate(pass_rope  = .lower > rope_ul | .upper < rope_ll,
+         pass_width = (.upper - .lower) < hdi_width) %>% 
+  # summarize those joints
+  summarise(power_rope  = mean(pass_rope),
+            power_width = mean(pass_width))
+```
+
+Those are our power estimates. To compute their HDIS, just increase them by a factor of 100 and plug them into the formulas within the shape arguments in `hdi_of_icdf()`.
+
+```{r}
+# HDIs for the ROPE power estimate
+hdi_of_icdf(name   = qbeta,
+            shape1 = 1 + 91,
+            shape2 = 1 + n_sim - 91) %>% 
+  round(digits = 2)
+
+# HDIs for the width power estimate
+hdi_of_icdf(name   = qbeta,
+            shape1 = 1 + 36,
+            shape2 = 1 + n_sim - 36) %>% 
+  round(digits = 2)
+```
+
+Following the middle of page 375, here's the whole thing again, but with $\kappa = 10$ and $N = 91$.
+
+```{r fits2, cache = T, message = F, warning = F, results = "hide"}
+# how many rows of 0s and 1s should we have in the data?
+n     <- 91
+
+# how many simulations would you like?
+n_sim <- 100
+
+# specify omega and kappa of the hypothetical parameter distribution
+omega <- .7
+kappa <- 10
+
+# make it reproducible
+set.seed(13)
+
+# simulate
+fits2 <-
+  tibble(n     = n,
+         size  = size,
+         theta = rbeta(n_sim, 
+                       shape1 =      omega  * (kappa - 2) + 1,
+                       shape2 = (1 - omega) * (kappa - 2) + 1)) %>% 
+  mutate(data = pmap(list(n, size, theta), rbinom)) %>% 
+  mutate(fit  = map(data, ~update(fit, newdata = list(y = .))))
+```
+
+Summarize the results.
+
+```{r}
+fits2 %>% 
+  mutate(hdi = map(fit, get_hdi)) %>% 
+  unnest(hdi) %>% 
+  mutate(rope_ll   = .48,
+         rope_ul   = .52,
+         hdi_width = .2) %>% 
+  mutate(pass_rope  = .lower > rope_ul | .upper < rope_ll,
+         pass_width = (.upper - .lower) < hdi_width) %>% 
+  summarise(power_rope  = mean(pass_rope),
+            power_width = mean(pass_width))
+```
+
+Compute the corresponding HDIs.
+
+```{r}
+# HDIs for the ROPE power estimate
+hdi_of_icdf(name   = qbeta,
+            shape1 = 1 + 71,
+            shape2 = 1 + n_sim - 71) %>% 
+  round(digits = 2)
+
+# HDIs for the width power estimate
+hdi_of_icdf(name   = qbeta,
+            shape1 = 1 + 87,
+            shape2 = 1 + n_sim - 87) %>% 
+  round(digits = 2)
+```
 
 ### 13.2.5 Power from idealized or actual data.
 
@@ -483,11 +693,11 @@ Kruschke, J. K. (2015). *Doing Bayesian data analysis, Second Edition: A tutoria
 sessionInfo()
 ```
 
-```{r, message = F, warning = F, echo = F}
+```{r, echo = F}
 # Here we'll remove our objects
-rm()
+rm(kappa, omega)
 
-# theme_set(theme_grey())
+theme_set(theme_grey())
 ```
 
 
