@@ -1,0 +1,664 @@
+---
+title: "Chapter 24. Count Predicted Variable"
+author: "A Solomon Kurz"
+date: "`r format(Sys.Date())`"
+output:
+  github_document
+---
+
+# Count Predicted Variable
+
+> In the context of the generalized linear model (GLM) introduced in Chapter 15, this chapter’s situation involves a predicted value that is a count, for which we will use an inverse-link function that is exponential along with a Poisson distribution for describing noise in the data (pp. 703--704)
+
+## Poisson exponential model
+
+Following Kruschke, we will "refer to the model that will be explained in this section as Poisson exponential because, as we will see, the noise distribution is a Poisson distribution and the inverse-link function is exponential" (p. 704).
+
+### Data structure.
+
+Nothing for us here. See the text for the example data table.
+
+### Exponential link function.
+
+The additive model of cell counts of a table of rows $r$ and columns $c$ follows the form
+
+$$
+\lambda_{r, c} = \text{exp} (\beta_0 + \beta_r + \beta_c)
+$$
+
+where $\lambda_{r, c}$ is the tendency of counts within row $r$ and column $c$. In the case of an interaction model, the equation expands to
+
+$$
+\lambda_{r, c} = \text{exp} (\beta_0 + \beta_r + \beta_c + \beta_{r, c})
+$$
+
+with the following constraints:
+
+$$
+\sum_r \beta_r = 0, \sum_c \beta_c = 0,\sum_r \beta_{r, c} = 0 \text{ for all } c, \text{ and } \sum_c \beta_{r, c} = 0 \text{ for all } r
+$$
+
+### Poisson noise distribution.
+
+Simon-Denis Poisson's distribution follows the form
+
+$$
+p(y | \lambda) = \frac{\lambda^y \text{exp} (-\lambda)}{y!}
+$$
+
+> where $y$ is a non-negative integer and $\lambda$ is a non-negative real number. The mean of the Poisson distribution is $\lambda$. Importantly, the variance of the Poisson distribution is also $\lambda$ (i.e., the standard deviation is $\sqrt \lambda$). Thus, in the Poisson distribution, the variance is completely yoked to the mean. (p. 707)
+
+We can work with that expression directly in base R. Here we use $\lambda = 5.5$ and $y = 2$.
+
+```{r}
+lambda <- 5.5
+y <- 2
+
+
+lambda^y * exp(-lambda) / factorial(y)
+```
+
+If we'd like to simulate from the Poisson distribution, we'd use the `rpois()` function. It takes two arguments, `n` and `lambda`. Let's generate 1000 draws based on $\lambda = 5$.
+
+```{r, message = F, warning = F}
+library(tidyverse)
+
+set.seed(24)
+
+d <- tibble(y = rpois(n = 100, lambda = 5))
+```
+
+Here are the mean and variance.
+
+```{r}
+d %>% 
+  summarise(mean     = mean(y),
+            variance = var(y))
+```
+
+They're not exactly the same because of simulation variance, but they get that way real quick with a larger sample.
+
+```{r}
+set.seed(24)
+
+tibble(y = rpois(n = 100000, lambda = 5)) %>% 
+  summarise(mean     = mean(y),
+            variance = var(y))
+```
+
+Let's put `rpois()` to work and make Figure 24.1.
+
+```{r, fig.width = 6, fig.height = 5}
+set.seed(24)
+
+tibble(lambda = c(1.8, 8.3, 32.1)) %>% 
+  mutate(y = map(lambda, rpois, n = 1e5)) %>% 
+  unnest() %>%
+  
+  ggplot(aes(x = y)) +
+  geom_histogram(aes(y = stat(density)),
+                 binwidth = 1, color = "grey92") +
+  ylab("p(y)") +
+  theme(panel.grid = element_blank()) +
+  facet_wrap(~lambda, ncol = 1,
+             labeller = label_bquote(dpois(y*"|"*lambda == .(lambda))))
+```
+
+For more on our `labeller = label_bquote` syntax, check out [this](https://ggplot2.tidyverse.org/reference/label_bquote.html). And [here's](https://stackoverflow.com/questions/15530202/add-vertical-bar-in-expression-to-plot) is where I learned about the `*"|"*` syntax.
+
+But anyway, given $lambda$, the Poisson distribution gives the probabilities of specific non-negative integers. And instead of using our hand-coded function from above, we can also use `dpois()` to get density precise density values.
+
+```{r}
+dpois(2, lambda = 5.5)
+```
+
+### The complete model and implementation in ~~JAGS~~ brms.
+
+Before we show how to fit the model, we need the old `gamma_a_b_from_omega_sigma()` function.
+
+```{r}
+gamma_a_b_from_omega_sigma <- function(mode, sd) {
+  if (mode <= 0) stop("mode must be > 0")
+  if (sd   <= 0) stop("sd must be > 0")
+  rate <- (mode + sqrt(mode^2 + 4 * sd^2)) / (2 * sd^2)
+  shape <- 1 + mode * rate
+  return(list(shape = shape, rate = rate))
+}
+```
+
+Here are a few intermediate values before we set the `stanvars`.
+
+```{r, eval = F}
+n_x1_level <- length(unique(my_data$x1))
+n_x2_level <- length(unique(my_data$x2))
+n_cell     <- nrow(my_data)
+```
+
+Now we're ready to define the `stanvars`.
+
+```{r, eval = F}
+y_log_mean <-
+  log(sum(my_data$y) / (n_x1_level * n_x2_level))
+
+y_log_sd <-
+  c(rep(0, n_cell - 1), sum(my_data$y)) %>% 
+  sd() %>% 
+  log()
+
+s_r <- gamma_a_b_from_omega_sigma(mode = y_log_sd, sd = 2 * y_log_sd)
+
+stanvars <- 
+  stanvar(y_log_mean, name = "y_log_mean") + 
+  stanvar(y_log_sd,   name = "y_log_sd") + 
+  stanvar(s_r$shape,  name = "alpha") +
+  stanvar(s_r$rate,   name = "beta")
+```
+
+And you'd fit the model with code like this.
+
+```{r, eval = F}
+fit <-
+  brm(data = my_data,
+      family = poisson,
+      y ~ 1 + (1 | x1) + (1 | x2) + (1 | x1:x2),
+      prior = c(prior(normal(y_log_mean, y_log_sd * 2), class = Intercept),
+                prior(gamma(alpha, beta), class = sd)),
+      stanvars = stanvars)
+```
+
+By brms default, `family = poisson` uses the log link. Thus `family = poisson(link = "log")` should return the same results.
+
+## Example: Hair eye go again
+
+Load the hair- and eye-color data.
+
+```{r, warning = F, message = F}
+my_data <- read_csv("data.R/HairEyeColor.csv")
+
+glimpse(my_data)
+```
+
+Load the brms and tidybayes packages.
+
+```{r, warning = F, message = F}
+library(brms)
+library(tidybayes)
+```
+
+Now we'll make save the prepatory values necessary for the `stanvars`.
+
+```{r}
+n_x1_level <- length(unique(my_data$Hair))
+n_x2_level <- length(unique(my_data$Eye))
+n_cell     <- nrow(my_data)
+
+n_x1_level
+n_x2_level
+n_cell
+```
+
+Here are the values we'll save as `stanvars`.
+
+```{r}
+y_log_mean <-
+  log(sum(my_data$Count) / (n_x1_level * n_x2_level))
+
+y_log_sd <-
+  c(rep(0, n_cell - 1), sum(my_data$Count)) %>% 
+  sd() %>% 
+  log()
+
+s_r <- gamma_a_b_from_omega_sigma(mode = y_log_sd, sd = 2 * y_log_sd)
+
+y_log_mean
+y_log_sd
+s_r$shape
+s_r$rate
+```
+
+As a quick detour, it might be interesting to see what the kind of gamma distribution is entailed by those last two values.
+
+```{r, fig.width = 4, fig.height = 2}
+tibble(x = seq(from = 0, to = 70, length.out = 1e3)) %>% 
+  mutate(density = dgamma(x,
+                          gamma_a_b_from_omega_sigma(mode = y_log_sd, sd = 2 * y_log_sd)$shape,
+                          gamma_a_b_from_omega_sigma(mode = y_log_sd, sd = 2 * y_log_sd)$rate)) %>% 
+  
+  ggplot(aes(x = x, ymin = 0, ymax = density)) +
+  geom_ribbon(fill = "grey67") +
+  scale_y_continuous(NULL, breaks = NULL) +
+  labs(title = expression(paste("Kruschke's wide prior for ", sigma[beta[x]])),
+       x = NULL) +
+  coord_cartesian(xlim = 0:60) +
+  theme(panel.grid = element_blank())
+```
+
+Save the `stanvars`.
+
+```{r}
+stanvars <- 
+  stanvar(y_log_mean, name = "y_log_mean") + 
+  stanvar(y_log_sd,   name = "y_log_sd") + 
+  stanvar(s_r$shape,  name = "alpha") +
+  stanvar(s_r$rate,   name = "beta")
+```
+
+Fit Kruschke's model with brms.
+
+```{r, eval = F}
+fit1 <-
+  brm(data = my_data,
+      family = poisson,
+      Count ~ 1 + (1 | Hair) + (1 | Eye) + (1 | Hair:Eye),
+      prior = c(prior(normal(y_log_mean, y_log_sd * 2), class = Intercept),
+                prior(gamma(alpha, beta), class = sd)),
+      iter = 3000, warmup = 1000, chains = 4, cores = 4,
+      seed = 24,
+      stanvars = stanvars)
+```
+
+As it turns out, if you try to fit Kruschke’s model with brms as is, you’ll run into difficulties with divergent transitions and the like. One approach is to try tuning the `adapt_delta` and `max_treedepth` parameters. I had no luck with that approach. E.g., cranking `adapt_delta` up past `0.9999` still returned a divergent transition or two. 
+
+Another approach is to step back and assess the model. We’re trying to fit a multilevel model with two grouping variables and their interaction with a total of 16 data points. That not a lot of data to fit such a model with. If you take a close look at our priors, you’ll notice they’re really quite weak. If you’re willing to tighten them up just a bit, the model can fit more smoothly. That will be our approach. 
+
+For the $\sigma$ hyperparameter of the overall intercept’s Gaussian prior, Kruschke would have us multiply `y_log_sd` by 2. Here we’ll tighten that up by simply setting $\sigma$ to `y_log_sd`. The gamma priors for the upper-level variance parameters were based on a mode of `y_log_sd` and a standard deviation of the same but multiplied by 2 (i.e., `2 * y_log_sd`). We’ll tighten that up a bit by simply basing those gammas on a standard deviation of `y_log_sd`. When you make those adjustments, the model fits with less fuss. 
+
+```{r}
+s_r <- gamma_a_b_from_omega_sigma(mode = y_log_sd, sd = y_log_sd)
+
+stanvars <- 
+  stanvar(y_log_mean, name = "y_log_mean") + 
+  stanvar(y_log_sd,   name = "y_log_sd") + 
+  stanvar(s_r$shape,  name = "alpha") +
+  stanvar(s_r$rate,   name = "beta")
+```
+
+Now we've updated our `stanvars`, we'll fit the modified model. We should note that even this version required some adjustment to the `adapt_delta` and `max_treedepth` parameters. But it wasn’t nearly the exercise in frustration entailed in the version, above.
+
+```{r fit1, cache = T, warning = F, message = F}
+fit1 <-
+  brm(data = my_data,
+      family = poisson,
+      Count ~ 1 + (1 | Hair) + (1 | Eye) + (1 | Hair:Eye),
+      prior = c(prior(normal(y_log_mean, y_log_sd), class = Intercept),
+                prior(gamma(alpha, beta), class = sd)),
+      iter = 3000, warmup = 1000, chains = 4, cores = 4,
+      seed = 24,
+      control = list(adapt_delta = 0.99,
+                     max_treedepth = 11),
+      stanvars = stanvars)
+```
+
+Take a look at the parameter summary.
+
+```{r}
+print(fit1)
+```
+
+You’ll notice that even though we tightened up the priors, the parameter estimates are still quite small relative to the values they allowed for. So even our tightened priors were quite permissive.
+
+Let's post process in preparation for Figure 24.3.
+
+```{r}
+nd <-
+  my_data %>% 
+  arrange(Eye, Hair) %>% 
+  mutate(strip = str_c("E:", Eye, " H:", Hair, "\nN = ", Count))
+
+f <-
+  fitted(fit1,
+         newdata = nd,
+         summary = F) %>% 
+  data.frame() %>%
+  set_names(pull(nd, strip))
+
+glimpse(f)
+```
+
+Notice that when working with a Poisson model, `fitted()` defaults to returning estimates in the $\lambda$ metric. If we want proportions/probabilities, we'll have to compute them by dividing by the total $N$. In this case $N = 592$, which we get with `sum(my_data$Count)`. Here we convert the data to the long format, compute the proportions, and plot to make the top portion of Figure 24.3.
+
+```{r, fig.width = 8, fig.height = 6}
+f %>% 
+  gather(key, count) %>% 
+  mutate(proportion = count / 592) %>% 
+  
+  ggplot(aes(x = proportion)) +
+  geom_histogram(color = "grey92", fill = "grey67",
+                 size = .05, bins = 50) +
+  geom_halfeyeh(aes(y = 0),
+                .width = .95, size = 1/2) +
+  scale_x_continuous(breaks = c(0, .1, .2)) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  coord_cartesian(xlim = c(0, .25)) +
+  theme(panel.grid = element_blank()) +
+  facet_wrap(~key, scales = "free_y")
+```
+
+We’ll have to work a bit to get the deflection differences. If this was a simple multilevel model with a single random grouping variable, we could just use the `ranef()` function to return the deflections. Like `fitted()`, it’ll return summaries by default. But you can get the posterior draws with the `summary = F` argument. But since we’ve used two grouping variables and their interaction, it’d be a bit of a pain to work that way. But we do have a handy alternative. First, if we use the `scale = "linear"` argument, `fitted()` will return the draws in the $\lambda$ scale rather than the original count metric. With the group-level draws in the $\lambda$ metric, all we need to do is subtract the fixed effect (i.e., the grand mean, the population estimate) from each to convert them to the deflection metric. So below, we’ll (a) make a custom `make_deflection()` function to do the conversions, (b) redefine our `nd` data to make our naming conventions a little more streamlined, (c) use `fitted()` and its `scale = "linear"` argument to get the draws in the $\lambda$ metric, (d) wrangle a touch, and (e) use our handy `make_deflection()` function to convert the results to the deflection metric.
+
+I know; that’s a lot. If you get lost, just go step by step and examine the results along the way.
+
+```{r}
+# a. make a custom function
+make_deflection <- function(x) {
+  x - posterior_samples(fit1)$b_Intercept
+}
+
+# b. streamline `nd`
+nd <-
+  my_data %>% 
+  arrange(Eye, Hair) %>% 
+  mutate(strip = str_c("E:", Eye, " H:", Hair))
+
+# c. use `fitted()`
+deflections <-
+  fitted(fit1,
+         newdata = nd,
+         summary = F,
+         scale = "linear") %>% 
+  # d. wrangle
+  data.frame() %>%
+  set_names(pull(nd, strip)) %>% 
+  # e. use the `make_deflection()` function
+  mutate_all(.funs = make_deflection)
+
+# what have we done?
+glimpse(deflections)
+```
+
+Now we're ready to define our difference columns and plot our version of the lower panels in Figure 24.3.
+
+```{r, fig.width = 8, fig.height = 2.5}
+deflections %>% 
+  transmute(`Blue − Brown @ Black` = `E:Blue H:Black` - `E:Brown H:Black`,
+            `Blue − Brown @ Blond` = `E:Blue H:Blond` - `E:Brown H:Blond`) %>% 
+  mutate(`Blue.v.Brown\n(x)\nBlack.v.Blond` = `Blue − Brown @ Black` - `Blue − Brown @ Blond`) %>% 
+  gather(key, difference) %>% 
+  
+  ggplot(aes(x = difference)) +
+  geom_rect(aes(xmin = -.1, xmax = .1,
+                ymin = -Inf, ymax = Inf),
+            fill = "white") +
+  geom_histogram(color = "grey92", fill = "grey67",
+                 size = .2, bins = 40) +
+  geom_halfeyeh(aes(y = 0),
+                point_interval = mode_hdi, .width = .95) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  theme(panel.grid = element_blank()) +
+  facet_wrap(~key, scales = "free")
+```
+
+If you're curious, here are the precise values.
+
+```{r}
+deflections %>% 
+  transmute(`Blue − Brown @ Black` = `E:Blue H:Black` - `E:Brown H:Black`,
+            `Blue − Brown @ Blond` = `E:Blue H:Blond` - `E:Brown H:Blond`) %>% 
+  mutate(`Blue.v.Brown\n(x)\nBlack.v.Blond` = `Blue − Brown @ Black` - `Blue − Brown @ Blond`) %>% 
+  gather() %>% 
+  group_by(key) %>% 
+  mode_hdi()
+```
+
+## Example: Interaction contrasts, shrinkage, and omnibus test
+
+Let's make the data.
+
+```{r}
+my_data <-
+  tibble(a = str_c("a", 1:4)) %>% 
+  expand(a,
+         b = str_c("b", 1:4)) %>% 
+  mutate(count = c(rep(c(22, 11), each = 2) %>% rep(., times = 2),
+                   rep(c(11, 22), each = 2) %>% rep(., times = 2)))
+
+head(my_data)
+```
+
+Make the `stanvars`.
+
+```{r}
+n_x1_level <- length(unique(my_data$a))
+n_x2_level <- length(unique(my_data$b))
+n_cell     <- nrow(my_data)
+
+y_log_mean <-
+  log(sum(my_data$count) / (n_x1_level * n_x2_level))
+
+y_log_sd <-
+  c(rep(0, n_cell - 1), sum(my_data$count)) %>% 
+  sd() %>% 
+  log()
+
+s_r <- gamma_a_b_from_omega_sigma(mode = y_log_sd, sd = y_log_sd)
+
+stanvars <- 
+  stanvar(y_log_mean, name = "y_log_mean") + 
+  stanvar(y_log_sd,   name = "y_log_sd") + 
+  stanvar(s_r$shape,  name = "alpha") +
+  stanvar(s_r$rate,   name = "beta")
+```
+
+Fit the model.
+
+```{r fit2, cache = T, warning = F, message = F}
+fit2 <-
+  brm(data = my_data,
+      family = poisson,
+      count ~ 1 + (1 | a) + (1 | b) + (1 | a:b),
+      prior = c(prior(normal(y_log_mean, y_log_sd), class = Intercept),
+                prior(gamma(alpha, beta), class = sd)),
+      iter = 3000, warmup = 1000, chains = 4, cores = 4,
+      seed = 24,
+      control = list(adapt_delta = 0.99,
+                     max_treedepth = 11),
+      stanvars = stanvars)
+```
+
+Consider the summary.
+
+```{r}
+print(fit2)
+```
+
+Here's the top part of Figure 24.4.
+
+```{r, fig.width = 8, fig.height = 6}
+nd <-
+  my_data %>% 
+  mutate(strip = str_c("a:", a, " b:", b, "\nN = ", count))
+
+fitted(fit2,
+       newdata = nd,
+       summary = F) %>% 
+  data.frame() %>%
+  set_names(pull(nd, strip)) %>% 
+  gather(key, count) %>% 
+  mutate(proportion = count / sum(my_data$count)) %>% 
+  
+  # plot!
+  ggplot(aes(x = proportion)) +
+  geom_histogram(color = "grey92", fill = "grey67",
+                 size = .05, bins = 40) +
+  geom_halfeyeh(aes(y = 0),
+                .width = .95, size = 1/2) +
+  scale_x_continuous(breaks = c(.05, .1, .15)) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  coord_cartesian(xlim = c(0, .15)) +
+  theme(panel.grid = element_blank()) +
+  facet_wrap(~key, scales = "free_y")
+```
+
+Like before, we’ll have to work a bit to get the deflection differences.
+
+```{r}
+# streamline `nd`
+nd <-
+  my_data %>% 
+  mutate(strip = str_c("a:", a, " b:", b))
+
+# use `fitted()`
+deflections <-
+  fitted(fit2,
+         newdata = nd,
+         summary = F,
+         scale = "linear") %>% 
+  # wrangle
+  data.frame() %>%
+  set_names(pull(nd, strip)) %>% 
+  # use the `make_deflection()` function
+  mutate_all(.funs = make_deflection)
+
+# what have we done?
+glimpse(deflections)
+```
+
+Now we're ready to define some of the difference columns and plot our version of the left most lower panel in Figure 24.4.
+
+```{r, fig.width = 3.25, fig.height = 2.5}
+deflections %>% 
+  transmute(`a2 - a3 @ b2` = `a:a2 b:b2` - `a:a3 b:b2`,
+            `a2 - a3 @ b3` = `a:a2 b:b3` - `a:a3 b:b3`) %>% 
+  transmute(`a2.v.a3\n(x)\nb2.v.b3` = `a2 - a3 @ b2` - `a2 - a3 @ b3`) %>% 
+  gather(key, difference) %>% 
+  
+  ggplot(aes(x = difference)) +
+  geom_rect(aes(xmin = -.1, xmax = .1,
+                ymin = -Inf, ymax = Inf),
+            fill = "white") +
+  geom_histogram(color = "grey92", fill = "grey67",
+                 size = .2, binwidth = .075) +
+  geom_halfeyeh(aes(y = 0),
+                point_interval = mode_hdi, .width = .95) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  coord_cartesian(xlim = c(-.5, 2.5)) +
+  theme(panel.grid = element_blank()) +
+  facet_wrap(~key, scales = "free")
+```
+
+For Figure 24.4, bottom right, we average across the four cells in each quadrant and then compute the contrast.
+
+```{r, fig.width = 3.25, fig.height = 2.5}
+deflections %>% 
+  # in this intermediate step, we compute the quadrant averages
+  # `tl` = top left, `br` = bottom right, and so on
+  transmute(tl = (`a:a1 b:b1` + `a:a1 b:b2` + `a:a2 b:b1` + `a:a2 b:b2`) / 4,
+            tr = (`a:a1 b:b3` + `a:a1 b:b4` + `a:a2 b:b3` + `a:a2 b:b4`) / 4,
+            bl = (`a:a3 b:b1` + `a:a3 b:b2` + `a:a4 b:b1` + `a:a4 b:b2`) / 4,
+            br = (`a:a3 b:b3` + `a:a3 b:b4` + `a:a4 b:b3` + `a:a4 b:b4`) / 4) %>%
+  # compute the contrast of interest
+  transmute(`A1.A2.v.A3.A4\n(x)\nB1.B2.v.B3.B4` = (tl - bl) - (tr - br)) %>% 
+  gather(key, difference) %>% 
+  
+  # plot
+  ggplot(aes(x = difference)) +
+  geom_rect(aes(xmin = -.1, xmax = .1,
+                ymin = -Inf, ymax = Inf),
+            fill = "white") +
+  geom_histogram(color = "grey92", fill = "grey67",
+                 size = .2, binwidth = .075) +
+  geom_halfeyeh(aes(y = 0),
+                point_interval = mode_hdi, .width = .95) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  coord_cartesian(xlim = c(-.5, 2.5)) +
+  theme(panel.grid = element_blank()) +
+  facet_wrap(~key, scales = "free")
+```
+
+> The model presented here has no way to conduct an "ominbus" test of interaction. However, like the ANOVA-style models presented in Chapters 19 and 20, it is easy to extend the model so it has an inclusion coefficient on the interaction deflections. The inclusion coefficient can have values of 0 or 1, and is given a Bernoulli prior. (p. 716)
+
+Like we discussed in earlier chapters, this isn't a feasible approach for brms. However, we can compare this model with a simpler one that omits the interaction.
+
+First, fit the model.
+
+```{r fit3, cache = T, warning = F, message = F}
+fit3 <-
+  brm(data = my_data,
+      family = poisson,
+      count ~ 1 + (1 | a) + (1 | b),
+      prior = c(prior(normal(y_log_mean, y_log_sd), class = Intercept),
+                prior(gamma(alpha, beta), class = sd)),
+      iter = 3000, warmup = 1000, chains = 4, cores = 4,
+      seed = 24,
+      control = list(adapt_delta = 0.9995,
+                     max_treedepth = 11),
+      stanvars = stanvars)
+```
+
+Now we can compare them by their stacking weights.
+
+```{r, message = F, warning = F}
+model_weights(fit2, fit3) %>% 
+  round(digits = 3)
+```
+
+Virtually all the weight went to the interaction model.
+
+## ~~Log-linear models for contingency tables~~ Bonus: Alternative parameterization
+
+The Poisson distribution is widely used for count data. But notice how in our figures, we converted the results to the proportion metric. Once you're talking about proportions, it's not hard to further adjust your approach to thinking in terms of probabilities. So instead of thinking about the $n$ within each cell of our contingency table, we might also think about the probability of a given condition. To approach the data this way, we could use an aggregated binomial model. McElreath covered this in chapter 10 of his text [*Statistical Rethinking*](https://xcelab.net/rm/statistical-rethinking/). See [my translation of the text into brms code](https://bookdown.org/connect/#/apps/1850/access), too. 
+
+Here's how to fit that model.
+
+```{r fit4, cache = T, warning = F, message = F}
+fit4 <-
+  brm(data = my_data,
+      family = binomial,
+      count | trials(264) ~ 1 + (1 | a) + (1 | b) + (1 | a:b),
+      prior = c(prior(normal(0, 2), class = Intercept),
+                prior(normal(0, 1), class = sd)),
+      iter = 3000, warmup = 1000, chains = 4, cores = 4,
+      seed = 24,
+      control = list(adapt_delta = 0.99))
+```
+
+Check the summary.
+
+```{r}
+print(fit4)
+```
+
+Since we used a different likelihood and link function, it shouldn't be surprising the parameters look different. But notice how the aggregated binomial model yields virtually the same results for the top portion of Figure 24.4. 
+
+```{r, fig.width = 8, fig.height = 6}
+nd <-
+  my_data %>% 
+  mutate(strip = str_c("a:", a, " b:", b, "\nN = ", count))
+
+fitted(fit4,
+       newdata = nd,
+       summary = F) %>% 
+  data.frame() %>%
+  set_names(pull(nd, strip)) %>% 
+  gather(key, count) %>% 
+  mutate(proportion = count / sum(my_data$count)) %>% 
+  
+  # plot!
+  ggplot(aes(x = proportion)) +
+  geom_histogram(color = "grey92", fill = "grey67",
+                 size = .05, bins = 40) +
+  geom_halfeyeh(aes(y = 0),
+                .width = .95, size = 1/2) +
+  scale_x_continuous(breaks = c(.05, .1, .15)) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  coord_cartesian(xlim = c(0, .15)) +
+  theme(panel.grid = element_blank()) +
+  facet_wrap(~key, scales = "free_y")
+```
+
+## References {-}
+
+Kruschke, J. K. (2015). *Doing Bayesian data analysis, Second Edition: A tutorial with R, JAGS, and Stan.* Burlington, MA: Academic Press/Elsevier.
+
+## Session info {-}
+
+```{r}
+sessionInfo()
+```
+
+```{r, echo = F}
+# Here we'll remove our objects
+rm(lambda, y, d, gamma_a_b_from_omega_sigma, n_x1_level, n_x2_level, n_cell, y_log_mean, y_log_sd, s_r, stanvars, my_data, fit1, nd, f, make_deflection, deflections, fit2, fit3, fit4)
+
+theme_set(theme_grey())
+```
