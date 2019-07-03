@@ -27,7 +27,7 @@ I wanted the solution to be reproducible, which required I find the appropriate 
 ```{r, warning = F, message = F}
 library(tidyverse)
 
-h_counter <- function(i){
+h_counter <- function(i) {
   set.seed(i)
   coins <- sample(c("H", "T"), size = 24, replace = T)
   length(which(coins == "H"))
@@ -62,8 +62,15 @@ tibble(flips = sample(c("H", "T"), size = 24, replace = T)) %>%
         panel.grid.minor.y = element_blank())
 ```
 
-
 ### Definition of $p$ value.
+
+> In summary, the likelihood function defines the probability for a single measurement, and the intended sampling process defines the cloud of possible sample outcomes. The null hypothesis is the likelihood function with its specific value for parameter $\theta$, and the cloud of possible samples is defined by the stopping and testing intentions, denoted $I$. Each imaginary sample generated from the null hypothesis is summarized by a descriptive statistic, denoted $D_{\theta, I}$. In the case of a sample of coin flips, the descriptive summary statistic is $z / N$ , the proportion of heads in the sample. Now, imagine generating infinitely many samples from the null hypothesis using stopping and testing intention $I$ ; this creates a cloud of possible summary values $D_{\theta, I}$, each of which has a particular probability. The probability distribution over the cloud of possibilities is the sampling distribution: $p (D_{\theta, I} | \theta, I )$.
+>
+> To compute the $p$ value, we want to know how much of that cloud is as extreme as, or more extreme than, the actually observed outcome. To define "extremeness" we must determine the typical value of $D_{\theta, I}$, which is usually defined as the expected value, $E [D_{\theta, I}]$ (recall Equations 4.5 and 4.6). This typical value is the center of the cloud of possibilities. An outcome is more "extreme" when it is farther away from the central tendency. The $p$ value of the actual outcome is the probability of getting a hypothetical outcome that is as or more extreme. Formally, we can express this as
+>
+> $$p \text{ value} = p (D_{\theta, I} \succcurlyeq D_\text{actual} | \theta, I)$$
+>
+> where "$succcurlyeq$" in this context means "as extreme as or more extreme than, relative to the expected value from the hypothesis." Most introductory applied statistics textbooks suppress the sampling intention $I$ from the definition, but precedents for making the sampling intention explicit can be found in [Wagenmakers (2007, Online Supplement A)](https://link.springer.com/article/10.3758/BF03194105) and additional references cited therein. (p. 301)
 
 ### With intention to fix $N$.
 
@@ -73,14 +80,14 @@ To do factorials in R, use the `factorial()` function. E.g., we can use the form
 N <- 24
 z <- 7
 
-factorial(N)/(factorial(N - z) * factorial(z))
+factorial(N) / (factorial(N - z) * factorial(z))
 ```
 
 That formula's a little cumbersome. We can make our programming lives easier by wrapping it into a function.
 
 ```{r}
-N_choose_z <- function(N, z){
-  factorial(N)/(factorial(N - z) * factorial(z))
+N_choose_z <- function(N, z) {
+  factorial(N) / (factorial(N - z) * factorial(z))
   }
 ```
 
@@ -127,7 +134,7 @@ tibble(y = c("tail", "head") %>% factor(., levels = c("tail", "head")),
   ggplot(aes(x = y, y = `p(y)`)) +
   geom_col() +
   coord_cartesian(ylim = 0:1) +
-  labs(title = "Hypothetical Population",
+  labs(title    = "Hypothetical Population",
        subtitle = expression(paste(theta, " = .5"))) +
   theme(panel.grid = element_blank(),
         axis.ticks.x = element_blank())
@@ -189,26 +196,33 @@ tibble(x = 1:50) %>%
 Here's my attempt to make a mixture of binomial distributions. I use the custom `z_maker()` function to simulate $N$-values from $Poisson(24)$. We then plug in sequences of 0:$N$ into a tibble and compute `p(z/N)` and such, by sequence. 
 
 ```{r, fig.width = 5, fig.height = 3.25, warning = F}
-z_maker <- function(i){
-  set.seed(i)
-  n <- rpois(n = 1, lambda = 24)
-  seq(from = 0, to = n, by = 1)
-}
-
-tibble(seed = 1:100) %>% 
-  mutate(z = map(seed, z_maker)) %>% 
-  unnest() %>% 
-  group_by(seed) %>% 
-  mutate(N = n()) %>% 
+flips <-
+  tibble(iter = 1:1000,
+         N    = rpois(1000, lambda = 24)) %>% 
+  mutate(z    = map(N, ~seq(from = 0, to = ., by = 1))) %>% 
+  unnest(z) %>% 
   mutate(N_choose_z = N_choose_z(N, z)) %>% 
-  mutate(`p(z/N)`   = N_choose_z/sum(N_choose_z),
-         `Sample Proportion z/N` = z/N)%>%
-  ggplot(aes(x = `Sample Proportion z/N`, y = `p(z/N)`)) +
-  geom_col(width = .004) +
-  theme(panel.grid = element_blank())
+  mutate(`p(z/N)`   = N_choose_z / sum(N_choose_z),
+         `Sample Proportion z/N` = z/N) 
+
+flips %>%
+  ggplot(aes(x = `Sample Proportion z/N`, y = `p(z/N)`,
+             fill = z <= 7)) +
+  geom_col(width = .0075) +
+  scale_fill_viridis_d(option = "B", end = .6) +
+  theme(panel.grid = element_blank(),
+        legend.position = "none")
 ```
 
 I played around with the simulation a bit, and this is about as good as I've gotten. If you have a solution that more faithfully reproduces what Kruschke did, [please share your code](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues).
+
+Here's my attempt at the $p$ value.
+
+```{r}
+flips %>% 
+  filter(z <= 7) %>% 
+  summarise(p_value = sum(`p(z/N)`))
+```
 
 ### With intention to make multiple tests.
 
@@ -216,11 +230,11 @@ I'm not sure how to do the simulation for this section. This, for example, doesn
 
 ```{r}
 flips <-
-  tibble(coin = rep(letters[1:2], each = 25),
+  tibble(coin       = rep(letters[1:2], each = 25),
          z          = rep(0:24, times = 2)) %>% 
   group_by(coin) %>% 
   mutate(N_choose_z = N_choose_z(N, z)) %>% 
-  mutate(`p(z/N)`   = N_choose_z/sum(N_choose_z),
+  mutate(`p(z/N)`   = N_choose_z / sum(N_choose_z),
          `Sample Proportion z/N` = z/N)
 
 head(flips, n = 10)
@@ -250,7 +264,11 @@ Kruschke began the subsection with "The Bayesian interpretation of data does not
 
 ## Prior knowledge 
 
+Nothing for us, here.
+
 ### NHST analysis.
+
+More nothing.
 
 ### Bayesian analysis.
 
@@ -273,15 +291,15 @@ There are a handful of steps before we can use our `Bernoulli_likelihood()` func
 N <- 24
 z <- 7
 
-trial_data <- c(rep(0, times = N - z), rep(1, times = z))                # (i.e., data)
+trial_data <- c(rep(0, times = N - z), rep(1, times = z))                  # (i.e., data)
 
 d_nail <-
-  tibble(theta = seq(from = 0, to = 1, length.out = 1000)) %>%           # (i.e., theta)
+  tibble(theta = seq(from = 0, to = 1, length.out = 1000)) %>%             # (i.e., theta)
   mutate(Prior = dbeta(x = theta, shape1 = 2, shape2 = 20)) %>% 
-  mutate(Likelihood = Bernoulli_likelihood(theta = theta,                # (i.e., p(D | theta))
+  mutate(Likelihood = Bernoulli_likelihood(theta = theta,                  # (i.e., p(D | theta))
                                            data = trial_data)) %>%
-  mutate(normalizing_constant = sum(Likelihood * Prior/sum(Prior))) %>%  # (i.e., p(D))
-  mutate(Posterior = Likelihood * Prior / normalizing_constant)          # (i.e., p(theta | D))
+  mutate(normalizing_constant = sum(Likelihood * Prior / sum(Prior))) %>%  # (i.e., p(D))
+  mutate(Posterior = Likelihood * Prior / normalizing_constant)            # (i.e., p(theta | D))
   
 glimpse(d_nail)
 ```
@@ -328,7 +346,7 @@ library(gridExtra)
 grid.arrange(plot_1, plot_2, plot_3)
 ```
 
-To get the left column of Figure 11.7, we have to update the data with our new prior, $\beta(11, 11)$.
+To get the left column of Figure 11.7, we have to update the data with our new prior, $\text{beta} (11, 11)$.
 
 ```{r, fig.width = 4, fig.height = 6, warning = F, message = F}
 # Here are the data based on our updated beta(11, 11) prior
@@ -337,7 +355,7 @@ d_coin <-
   mutate(Prior = dbeta(x = theta, shape1 = 11, shape2 = 11)) %>% 
   mutate(Likelihood = Bernoulli_likelihood(theta = theta,
                                            data = trial_data)) %>%
-  mutate(normalizing_constant = sum(Likelihood * Prior/sum(Prior))) %>%
+  mutate(normalizing_constant = sum(Likelihood * Prior / sum(Prior))) %>%
   mutate(Posterior = Likelihood * Prior / normalizing_constant)
 
 # The updated plots:
@@ -382,9 +400,11 @@ grid.arrange(plot_1, plot_2, plot_3)
 
 In this subsection's opening paragraph, Kruschke opined:
 
-> Prior beliefs are overt, explicitly debated, and founded on publicly accessible previous research. A Bayesian analyst might have personal priors that differ from what most people think, but if the analysis is supposed to convince an audience, then the analysis must use priors that the audience finds palatable. It is the job of the Bayesian analyst to make cogent arguments for the particular prior that is used.
+> Prior beliefs are overt, explicitly debated, and founded on publicly accessible previous research. A Bayesian analyst might have personal priors that differ from what most people think, but if the analysis is supposed to convince an audience, then the analysis must use priors that the audience finds palatable. It is the job of the Bayesian analyst to make cogent arguments for the particular prior that is used. (p. 317)
 
 ## Confidence interval and highest density interval
+
+> This section defines CIs and provides examples. It shows that, while CIs ameliorate some of the problems of $p$ values, ultimately CIs suffer the same problems as $p$ values because CIs are defined in terms of $p$ values. Bayesian posterior distributions, on the other hand, provide the needed information. (p. 318)
 
 ### CI depends on intention.
 
@@ -441,7 +461,7 @@ And here's the lower right.
 tibble(z = 0:24,
        y = dbinom(0:24, size = 24, prob = .511)) %>% 
   
-  ggplot(aes(x = z/24, y = y,
+  ggplot(aes(x = z / 24, y = y,
              fill = z <= 7)) +
   geom_col(width = .025) +
   scale_fill_viridis_d(option = "B", end = .6) +
@@ -461,7 +481,7 @@ tibble(y = c("tail", "head") %>% factor(., levels = c("tail", "head")),
   ggplot(aes(x = y, y = `p(y)`)) +
   geom_col() +
   coord_cartesian(ylim = 0:1) +
-  labs(title = "Hypothetical Population",
+  labs(title    = "Hypothetical Population",
        subtitle = expression(paste(theta, " = .484"))) +
   theme(panel.grid = element_blank(),
         axis.ticks.x = element_blank())
@@ -473,10 +493,10 @@ We'll need fresh data for the upper right panel of Figure 11.9.
 theta <- .126
 
 flips <-
-  tibble(N             = 7:100) %>% 
+  tibble(N           = 7:100) %>% 
   mutate(N_choose_z  = N_choose_z(N, z)) %>% 
-  mutate(`p(z/N)`    = N_choose_z/sum(N_choose_z),
-         `Sample Proportion z/N` = z/N,
+  mutate(`p(z/N)`    = N_choose_z / sum(N_choose_z),
+         `Sample Proportion z/N` = z / N,
          `p(N|z,theta)` = (z/N) * N_choose_z * (theta^z) * (1 - theta)^(N - z))
 
 flips %>%
@@ -495,10 +515,10 @@ And once again, we'll renew `theta` and the data for the lower right panel.
 theta <- .484
 
 flips <-
-  tibble(N             = 7:100) %>% 
+  tibble(N           = 7:100) %>% 
   mutate(N_choose_z  = N_choose_z(N, z)) %>% 
-  mutate(`p(z/N)`    = N_choose_z/sum(N_choose_z),
-         `Sample Proportion z/N` = z/N,
+  mutate(`p(z/N)`    = N_choose_z / sum(N_choose_z),
+         `Sample Proportion z/N` = z / N,
          `p(N|z,theta)` = (z/N) * N_choose_z * (theta^z) * (1 - theta)^(N - z))
 
 flips %>%
@@ -514,7 +534,7 @@ flips %>%
 Here's the lower left panel for Figure 11.10.
 
 ```{r, fig.width = 2.75, fig.height = 3.5}
-tibble(y = c("tail", "head") %>% factor(., levels = c("tail", "head")),
+tibble(y      = c("tail", "head") %>% factor(., levels = c("tail", "head")),
        `p(y)` = c(1 - .135, .135)) %>% 
   
   ggplot(aes(x = y, y = `p(y)`)) +
@@ -529,7 +549,7 @@ tibble(y = c("tail", "head") %>% factor(., levels = c("tail", "head")),
 After switching out a few theta values, here's the lower right panel of Figure 11.10.
 
 ```{r, fig.width = 2.75, fig.height = 3.5}
-tibble(y = c("tail", "head") %>% factor(., levels = c("tail", "head")),
+tibble(y      = c("tail", "head") %>% factor(., levels = c("tail", "head")),
        `p(y)` = c(1 - .497, .497)) %>% 
   
   ggplot(aes(x = y, y = `p(y)`)) +
@@ -544,6 +564,12 @@ tibble(y = c("tail", "head") %>% factor(., levels = c("tail", "head")),
 Like with Figure 11.5.b, my attempts for the right panels of Figure 11.10 just aren't quite right. If you understand where I'm going wrong with the simulation, [please share your code](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues).
 
 ```{r, fig.width = 5, fig.height = 3.25, warning = F}
+z_maker <- function(i){
+  set.seed(i)
+  n <- rpois(n = 1, lambda = 24)
+  seq(from = 0, to = n, by = 1)
+}
+
 theta <- .135
 
 tibble(seed = 1:100) %>% 
@@ -552,12 +578,12 @@ tibble(seed = 1:100) %>%
   group_by(seed) %>% 
   mutate(N = n()) %>% 
   mutate(N_choose_z = N_choose_z(N, z)) %>% 
-  mutate(`p(z/N)`   = N_choose_z/sum(N_choose_z),
+  mutate(`p(z/N)`   = N_choose_z / sum(N_choose_z),
          `Sample Proportion z/N` = z/N) %>%
-  mutate(`p(N|z,theta)` = (z/N) * N_choose_z * (theta^z) * (1 - theta)^(N - z)) %>% 
+  mutate(`p(N|z,theta)` = (z / N) * N_choose_z * (theta^z) * (1 - theta)^(N - z)) %>% 
   
   ggplot(aes(x = `Sample Proportion z/N`, y = `p(N|z,theta)`,
-             fill = `Sample Proportion z/N` >= 7/24)) +
+             fill = `Sample Proportion z/N` >= 7 / 24)) +
   geom_col(width = .004) +
   scale_fill_viridis_d(option = "B", end = .6) +
   theme(panel.grid = element_blank(),
@@ -573,12 +599,12 @@ tibble(seed = 1:100) %>%
   group_by(seed) %>% 
   mutate(N = n()) %>% 
   mutate(N_choose_z = N_choose_z(N, z)) %>% 
-  mutate(`p(z/N)`   = N_choose_z/sum(N_choose_z),
-         `Sample Proportion z/N` = z/N) %>%
-  mutate(`p(N|z,theta)` = (z/N) * N_choose_z * (theta^z) * (1 - theta)^(N - z)) %>% 
+  mutate(`p(z/N)`   = N_choose_z / sum(N_choose_z),
+         `Sample Proportion z/N` = z / N) %>%
+  mutate(`p(N|z,theta)` = (z / N) * N_choose_z * (theta^z) * (1 - theta)^(N - z)) %>% 
   
   ggplot(aes(x = `Sample Proportion z/N`, y = `p(N|z,theta)`,
-             fill = `Sample Proportion z/N` <= 7/24)) +
+             fill = `Sample Proportion z/N` <= 7 / 24)) +
   geom_col(width = .004) +
   scale_fill_viridis_d(option = "B", end = .6) +
   theme(panel.grid = element_blank(),
@@ -619,15 +645,19 @@ Much like with Figure 11.6, I don't understand how to do the simulation properly
 
 #### CI is not a distribution.
 
+> A CI is merely two end points. A common misconception of a confidence interval is that it indicates some sort of probability distribution over values of $\theta$. It is very tempting to think that values of $\theta$ in the middle of a CI should be more believable than values of $\theta$ at or beyond the limits of the CI.
+>
+... methods for imposing a distribution upon a CI seem to be motivated by a natural Bayesian intuition: Parameter values that are consistent with the data should be more credible than parameter values that are not consistent with the data (subject to prior credibility). If we were confined to frequentist methods, then the various proposals outlined above would be expressions of that intuition. But we are not confined to frequentist methods. Instead, we can express our natural Bayesian intuitions in fully Bayesian formalisms. (pp. 323--324)
+
 ### Bayesian HDI.
 
-Kruschke ended the first paragraph in this subsection with: "The 95% HDI consists of those values of $\theta$ that have at least some minimal level of posterior credibility, such that the total probability of all such $\theta$ values is 95%."
+"The 95% HDI consists of those values of $\theta$ that have at least some minimal level of posterior credibility, such that the total probability of all such $\theta$ values is 95%" (p. 324).
 
 ## Multiple comparisons
 
 It's worth quoting Kruschke at length:
 
-> When comparing multiple conditions, a key goal in NHST is to keep the overall false alarm rate down to a desired maximum such as 5%. Abiding by this constraint depends on the number of comparisons that are to be made, which in turn depends on the intentions of the experimenter. In a Bayesian analysis, however, there is just one posterior distribu- tion over the parameters that describe the conditions. That posterior distribution is unaffected by the intentions of the experimenter, and the posterior distribution can be exam- ined from multiple perspectives however is suggested by insight and curiosity.
+> When comparing multiple conditions, a key goal in NHST is to keep the overall false alarm rate down to a desired maximum such as 5%. Abiding by this constraint depends on the number of comparisons that are to be made, which in turn depends on the intentions of the experimenter. In a Bayesian analysis, however, there is just one posterior distribu- tion over the parameters that describe the conditions. That posterior distribution is unaffected by the intentions of the experimenter, and the posterior distribution can be examined from multiple perspectives however is suggested by insight and curiosity. (p. 325)
 
 ### NHST correction for experiment wise error.
 
@@ -672,7 +702,7 @@ alpha_pc <- .05
 c        <- 36
 
 # the Bonferonni correction
-alpha_pc/c
+alpha_pc / c
 ```
 
 Again, it might be useful to plot the consequence of Bonferonni's correction on $\alpha$ for different levels of $c$.
@@ -690,7 +720,7 @@ tibble(c = 1:100) %>%
 A little shocking, isn't it? If you put it on a log scale, you'll see the relationship is linear.
 
 ```{r, fig.width = 5, fig.height = 3.5}
-tibble(c = 1:100) %>% 
+tibble(c      = 1:100) %>% 
   mutate(a_ew = alpha_pc^c) %>% 
   
   ggplot(aes(x = c, y = a_ew)) +
@@ -706,7 +736,7 @@ But just look at how low the values on the y-axis get.
 
 Kruschke:
 
-> In a Bayesian analysis, the interpretation of the data is not influenced by the experimenter’s stopping and testing intentions (assuming that those intentions do not affect the data). A Bayesian analysis yields a posterior distribution over the parameters of the model. The posterior distribution is the complete implication of the data. The posterior distribution can be examined in as many different ways as the analyst deems interesting; various comparisons of groups are merely different perspectives on the posterior distribution.
+> In a Bayesian analysis, the interpretation of the data is not influenced by the experimenter’s stopping and testing intentions (assuming that those intentions do not affect the data). A Bayesian analysis yields a posterior distribution over the parameters of the model. The posterior distribution is the complete implication of the data. The posterior distribution can be examined in as many different ways as the analyst deems interesting; various comparisons of groups are merely different perspectives on the posterior distribution. (p. 328)
 
 ### How Bayesian analysis mitigates false alarms.
 
@@ -736,5 +766,5 @@ sessionInfo()
 
 ```{r, message = F, warning = F, echo = F}
 # Here we'll remove our objects
-rm(h_counter, coins, N, z, N_choose_z, flips, z_maker, Bernoulli_likelihood, trial_data, d_nail, d_coin, plot_1, plot_2, plot_3, theta, alpha_pc, c)
+rm(h_counter, coins, N, z, N_choose_z, flips, Bernoulli_likelihood, trial_data, d_nail, d_coin, plot_1, plot_2, plot_3, theta, alpha_pc, c)
 ```
