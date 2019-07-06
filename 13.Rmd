@@ -1256,13 +1256,402 @@ hdi_of_icdf(name   = qbeta,
 
 > In classical power analysis, it is assumed that the goal is to reject the null hypothesis. For many researchers, the *sine qua non* of research is to reject the null hypothesis. The practice of NHST is so deeply institutionalized in scientific journals that it is difficult to get research findings published without showing "significant" results, in the sense of $p < 0.05$. As a consequence, many researchers will monitor data as they are being collected and stop collecting data only when  $p < 0.05$ (conditionalizing on the current sample size) or when their patience runs out. This practice seems intuitively not to be problematic because the data collected after testing previous data are not affected by the previously collected data. For example, if I flip a coin repeatedly, the probability of heads on the next flip is not affected by whether or not I happened to check whether $p < 0.05$ on the previous flip. 
 >
-> Unfortunately, that intuition about independence across flips only tells part of story. What’s missing is the realization that the stopping procedure biases which data are sampled, because the procedure stops only when extreme values happen to be randomly sampled...
+> Unfortunately, that intuition about independence across flips only tells part of story. What's missing is the realization that the stopping procedure biases which data are sampled, because the procedure stops only when extreme values happen to be randomly sampled...
 >
 > The remainder of this section shows examples of sequential testing with different decision criteria. We consider decisions by $p$ values, BFs, HDIs with ROPEs, and precision. We will see that decisions by $p$ values not only lead to 100% false alarms (with infinite patience), but also lead to biased estimates that are more extreme than the true value. The two Bayesian methods both can decide to accept the null hypothesis, and therefore do not lead to 100% false alarms, but both do produce biased estimates because they stop when extreme values are sampled. Stopping when precision is achieved produces accurate estimates. (pp. 383--385, *emphasis* in the original)
 
-### 13.3.1 Examples of sequential tests.
+### 13.3.1 Examples ofsequential tests.
+
+To start our sequence of simulated coin flips, we’ll set the total number of trials we'd like, `n_trial`, specify our `bias`, and set out seed. Like Kruschke did in the text we'll do `bias <- .5`, first.
+
+```{r}
+n_trial <- 700
+bias <- .5
+
+set.seed(13)
+
+coin.5 <-
+  tibble(n    = 1:n_trial,
+         flip = rbinom(n = n_trial, size = 1, prob = bias)) %>% 
+  mutate(z    = cumsum(flip))
+
+head(coin.5)
+```
+
+Here's a little custom function that will fit frequentist logistic regression models for each combination of `n` and `z` and then extract the associated $p$-value.
+
+```{r}
+fit_glm <- function(n, z) {
+  d <- tibble(y = rep(1:0, times = c(z, n - z)))
+  
+  glm(data = d, y ~ 1, family = binomial(link = "logit")) %>% 
+    broom::tidy() %>% 
+    select(p.value) %>% 
+    pull()
+}
+
+# here's how it works
+fit_glm(n = 5, z = 2)
+```
+
+Use `fit_glm()` to compute the $p$-values.
+
+```{r}
+coin.5 <-
+  coin.5 %>% 
+  mutate(p = map2_dbl(n, z, fit_glm))
+
+head(coin.5)
+```
+
+For the Bayes factors, Kruschke indicated these were computed based on Equation 12.3 from page 344. Here's the equation.
+
+$$
+\frac{p(z, N | M_\text{alt})}{p(z, N | M_\text{null})} = \frac{B (z + a_\text{alt}, N - z + b_\text{alt}) / B (a_\text{alt}, b_\text{alt})}{\theta_\text{null}^z (1 = \theta_\text{null})^{(N - z)}}
+$$
+
+To ground ourselves, here's some of the content from that page that followed the equation.
+
+> For a default alternative prior, the beta distribution is supposed to be uninformed, according to particular mathematical criteria. Intuition might suggest that a uniform distribution suits this requirement, that is, $\text{beta} (\theta | 1, 1)$. Instead, some argue that the most appropriate uninformed beta distribution is $\text{beta} (\theta | \epsilon, \epsilon)$, where $\epsilon$ is a small number approaching zero (p. 344)
+
+The $\text{beta} (\epsilon, \epsilon)$, recall, is the Haldane prior. Often times, $\epsilon = 0.01$. That will be our approach here, too. Let's make another custom function.
+
+```{r}
+log_bf <- function(n, z, theta) { 
+  
+  # define epsilon for the Haldane prior
+  e <- 0.01
+  
+  # compute p(d | H_0)
+  p_d_null <- theta ^ z * (1 - theta) ^ (n - z)
+  
+  # compute p(d | H_1)
+  p_d_alt <- beta(z + e, n - z + e) / beta(e, e) 
+  
+  # compute BF
+  bf <- p_d_alt / p_d_null
+  
+  # take the log
+  log(bf)
+}
+```
+
+Here's how it works.
+
+```{r}
+log_bf(n = 6, z = 2, theta = bias)
+```
+
+Now we'll use it in bulk.
+
+```{r}
+coin.5 <-
+  coin.5 %>% 
+  mutate(log_bf = map2_dbl(n, z, log_bf, theta = .5))
+
+head(coin.5)
+```
+
+To compute the HDIs for each iteration, we'll want to use the `hdi_of_qbeta()` function from chapters 10 and 12.
+
+```{r}
+hdi_of_qbeta <- function(shape1, shape2) {
+  hdi_of_icdf(name = qbeta,
+              shape1 = shape1,
+              shape2 = shape2) %>% 
+    data.frame() %>% 
+    mutate(level = c("ll", "ul")) %>% 
+    spread(key = level, value = ".")
+}
+```
+
+Here's how it works.
+
+```{r}
+hdi_of_qbeta(3, 3)
+```
+
+Put it to use.
+
+```{r}
+coin.5 <-
+  coin.5 %>% 
+  mutate(hdi = map2(n, z, ~hdi_of_qbeta(.y + 1, .x - .y + 1))) %>% 
+  unnest(hdi) %>% 
+  mutate(width = ul - ll)
+
+head(coin.5)
+```
+
+We're finally ready to define the five subplots for our version of Figure 13.4.
+
+```{r, fig.width = 8, fig.height = 1.75}
+p1 <-
+  coin.5 %>% 
+  ggplot(aes(x = n, y = z / n)) +
+  geom_hline(yintercept = .5, color = "white") +
+  geom_line() +
+  geom_point(size = 2/3) +
+  scale_x_continuous(NULL, breaks = 0:7 * 100) +
+  coord_cartesian(ylim = 0:1) +
+  theme(panel.grid = element_blank())
+
+p2 <-
+  coin.5 %>% 
+  ggplot(aes(x = n, y = p)) +
+  geom_hline(yintercept = .05, color = "white") +
+  geom_line() +
+  geom_point(size = 2/3) +
+  scale_x_continuous(NULL, breaks = 0:7 * 100) +
+  scale_y_continuous(expression(paste(italic(p), "-value")), limits = c(0, 1)) +
+  theme(panel.grid = element_blank())
+  
+p3 <-
+  coin.5 %>% 
+  ggplot(aes(x = n, y = log_bf)) +
+  geom_hline(yintercept = -1.1, color = "white") +
+  geom_line() +
+  geom_point(aes(color = log_bf < -1.1 | log_bf > 1.1),
+             alpha = 1/2, size = 2/3, show.legend = F) +
+  annotate(geom = "text",
+           x = 60, y = -1.5, label = "accept the null", color = "grey50") +
+  scale_x_continuous(NULL, breaks = 0:7 * 100) +
+  scale_color_viridis_d(option = "D", end = .75) +
+  ylab("log(BF)") +
+  theme(panel.grid = element_blank())
+
+p4 <-
+  coin.5 %>% 
+  ggplot(aes(x = n)) +
+  geom_hline(yintercept = c(.45, .55), color = "white") +
+  geom_linerange(aes(ymin = ll, ymax = ul,
+                     color = ll > .45 & ul < .55),
+                 alpha = 1/2, show.legend = F) +
+  scale_x_continuous(NULL, breaks = 0:7 * 100) +
+  scale_color_viridis_d(option = "D", end = .75) +
+  ylab("95% HDI") +
+  coord_cartesian(ylim = 0:1) +
+  theme(panel.grid = element_blank())
+
+p5 <-
+  coin.5 %>% 
+  ggplot(aes(x = n, y = width)) +
+  geom_hline(yintercept = .08, color = "white") +
+  geom_line() +
+  geom_point(aes(color = width < .08),
+             alpha = 1/2, size = 2/3, show.legend = F) +
+  scale_x_continuous(NULL, breaks = 0:7 * 100) +
+  scale_color_viridis_d(option = "D", end = .75) +
+  ylab("HDI width") +
+  coord_cartesian(ylim = 0:1) +
+  theme(panel.grid = element_blank())
+```
+
+With `gridExtra::grig.arrange()`, we'll arrange them one atop another.
+
+```{r, fig.width = 8, fig.height = 8}
+library(gridExtra)
+
+grid.arrange(p1, p2, p3, p4, p5, ncol = 1)
+```
+
+Now let's compute data of the same form, but based on $\theta = .65$. This time we'll do all the data wrangling steps in one code block.
+
+```{r}
+n_trial <- 700
+bias <- .65
+
+set.seed(13)
+
+coin.65 <-
+  # n, flip, and z
+  tibble(n    = 1:n_trial,
+         flip = rbinom(n = n_trial, size = 1, prob = bias)) %>% 
+  mutate(z    = cumsum(flip)) %>%
+  # p-values
+  mutate(p = map2_dbl(n, z, fit_glm)) %>% 
+  # log(BF)
+  mutate(log_bf = map2_dbl(n, z, log_bf, theta = .5)) %>%
+  # HDIs
+  mutate(hdi = map2(n, z, ~hdi_of_qbeta(.y + 1, .x - .y + 1))) %>% 
+  unnest(hdi) %>% 
+  # HDI width
+  mutate(width = ul - ll)
+
+head(coin.65)
+```
+
+Here is the code for our version of Figure 13.5.
+
+```{r, fig.width = 8, fig.height = 8}
+p1 <-
+  coin.65 %>% 
+  ggplot(aes(x = n, y = z / n)) +
+  geom_hline(yintercept = .65, color = "white") +
+  geom_line() +
+  geom_point(size = 2/3) +
+  scale_x_continuous(NULL, breaks = 0:7 * 100) +
+  coord_cartesian(ylim = 0:1) +
+  theme(panel.grid = element_blank())
+
+p2 <-
+  coin.65 %>% 
+  ggplot(aes(x = n, y = p)) +
+  geom_hline(yintercept = .05, color = "white") +
+  geom_line() +
+  geom_point(aes(color = p < .05),
+             alpha = 1/2, size = 2/3, show.legend = F) +
+  scale_x_continuous(NULL, breaks = 0:7 * 100) +
+  scale_y_continuous(expression(paste(italic(p), "-value")), limits = c(0, 1)) +
+  scale_color_viridis_d(option = "D", end = .75) +
+  theme(panel.grid = element_blank())
+
+p3 <-
+  coin.65 %>% 
+  ggplot(aes(x = n, y = log_bf)) +
+  geom_hline(yintercept = c(-1.1, 1.1), color = "white") +
+  geom_line() +
+  geom_point(aes(color = log_bf < -1.1 | log_bf > 1.1),
+             alpha = 1/2, size = 2/3, show.legend = F) +
+  annotate(geom = "text",
+           x = 60, y = c(-8, 28), label = c("accept the null", "reject the null"), color = "grey50") +
+  scale_x_continuous(NULL, breaks = 0:7 * 100) +
+  scale_y_continuous("log(BF)", limits = c(-10, 30)) +
+  scale_color_viridis_d(option = "D", end = .75) +
+  theme(panel.grid = element_blank())
+
+p4 <-
+  coin.65 %>% 
+  ggplot(aes(x = n)) +
+  geom_hline(yintercept = c(.45, .55), color = "white") +
+  geom_linerange(aes(ymin = ll, ymax = ul,
+                     color = ll > .55 | ul < .45),
+                 alpha = 1/2, show.legend = F) +
+  scale_x_continuous(NULL, breaks = 0:7 * 100) +
+  scale_color_viridis_d(option = "D", end = .75) +
+  ylab("95% HDI") +
+  coord_cartesian(ylim = 0:1) +
+  theme(panel.grid = element_blank())
+
+p5 <-
+  coin.65 %>% 
+  ggplot(aes(x = n, y = width)) +
+  geom_hline(yintercept = .08, color = "white") +
+  geom_line() +
+  geom_point(aes(color = width < .08),
+             alpha = 1/2, size = 2/3, show.legend = F) +
+  scale_x_continuous(NULL, breaks = 0:7 * 100) +
+  scale_color_viridis_d(option = "D", end = .75) +
+  ylab("HDI width") +
+  coord_cartesian(ylim = 0:1) +
+  theme(panel.grid = element_blank())
+
+grid.arrange(p1, p2, p3, p4, p5, ncol = 1)
+```
 
 ### 13.3.2 Average behavior of sequential tests.
+
+Still working this section out...
+
+```{r}
+n <- 24
+z <- 7
+factorial(n) / (factorial(n - z) * factorial(z))
+
+n_choose_z <- function(n, z) {
+  factorial(n) / (factorial(n - z) * factorial(z))
+}
+
+n_choose_z(24, 7)
+```
+
+
+```{r}
+p_z <- function(n, z) {
+  
+  tibble(z = 0:z) %>% 
+    mutate(n_choose_z = n_choose_z(n, z)) %>% 
+    mutate(`p(z/N)`   = n_choose_z / sum(n_choose_z)) %>% 
+    summarise(p_value = sum(`p(z/N)`)) %>%
+    pull()
+}
+
+p_z(24, 1)
+```
+
+
+```{r}
+n <- 24
+z <- 7
+
+  tibble(z = 0:n) %>% 
+    mutate(n_choose_z = n_choose_z(n, z)) %>% 
+    mutate(`p(z/N)`   = n_choose_z / sum(n_choose_z)) %>% 
+    filter(z <= 7) %>% 
+    summarise(p_value = sum(`p(z/N)`)) %>%
+    pull()
+```
+
+```{r}
+glm(data = tibble(z = z, n = n),
+    cbind(z, n - z) ~ 1, family = binomial(link = "logit")) %>% 
+  summary()
+```
+
+
+```{r}
+glm(data = tibble(y = rep(1:0, times = c(z, n - z))),
+    y ~ 1, family = binomial(link = "logit")) %>% 
+  summary()
+```
+
+```{r}
+ tibble(seed = 1:4) %>% 
+  mutate(z = map(seed, z_maker))
+```
+
+```{r}
+ tibble(seed = 1:4) %>% 
+  mutate(z = map(seed, z_maker))
+
+n_tibble <- 5
+tibble(seed = 1:n_tibble,
+       n = rpois(n_tibble, lambda = 24)) %>% 
+  mutate(z = map(n, ~seq(from = 0, to = ., by = 1))) %>% 
+  unnest(z) %>% 
+  mutate(n_choose_z = n_choose_z(n, z)) %>% 
+  mutate(`p(z/N)`   = n_choose_z / sum(n_choose_z),
+         `Sample Proportion z/N` = z/n) %>% 
+  distinct()
+```
+
+```{r}
+n_tibble <- 100
+
+flips <-
+  tibble(seed = 1:n_tibble,
+         n    = rpois(n_tibble, lambda = 24)) %>% 
+  mutate(z    = map(n, ~seq(from = 0, to = ., by = 1))) %>% 
+  unnest(z) %>% 
+  mutate(n_choose_z = n_choose_z(n, z)) %>% 
+  mutate(`p(z/N)`   = n_choose_z / sum(n_choose_z),
+         `Sample Proportion z/N` = z/n) 
+```
+
+
+
+
+
+
+```{r}
+tibble(seed = 1:10) %>% 
+  mutate(z = map(seed, z_maker)) %>% 
+  unnest() %>% 
+  group_by(seed) %>% 
+  mutate(n = n())
+```
+
+
 
 ## 13.4. Discussion 
 
