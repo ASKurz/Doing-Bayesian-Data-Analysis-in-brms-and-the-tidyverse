@@ -6,39 +6,37 @@ output:
   github_document
 ---
 
-# (PART) THE BASICS: MODELS, PROBABILITY, BAYES’ RULE, AND R {-}
+# (PART) THE BASICS: MODELS, PROBABILITY, BAYES' RULE, AND R {-}
 
 In this part of the project, we mainly reproduce figures. But we will fit models with increasing regularity as the chapters progress.
 
 # Introduction: Credibility, Models, and Parameters
 
-Kruschke opened the chapter with the following:
-
 > The goal of this chapter is to introduce the conceptual framework of Bayesian data analysis. Bayesian data analysis has two foundational ideas. The first idea is that Bayesian inference is reallocation of credibility across possibilities. The second foundational idea is that the possibilities, over which we allocate credibility, are parameter values in meaningful mathematical models. (p. 15)
 
 ## Bayesian inference is reallocation of credibility across possibilities
 
-The first step toward making Figure 2.1 is putting together a data object. And to help with that, we'll open up the tidyverse.
+The first step toward making Figure 2.1 is putting together a data object. And to help with that, we'll open up the **tidyverse**.
 
 ```{r, message = F, warning = F}
 library(tidyverse)
 
 d <-
-  tibble(
-  iteration = rep(1:3, each = 2*4),
-  stage = rep(rep(c("Prior", "Posterior"), each = 4), 
-              times = 3),
-  Possibilities = rep(LETTERS[1:4], times = 6),
-  Credibility = c(rep(.25, times = 4),
-                  c(0, rep(1/3, times = 3)),
-                  c(0, rep(1/3, times = 3)),
-                  rep(c(0, .5), each = 2),
-                  rep(c(0, .5), each = 2),
-                  c(rep(0, times = 3)), 1)
-  ) %>%
-  # This last line will help order the facet levels, below
-  mutate(stage = factor(stage, levels = c("Prior", "Posterior")))
+  tibble(iteration = 1:3) %>% 
+  expand(iteration, 
+         stage = factor(c("Prior", "Posterior"),
+                        levels = c("Prior", "Posterior"))) %>% 
+  expand(nesting(iteration, stage),
+         Possibilities = LETTERS[1:4]) %>% 
+  mutate(Credibility   = c(rep(.25, times = 4),
+                           0, rep(1/3, times = 3),
+                           0, rep(1/3, times = 3),
+                           rep(c(0, .5), each = 2),
+                           rep(c(0, .5), each = 2),
+                           rep(0, times = 3), 1))
 ```
+
+When making data with man repetitions in the rows, it's good to have the `tidyr::expand()` function up your sleeve. Go [here](https://tidyr.tidyverse.org/reference/expand.html) to learn more.
 
 We can take a look at the top few rows of the data with `head()`.
 
@@ -46,86 +44,74 @@ We can take a look at the top few rows of the data with `head()`.
 head(d)
 ```
 
-The code for Figure 2.1 is formidable. However, the bulk (i.e., the two `geom_text()` blocks and the subsequent `geom_line()` block) are just for the annotation in the lower three panels.
+Before we attempt Figure 2.1, we'll need two supplemental data frames. The first one, `d_text`, will supply the coordinates for the annotation in the plot. The second, `d_arrow`, will supply the coordinates for the arrows.
+
+```{r}
+d_text <-
+  tibble(Possibilities = "B",
+         Credibility   = .75,
+         label         = str_c(LETTERS[1:3], " is\nimpossible"),
+         iteration     = 1:3,
+         stage         = factor("Posterior", 
+                                levels = c("Prior", "Posterior")))
+d_arrow <-
+  tibble(Possibilities = LETTERS[1:3],
+         iteration     = 1:3) %>% 
+  expand(nesting(Possibilities, iteration),
+         Credibility = c(0.6, 0.01)) %>% 
+  mutate(stage = factor("Posterior", levels = c("Prior", "Posterior")))
+```
+
+Now we're ready to code our version of Figure 2.1.
 
 ```{r, fig.width = 6, fig.height = 4}
 d %>%
-  ggplot(aes(x = Possibilities, 
-             ymin = 0, ymax = Credibility)) +
-  geom_linerange(size = 10, color = "grey30") +
-  geom_text(data = tibble(
-    Possibilities = "B",
-    Credibility = .8,
-    label = c("A is", "B is", "C is"),
-    iteration = 1:3,
-    stage = factor("Posterior", levels = c("Prior", "Posterior"))
-  ), aes(y = Credibility,
-         label = label)
-  ) +
-  geom_text(data = tibble(
-    Possibilities = "B",
-    Credibility = .7,
-    label = "impossible",
-    iteration = 1:3,
-    stage = factor("Posterior", levels = c("Prior", "Posterior"))
-  ), aes(y = Credibility,
-         label = label)
-  ) +
-  geom_line(data = tibble(
-    Possibilities = rep(LETTERS[1:3], each = 2),
-    Credibility = rep(c(.63, 0), times = 3),
-    iteration = rep(1:3, each = 2),
-    stage = factor("Posterior", levels = c("Prior", "Posterior"))
-    ), aes(y = Credibility),
-    arrow = arrow(length = unit(0.30,"cm"), 
-                  ends = "last", type = "closed")) +
-  ylab("Credibility") +
+  ggplot(aes(x = Possibilities, y = Credibility)) +
+  geom_col(color = "grey30", fill = "grey30") +
+  # annotation in the bottom row
+  geom_text(data = d_text, 
+            aes(label = label)) +
+  # arrows in the bottom row
+  geom_line(data = d_arrow,
+  arrow = arrow(length = unit(0.30, "cm"), 
+                ends = "first", type = "closed")) +
   facet_grid(stage ~ iteration) +
   theme(panel.grid   = element_blank(),
         strip.text.x = element_blank(),
         axis.ticks.x = element_blank())
 ```
 
-Same deal for Figure 2.2.
+We will take a similar approach to make our version of Figure 2.2. But this time, we'll define our supplemental data sets directly in `geom_text()` and `geom_line()`. It's good to have both methods up your sleeve. Also notice how we simply fed our primary data set directly into `ggplot()` without saving it, either.
 
 ```{r, fig.width = 2.25, fig.height = 4}
-tibble(
-  stage = rep(c("Prior", "Posterior"), each = 4),
-  Possibilities = rep(LETTERS[1:4], times = 2),
-  Credibility = c(rep(.25, times = 4),
-                  c(rep(0, times = 3)), 1)
-  ) %>%
+# primary data
+tibble(stage = factor(c("Prior", "Posterior"), 
+                      levels = c("Prior", "Posterior"))) %>% 
+  expand(stage, Possibilities = LETTERS[1:4]) %>% 
+  mutate(Credibility = c(rep(0.25, times = 4),
+                         rep(0,    times = 3), 
+                         1)) %>%
   
-  mutate(stage = factor(stage, levels = c("Prior", "Posterior"))) %>%
-  
-  ggplot(aes(x = Possibilities, 
-             ymin = 0, ymax = Credibility)) +
-  geom_linerange(size = 10, color = "grey30") +
+  # plot!
+  ggplot(aes(x = Possibilities, y = Credibility)) +
+  geom_col(color = "grey30", fill = "grey30") +
+  # annotation in the bottom panel
   geom_text(data = tibble(
     Possibilities = "B",
-    Credibility = .8,
-    label = "D is",
-    stage = factor("Posterior", levels = c("Prior", "Posterior"))
-  ), aes(y = Credibility,
-         label = label)
+    Credibility   = .8,
+    label         = "D is\nresponsible",
+    stage         = factor("Posterior", levels = c("Prior", "Posterior"))
+  ), aes(label = label)
   ) +
-  geom_text(data = tibble(
-    Possibilities = "B",
-    Credibility = .7,
-    label = "responsible",
-    stage = factor("Posterior", levels = c("Prior", "Posterior"))
-  ), aes(y = Credibility,
-         label = label)
-  ) +
+  # the arrow
   geom_line(data = tibble(
     Possibilities = LETTERS[c(4, 4)],
-    Credibility = c(.25, .98),
-    stage = factor("Posterior", levels = c("Prior", "Posterior"))
-    ), aes(y = Credibility),
-    arrow = arrow(length = unit(0.30,"cm"), 
-                  ends = "last", type = "closed"),
-    color = "grey92") +
-  ylab("Credibility") +
+    Credibility   = c(.25, .99),
+    stage         = factor("Posterior", levels = c("Prior", "Posterior"))
+  ),
+  arrow = arrow(length = unit(0.30, "cm"), 
+                ends = "last", type = "closed"),
+  color = "grey92") +
   facet_wrap(~stage, ncol = 1) +
   theme(panel.grid   = element_blank(),
         axis.ticks.x = element_blank())
@@ -133,36 +119,27 @@ tibble(
 
 ### Data are noisy and inferences are probabilistic.
 
-It's easier to break Figure 2.3 up into the top and bottom portions. Here's the top.
+Now on to Figure 2.3. I'm pretty sure the curves in the plot are Gaussian, which we'll make with the `dnorm()` function. After a little trial and error, their standard deviations look to be 1.2. However, it's tricky placing those curves in along with the probabilities, because the probabilities for the four discrete sizes (i.e., 1 through 4) are in a different metric than the Gaussian density curves. Since the probability metric for the four discrete sizes are the primary metric of the plot, we need to rescale the curves using a little algebra. We do that in the data code, below. After that, the code for the plot is relatively simple.
 
 ```{r, fig.width = 2.25, fig.height = 2.5}
-d <-
-  tibble(x = seq(from = -2, to = 6, by = .01))
-
-mu_1 <- 1
-mu_2 <- 2
-mu_3 <- 3
-mu_4 <- 4
-
-ggplot(data = d, aes(x = x)) +
-  # Note the use of mu_i in the data and aes() statements
-  geom_ribbon(data = d %>% filter(x > mu_1 - .2 & x < mu_1 + .2),
-              aes(ymin = 0, ymax = dnorm(x, mean = mu_1, sd = 1.2) * .75),
-              fill = "grey40") +
-  geom_ribbon(data = d %>% filter(x > mu_2 - .2 & x < mu_2 + .2),
-              aes(ymin = 0, ymax = dnorm(x, mean = mu_2, sd = 1.2) * .75),
-              fill = "grey40") +
-  geom_ribbon(data = d %>% filter(x > mu_3 - .2 & x < mu_3 + .2),
-              aes(ymin = 0, ymax = dnorm(x, mean = mu_3, sd = 1.2) * .75),
-              fill = "grey40") +
-  geom_ribbon(data = d %>% filter(x > mu_4 - .2 & x < mu_4 + .2),
-              aes(ymin = 0, ymax = dnorm(x, mean = mu_4, sd = 1.2) * .75),
-              fill = "grey40") +
-  geom_line(aes(y = dnorm(x, mean = mu_1, sd = 1.2) * .75)) +  # Note the use of mu_i in the dnorm() statements
-  geom_line(aes(y = dnorm(x, mean = mu_2, sd = 1.2) * .75)) +
-  geom_line(aes(y = dnorm(x, mean = mu_3, sd = 1.2) * .75)) +
-  geom_line(aes(y = dnorm(x, mean = mu_4, sd = 1.2) * .75)) +
+# data
+tibble(mu = 1:4,
+       p  = .25) %>% 
+  expand(nesting(mu, p), 
+         x = seq(from = -2, to = 6, by = .1)) %>% 
+  mutate(density = dnorm(x, mean = mu, sd = 1.2)) %>% 
+  mutate(d_max   = max(density)) %>% 
+  mutate(rescale = p / d_max) %>% 
+  mutate(density = density * rescale) %>% 
+  
+  # plot!
+  ggplot(aes(x = x)) +
+  geom_col(data = . %>% distinct(mu, p),
+           aes(x = mu, y = p),
+           fill = "grey67", width = 1/3) +
+  geom_line(aes(y = density, group = mu)) +
   scale_x_continuous(breaks = 1:4) +
+  scale_y_continuous(breaks = 0:5 / 5) +
   coord_cartesian(xlim = 0:5,
                   ylim = 0:1) +
   labs(title = "Prior",
@@ -172,32 +149,29 @@ ggplot(data = d, aes(x = x)) +
         axis.ticks.x = element_blank())
 ```
 
-Now we're ready for the bottom.
+We can use the same basic method to make the bottom panel. The new consideration is choosing the relative probabilities for the different `mu` values--keeping in mind they have to sum to 1. I just eyeballed them. The only other notable change from the previous plot is our addition of a `geom_point()` section, in which we defined the data on the fly.
 
 ```{r, fig.width = 2.25, fig.height = 2.5}
-ggplot(data = d, aes(x = x)) +
-  # Note the use of mu_i in the data and aes() statements
-  geom_ribbon(data = d %>% filter(x > mu_1 - .2 & x < mu_1 + .2),
-              aes(ymin = 0, ymax = dnorm(x, mean = mu_1, sd = 1.2) * 1/3),
-              fill = "grey67") +
-  geom_ribbon(data = d %>% filter(x > mu_2 - .2 & x < mu_2 + .2),
-              aes(ymin = 0, ymax = dnorm(x, mean = mu_2, sd = 1.2) * 1.75),
-              fill = "grey67") +
-  geom_ribbon(data = d %>% filter(x > mu_3 - .2 & x < mu_3 + .2),
-              aes(ymin = 0, ymax = dnorm(x, mean = mu_3, sd = 1.2) * .925),
-              fill = "grey67") +
-  geom_ribbon(data = d %>% filter(x > mu_4 - .2 & x < mu_4 + .2),
-              aes(ymin = 0, ymax = dnorm(x, mean = mu_4, sd = 1.2) * .05),
-              fill = "grey67") +
-  geom_line(aes(y = dnorm(x, mean = mu_1, sd = 1.2) * 1/3)) +  # Note the use of mu_i in the dnorm() statements
-  geom_line(aes(y = dnorm(x, mean = mu_2, sd = 1.2) * 1.75)) +
-  geom_line(aes(y = dnorm(x, mean = mu_3, sd = 1.2) * .925)) +
-  geom_line(aes(y = dnorm(x, mean = mu_4, sd = 1.2) * .05)) +
+tibble(mu = 1:4,
+       p  = c(.1, .58, .3, .02)) %>% 
+  expand(nesting(mu, p), 
+         x = seq(from = -2, to = 6, by = .1)) %>% 
+  mutate(density = dnorm(x, mean = mu, sd = 1.2)) %>% 
+  mutate(d_max   = max(density)) %>% 
+  mutate(rescale = p / d_max) %>% 
+  mutate(density = density * rescale) %>% 
+  
+  # plot!
+  ggplot() +
+  geom_col(data = . %>% distinct(mu, p),
+           aes(x = mu, y = p),
+           fill = "grey67", width = 1/3) +
+  geom_line(aes(x = x, y = density, group = mu)) +
   geom_point(data = tibble(x = c(1.75, 2.25, 2.75), y = 0),
              aes(x = x, y = y),
              size = 3, color = "grey33", alpha = 3/4) +
   scale_x_continuous(breaks = 1:4) +
-  scale_y_continuous(breaks = seq(from = 0, to = 1, by = .2)) +
+  scale_y_continuous(breaks = 0:5 / 5) +
   coord_cartesian(xlim = 0:5,
                   ylim = 0:1) +
   labs(title = "Posterior",
@@ -207,14 +181,21 @@ ggplot(data = d, aes(x = x)) +
         axis.ticks.x = element_blank())
 ```
 
+> In summary, the essence of Bayesian inference is reallocation of credibility across possibilities. The distribution of credibility initially reflects prior knowledge about the possibilities, which can be quite vague. Then new data are observed, and the credibility is re-allocated. Possibilities that are consistent with the data garner more credibility, while possibilities that are not consistent with the data lose credibility. Bayesian analysis is the mathematics of re-allocating credibility in a logically coherent and precise way. (p. 22)
+
 ## Possibilities are parameter values in descriptive models
 
-Behold Figure 2.4.a.
+"A key step in Bayesian analysis is defining the set of possibilities over which credibility is allocated. *This is not a trivial step*, because there might always be possibilities beyond the ones we include in the initial set" (p. 22, *emphasis* added).
+
+In the last section, we used the `dnorm()` function to make curves following the Normal distribution. Here we'll do that again, but also use the `rnorm()` function to simulate actual data from that same Normal distribution. Behold Figure 2.4.a.
 
 ```{r, fig.width = 3, fig.height = 2.5}
-set.seed(2.4)
+# set the seed to make the simulation reproducible
+set.seed(2)
+# simulate the data with `rnorm()`
 d <- tibble(x = rnorm(2000, mean = 10, sd = 5))
 
+# plot!
 ggplot(data = d, aes(x = x)) +
   geom_histogram(aes(y = ..density..),
                  binwidth = 1, fill = "grey67", 
@@ -229,16 +210,15 @@ ggplot(data = d, aes(x = x)) +
   theme(panel.grid = element_blank())
 ```
 
-Here's Figure 2.4.b.
+Did you notice how we made the data for the density curve within `geom_line()`? That's one way to do it. In our next plot, we'll take a different and more elegant approach with `stat_function()`. Here's our Figure 2.4.b.
 
 ```{r, fig.width = 3, fig.height = 2.5}
 ggplot(data = d, aes(x = x)) +
   geom_histogram(aes(y = ..density..),
                  binwidth = 1, fill = "grey67",
                  color = "grey92", size = 1/8) +
-  geom_line(data = tibble(x = seq(from = -6, to = 26, by = .01)),
-            aes(x = x, y = dnorm(x, mean = 8, sd = 6)),
-            color = "grey33", linetype = 2) +
+  stat_function(fun = dnorm, n = 101, args = list(mean = 8, sd = 6),
+                color = "grey33", linetype = 2) +
   coord_cartesian(xlim = -5:25) +
   labs(subtitle = "The candidate normal distribution\nhas a mean of 8 and SD of 6.",
        x = "Data Values", 
@@ -248,8 +228,21 @@ ggplot(data = d, aes(x = x)) +
 
 ## The steps of Bayesian data analysis
 
-In order to recreate Figure 2.5, we need to generate the data and fit the model. In his "HtWtDataDenerator" R script, Kruschke provided the code for a function that will generate height/weight data of the kind in his text. Here is the code:
+> In general, Bayesian analysis of data follows these steps:
+>
+> 1. Identify the data relevant to the research questions. What are the measurement scales of the data? Which data variables are to be predicted, and which data variables are supposed to act as predictors?
+> 2. Define a descriptive model for the relevant data. The mathematical form and its parameters should be meaningful and appropriate to the theoretical purposes of the analysis.
+> 3. Specify a prior distribution on the parameters. The prior must pass muster with the audience of the analysis, such as skeptical scientists.
+> 4. Use Bayesian inference to re-allocate credibility across parameter values. Interpret the posterior distribution with respect to theoretically meaningful issues (assuming that the model is a reasonable description of the data; see next step).
+> 5. Check that the posterior predictions mimic the data with reasonable accuracy (i.e., conduct a "posterior predictive check"). If not, then consider a different descriptive
+model. 
+>
+> Perhaps the best way to explain these steps is with a realistic example of Bayesian data analysis. The discussion that follows is abbreviated for purposes of this introductory chapter, with many technical details suppressed. (p. 25)
 
+I will show you a few more details than Kruschke did in the text. But just has he did, we'll cover this workflow in much more detail in the chapters to come.
+
+In order to recreate Figure 2.5, we need to generate the data and fit the model. In his `HtWtDataDenerator.R` script, Kruschke provided the code for a function that will generate height/weight data of the kind in his text. Here is the code in full:
+d, d_text, d_arrow, HtWtDataGenerator
 ```{r}
 HtWtDataGenerator <- function(nSubj, rndsd = NULL, maleProb = 0.50) {
   # Random height, weight generator for males and females. Uses parameters from
@@ -315,53 +308,59 @@ HtWtDataGenerator <- function(nSubj, rndsd = NULL, maleProb = 0.50) {
 } # end function
 ```
 
-Now we have the `HtWtDataGenerator()` function, all we need to do is determine how many values are generated and how probable we want the values to be based on those from men. These are controlled by the `nSubj` and `maleProb` parameters.
+Now we have the `HtWtDataGenerator()` function, all we need to do is determine how many values to generate and how probable we want the values to be based on those from men. These are controlled by the `nSubj` and `maleProb` parameters.
 
 ```{r, message = F, warning = F}
-set.seed(57) # This makes the data generation reproducible
+# set your seed to make the data generation reproducible
+set.seed(57)
 
-d_57 <-
+d <-
   HtWtDataGenerator(nSubj = 57, maleProb = .5) %>%
   as_tibble()
 
-d_57 %>%
+d %>%
   head()
 ```
 
-We're about ready for the model. We fit it with HMC via the [brms package](https://cran.r-project.org/web/packages/brms/index.html). 
+We're about ready for the model. We will fit it with HMC via the [**brms** package](https://cran.r-project.org/web/packages/brms/index.html). 
 
 ```{r, message = F, warning = F}
 library(brms)
 ```
 
 The traditional use of [diffuse and noninformative priors is discouraged with HMC, as is the uniform distribution for sigma](https://github.com/stan-dev/stan/wiki/Prior-Choice-Recommendations). Instead, we'll use weakly-regularizing priors for the intercept and slope and a half Cauchy with a fairly large scale parameter for $\sigma$.
-
+d, d_text, d_arrow, HtWtDataGenerator, fit
 ```{r fit1, cache = T, message = F, warning = F}
 fit1 <- 
-  brm(data = d_57, family = gaussian,
+  brm(data = d, 
+      family = gaussian,
       weight ~ 1 + height,
-      prior = c(set_prior("normal(0, 100)", class = "Intercept"),
-                set_prior("normal(0, 100)", class = "b"),
-                set_prior("cauchy(0, 10)", class = "sigma")),
-      chains = 4, iter = 2000, warmup = 1000, cores = 4)
+      prior = c(prior(normal(0, 100), class = Intercept),
+                prior(normal(0, 100), class = b),
+                prior(cauchy(0, 10),  class = sigma)),
+      chains = 4, cores = 4, iter = 2000, warmup = 1000,
+      seed = 2)
 ```
 
-If you wanted a quick model summary, you could execute `print(fit1)`. We'll walk through that and other diagnostics in greater detail starting in Chapter 8. But for now, here's Figure 2.5.a.
+If you wanted a quick model summary, you could execute `print(fit1)`. We'll walk through that and other diagnostics in greater detail starting in Chapter 8. But for now, here's how we might make Figure 2.5.a.
 
 ```{r, fig.width = 3.25, fig.height = 3}
+# extract the posterior draws
 post <- posterior_samples(fit1)
 
+# this will streamline some of the code, below
 n_lines <- 150
 
-ggplot(data =  d_57, 
-       aes(x = height, y = weight)) +
+# plot!
+d %>% 
+  ggplot(aes(x = height, y = weight)) +
   geom_abline(intercept = post[1:n_lines, 1], 
-              slope = post[1:n_lines, 2],
+              slope     = post[1:n_lines, 2],
               color = "grey50", size = 1/4, alpha = .3) +
   geom_point(alpha = 2/3) +
   coord_cartesian(xlim = 55:80,
                   ylim = 50:250) +
-  # the eval(substitute(paste())) trick came from: https://www.r-bloggers.com/value-of-an-r-object-in-an-expression/
+  # the `eval(substitute(paste()))` trick came from: https://www.r-bloggers.com/value-of-an-r-object-in-an-expression/
   labs(subtitle = eval(substitute(paste("Data with", 
                                         n_lines, 
                                         "credible regression lines"))),
@@ -370,12 +369,13 @@ ggplot(data =  d_57,
   theme(panel.grid = element_blank())
 ```
 
-For Figure 2.5.b., we'll use the handy `stat_pointintervalh()` function from the [tidybayes package](https://github.com/mjskay/tidybayes) to mark off the mode and 95% HDIs.
+For Figure 2.5.b., we'll use the handy `stat_pointintervalh()` function from the [**tidybayes** package](https://github.com/mjskay/tidybayes) to mark off the mode and 95% HDIs.
 
 ```{r, warning = F, message = F, fig.width = 3, fig.height = 3}
 library(tidybayes)
 
-ggplot(data =  post, aes(x = b_height)) +
+post %>% 
+  ggplot(aes(x = b_height)) +
   geom_histogram(color = "grey92", fill = "grey67",
                  binwidth = .2, size = .2) +
   stat_pointintervalh(aes(y = 0), 
@@ -388,25 +388,23 @@ ggplot(data =  post, aes(x = b_height)) +
   theme(panel.grid = element_blank())
 ```
 
-Here's Figure 2.6. We'll go over the `predict()` function later.
-
+Here's Figure 2.6. We'll go over the `brms::predict()` function later.
+d, d_text, d_arrow, HtWtDataGenerator, fit, post, n_lines, nd
 ```{r, fig.width = 4, fig.height = 4}
 nd <- tibble(height = seq(from = 53, to = 81, length.out = 20))
 
-pred_fit1 <- 
-  predict(fit1, newdata = nd) %>%
+predict(fit1, newdata = nd) %>%
   as_tibble() %>%
-  bind_cols(nd)
+  bind_cols(nd) %>% 
 
-ggplot(data =  pred_fit1, 
-       aes(x = height)) +
+  ggplot(aes(x = height)) +
   geom_pointrange(aes(y = Estimate, 
                       ymin = Q2.5, 
                       ymax = Q97.5),
                   color = "grey67",
                   shape = 20) +
-  geom_point(data =  d_57, 
-             aes(x = height, y = weight),
+  geom_point(data =  d, 
+             aes(y = weight),
              alpha = 2/3) +
   labs(subtitle = "Data with the percentile-based 95% intervals and\nthe means of the posterior predictions",
        x = "Height in inches",
@@ -419,19 +417,18 @@ The posterior predictions might be easier to depict with a ribbon and line, inst
 ```{r, fig.width = 4, fig.height = 4}
 nd <- tibble(height = seq(from = 53, to = 81, length.out = 30))
 
-pred_fit1 <- 
-  predict(fit1, newdata = nd) %>%
+predict(fit1, newdata = nd) %>%
   as_tibble() %>%
-  bind_cols(nd)
+  bind_cols(nd) %>% 
 
-ggplot(data = pred_fit1, 
-       aes(x = height)) +
+  ggplot(aes(x = height)) +
   geom_ribbon(aes(ymin = Q2.5, 
                   ymax = Q97.5),
                   fill = "grey75") +
   geom_line(aes(y = Estimate),
             color = "grey92") +
-  geom_point(data =  d_57, aes(x = height, y = weight),
+  geom_point(data =  d, 
+             aes(y = weight),
              alpha = 2/3) +
   labs(subtitle = "Data with the percentile-based 95% intervals and\nthe means of the posterior predictions",
        x = "Height in inches",
@@ -449,7 +446,8 @@ Kruschke, J. K. (2015). *Doing Bayesian data analysis, Second Edition: A tutoria
 sessionInfo()
 ```
 
-```{r, message = F, warning = F, echo = F}
-# Here we'll remove our objects
-rm(d, mu_1, mu_2, mu_3, mu_4, HtWtDataGenerator, d_57, fit1, post, n_lines, nd, pred_fit1)
+```{r, eval = F, echo = F}
+# remove our objects
+rm(d, d_text, d_arrow, HtWtDataGenerator, fit, post, n_lines, nd)
 ```
+
