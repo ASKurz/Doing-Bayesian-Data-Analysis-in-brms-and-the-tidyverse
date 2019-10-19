@@ -34,13 +34,18 @@ It's worthwhile to quote this section in full.
 
 Before we try coding the simulation, we'll first load the **tidyverse**.
 
+```{r p_unload, echo = F, warning = F, message = F}
+# solves difficulties while publishing
+pacman::p_unload(pacman::p_loaded(), character.only = TRUE)
+```
+
 ```{r, message = F, warning = F}
 library(tidyverse)
 ```
 
 Now run the simulation.
 
-```{r sim, cache = T, message = F, warning = F}
+```{r end_prop, message = F, warning = F}
 n       <- 500  # specify the total number of flips
 p_heads <- 0.5  # specify underlying probability of heads
 
@@ -125,7 +130,7 @@ HtWtDataGenerator <- function(n_subj, rndsd = NULL, male_prob = 0.50) {
   # Kruschke, J. K. (2014). Doing Bayesian data analysis, 2nd Edition:
   # A Tutorial with R, JAGS and Stan. Academic Press / Elsevier.
   
-  require(MASS)
+  # require(MASS)
   
   # Specify parameters of multivariate normal (MVN) distributions.
   # Men:
@@ -167,11 +172,11 @@ HtWtDataGenerator <- function(n_subj, rndsd = NULL, male_prob = 0.50) {
     # Flip coin to decide sex
     sex = sample(c(maleval, femaleval), size = 1, replace = TRUE,
                  prob = c(male_prob, 1 - male_prob))
-    if (sex == maleval) {datum <- mvrnorm(n = 1, mu = Mmean, Sigma = Msigma)}
+    if (sex == maleval) {datum <- MASS::mvrnorm(n = 1, mu = Mmean, Sigma = Msigma)}
     if (sex == femaleval) {
       Fclust = sample(c(1, 2), size = 1, replace = TRUE, prob = c(prop1, prop2))
-      if (Fclust == 1) {datum <- mvrnorm(n = 1, mu = Fmean1, Sigma = Fsigma1)}
-      if (Fclust == 2) {datum <- mvrnorm(n = 1, mu = Fmean2, Sigma = Fsigma2)}
+      if (Fclust == 1) {datum <- MASS::mvrnorm(n = 1, mu = Fmean1, Sigma = Fsigma1)}
+      if (Fclust == 2) {datum <- MASS::mvrnorm(n = 1, mu = Fmean2, Sigma = Fsigma2)}
     }
     data_matrix[i, ] = c(sex, round(c(datum[1], exp(datum[2])), 1))
   }
@@ -191,13 +196,6 @@ d <-
 
 d %>%
   head()
-```
-
-Before we move on, we'll want to detach the **MASS** package and reload **dplyr**, which is part of the **tidyverse**, so we might be able to use `dplyr::select()` later in the project.
-
-```{r, warning = F, message = F}
-detach(package:MASS, unload = T)
-library(dplyr)
 ```
 
 For Figure 4.2, we'll make extensive use of the `case_when()` syntax, which you can learn more about from [hrbrmstr's *Making a Case for case_when*](https://rud.is/b/2017/03/10/making-a-case-for-case_when/).
@@ -561,7 +559,7 @@ Kay's **tidybayes** package
 
 Here we'll use `mode_hdi()` to compute the HDIs and put them in a tibble. We'll be using a lot of `mode_hdi()` in this project.
 
-```{r}
+```{r, warning = F, message = F}
 h <- 
   d %>% 
   mode_hdi()
@@ -616,9 +614,8 @@ ggplot(data = dens,
            label = "95% HDI", color = "grey92") +
   annotate("text", x = 4.75, y = .1, 
            label = "95% HDI", color = "grey92") +
-  scale_x_continuous(breaks = 0:6) +
+  scale_x_continuous(breaks = 0:6, limits = c(0, 6.3)) +
   scale_y_continuous("p(x)", breaks = c(0, .1, .2, .3, .4, .5)) +
-  xlim(0, 6.3) +
   theme(panel.grid = element_blank())
 ```
 
