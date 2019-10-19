@@ -8,8 +8,6 @@ output:
 
 # What is This Stuff Called Probability?
 
-Kruschke opened:
-
 > Inferential statistical techniques assign precise measures to our uncertainty about possibilities. Uncertainty is measured in terms of *probability*, and therefore we must establish the properties of probability before we can make inferences about it. This chapter introduces the basic ideas of probability. (p. 71, *emphasis* in the original)
 
 ## The set of all possible events
@@ -20,11 +18,21 @@ This snip from page 72 is important (*emphasis* in the original):
 
 ## Probability: Outside or inside the head
 
+It's worthwhile to quote this section in full.
+
+> Sometimes we talk about probabilities of outcomes that are "out there" in the world. The face of a flipped coin is such an outcome: We can observe the flip, and the probability of coming up heads can be estimated by observing several flips.
+>
+> But sometimes we talk about probabilities of things that are not so clearly "out there," and instead are just possible beliefs "inside the head." Our belief about the fairness of a coin is an example of something inside the head. The coin may have an intrinsic physical bias, but now I am referring to our *belief* about the bias. Our beliefs refer to a space of mutually exclusive and exhaustive possibilities. It might be strange to say that we randomly sample from our beliefs, like we randomly sample from a sack of coins. Nevertheless, the mathematical properties of probabilities outside the head and beliefs inside the head are the same in their essentials, as we will see. (pp. 73--74, *emphasis* in the original)
+
 ### Outside the head: Long-run relative frequency.
+
+> For events outside the head, it's intuitive to think of probability as being the long-run relative frequency of each possible outcome...
+>
+> We can determine the long-run relative frequency by two different ways. One way is to approximate it by actually sampling from the space many times and tallying the number of times each event happens. A second way is by deriving it mathematically. These two methods are now explored in turn. (p. 74)
 
 #### Simulating a long-run relative frequency.
 
-First, load the tidyverse.
+Before we try coding the simulation, we'll first load the **tidyverse**.
 
 ```{r, message = F, warning = F}
 library(tidyverse)
@@ -33,25 +41,25 @@ library(tidyverse)
 Now run the simulation.
 
 ```{r sim, cache = T, message = F, warning = F}
-N       <- 500  # Specify the total number of flips, denoted N.
-p_heads <- 0.5  # Specify underlying probability of heads.
+n       <- 500  # specify the total number of flips
+p_heads <- 0.5  # specify underlying probability of heads
 
-# Kruschke reported this was the seed he used at the top of page 94.
+# Kruschke reported this was the seed he used at the top of page 94
 set.seed(47405)
 
-# Here we use that seed to flip a coin N times and compute the running proportion of heads at each flip. 
-# We generate a random sample of N flips (heads = 1, tails = 0)
-my_flip <-
+# here we use that seed to flip a coin n times and compute the running proportion of heads at each flip. 
+# we generate a random sample of n flips (heads = 1, tails = 0)
+d <-
   tibble(flip_sequence = sample(x       = c(0, 1), 
                                 prob    = c(1 - p_heads, p_heads), 
-                                size    = N, 
+                                size    = n, 
                                 replace = T),
          r = cumsum(flip_sequence),
-         n = 1:N) %>% 
+         n = 1:n) %>% 
   mutate(run_prop = r / n)
 
 end_prop <-
-  my_flip %>% 
+  d %>% 
   select(run_prop) %>% 
   slice(n()) %>% 
   round(digits = 3) %>% 
@@ -61,8 +69,8 @@ end_prop <-
 Now we're ready to make Figure 4.1.
 
 ```{r, message = F, warning = F, fig.width = 4.5, fig.height = 4}
-my_flip %>%
-  filter(n < 1000) %>%  # This step cuts down on the time it takes to make the plot
+d %>%
+  filter(n < 1000) %>%  # this step cuts down on the time it takes to make the plot
   ggplot(aes(x = n, y = run_prop)) +
   geom_hline(yintercept = .5, color = "white") +
   geom_line(color = "grey50") +
@@ -77,9 +85,33 @@ my_flip %>%
   theme(panel.grid = element_blank())
 ```
 
+#### Deriving a long-run relative frequency.
+
+> Sometimes, when the situation is simple enough mathematically, we can derive the exact long-run relative frequency. The case of the fair coin is one such simple situation. The sample space of the coin consists of two possible outcomes, head and tail. By the assumption of fairness, we know that each outcome is equally likely. Therefore, the long-run relative frequency of heads should be exactly one out of two, i.e., 1/2, and the long-run relative frequency of tails should also be exactly 1/2. (p. 76)
+
+### Inside the head: Subjective belief.
+
+> To specify our subjective beliefs, we have to specify how likely we think each possible outcome is. It can be hard to pin down mushy intuitive beliefs. In the next section, we explore one way to “calibrate” subjective beliefs, and in the subsequent section we discuss ways to mathematically describe degrees of belief. (p. 76)
+
+### Probabilities assign numbers to possibilities.
+
+> In general, a probability, whether it's outside the head or inside the head, is just a way of assigning numbers to a set of mutually exclusive possibilities. The numbers, called "probabilities," merely need to satisfy three properties ([Kolmogorov, 1956](https://www.york.ac.uk/depts/maths/histstat/kolmogorov_foundations.pdf)):
+>
+> 1. A probability value must be nonnegative (i.e., zero or positive).
+> 2. The sum of the probabilities across all events in the entire sample space must be 1.0 (i.e., one of the events in the space must happen, otherwise the space does not exhaust all possibilities).
+> 3. For any two mutually exclusive events, the probability that one *or* the other occurs is the *sum* of their individual probabilities. For example, the probability that a fair six-sided die comes up 3-dots *or* 4-dots is 1/6 + 1/6 = 2/6.
+>
+> Any assignment of numbers to events that respects those three properties will also have all the properties of probabilities that we will discuss below. (pp. 77--78, *emphasis* in the original)
+
 ## Probability distributions
 
+"A probability *distribution* is simply a list of all possible outcomes and their corresponding probabilities" (p. 78, *emphasis* in the original)
+
 ### Discrete distributions: Probability mass.
+
+> When the sample space consists of discrete outcomes, then we can talk about the probability of each distinct outcome. For example, the sample space of a flipped coin has two discrete outcomes, and we talk about the probability of head or tail...
+>
+> For continuous outcome spaces, we can *discretize* the space into a finite set of mutually exclusive and exhaustive "bins." (p. 78, *emphasis* in the original)
 
 In order to recreate Figure 4.2, we need to generate the heights data. In his "HtWtDataDenerator" R script, Kruschke provided the code for a function that will generate height data of the kind in his text. Here is the code:
 
@@ -151,7 +183,7 @@ HtWtDataGenerator <- function(n_subj, rndsd = NULL, male_prob = 0.50) {
 Now we have the `HtWtDataGenerator()` function, all we need to do is determine how many values are generated and how probable we want the values to be based on those from men. These are controlled by the `n_subj` and `male_prob` parameters.
 
 ```{r, message = F, warning = F}
-set.seed(4.2)
+set.seed(4)
 d <-
   HtWtDataGenerator(n_subj = 10000, male_prob = .5) %>%
   as_tibble() %>%
@@ -161,7 +193,7 @@ d %>%
   head()
 ```
 
-Before we move on, we'll want to detach the MASS package and reload dplyr, which is part of the tidyverse, so we might be able to use `dplyr::select()` later in the project.
+Before we move on, we'll want to detach the **MASS** package and reload **dplyr**, which is part of the **tidyverse**, so we might be able to use `dplyr::select()` later in the project.
 
 ```{r, warning = F, message = F}
 detach(package:MASS, unload = T)
@@ -171,7 +203,7 @@ library(dplyr)
 For Figure 4.2, we'll make extensive use of the `case_when()` syntax, which you can learn more about from [hrbrmstr's *Making a Case for case_when*](https://rud.is/b/2017/03/10/making-a-case-for-case_when/).
 
 ```{r, fig.height = 2, fig.width = 7}
-d_bin_2 <-
+d_bin <-
   d %>%
   mutate(bin = case_when(
     height < 51 ~ 51,
@@ -202,7 +234,7 @@ d %>%
   geom_point(size = 3/4, color = "grey67", alpha = 1/2) +
   geom_vline(xintercept = seq(from = 51, to = 83, by = 2),
              linetype = 3, color = "grey33") +
-  geom_text(data = d_bin_2, 
+  geom_text(data = d_bin, 
             aes(y = 5000, label = n),
             size = 3.25) +
   scale_y_continuous(breaks = c(0, 5000, 10000)) +
@@ -212,7 +244,9 @@ d %>%
   theme(panel.grid = element_blank())
 ```
 
-Figure 4.2.b.
+Because we're simulating and we don't know what seed number Kruschke used for his plot, ours will differ a little from his. But the overall pattern is the same.
+
+It's a little less work to make Figure 4.2.b.
 
 ```{r, fig.height = 1.75, fig.width = 7}
 d %>%
@@ -227,58 +261,22 @@ d %>%
   theme(panel.grid = element_blank())
 ```
 
-Figure 4.2.c.
+Our data binning approach for Figure 4.2.c will be a little different than what we did, above. Here we'll make our bins with the `round()` function.
 
 ```{r, fig.height = 2, fig.width = 7}
-d_bin_2 <-
+d_bin <-
   d %>%
-  mutate(bin = case_when(
-    height < 51 ~ 51,
-    between(height, 51, 52) ~ 52,
-    between(height, 52, 53) ~ 53,
-    between(height, 53, 54) ~ 54,
-    between(height, 54, 55) ~ 55,
-    between(height, 55, 56) ~ 56,
-    between(height, 56, 57) ~ 57,
-    between(height, 57, 58) ~ 58,
-    between(height, 58, 59) ~ 59,
-    between(height, 59, 60) ~ 60,
-    between(height, 60, 61) ~ 61,
-    between(height, 61, 62) ~ 62,
-    between(height, 62, 63) ~ 63,
-    between(height, 63, 64) ~ 64,
-    between(height, 64, 65) ~ 65,
-    between(height, 65, 66) ~ 66,
-    between(height, 66, 67) ~ 67,
-    between(height, 67, 68) ~ 68,
-    between(height, 68, 69) ~ 69,
-    between(height, 69, 70) ~ 70,
-    between(height, 70, 71) ~ 71,
-    between(height, 71, 72) ~ 72,
-    between(height, 72, 73) ~ 73,
-    between(height, 73, 74) ~ 74,
-    between(height, 74, 75) ~ 75,
-    between(height, 75, 76) ~ 76,
-    between(height, 76, 77) ~ 77,
-    between(height, 77, 78) ~ 78,
-    between(height, 78, 79) ~ 79,
-    between(height, 79, 80) ~ 80,
-    between(height, 80, 81) ~ 81,
-    between(height, 81, 82) ~ 82,
-    between(height, 82, 83) ~ 83,
-    between(height, 83, 84) ~ 84,
-    height > 84 ~ 85)
-    ) %>%
+  mutate(bin = round(height, digits = 0)) %>%   
   group_by(bin) %>%
   summarise(n = n()) %>%
-  mutate(height = bin - .5)
+  mutate(height = bin - 0.5)
 
 d %>%
   ggplot(aes(x = height, y = person)) +
   geom_point(size = 3/4, color = "grey67", alpha = 1/2) +
   geom_vline(xintercept = seq(from = 51, to = 83, by = 1),
              linetype = 3, color = "grey33") +
-  geom_text(data = d_bin_2, 
+  geom_text(data = d_bin, 
             aes(y = 5000, label = n, angle = 90),
             size = 3.25) +
   scale_y_continuous(breaks = c(0, 5000, 10000)) +
@@ -288,7 +286,7 @@ d %>%
   theme(panel.grid = element_blank())
 ```
 
-Figure 4.2.d.
+However, our method for Figure 4.2.d will be like what we did, before.
 
 ```{r, fig.height = 1.75, fig.width = 7}
 d %>%
@@ -303,12 +301,18 @@ d %>%
   theme(panel.grid = element_blank())
 ```
 
+> The probability of a discrete outcome, such as the probability of falling into an interval on a continuous scale, is referred to as a probability *mass.* Loosely speaking, the term "mass" refers the amount of stuff in an object. When the stuff is probability and the object is an interval of a scale, then the mass is the proportion of the outcomes in the interval. (p. 80, *emphasis* in the original)
+
 ### Continuous distributions: Rendezvous with density.
+
+> If you think carefully about a continuous outcome space, you realize that it becomes problematic to talk about the probability of a specific value on the continuum, as opposed to an interval on the continuum... Therefore, what we will do is make the intervals infinitesimally narrow, and instead of talking about the infinitesimal probability mass of each infinitesimal interval, we will talk about the ratio of the probability mass to the interval width. That ratio is called the probability *density*.
+>
+> Loosely speaking, density is the amount of stuff per unit of space it takes up. Because we are measuring amount of stuff by its mass, then density is the mass divided by the amount space it occupies. (p. 80, *emphasis* in the original)
 
 To make Figure 4.3., we'll need new data.
 
 ```{r, message = F, warning = F}
-set.seed(4.3)
+set.seed(4)
 d <-
   tibble(height = rnorm(1e4, mean = 84, sd = .1)) %>%
   mutate(door = 1:n())
@@ -317,57 +321,43 @@ d %>%
   head()
 ```
 
-Figure 4.3.a.
+To make the bins for our version of Figure 4.3.a, we could use the `case_when()` approach from above. However, that would require some tedious code. Happily, we have an alternative in the [**santoku** package](https://github.com/hughjonesd/santoku). We can use the `santoku::chop()` function to discretize our `height` values. Here we'll walk through the first part.
+
+```{r, warning = F, message = F}
+# devtools::install_github("hughjonesd/santoku")
+library(santoku)
+
+d_bin <-
+  d %>% 
+  mutate(bin = chop(height, 
+                    breaks = seq(from = 83.6, to = 84.4, length.out = 31),
+                    labels = seq(from = 83.6, to = 84.4, length.out = 31)[-1]))
+
+head(d_bin)
+```
+
+We've labeled our `bin` levels by their upper bounds. Note how they are saved as factors. To make use of those values in our plot, we'll need to convert them to numerals. Here we make that conversion and complete the data wrangling.
+
+```{r}
+d_bin <-
+  d_bin %>% 
+  mutate(bin = as.character(bin) %>% as.double()) %>% 
+  group_by(bin) %>%
+  summarise(n = n()) %>% 
+  mutate(height = bin - (83.62667 - 83.6) / 2)
+
+head(d_bin)
+```
+
+Now we plot.
 
 ```{r, fig.height = 2, fig.width = 7}
-s <- seq(from = 83.6, to = 84.4, length.out = 31)
-
-d_bin_3 <-
-  d %>%
-  mutate(bin = case_when(
-    height < s[1] ~ 83.6,
-    between(height, s[1],  s[2])  ~ s[2],
-    between(height, s[2],  s[3])  ~ s[3],
-    between(height, s[3],  s[4])  ~ s[4],
-    between(height, s[4],  s[5])  ~ s[5],
-    between(height, s[5],  s[6])  ~ s[6],
-    between(height, s[6],  s[7])  ~ s[7],
-    between(height, s[7],  s[8])  ~ s[8],
-    between(height, s[8],  s[9])  ~ s[9],
-    between(height, s[9],  s[10]) ~ s[10],
-    between(height, s[10], s[11]) ~ s[11],
-    between(height, s[11], s[12]) ~ s[12],
-    between(height, s[12], s[13]) ~ s[13],
-    between(height, s[13], s[14]) ~ s[14],
-    between(height, s[14], s[15]) ~ s[15],
-    between(height, s[15], s[16]) ~ s[16],
-    between(height, s[16], s[17]) ~ s[17],
-    between(height, s[17], s[18]) ~ s[18],
-    between(height, s[18], s[19]) ~ s[19],
-    between(height, s[19], s[20]) ~ s[20],
-    between(height, s[20], s[21]) ~ s[21],
-    between(height, s[21], s[22]) ~ s[22],
-    between(height, s[22], s[23]) ~ s[23],
-    between(height, s[23], s[24]) ~ s[24],
-    between(height, s[24], s[25]) ~ s[25],
-    between(height, s[25], s[26]) ~ s[26],
-    between(height, s[26], s[27]) ~ s[27],
-    between(height, s[27], s[28]) ~ s[28],
-    between(height, s[28], s[29]) ~ s[29],
-    between(height, s[29], s[30]) ~ s[30],
-    between(height, s[30], s[31]) ~ s[31],
-    height > s[31] ~ 84.4)
-    ) %>%
-  group_by(bin) %>%
-  summarise(n = n()) %>%
-  mutate(height = bin - (s[2] - s[1])/2)
-
 d %>%
   ggplot(aes(x = height, y = door)) +
   geom_point(size = 3/4, color = "grey67", alpha = 1/2) +
   geom_vline(xintercept = seq(from = 83.6, to = 84.4, length.out = 31),
              linetype = 3, color = "grey33") +
-  geom_text(data = d_bin_3,
+  geom_text(data = d_bin,
             aes(y = 5000, label = n, angle = 90),
             size = 3.25) +
   scale_y_continuous(breaks = c(0, 5000, 10000)) +
@@ -377,7 +367,7 @@ d %>%
   theme(panel.grid = element_blank())
 ```
 
-Figure 4.3.b.
+Figure 4.3.b is a breeze.
 
 ```{r, fig.height = 1.75, fig.width = 7}
 d %>%
@@ -396,25 +386,47 @@ d %>%
 
 #### The normal probability density function.
 
-Figure 4.4. 
+We'll use `dnorm()` again to make our version of Figure 4.4.
 
 ```{r, fig.width = 4.5, fig.height = 3}
-ggplot(data = tibble(x = seq(from = -.8, to = .8, by = .01)),
-       aes(x = x)) +
-  geom_line(aes(y = dnorm(x, mean = 0, sd = .2)),
+tibble(x   = seq(from = -.8, to = .8, by = .02)) %>% 
+  mutate(p = dnorm(x, mean = 0, sd = .2)) %>% 
+  
+  ggplot(aes(x = x)) +
+  geom_line(aes(y = p),
             color = "grey50", size = 1.25) +
-  geom_linerange(data = tibble(x = seq(from = -.8, to = .8, by = .02)),
-                 aes(ymin = 0, ymax = dnorm(x, 
-                                            mean = 0, sd = .2)),
+  geom_linerange(aes(ymin = 0, ymax = p),
                  size = 1/3) +
   coord_cartesian(xlim = c(-.61, .61)) +
-  labs(title = "Normal probability density",
+  labs(title    = "Normal probability density",
        subtitle = expression(paste(mu, " = 0 and ", sigma, " = 0.2")),
-       y = "p(x)") +
+       y        = "p(x)") +
   theme(panel.grid = element_blank())
 ```
 
+The equation for the normal probability density follows the form
+
+$$
+p(x) = \frac{1}{\sigma \sqrt{2 \pi}} \exp \Bigg ( - \frac{1}{2} \bigg [ \frac{x - \mu}{\sigma}^2 \bigg ] \Bigg ),
+$$
+
+where $\mu$ governs the mean and $\sigma$ governs the standard deviation.
+
 ### Mean and variance of a distribution.
+
+The mean of a probability distribution is also called the *expected value*, which follow the form
+
+$$E[x] = \sum_x p(x) x$$
+
+when $x$ is discrete. For continuous $x$ values, the formula is
+
+$$E[x] = \int \text d x \; p(x) x.$$
+
+The variance is defined as the mean squared deviation from the mean,
+
+$$\text{var}_x = \int \text d x \; p(x) (x - E[x])^2.$$
+
+If you take the square root of the variance, you get the standard deviation.
 
 ### Highest density interval (HDI).
 
@@ -463,25 +475,26 @@ h
 Now we've saved those values in `h`, we can use then to make our version of Figure 4.5.a. 
 
 ```{r, fig.width = 4.5, fig.height = 2}
-ggplot(data = tibble(x = seq(from = -3.5, to = 3.5, by = .05)),
-       aes(x = x)) +
+tibble(x = seq(from = -3.5, to = 3.5, by = .05)) %>% 
+  
+  ggplot(aes(x = x)) +
   geom_ribbon(aes(ymin = 0,
                   ymax = dnorm(x, mean = 0, sd = 1)),
               fill = "grey75") +
-  geom_ribbon(data = tibble(x = seq(from = h[1], to = h[2], by = .05)),
-              aes(ymin = 0,
+  geom_ribbon(data = . %>% filter(x >=h[1] & x <= h[2]),
+                aes(ymin = 0,
                   ymax = dnorm(x, mean = 0, sd = 1)),
               fill = "grey50") +
   geom_line(data = tibble(x = c(h[1] + .02, h[2] - .02),
                           y = c(.059, .059)),
-            aes(x = x, y = y),
+            aes(y = y),
             arrow = arrow(length = unit(.2, "cm"), 
                           ends = "both", 
                           type = "closed"),
             color = "grey92") +
   annotate("text", x = 0, y = .09, 
            label = "95% HDI", color = "grey92") +
-  coord_cartesian(xlim = c(-3.1, 3.1)) +
+  xlim(-3.1, 3.1) +
   labs(y = "p(x)") +
   theme(panel.grid = element_blank())
 ```
@@ -501,16 +514,17 @@ Let's put those `h` values to work.
 
 ```{r, fig.width = 4.5, fig.height = 2}
 tibble(x = seq(from = 0, to = 1, by = .01)) %>% 
+  
   ggplot(aes(x = x)) +
   geom_ribbon(aes(ymin = 0,
                   ymax = dbeta(x, shape1 = 15, shape2 = 4)),
               fill = "grey75") +
-  geom_ribbon(data = tibble(x = seq(from = h[1], to = h[2], by = .01)),
+  geom_ribbon(data = . %>% filter(x >=h[1] & x <= h[2]),
               aes(ymin = 0,
                   ymax = dbeta(x, shape1 = 15, shape2 = 4)),
               fill = "grey50") +
-  geom_line(data = tibble(x = c(h[1] + .005, h[2] - .002),
-                          y = c(.74, .74)),
+  geom_line(data = tibble(x = c(h[1] + .01, h[2] - .002),
+                          y = c(.75, .75)),
             aes(x = x, y = y),
             arrow = arrow(length = unit(.2, "cm"),
                           ends = "both",
@@ -518,7 +532,7 @@ tibble(x = seq(from = 0, to = 1, by = .01)) %>%
             color = "grey92") +
   annotate("text", x = .8, y = 1.1, 
            label = "95% HDI", color = "grey92") +
-  coord_cartesian(xlim = c(.4, 1)) +
+  xlim(.4, 1) +
   ylab("p(x)") +
   theme(panel.grid = element_blank())
 ```
@@ -534,14 +548,14 @@ d <-
 glimpse(d)
 ```
 
-As you'll see, it's not exactly right. But it's close enough to give you a sense of what's going on. But anyway, since we're working with simulated data rather than an analytic solution, we'll want to use a powerful convenience function from the tidybayes package. 
+As you'll see, it's not exactly right. But it's close enough to give you a sense of what's going on. But anyway, since we're working with simulated data rather than an analytic solution, we'll want to use a powerful convenience function from the **tidybayes** package. 
 
 ```{r, warning = F, message = F}
 library(tidybayes)
 ```
 
 
-Kay's tidybayes package
+Kay's **tidybayes** package
 
 > provides a family of functions for generating point summaries and intervals from draws in a tidy format. These functions follow the naming scheme `[median|mean|mode]_[qi|hdi]`, for example, `median_qi`, `mean_qi`, `mode_hdi`, and so on. The first name (before the `_`) indicates the type of point summary, and the second name indicates the type of interval. `qi` yields a quantile interval (a.k.a. equi-tailed interval, central interval, or percentile interval) and `hdi` yields a highest (posterior) density interval. (from [here](https://mjskay.github.io/tidybayes/articles/tidy-brms.html))
 
@@ -555,9 +569,9 @@ h <-
 h
 ```
 
-Usually, `mode_hdi()` will return a tibble with just one row. But in this case, since we had a bimodal distribution, it returned two rows—one for each of the two distinct regions. Oh, and in case it wasn’t clear, that first column `x` is the measure of central tendency—the mode, in this case. Though I acknowledge, it’s a little odd to speak of central tendency in a bimodal distribution. Again, this won’t happen much.
+Usually, `mode_hdi()` will return a tibble with just one row. But in this case, since we had a bimodal distribution, it returned two rows—one for each of the two distinct regions. Oh, and in case it wasn't clear, that first column `x` is the measure of central tendency—the mode, in this case. Though I acknowledge, it's a little odd to speak of central tendency in a bimodal distribution. Again, this won't happen much.
 
-In order to fill the bimodal density with the split HDIs, you need to use the `density()` function to transform the `d` data to a tibble with the values for the x-axis in an x vector and the corresponding density values in a y vector. 
+In order to fill the bimodal density with the split HDIs, you need to use the `density()` function to transform the `d` data to a tibble with the values for the x-axis in an `x` vector and the corresponding density values in a `y` vector. 
 
 ```{r}
 dens <-
@@ -570,12 +584,12 @@ head(dens)
 
 We're finally ready to plot. Forgive me. It's a monster.
 
-```{r, fig.width = 4.5, fig.height = 2}
+```{r, fig.width = 4.5, fig.height = 2, warning = F, message = F}
 ggplot(data = dens,
          aes(x = x, y = y)) +
   geom_ribbon(aes(ymin = 0, ymax = y),
               size = 0, fill = "grey75") +
-  # Note the use of `pull()`, which extracts the values, rather than return a tibble  
+  # note the use of `pull()`, which extracts the values, rather than return a tibble  
   geom_ribbon(data = dens %>% filter(x > h[1, 2] %>% pull() & 
                                        x < h[1, 3] %>% pull()),
               aes(ymin = 0, ymax = y),
@@ -604,7 +618,7 @@ ggplot(data = dens,
            label = "95% HDI", color = "grey92") +
   scale_x_continuous(breaks = 0:6) +
   scale_y_continuous("p(x)", breaks = c(0, .1, .2, .3, .4, .5)) +
-  coord_cartesian(xlim = c(0, 6.3)) +
+  xlim(0, 6.3) +
   theme(panel.grid = element_blank())
 ```
 
@@ -630,7 +644,6 @@ d2 <-
 bind_rows(d1, d2)
 ```
 
-
 ## References {-}
 
 Kruschke, J. K. (2015). *Doing Bayesian data analysis, Second Edition: A tutorial with R, JAGS, and Stan.* Burlington, MA: Academic Press/Elsevier.
@@ -642,6 +655,7 @@ sessionInfo()
 ```
 
 ```{r, message = F, warning = F, echo = F}
-# Here we'll remove our objects
-rm(N, p_heads, my_flip, end_prop, HtWtDataGenerator, d, d_bin_2, s, d_bin_3, hdi_of_icdf, h, dens, d1, d2)
+# here we'll remove our objects
+rm(n, p_heads, d, end_prop, HtWtDataGenerator, d_bin, hdi_of_icdf, h, dens, d1, d2)
 ```
+
