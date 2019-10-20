@@ -8,23 +8,21 @@ output:
 
 # (PART) ALL THE FUNDAMENTALS APPLIED TO INFERRING A BINOMIAL PROBABILITY {-}
 
-Kruschke wrote:
-
 > In the next few chapters, we will develop all the foundational concepts and methods of Bayesian data analysis, which are applied to the simplest type of data. Because of the simplicity of the data, we can focus on the Bayesian methods and scaffold the concepts clearly and efficiently. The subsequent part of the book applies the methods developed in this part to more complex data structures. (p. 121)
-
-He put it well. I have nothing to add.
 
 # Inferring a Binomial Probability via Exact Mathematical Analysis
 
-"Bayes' rule is merely the mathematical relation between the prior allocation of credibility and the posterior reallocation of credibility conditional on data" (pp. 99--100).
+> This chapter presents an example of how to do Bayesian inference using pure analytical mathematics without any approximations. Ultimately, we will not use the pure analytical approach for complex applications, but this chapter is important for two reasons. *First*, the relatively simple mathematics in this chapter nicely reveal the underlying concepts of Bayesian inference on a continuous parameter. The simple formulas show how the continuous allocation of credibility changes systematically as data accumulate. The examples provide an important conceptual foundation for subsequent approximation methods, because the examples give you a clear sense of what is being approximated. *Second*, the distributions introduced in this chapter, especially the beta distribution, will be used repeatedly in subsequent chapters. (p. 123, *emphasis* added)
 
 ## The likelihood function: The Bernoulli distribution
 
 If we denote a set of possible outcomes as $\{y_i\}$  Kruschke's Bernoulli likelihood function for a set of $N$ trials follows the form
 
-$$p(\{y_i\} | \theta) = \theta^z \cdot (1 - \theta) ^ {N - z}$$
+$$p(\{y_i\} | \theta) = \theta^z \cdot (1 - \theta) ^ {N - z},$$
 
-If you follow that equation closely, here is how we might express it in R.
+where $z$ is the number of 1s in the data (i.e., heads in a series of coin flips) and the sole parameter a given observation will be a 1 is $\theta$ (i.e., the probability; $p(y_i = 1 | \theta)$).
+
+If you follow that equation closely, here is how we might express it in **R**.
 
 ```{r}
 bernoulli_likelihood <- function(theta, data) {
@@ -42,17 +40,18 @@ This will come in handy in just a bit.
 
 > In this chapter, we use purely mathematical analysis, with no numerical approximation, to derive the mathematical form of the posterior credibilities of parameter values. To do this, we need a mathematical description of the prior allocation of credibilities...
 >
-> In principle, we could use any probability density function supported on the interval [0, 1]. When we intend to apply Bayes’ rule (Equation 5.7, p. 106), however, there are two desiderata for mathematical tractability. First, it would be convenient if the product of $p(y | \theta)$ and $p(\theta)$, which is in the numerator of Bayes’ rule, results in a function of the same form as $p(\theta)$... Second, we desire the denominator of Bayes’ rule (Equation 5.9, p. 107), namely $\int \text d \theta p(y | \theta) p(\theta)$, to be solvable analytically. This quality also depends on how the form of the function $p(\theta)$ relates to the form of the function $p(y | \theta)$. When the forms of $p(y | \theta)$ and $p(\theta)$ combine so that the posterior distribution has the same form as the prior distribution, then $p(\theta)$ is called a *conjugate prior* for $p(y | \theta)$. (p. 127 *emphasis* in the original)
+> In principle, we could use any probability density function supported on the interval [0, 1]. When we intend to apply Bayes' rule (Equation 5.7, p. 106), however, there are two desiderata for mathematical tractability. First, it would be convenient if the product of $p(y | \theta)$ and $p(\theta)$, which is in the numerator of Bayes' rule, results in a function of the same form as $p(\theta)$... Second, we desire the denominator of Bayes' rule (Equation 5.9, p. 107), namely $\int \text d \; \theta p(y | \theta) p(\theta)$, to be solvable analytically. This quality also depends on how the form of the function $p(\theta)$ relates to the form of the function $p(y | \theta)$. When the forms of $p(y | \theta)$ and $p(\theta)$ combine so that the posterior distribution has the same form as the prior distribution, then $p(\theta)$ is called a *conjugate prior* for $p(y | \theta)$. (p. 127 *emphasis* in the original)
 
-$$\int \text d \theta p(y | \theta) p(\theta)$$
+When we want a conjugate prior for $\theta$ of the Bernoulli likelihood, the *beta distribution* is a handy choice. Beta has two parameters, $a$ and $b$ (also sometimes called $\alpha$ and $\beta$), and the density is defined as
 
-When we want a conjugate prior for $\theta$ of the Bernoulli likelihood, the beta distribution is a handy choice. Beta has two parameters, $a$ and $b$ (also sometimes called $\alpha$ and $\beta$), and the density is defined as
+$$
+\begin{align*}
+p(\theta | a, b) & = \text{beta} (\theta | a, b) \\
+& = \frac{\theta^{(a - 1)} (1 - \theta)^{(b - 1)}}{B(a, b)}
+\end{align*}
+$$
 
-$$p(\theta | a, b) = \text{beta} (\theta | a, b)$$
-
-$$= \frac{\theta^{(a - 1)} (1 - \theta)^{(b - 1)}}{B(a, b)}$$
-
-where $B(a, b)$ is a normalizing constant, keeping the results in a probability metric. Kruschke then clarifies that the beta distribution and the Beta function are not the same. In R, we use the beta density with the `dbeta()` function, whereas we use the Beta function with `beta()`. In this project, we'll primarily use `dbeta()`. But to give a sense, notice that when given the same input for $a$ and $b$, the two functions return very different values.
+where $B(a, b)$ is a normalizing constant, keeping the results in a probability metric. Kruschke then clarifies that the beta distribution and the Beta function are not the same. In **R**, we use the beta density with the `dbeta()` function, whereas we use the Beta function with `beta()`. In this project, we'll primarily use `dbeta()`. But to give a sense, notice that when given the same input for $a$ and $b$, the two functions return very different values.
 
 ```{r}
 theta <- .5
@@ -63,7 +62,7 @@ dbeta(theta, a, b)
 beta(a, b)
 ```
 
-The $a$ and $b$ parameters are also called *shape* parameters. And indeed, if we look at the parameters of the `dbeta()` function in R, we'll see that $a$ is called `shape1` and $b$ is called `shape2`.
+The $a$ and $b$ parameters are also called *shape* parameters. And indeed, if we look at the parameters of the `dbeta()` function in **R**, we'll see that $a$ is called `shape1` and $b$ is called `shape2`.
 
 ```{r}
 print(dbeta)
@@ -79,18 +78,19 @@ library(tidyverse)
 length <- 1e4
 
 d <-
-  tibble(shape1 = rep(c(.1, 1:4), times = 5),
-         shape2 = rep(c(.1, 1:4), each = 5)) %>% 
+  tibble(shape1 = c(.1, 1:4)) %>% 
+  expand(shape1,
+         shape2 = c(.1, 1:4)) %>%
   expand(nesting(shape1, shape2),
          x = seq(from = 0, to = 1, length.out = length)) %>% 
-  mutate(a = paste("a =", shape1),
-         b = paste("b =", shape2),
+  mutate(a = str_c("a =", shape1),
+         b = str_c("b =", shape2),
          group = rep(1:length, each = 25))
 
 head(d)
 ```
 
-Now we're ready: Figure 6.1.
+Now we're ready for our Figure 6.1.
 
 ```{r, fig.width = 6, fig.height = 6, warning = F, message = F}
 d %>% 
@@ -106,7 +106,7 @@ d %>%
   facet_grid(b~a)
 ```
 
-"Notice that as $a$ gets bigger (left to right across columns of Figure 6.1), the bulk of the distribution moves rightward over higher values of $\theta$, but as $b$ gets bigger (top to bottom across rows of Figure 6.1), the bulk of the distribution moves leftward over lower values of $\theta$. Notice that as $a$ and $b$ get bigger together, the beta distribution gets narrower" (p. 127).
+> Notice that as $a$ gets bigger (left to right across columns of Figure 6.1), the bulk of the distribution moves rightward over higher values of $\theta$, but as $b$ gets bigger (top to bottom across rows of Figure 6.1), the bulk of the distribution moves leftward over lower values of $\theta$. Notice that as $a$ and $b$ get bigger together, the beta distribution gets narrower. (p. 127).
 
 ### Specifying a beta prior.
 
@@ -114,7 +114,7 @@ d %>%
 
 As such, if you'd like to specify a beta distribution in terms of $\omega$ and $\kappa$, it'd follow the form
 
-$$\text{beta} (\alpha = \omega (\kappa - 2) + 1, \beta = (1 - \omega) \cdot (\kappa - 2) + 1)$$
+$$\text{beta} (\alpha = \omega (\kappa - 2) + 1, \beta = (1 - \omega) \cdot (\kappa - 2) + 1),$$
 
 as long as $\kappa > 2$. Kruschke further clarified:
 
@@ -124,14 +124,14 @@ He went on to clarify why we might prefer the mode to the mean when discussing t
 
 > The mode can be more intuitive than the mean, especially for skewed distributions, because the mode is where the distribution reaches its tallest height, which is easy to visualize. The mean in a skewed distribution is somewhere away from the mode, in the direction of the longer tail. (pp. 129--130)
 
-Figure 6.2 helped clarify the mean and mode for beta. We'll use the same process for Figure 6.2 and create the data, first.
+Figure 6.2 helped contrast the mean and mode for beta. We'll use the same process for Figure 6.2 and create the data, first.
 
 ```{r}
 d <-
 tibble(shape1   = c(5.6, 17.6, 5, 17),
        shape2   = c(1.4, 4.4, 2, 5)) %>% 
-  mutate(a        = paste("a =", shape1),
-         b        = paste("b =", shape2),
+  mutate(a        = str_c("a =", shape1),
+         b        = str_c("b =", shape2),
          kappa    = rep(c("kappa = 7", "kappa = 22"), times = 2),
          mu_omega = rep(c("mu = 0.8", "omega = 0.8"), each = 2)) %>% 
   mutate(kappa    = factor(kappa, levels = c("kappa = 7", "kappa = 22"))) %>% 
@@ -157,7 +157,7 @@ d %>%
   facet_grid(mu_omega~kappa)
 ```
 
-From lines 264 to 290 in his `DBDA2E-utilities.R` file, Kruschke's `betaABfrom...()` functions are as follows:
+In lines 264 to 290 in his `DBDA2E-utilities.R` file, Kruschke provided a series of `betaABfrom...()` functions that will allow us to compute the $a$ and $b$ parameters from measures of central tendency (i.e., mean and mode) and of spread (i.e., $\kappa$ and $\sigma$). Here are those bits of his code.
 
 ```{r}
 # Shape parameters from central tendency and scale:
@@ -188,13 +188,15 @@ betaABfromMeanSD <- function(mean, sd) {
 }
 ```
 
-Here's how they work:
+You can use them like so.
 
 ```{r}
 betaABfromMeanKappa(mean = .25, kappa = 4)
 betaABfromModeKappa(mode = .25, kappa = 4)
 betaABfromMeanSD(mean = .5, sd = .1)
 ```
+
+You can also save the results as an object, which can then be indexed by parameter.
 
 ```{r}
 beta_param <- betaABfromModeKappa(mode = .25, kappa = 4)
@@ -205,13 +207,13 @@ beta_param$b
 
 ## The posterior beta
 
-I'm not going to reproduce all of formula 6.8. But this a fine opportunity to re-express Bayes' rule in terms of $z$ and $N$.
+I'm not going to reproduce all of Formula 6.8. But this a fine opportunity to re-express Bayes' rule in terms of $z$ and $N$,
 
-$$p(\theta | z, N) = \frac{p(z, N | \theta) p(\theta)}{p(z, N)}$$
+$$p(\theta | z, N) = \frac{p(z, N | \theta) p(\theta)}{p(z, N)}.$$
 
 ### Posterior is compromise of prior and likelihood.
 
-You might wonder how Kruschke computed the HDI values for Figure 6.3. Remember our `hdi_of_icdf()` function from back in chapter 4? Yep, that's how. Here's that code, again.
+You might wonder how Kruschke computed the HDI values for Figure 6.3. Remember our `hdi_of_icdf()` function from back in Chapter 4? Yep, that's how. Here's that code, again.
 
 ```{r}
 hdi_of_icdf <- function(name, width = .95, tol = 1e-8, ... ) {
@@ -231,12 +233,16 @@ hdi_of_icdf <- function(name, width = .95, tol = 1e-8, ... ) {
   interval_width  <- function(low_tail_prob, name, width, ...) {
     name(width + low_tail_prob, ...) - name(low_tail_prob, ...)
   }
+  
   opt_info            <- optimize(interval_width, c(0, incredible_mass), 
                                   name = name, width = width, 
                                   tol = tol, ...)
+  
   hdi_lower_tail_prob <- opt_info$minimum
+  
   return(c(name(hdi_lower_tail_prob, ...),
            name(width + hdi_lower_tail_prob, ...)))
+  
 }
 ```
 
@@ -249,7 +255,7 @@ hdi_of_icdf(name   = qbeta,
             width  = .95)
 ```
 
-Here they are for the posterior distribution at the bottom.
+Here they are for the posterior distribution at the bottom of the figure.
 
 ```{r}
 hdi_of_icdf(name   = qbeta,
@@ -295,7 +301,7 @@ To make things easier on ourselves, we'll also make two additional data objects 
 
 ```{r}
 # the data for the in-plot lines
-line_tibble <-
+d_line <-
   tibble(theta      = c(.212 + .008, .788 - .008, .114 + .004, .497 - .005),
          value      = rep(c(.51, .66), each = 2),
          xintercept = c(.212, .788, .114, .497),
@@ -303,7 +309,7 @@ line_tibble <-
   mutate(key = factor(key, levels = c("Prior (beta)", "Likelihood (Bernoulli)", "Posterior (beta)")))
   
 # the data for the annotation
-text_tibble <-
+d_text <-
   tibble(theta = c(.5, .3),
          value = c(.8, 1.125),
          label = "95% HDI",
@@ -319,18 +325,22 @@ d %>%
   mutate(key = factor(key, levels = c("Prior (beta)", "Likelihood (Bernoulli)", "Posterior (beta)"))) %>% 
   
   ggplot(aes(x = theta)) +
+  # densities
   geom_ribbon(aes(ymin = 0, ymax = value),
               fill = "grey67") +
-  geom_vline(data = line_tibble,
+  # dashed vertical lines
+  geom_vline(data = d_line,
              aes(xintercept = xintercept), 
              linetype = 2, color = "grey92") +
-  geom_line(data = line_tibble,
+  # arrows
+  geom_line(data = d_line,
             aes(y = value),
             arrow = arrow(length = unit(.15,"cm"), 
                           ends = "both", 
                           type = "closed"),
             color = "grey92") +
-  geom_text(data = text_tibble,
+  # text
+  geom_text(data = d_text,
             aes(y = value, label = label),
             color = "grey92") +
   labs(x = expression(theta),
@@ -375,7 +385,7 @@ ggplot(data = tibble(x = seq(from = 0, to = 1, by = .001)),
               fill = "grey67") +
   geom_line(data = tibble(x = c(.5 - .069 + .005, .5 + .069 - .005),
                           y = 1.7),
-            aes(x = x, y = y),
+            aes(y = y),
             arrow = arrow(length = unit(.15,"cm"), 
                           ends = "both", 
                           type = "closed"),
@@ -425,7 +435,7 @@ ggplot(data = tibble(x = seq(from = 0, to = 1, by = .001)),
               fill = "grey67") +
   geom_line(data = tibble(x = c(.558 + .005, .892 - .005),
                           y = .75),
-            aes(x = x, y = y),
+            aes(y = y),
             arrow = arrow(length = unit(.15,"cm"), 
                           ends = "both", 
                           type = "closed"),
@@ -452,7 +462,7 @@ But we can be a little more organized and plot the top row of Figure 6.4 all at 
 
 ```{r, fig.width = 10, fig.height = 2}
 # the data for the in-plot lines
-line_tibble <-
+d_line <-
   tibble(theta      = c(.431 + .005, .569 - .005, .558 + .005, .892 - .005),
          value      = rep(c(1.9, .8), each = 2),
          xintercept = c(.431, .569, .558, .892),
@@ -460,7 +470,7 @@ line_tibble <-
   mutate(exemplar = factor(exemplar, levels = c("dbeta(theta, 100, 100)", "dbeta(theta, 18.25, 6.75)", "dbeta(theta, 1, 1)")))
   
 # the data for the annotation
-text_tibble <-
+d_text <-
   tibble(theta    = c(.5, .735),
          value    = c(3.6, 1.45),
          label    = "95% HDI",
@@ -480,16 +490,16 @@ tibble(theta = seq(from = 0, to = 1, length.out = 100) %>% rep(., times = 3),
   ggplot(aes(x = theta)) +
   geom_ribbon(aes(ymin = 0, ymax = density),
               size = 0, fill = "grey67") +
-  geom_vline(data = line_tibble,
+  geom_vline(data = d_line,
              aes(xintercept = xintercept), 
              linetype = 2, color = "grey92") +
-  geom_line(data = line_tibble,
+  geom_line(data = d_line,
             aes(y = value),
             arrow = arrow(length = unit(.15,"cm"), 
                           ends = "both", 
                           type = "closed"),
             color = "grey92") +
-  geom_text(data = text_tibble,
+  geom_text(data = d_text,
             aes(y = value, label = label),
             color = "grey0") +
   labs(title = "Prior (beta)", 
@@ -525,7 +535,7 @@ The bottom row:
 
 ```{r, fig.width = 10, fig.height = 2}
 # the data for the in-plot lines
-line_tibble <-
+d_line <-
   tibble(theta = c(.466 + .005, .597 - .005, 
                    .663 + .004, .897 - .005,
                    .660 + .005, .959 - .003),
@@ -537,7 +547,7 @@ line_tibble <-
   mutate(exemplar = factor(exemplar, levels = c("dbeta(theta, 117, 103)", "dbeta(theta, 35.25, 9.75)", "dbeta(theta, 18, 4)")))
   
 # the data for the annotation
-text_tibble <-
+d_text <-
   tibble(theta    = c(.532, .78, .82),
          value    = c(3.5, 2, 1.6),
          label    = "95% HDI",
@@ -557,16 +567,16 @@ tibble(theta = seq(from = 0, to = 1, length.out = 100) %>% rep(., times = 3),
   ggplot(aes(x = theta)) +
   geom_ribbon(aes(ymin = 0, ymax = density),
               size = 0, fill = "grey67") +
-  geom_vline(data = line_tibble,
+  geom_vline(data = d_line,
              aes(xintercept = xintercept), 
              linetype = 2, color = "grey92") +
-  geom_line(data = line_tibble,
+  geom_line(data = d_line,
             aes(y = value),
             arrow = arrow(length = unit(.15,"cm"), 
                           ends = "both", 
                           type = "closed"),
             color = "grey92") +
-  geom_text(data = text_tibble,
+  geom_text(data = d_text,
             aes(y = value, label = label),
             color = "grey0") +
   labs(title = "Posterior (beta)", 
@@ -578,9 +588,9 @@ tibble(theta = seq(from = 0, to = 1, length.out = 100) %>% rep(., times = 3),
 
 And if you wanted those HDI values in bulk, you might wrap the `hdi_of_icdf()` into another function for use in `purrr::map2()`.
 
-```{r}
+```{r, warning = F, message = F}
 # new function
-get_hdi <- function(a, b){
+get_hdi <- function(a, b) {
   hdi_of_icdf(name   = qbeta,
               shape1 = a,
               shape2 = b,
@@ -600,7 +610,11 @@ tibble(`figure position` = c("left", "middle", "right"),
 
 ### Prior knowledge that cannot be expressed as a beta distribution.
 
-For kicks, we'll do this one the way in the text, first, and then in a more tidyverse sort of way.
+> The beauty of using a beta distribution to express prior knowledge is that the posterior distribution is again exactly a beta distribution, and therefore, no matter how much data we include, we always have an exact representation of the posterior distribution and a simple way of computing it. But not all prior knowledge can be expressed by a beta distribution, because the beta distribution can only be in the forms illustrated by Figure 6.1. If the prior knowledge cannot be expressed as a beta distribution, then we must use a different method to derive the posterior. In particular, we might revert to grid approximation as was explained in Section 5.5 (p. 116).
+
+For such a small section in the text, the underlying code is a bit of a beast. Fir kicks, we'll practice two ways. First we'll follow the code Kruschke used in the text. Our second attempt will be in a more **tidyverse** sort of way.
+
+#### Figure 6.5 in Kruschke style.
 
 ```{r, fig.width = 4, fig.height = 6}
 # Fine teeth for Theta
@@ -853,7 +867,11 @@ BernGrid(theta, p_theta, Data, plotType = "Bars",
          showCentTend = "None", showHDI = FALSE, showpD = FALSE)
 ```
 
-The method works fine. But, I'm not a fan. It's clear Kruschke put a lot of thought into the `BernGrid()` function. However, its inner workings are too opaque, for me. I wanna get my hands dirty and make my own plots so that I know exactly what's going on. Before we make our plots with ggplot2, let's first get the data into a tibble.
+The method works fine. But, I'm not a fan. It's clear Kruschke put a lot of thought into the `BernGrid()` function. However, its inner workings are too opaque, for me, which leads to our next section...
+
+#### Figure 6.5 in **tidyverse** style.
+
+Here we'll be plotting with **ggplot2**. But let's first get the data into a tibble.
 
 ```{r}
 # we need these to compute the likelihood
@@ -872,8 +890,8 @@ d <-
   mutate(Prior      = Prior / sum(Prior),
          Likelihood = bernoulli_likelihood(theta = theta,        # (i.e., pDataGivenTheta)
                                            data  = trial_data)) %>%
-  mutate(normalizing_constant = sum(Likelihood * Prior)) %>%     # (i.e., pData)
-  mutate(Posterior = Likelihood * Prior / normalizing_constant)  # (i.e., pThetaGivenData)
+  mutate(evidence  = sum(Likelihood * Prior)) %>%                # (i.e., pData)
+  mutate(Posterior = Likelihood * Prior / evidence)              # (i.e., pThetaGivenData)
   
 glimpse(d)
 ```
@@ -918,7 +936,7 @@ With our nice tibble in hand, we'll plot the prior, likelihood, and posterior on
  )
 ```
 
-Note how we saved each the plots as objects. If we want to stack the plots one atop another like they’re presented in Figure 6.5, we can use `grid.arrange()` from the [gridExtra package](https://cran.r-project.org/web/packages/gridExtra/index.html).
+Note how we saved each the plots as objects. If we want to stack the plots one atop another like they're presented in Figure 6.5, we can use the `grid.arrange()` function from the [**gridExtra** package](https://cran.r-project.org/web/packages/gridExtra/index.html).
 
 ```{r, fig.width = 5, fig.height = 6, warning = F, message = F}
 library(gridExtra)
@@ -928,15 +946,15 @@ grid.arrange(p1, p2, p3)
 
 ## Summary
 
-> The main point of this chapter was to demonstrate how Bayesian inference works when Bayes’ rule can be solved analytically, using mathematics alone, without numerical approximation...
+> The main point of this chapter was to demonstrate how Bayesian inference works when Bayes' rule can be solved analytically, using mathematics alone, without numerical approximation...
 >
-> Unfortunately, there are two severe limitations with this approach... Thus, although it is interesting and educational to see how Bayes’ rule can be solved analytically, we will have to abandon exact mathematical solutions when doing complex applications. We will instead use Markov chain Monte Carlo (MCMC) methods. (p. 139)
+> Unfortunately, there are two severe limitations with this approach... Thus, although it is interesting and educational to see how Bayes' rule can be solved analytically, we will have to abandon exact mathematical solutions when doing complex applications. We will instead use Markov chain Monte Carlo (MCMC) methods. (p. 139)
 
-And if you’re looking at this project, I imagine that’s exactly what you’re looking for. We want to use the power of a particular kind of MCMC, Hamiltonian Monte Carlo, through the interface of the [brms package](https://github.com/paul-buerkner/brms). It’s coming.
+And if you're looking at this project, I imagine that's exactly what you're looking for. We want to use the power of a particular kind of MCMC, Hamiltonian Monte Carlo, through the interface of the [**brms** package](https://github.com/paul-buerkner/brms). Get excited. It's coming.
 
-## References {-}
+## Reference {-}
 
-Kruschke, J. K. (2015). *Doing Bayesian data analysis, Second Edition: A tutorial with R, JAGS, and Stan.* Burlington, MA: Academic Press/Elsevier.
+[Kruschke, J. K. (2015). *Doing Bayesian data analysis, Second Edition: A tutorial with R, JAGS, and Stan.* Burlington, MA: Academic Press/Elsevier.](https://sites.google.com/site/doingbayesiandataanalysis/)
 
 ## Session info {-}
 
@@ -944,7 +962,15 @@ Kruschke, J. K. (2015). *Doing Bayesian data analysis, Second Edition: A tutoria
 sessionInfo()
 ```
 
-```{r, echo = F}
-# Here we'll remove our objects
-rm(bernoulli_likelihood, betaABfromMeanKappa, betaABfromModeKappa, betaABfromMeanSD, beta_param, hdi_of_icdf, n, z, a, b, proportion_heads, prior_mean, posterior_mean, trial_data, d, line_tibble, text_tibble, get_hdi, theta, p_theta, BernGrid, p1, p2, p3)
+```{r, echo = F, eval = F}
+rm(bernoulli_likelihood, betaABfromMeanKappa, betaABfromModeKappa, betaABfromMeanSD, beta_param, hdi_of_icdf, n, z, a, b, proportion_heads, prior_mean, posterior_mean, trial_data, d, d_line, d_text, get_hdi, theta, p_theta, BernGrid, p1, p2, p3)
 ```
+
+```{r, echo = F, message = F, warning = F, results = "hide"}
+pacman::p_unload(pacman::p_loaded(), character.only = TRUE)
+
+ggplot2::theme_set(ggplot2::theme_grey())
+
+bayesplot::color_scheme_set("blue")
+```
+
