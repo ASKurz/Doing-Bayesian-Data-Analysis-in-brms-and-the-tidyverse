@@ -1,0 +1,546 @@
+---
+title: "Chapter 08. ~~JAGS~~ brms"
+author: "A Solomon Kurz"
+date: "`r format(Sys.Date())`"
+output:
+  github_document
+---
+
+# ~~JAGS~~ brms
+
+```{r set-options, echo = FALSE, cachse = FALSE}
+options(width = 100)
+```
+
+We, of course, will be using **brms** in place of JAGS.
+
+## ~~JAGS~~ brms and its relation to R
+
+In the opening prargraph in his [GitHub repository for **brms**](https://github.com/paul-buerkner/brms), Bürkner explained:
+
+> The **brms** package provides an interface to fit Bayesian generalized (non-)linear multivariate multilevel models using Stan, which is a C++ package for performing full Bayesian inference (see http://mc-stan.org/). The formula syntax is very similar to that of the package lme4 to provide a familiar and simple interface for performing regression analyses. A wide range of response distributions are supported, allowing users to fit -- among others -- linear, robust linear, count data, survival, response times, ordinal, zero-inflated, and even self-defined mixture models all in a multilevel context. Further modeling options include non-linear and smooth terms, auto-correlation structures, censored data, missing value imputation, and quite a few more. In addition, all parameters of the response distribution can be predicted in order to perform distributional regression. Multivariate models (i.e., models with multiple response variables) can be fit, as well. Prior specifications are flexible and explicitly encourage users to apply prior distributions that actually reflect their beliefs. Model fit can easily be assessed and compared with posterior predictive checks, cross-validation, and Bayes factors. (**emphasis** in the original)
+
+Bürkner's **brms** repository includes many helpful links, such as to where [**brms** lives on CRAN](https://cran.r-project.org/web/packages/brms/index.html), a [list of blog posts](https://paul-buerkner.github.io/blog/brms-blogposts/) highlighting **brms**, and [a forum](http://discourse.mc-stan.org) where users can ask questions about **brms** in specific or about Stan in general.
+
+You can install the current official version of **brms** in the same way you would any other **R** package (i.e., `install.packages("brms", dependencies = T)`). If you want the current developmental version, you could download it from GitHub by executing the following.
+
+```{r, eval = F}
+if (!requireNamespace("devtools")) {
+  install.packages("devtools")
+}
+devtools::install_github("paul-buerkner/brms")
+```
+
+## A complete example
+
+We express the likelihood for our coin toss example as
+
+$$y_{i} \sim \text{Bernoulli} (\theta).$$
+
+Our prior will be
+
+$$\theta \sim \text{Beta} (\alpha, \beta).$$
+
+### Load data.
+
+"Logically, models of data start with the data. We must know their basic scale and structure to conceive of a descriptive model" (p. 197).
+
+Here we load the data with the `readr::read_csv()` function, the **tidyverse** version of base **R** `read.csv().
+
+```{r, warning = F, message = F}
+library(tidyverse)
+
+my_data <- read_csv("data.R/z15N50.csv")
+```
+
+Unlike what Kruschke wrote about JAGS, the **brms** package does not require us to convert the data into a list. It can handle data in lists or data frames, of which [tibbles are a special case](https://cran.r-project.org/web/packages/tibble/vignettes/tibble.html). Here are what the data look like.
+
+```{r}
+head(my_data)
+```
+
+We might visualize them in a bar plot.
+
+```{r, fig.width = 3, fig.height = 3}
+my_data %>% 
+  mutate(y = y %>% as.character()) %>% 
+  
+  ggplot(aes(x = y)) +
+  geom_bar() +
+  theme(panel.grid = element_blank())
+```
+
+If you wanted to compute "Ntotal", the number of rows in our tibble, one way is with `count()`.
+
+```{r}
+my_data %>% 
+  count()
+```
+
+However, we're not going to do anything with an "Ntotal" value. For **brms**, the data are fine in their current data frame form. No need for a `dataList`.
+
+### Specify model.
+
+Let's open **brms**.
+
+```{r, warning = F, message = F}
+library(brms)
+```
+
+The **brms** package doesn't have code blocks following the JAGS format or the sequence in Kurschke's diagrams. Rather, its syntax is modeled in part after the popular frequentist mixed-effects package, [**lme4**](https://cran.r-project.org/web/packages/lme4/index.html). To learn more about how **brms** compares to **lme4**, see Bürkner's [overview](https://cran.r-project.org/web/packages/brms/vignettes/brms_overview.pdf).
+
+The primary function in **brms** is `brm()`. Into this one function we will specify the data, the model, the likelihood function, the prior(s), and any technical settings such as the number of MCMC chains, iterations, and so forth. You can order the arguments in any way you like. My typical practice is to start with `data`, `family` (i.e., the likelihood function), the model `formula`, and my `prior`s. If there are any technical specifications such as the number of MHC iterations I'd like to change from their default values, I usually do that last.
+
+Here's how to fit the model.
+
+```{r fit1, cache = T, warning = F, message = F, results = 'hide'}
+fit1 <-
+  brm(data = my_data, 
+      family = bernoulli(link = identity),
+      formula = y ~ 1,
+      prior(beta(2, 2), class = Intercept),
+      iter = 500 + 3334, warmup = 500, chains = 3,
+      seed = 8)
+```
+
+For a more detailed explanation of the `brms::brm()` function, spend some time with the `brm` section of the [**brms** reference manual](https://cran.r-project.org/web/packages/brms/brms.pdf).
+
+### Initialize chains.
+
+In Stan, and in **brms** by extension, the initial values have default settings. In Initialization section of the Program Execution chapter in the online [*Stan Reference Manual, Version 2.21*](https://mc-stan.org/docs/2_21/reference-manual/initialization.html) we read
+
+> If there are no user-supplied initial values, the default initialization strategy is to initialize the unconstrained parameters directly with values drawn uniformly from the interval $(−2, 2)$. The bounds of this initialization can be changed but it is always symmetric around 0. The value of 0 is special in that it represents the median of the initialization. An unconstrained value of 0 corresponds to different parameter values depending on the constraints declared on the parameters." 
+
+In general, I don't recommend setting custom initial values in **brms** or Stan. Under the hood, Stan will transform the parameters to the unconstrained space in models where they are bounded. In our Bernoulli model, $\theta$ is bounded at 0 and 1. A little further down in the same section, we read
+
+> For parameters bounded above and below, the initial value of 0 on the unconstrained scale corresponds to a value at the midpoint of the constraint interval. For probability parameters, bounded below by 0 and above by 1, the transform is the inverse logit, so that an initial unconstrained value of 0 corresponds to a constrained value of 0.5, -2 corresponds to 0.12 and 2 to 0.88. Bounds other than 0 and 1 are just scaled and translated.
+
+If you want to play around with this, have at it. In my experience, the only time it helps to set these manually is when you want to fix them to zero. You can do that by specifying `inits = "0"` within `brm()`.
+
+### Generate chains.
+
+By default, **brms** will use 4 chains of 2000 iterations each. The type of MCMC **brms** uses is Hamiltonian Monte Carlo (HMC). You can learn more about HMC at the [Stan website](http://mc-stan.org), which includes the [*Stan User’s Guide*](https://mc-stan.org/docs/2_21/stan-users-guide/index.html), the [*Stan Reference Manual*](https://mc-stan.org/docs/2_21/reference-manual/index.html#overview), and a list of [tutorials](http://mc-stan.org/users/documentation/tutorials.html). McElreath also has a [nice intro lecture](https://www.youtube.com/watch?v=BWEtS3HuU5A&t=163s&frags=pl%2Cwn) on MCMC in general and HMC in particular. Michael Bentacourt has some good lectures on Stan and HMC, such as [here](https://www.youtube.com/watch?v=pHsuIaPbNbY&t=2638s&frags=pl%2Cwn) and [here](https://www.youtube.com/watch?v=jUSZboSq1zg&t=1325s&frags=pl%2Cwn). And, of course, we will cover HMC with Kruschke in Chapter 14.
+
+Within each HMC chain, the first $n$ iterations are warmups. Within the Stan-HMC paradigm, [warmups are somewhat analogous to but not synonymous with burn-in iterations](http://andrewgelman.com/2017/12/15/burn-vs-warm-iterative-simulation-algorithms/) as done by the Gibbs sampling in JAGS. But HMC warmups are like Gibbs burn-ins in that both are discarded and not used to describe the posterior. As such, the **brms** default settings yield 1000 post-warmup iterations for each of the 4 HMC chains. However, we specified `iter = 500 + 3334, warmup = 500, chains = 3`. Thus instead of defaults, we have 3 HMC chains. Each chain has 500 + 3334 = 3834 total iterations, of which 500 were discarded `warmup` iterations.
+
+To learn more about the warmup stage in Stan, check out the [HMC Algorithm Parameters section of the MCMC Sampling chapter of the *Stan Reference Manual*](https://mc-stan.org/docs/2_21/reference-manual/hmc-algorithm-parameters.html)
+
+### Examine chains.
+
+The `brms::plot()` function returns a density and trace plot for each model parameter.
+
+```{r, fig.width = 10, fig.height = 1.5}
+plot(fit1)
+```
+
+If you want to display each chain as its own density, you can use the handy `mcmc_dens_overlay()` function from the [**bayesplot** package](https://cran.r-project.org/web/packages/bayesplot/index.html). 
+
+```{r, warning = F, message = F}
+library(bayesplot)
+```
+
+But before we do so, we'll need to export the posterior samples into a data frame, for which we'll employ `posterior_samples()`.
+
+```{r}
+post <- posterior_samples(fit1, add_chain = T)
+```
+
+Note the `add_chain = T` argument, which will allow us to differentiate the draws by their chain of origin. But anyway, here are the overlaid densities. 
+
+```{r, fig.width = 4, fig.height = 2, message = F, warning = F}
+mcmc_dens_overlay(post, pars = c("b_Intercept")) +
+  theme(panel.grid = element_blank())
+```
+
+The `bayesplot::mcmc_acf()` function will give us the autocorrelation plots.
+
+```{r, fig.width = 4, fig.height = 4}
+mcmc_acf(post, pars = "b_Intercept", lags = 35)
+```
+
+With **brms** functions, we get a sole $\hat R$ value for each parameter rather than a running vector.
+
+```{r}
+rhat(fit1)["b_Intercept"]
+```
+
+We'll have to employ `brms::as.mcmc()` and `coda::gelman.plot()` to make our running $\hat R$ plot.
+
+```{r, fig.width = 4, fig.height = 3}
+fit1_c <- as.mcmc(fit1)
+
+coda::gelman.plot(fit1_c[, "b_Intercept", ])
+```
+
+#### ~~The `plotPost` function~~ How to plot your brms posterior distributions.
+
+We'll get into plotting in just a moment. But before we do, here's a summary of the model.
+
+```{r}
+print(fit1)
+```
+
+To summarize a posterior in terms of central tendency, **brms** defaults to the mean value (i.e., the value in the 'Estimate' column of the `print()` output). In many of the other convenience functions, you can also request the median instead. For example, we can use the `robust = T` argument to get the 'Estimate' in terms of the median. 
+
+```{r}
+posterior_summary(fit1, robust = T)
+```
+
+Across functions, the intervals default to 95%. With `print()` and `summary()` you can adjust the level with a `prob` argument. For example, here we'll use 50% intervals.
+
+```{r}
+print(fit1, prob = .5)
+```
+
+But in many other **brms** convenience functions, you can use the `probs` argument to request specific percentile summaries.
+
+```{r}
+posterior_summary(fit1, probs = c(.025, .25, .75, .975))
+```
+
+Regardless of what `prob` or `probs` levels you use, **brms** functions always return percentile-based estimates. All this central tendency and interval talk will be important in a moment...
+
+When plotting the posterior distribution of a parameter estimated with **brms**, you typically do so working with the results of an object returned by `posterior_samples()`. Recall we already saved those samples as `post`.
+
+```{r}
+head(post)
+```
+
+With `post` in hand, we can use **ggplot2** to do the typical distributional plots, such as with `geom_histogram()`.
+
+```{r, fig.width = 4, fig.height = 2.5, warning = F, message = F}
+post %>% 
+  ggplot(aes(x = b_Intercept)) +
+  geom_histogram(color = "grey92", fill = "grey67",
+                 size = .2) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  labs(title = "Theta",
+       x     = expression(theta)) +
+  theme(panel.grid = element_blank())
+```
+
+The `bayesplot::mcmc_areas()` function offers a nice way to depict the posterior densities, along with their percentile-based 50% and 95% ranges.
+
+```{r, fig.width = 4, fig.height = 2.5, message = F}
+mcmc_areas(
+  post, 
+  pars       = c("b_Intercept"),
+  prob       = 0.5,
+  prob_outer = 0.95,
+  point_est  = "mean"
+) +
+  scale_y_discrete(NULL, breaks = NULL) +
+  labs(title = "Theta",
+       x     = expression(theta)) +
+  theme(panel.grid = element_blank())
+```
+
+**brms** doesn't have a convenient way to compute the posterior mode or HDIs. Base **R** is no help, either. But Matthew Kay's [**tidybayes** package](https://github.com/mjskay/tidybayes) makes it easy to compute posterior modes and HDIs. The **tidybayes** package gives us access to the handy `geom_halfeyeh()` function.
+
+```{r, fig.width = 4, fig.height = 2.5, warning = F, message = F}
+library(tidybayes)
+
+post %>% 
+  ggplot(aes(x = b_Intercept, y = 0)) +
+  geom_halfeyeh(point_interval = mode_hdi, .width = c(.95, .5)) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  labs(title = "Theta",
+       x     = expression(theta)) +
+  theme(panel.grid = element_blank())
+```
+
+The `tidybayes::geom_halfeyeh()` function returns a density with a measure of the posterior's central tendency in a dot and one or multiple interval bands as horizontal lines at the base of the density. Since we used the `point_interval = mode_hdi` argument, we asked for the mode to be our measure of central tendency and the highest posterior density intervals to be our intervals. With `.width = c(.95, .5)`, we requested our HDIs be at both the 95% and 50% levels.
+
+To be more congruent with Kruschke's plotting sensibilities, we can combine `geom_histogram()` with `tidybayes::stat_pointintervalh()`. 
+
+```{r, fig.width = 4, fig.height = 2.5, warning = F, message = F}
+# this is unnecessary, but makes for nicer x-axis breaks
+my_breaks <-
+  mode_hdi(post$b_Intercept)[, 1:3] %>% 
+  gather(key, breaks) %>% 
+  mutate(labels = breaks %>% round(digits = 3))
+
+# here's the main plot code
+post %>% 
+  ggplot(aes(x = b_Intercept)) +
+  geom_histogram(color = "grey92", fill = "grey67",
+                 size = .2, bins = 40) +
+  stat_pointintervalh(aes(y = 0), 
+                      point_interval = mode_hdi, .width = .95) +
+  scale_x_continuous(breaks = my_breaks$breaks,
+                     labels = my_breaks$labels) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  labs(title = "Theta",
+       x     = expression(theta)) +
+  theme(panel.grid = element_blank())
+```
+
+With the `point_interval` argument within the `stat_pointintervalh()` function, we can request different combinations of measures of central tendency (i.e., mean, median, mode) and interval types (i.e., percentile-based and HDIs). Although all of these are legitimate ways to summarize a posterior, they can yield somewhat different results. For example, here we'll contrast our mode + HDI summary with a median + percentile-based interval summary.
+
+```{r, fig.width = 4, fig.height = 1.5}
+post %>% 
+  ggplot(aes(x = b_Intercept)) +
+  stat_pointintervalh(aes(y = 1), point_interval = median_qi, .width = c(.95, .5)) +
+  stat_pointintervalh(aes(y = 2), point_interval = mode_hdi,  .width = c(.95, .5)) +
+  scale_y_continuous(NULL, breaks = 1:2,
+                     labels = c("median_qi", "mode_hdi")) +
+  coord_cartesian(ylim = 0:3) +
+  labs(title = "Theta",
+       x     = expression(theta)) +
+  theme(panel.grid   = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.text.y  = element_text(hjust = 0))
+```
+
+Similar, yet distinct.
+
+## Simplified scripts for frequently used analyses
+
+A lot has happened in **R** for Bayesian analysis since Kruschke wrote his text. In addition to our use of the **tidyverse**, the **brms**, **bayesplot**, and **tidybayes** packages offer an array of useful convenience functions. We can and occasionally will write our own. But really, the rich **R** ecosystem already has us pretty much covered.
+
+## Example: Difference of biases
+
+Here are our new data.
+
+```{r, message = F}
+my_data <- read_csv("data.R/z6N8z2N7.csv")
+
+glimpse(my_data)
+```
+
+They look like this.
+
+```{r, fig.width = 5, fig.height = 3}
+my_data %>% 
+  mutate(y = y %>% as.character()) %>% 
+  
+  ggplot(aes(x = y)) +
+  geom_bar() +
+  theme(panel.grid = element_blank()) +
+  facet_wrap(~s)
+```
+
+Here we fit the model with `brms::brm()`.
+
+```{r fit2, cache = T, warning = F, message = F}
+fit2 <-
+  brm(data = my_data, 
+      family = bernoulli(identity),
+      y ~ 0 + s,
+      prior = c(prior(beta(2, 2), class = b, coef = sReginald),
+                prior(beta(2, 2), class = b, coef = sTony)),
+      iter = 6000, warmup = 5000, cores = 4, chains = 4,
+      # this line isn't always necessary, but it will let us use `prior_samples()` later
+      sample_prior = T,
+      control = list(adapt_delta = .999),
+      seed = 8)
+```
+
+More typically, we'd parameterize the model as `y ~ 1 + s`. This form would yield an intercept and a slope. Behind the scenes, **brms** would treat the nominal `s` variable as an 0-1 coded dummy variable. One of the nominal levels would become the reverence category, depicted by the `Intercept`, and the difference between that and the other category would be the `s` slope. However, with our `y ~ 0 + s` syntax, we've suppressed the typical model intercept. The consequence is that each level of the nominal variable `s` gets its own intercept or [i] index, if you will. This is analogous to Kruschke's `y[i] ∼ dbern(theta[s[i]])` code.
+
+Also, notice our use of the `control = list(adapt_delta = .999)` argument. By default, `adapt_delta = .8`. Leaving it at its default for this model resulted in "divergent transitions after warmup" warnings, which urged me to increase "adapt_delta above 0.8." The model fit well after raising it to .999 and increasing the number of `warmup` samples. See the [**brms** Reference manual](https://cran.r-project.org/web/packages/brms/brms.pdf) for more on `adapt_delta`.
+
+All that aside, here are the chains.
+
+```{r, fig.width = 10, fig.height = 3}
+plot(fit2)
+```
+
+The model `summary()` is as follows:
+
+```{r}
+summary(fit2)
+```
+
+The `brms::pairs()` function gets us the bulk of Figure 8.6.
+
+```{r, fig.width = 4.5, fig.height = 4}
+pairs(fit2,
+      off_diag_args = list(size = 1/3, alpha = 1/3))
+```
+
+But to get at that difference-score distribution, we'll have extract the posterior iterations with `posterior_samples()`, make difference score with `mutate()`, and manually plot with **ggplot2**.
+
+```{r}
+post <- posterior_samples(fit2)
+
+post <-
+  post %>% 
+  rename(theta_Reginald = b_sReginald,
+         theta_Tony     = b_sTony) %>% 
+  mutate(`theta_Reginald - theta_Tony` = theta_Reginald - theta_Tony)
+
+glimpse(post)
+```
+
+```{r, fig.width = 10, fig.height = 3, message = F}
+gathered_post <-
+  post %>% 
+  select(starts_with("theta")) %>% 
+  gather() %>% 
+  mutate(key = factor(key, levels = c("theta_Reginald", "theta_Tony", "theta_Reginald - theta_Tony"))) 
+  
+gathered_post %>% 
+  ggplot(aes(x = value, group = key)) +
+  geom_histogram(color = "grey92", fill = "grey67",
+                 size = .2) +
+  stat_pointintervalh(aes(y = 0), 
+                      point_interval = mode_hdi, .width = c(.95, .50)) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  theme(panel.grid = element_blank()) +
+  facet_wrap(~key, scales = "free_x")
+```
+
+Here's a way to get the numeric summaries out of `post`.
+
+```{r}
+gathered_post %>% 
+  group_by(key) %>% 
+  mode_hdi()
+```
+
+In this context, the `mode_hdi()` summary yields:
+
+* `key` (i.e., the name we used to denote the parameters)
+* `value` (i.e., the value of the measure of central tendency)
+* `.lower` (i.e., the lower level of the 95% HDI)
+* `.upper` (i.e., the upper level...)
+* `.width` (i.e., what interval we used)
+* `.point` (i.e., the type of measure of central tendency)
+* `.interval` (i.e., the type of interval)
+
+## Sampling from the prior distribution in ~~JAGS~~ brms
+
+The `sample_prior = T` argument in our `brm()` code allowed us to extract prior samples with the well-named `prior_samples()` function.
+
+```{r}
+prior <- prior_samples(fit2)
+
+head(prior)
+```
+
+With `prior` in hand, we're almost ready to make the prior histograms of Figure 8.7. But first we'll want to determine the $z/N$ values in order to mark them off in the plots. [You'll note Kruschke did so with gray plus marks in his.]
+
+```{r}
+my_data %>% 
+  group_by(s) %>% 
+  summarise(z = sum(y),
+            N = n()) %>% 
+  mutate(`z/N` = z / N)
+
+d_line <-
+  tibble(value = c(.75, .286, .75 - .286),
+         key   =  factor(c("theta_Reginald", "theta_Tony", "theta_Reginald - theta_Tony"), 
+                         levels = c("theta_Reginald", "theta_Tony", "theta_Reginald - theta_Tony")))
+```
+
+Behold the histograms of Figure 8.7.
+
+```{r, fig.width = 10, fig.height = 3, message = F}
+prior %>% 
+  rename(theta_Reginald = b_sReginald,
+         theta_Tony     = b_sTony) %>% 
+  mutate(`theta_Reginald - theta_Tony` = theta_Reginald - theta_Tony) %>% 
+  gather() %>% 
+  mutate(key = factor(key, levels = c("theta_Reginald", "theta_Tony", "theta_Reginald - theta_Tony"))) %>%
+  
+  ggplot(aes(x = value, group = key)) +
+  geom_vline(data = d_line, aes(xintercept = value), 
+             color = "white", size = 1) +
+  geom_histogram(color = "grey92", fill = "grey67",
+                 size = .2) +
+  stat_pointintervalh(aes(y = 0), 
+                      point_interval = mode_hdi, .width = c(.95, .50)) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  theme_grey() +
+  theme(panel.grid = element_blank()) +
+  facet_wrap(~key, scales = "free_x")
+```
+
+Here's how to make the scatter plot.
+
+```{r, fig.width = 3, fig.height = 3}
+prior %>% 
+  rename(theta_Reginald = b_sReginald,
+         theta_Tony     = b_sTony) %>% 
+  
+  ggplot(aes(x = theta_Reginald, y = theta_Tony)) +
+  geom_point(alpha = 1/4, color = "grey50") +
+  coord_equal() +
+  theme(panel.grid = element_blank())
+```
+
+Or you could always use a two-dimensional density plot with `stat_density_2d()`.
+
+```{r, fig.width = 3, fig.height = 3}
+prior %>% 
+  rename(theta_Reginald = b_sReginald,
+         theta_Tony     = b_sTony) %>% 
+  
+  ggplot(aes(x = theta_Reginald, y = theta_Tony)) +
+  stat_density_2d(aes(fill = stat(density)), 
+                  geom = "raster", contour = F) +
+  scale_fill_viridis_c(option = "B") +
+  labs(x = expression(theta[1]),
+       y = expression(theta[2])) +
+  coord_equal() +
+  theme(panel.grid      = element_blank(),
+        legend.position = "none")
+```
+
+## Probability distributions available in ~~JAGS~~  brms
+
+> [**brms**] has a large collection of frequently used probability distributions that are built-in. These distributions include the beta, gamma, normal, Bernoulli, and binomial along with many others. A complete list of distributions, and their [**brms**] names, can be found in [Bürkner's vignette [*Parameterization of Response Distributions in brms*](https://cran.r-project.org/web/packages/brms/vignettes/brms_families.html)]. (pp. 213--214, **emphasis** added)
+
+### Defining new likelihood functions.
+
+In addition to all the likelihood functions listed in above mentioned vignette, [*Parameterization of Response Distributions in brms*](https://cran.r-project.org/web/packages/brms/vignettes/brms_families.html), you can also make your own likelihood functions. Bürkner explained the method in his vignette [*Define Custom Response Distributions with brms*](https://cran.r-project.org/web/packages/brms/vignettes/brms_customfamilies.html).
+
+## Faster sampling with parallel processing in ~~runjags~~ `brms::brm()`
+
+We don't need to open another package to sample in parallel in **brms**. In fact, we've already been doing that. Take another look at the code use used for the last model, `fit2`.
+
+```{r, eval = F}
+fit2 <-
+  brm(data = my_data, 
+      family = bernoulli(identity),
+      y ~ 0 + s,
+      prior = c(prior(beta(2, 2), class = b, coef = sReginald),
+                prior(beta(2, 2), class = b, coef = sTony)),
+      iter = 6000, warmup = 5000, cores = 4, chains = 4,
+      sample_prior = T,
+      control = list(adapt_delta = .999),
+      seed = 8)
+```
+
+See the `cores = 4, chains = 4` arguments? With that bit of code, we told `brms::brm()` we wanted 4 chains, which we ran in parallel across 4 cores.
+
+## Tips for expanding ~~JAGS~~ brms models
+
+I'm in complete agreement with Kruschke, here: 
+
+> Often, the process of programming a model is done is stages, starting with a simple model and then incrementally incorporating complexifications. At each step, the model is checked for accuracy and efficiency. This procedure of incremental building is useful for creating a desired complex model from scratch, for expanding a previously created model for a new application, and for expanding a model that has been found to be inadequate in a posterior predictive check. (p. 218)
+
+## Reference {-}
+
+[Kruschke, J. K. (2015). *Doing Bayesian data analysis, Second Edition: A tutorial with R, JAGS, and Stan.* Burlington, MA: Academic Press/Elsevier.](https://sites.google.com/site/doingbayesiandataanalysis/)
+
+## Session info {-}
+
+```{r}
+sessionInfo()
+```
+
+```{r, message = F, warning = F, echo = F}
+# Here we'll remove our objects
+rm(my_data, fit1, post, estimate_mode, my_breaks, fit2, gathered_post, prior, d_line)
+```
+
+```{r, echo = F, message = F, warning = F, results = "hide"}
+pacman::p_unload(pacman::p_loaded(), character.only = TRUE)
+
+ggplot2::theme_set(ggplot2::theme_grey())
+
+bayesplot::color_scheme_set("blue")
+```
+
