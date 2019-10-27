@@ -12,9 +12,9 @@ output:
 >
 > ...Bayesian inference is reallocation of credibility over possibilities. In model comparison, the focal possibilities are the models, and Bayesian model comparison reallocates credibility across the models, given the data. In this chapter, we explore examples and methods of Bayesian inference about the relative credibilities of models. (pp. 265--266)
 
-In the text, the emphasis is on the Bayes Factor paradigm. While we will discuss that, we will also present the alternatives available with information criteria and model averaging and attacking.
+In the text, the emphasis is on the Bayes Factor paradigm. While we will discuss that, we will also present the alternatives available with information criteria, model averaging, and model stacking.
 
-## 10.1. General formula and the Bayes factor
+## General formula and the Bayes factor
 
 So far we have spoken of
 
@@ -27,11 +27,17 @@ Now we add to that $m$, which is a model index with $m = 1$ standing for the fir
 
 "The Bayes factor (BF) is the ratio of the probabilities of the data in models 1 and 2" (p. 268).
 
-$$\text{BF} = \frac{p(D | m = 1)}{p(D | m = 2)}$$
+This can be expressed simply as
 
-> One convention for converting the magnitude of the BF to a discrete decision about the models is that there is "substantial" evidence for model $m = 1$ when the BF exceeds 3.0 and, equivalently, "substantial" evidence for model $m = 2$ when the BF is less than 1/3 ([Jeffreys, 1961](https://global.oup.com/academic/product/theory-of-probability-9780198503682?cc=us&lang=en&); [Kass & Raftery, 1995](http://xyala.cap.ed.ac.uk/teaching/tutorials/phylogenetics/Bayesian_Workshop/PDFs/Kass%20and%20Raftery%201995.pdf); [Wetzels et al., 2011](https://pdfs.semanticscholar.org/1874/4e6c84087ccc20bc0f6db28020bc48c81b4a.pdf)).
+$$\text{BF} = \frac{p(D | m = 1)}{p(D | m = 2)}.$$
 
-## 10.2. Example: Two factories of coins 
+Kruschke further explained that
+
+> one convention for converting the magnitude of the BF to a discrete decision about the models is that there is "substantial" evidence for model $m = 1$ when the BF exceeds 3.0 and, equivalently, "substantial" evidence for model $m = 2$ when the BF is less than 1/3 ([Jeffreys, 1961](https://global.oup.com/academic/product/theory-of-probability-9780198503682?cc=us&lang=en&); [Kass & Raftery, 1995](http://xyala.cap.ed.ac.uk/teaching/tutorials/phylogenetics/Bayesian_Workshop/PDFs/Kass%20and%20Raftery%201995.pdf); [Wetzels et al., 2011](https://pdfs.semanticscholar.org/1874/4e6c84087ccc20bc0f6db28020bc48c81b4a.pdf)).
+
+However, as with $p$-values, effect sizes, and so on, BF values exist within continua and might should be evaluated interns of degree mores than as ordered kinds.
+
+## Example: Two factories of coins 
 
 Kruschke considered the coin bias of two factories, each described by the beta distribution. We can organize how to derive the $\alpha$ and $\beta$ parameters from $\omega$ and $\kappa$ with a tibble.
 
@@ -49,7 +55,7 @@ d %>%
   knitr::kable()
 ```
 
-Thus given $\omega_1 = .25$, $\omega_2 = .75$ and $\kappa = 12$, we can describe the bias of the two coin factories as $\text{B}_1(3.5, 8.5)$ and $\text{B}_2(8.5, 3.5)$. With a little wrangling, we canuse our `d` tibble to make the densities of Figure 10.2.
+Thus given $\omega_1 = .25$, $\omega_2 = .75$ and $\kappa = 12$, we can describe the bias of the two coin factories as $\text B_1 (3.5, 8.5)$ and $\text B_2 (8.5, 3.5)$. With a little wrangling, we canuse our `d` tibble to make the densities of Figure 10.2.
 
 ```{r, fig.width = 6, fig.height = 2}
 length <- 101
@@ -104,9 +110,9 @@ But now
 
 > suppose we flip the coin nine times and get six heads. Given those data, what are the posterior probabilities of the coin coming from the head-biased or tail-biased factories? We will pursue the answer three ways: via formal analysis, grid approximation, and MCMC. (p. 270)
 
-### 10.2.1. Solution by formal analysis.
+### Solution by formal analysis.
 
-Here we rehearse if we have $\text{beta} (\theta, a, b)$ prior for $\theta$ of the Bernoulli likelihood function, then the analytic solution for the posterior is $\text{beta} (\theta | z + a, N – z + b)$. Within this paradigm, if you would like to compute $p(D | m)$, don't use the following function. If suffers from [underflow](https://en.wikipedia.org/wiki/Arithmetic_underflow) with large values.
+Here we rehearse if we have $\operatorname{beta} (\theta, a, b)$ prior for $\theta$ of the Bernoulli likelihood function, then the analytic solution for the posterior is $\operatorname{beta} (\theta | z + a, N – z + b)$. Within this paradigm, if you would like to compute $p(D | m)$, don't use the following function. If suffers from [underflow](https://en.wikipedia.org/wiki/Arithmetic_underflow) with large values.
 
 ```{r, eval = F}
 p_d <- function(z, n, a, b) { 
@@ -145,7 +151,7 @@ p_d_2 / p_d_1
 
 Since the BF itself is only $\text{BF} = \frac{p(D | m = 1)}{p(D | m = 2)}$, we'd need to bring in the priors for the models themselves to get the posterior probabilities, which follows the form
 
-$$\frac{p(m = 1 | D)}{p(m = 2 | D)} = \bigg (\frac{p(D | m = 1)}{p(D | m = 2)} \bigg ) \bigg ( \frac{p(m = 1)}{p(m = 2)} \bigg)$$
+$$\frac{p(m = 1 | D)}{p(m = 2 | D)} = \bigg (\frac{p(D | m = 1)}{p(D | m = 2)} \bigg ) \bigg ( \frac{p(m = 1)}{p(m = 2)} \bigg).$$
 
 If for both our models, $p(m) = .5$, then 
 
@@ -153,33 +159,33 @@ If for both our models, $p(m) = .5$, then
 (p_d_1 * .5) / (p_d_2 * .5)
 ```
 
-As Kruschke pointed out, because we’re working in the probability metric, the sum of $p(m = 1 | D )$ and $p(m = 2 | D )$ must be 1. By simple algebra then, 
+As Kruschke pointed out, because we're working in the probability metric, the sum of $p(m = 1 | D )$ and $p(m = 2 | D )$ must be 1. By simple algebra then, 
 
-$$p(m = 2 | D ) = 1 - p(m = 1 | D )$$
+$$p(m = 2 | D ) = 1 - p(m = 1 | D ).$$
 
 Therefore, it's also the case that
 
-$$\frac{p(m = 1 | D)}{1 - p(m = 1 | D)} = 0.2135266$$
+$$\frac{p(m = 1 | D)}{1 - p(m = 1 | D)} = 0.2135266.$$
 
 Thus, 0.2135266 is in an odds metric. If you want to convert odds to a probability, you follow the formula
 
-$$\text{odds} = \frac{\text{probability}}{\text{probability}}$$
+$$\text{odds} = \frac{\text{probability}}{\text{probability}}.$$
 
 And with more algegraic manipulation, you can solve for the probability.
 
 $$
-\begin{eqnarray}
+\begin{align*}
 \text{odds} & = & \frac{\text{probability}}{1 - \text{probability}} \\
 \text{odds} - \text{odds} \cdot \text{probability} & = & \text{probability} \\
 \text{odds} & = & \text{probability} + \text{odds} \cdot \text{probability} \\
 \text{odds} & = & \text{probability} (1 + \text{odds}) \\
 \frac{\text{odds}}{1 + \text{odds}} & = & \text{probability}
-\end{eqnarray}
+\end{align*}
 $$
 
 Thus, the posterior probability for $m = 1$ is
 
-$$p(m = 1 | D) = \frac{0.2135266}{1 + 0.2135266}$$
+$$p(m = 1 | D) = \frac{0.2135266}{1 + 0.2135266}.$$
 
 In code:
 
@@ -197,7 +203,7 @@ Relative to $m = 2$, our posterior probability for $m = 1$ is about .18. And the
 
 Given the data, the two models and the prior assumption they were equally credible, we conclude $m = 2$ is .82 probable.
 
-### 10.2.2. Solution by grid approximation.
+### Solution by grid approximation.
 
 We won't be able to make the wireframe plots on the left of Figure 10.3, but we can do some of the others. Here's the upper right panel.
 
@@ -374,7 +380,7 @@ To make the middle bottom panel of Figure 10.3, we have to average the posterior
   theme(panel.grid = element_blank())
 ```
 
-For the lower right panel of Figure 10.3, we'll filter to our two focal values of $\omega$ and then facet by them.
+For the lower right panel of Figure 10.3, we'll `filter()` to our two focal values of $\omega$ and then facet by them.
 
 ```{r, fig.width = 3.5, fig.height = 3}
 d %>% 
@@ -410,7 +416,7 @@ d %>%
 
 Hopefully that helps build the intuition of what Kruschke meant when he wrote "*visual inspection suggests that the ratio of the heights is about 5 to 1, which matches the Bayes factor of 4.68 that we computed exactly in the previous section*" (p. 273, *emphasis* in the original).
 
-Using the grid, you might compute that BF like this:
+Using the grid, you might compute that BF like this.
 
 ```{r}
 d %>% 
@@ -423,17 +429,17 @@ d %>%
   summarise(BF = model_1 / model_2)
 ```
 
-## 10.3. Solution by MCMC
+## Solution by MCMC
 
 Kruschke started with: "For large, complex models, we cannot derive $p(D | m)$ analytically or with grid approximation, and therefore we will approximate the posterior probabilities using MCMC methods" (p. 274). He's not kidding. Welcome to modern Bayes.
 
-### 10.3.1. Nonhierarchical MCMC computation of each model’s marginal likelihood.
+### Nonhierarchical MCMC computation of each model's marginal likelihood.
 
 Before you get excited, Kruschke warned: "For complex models, this method might not be tractable. [But] for the simple application here, however, the method works well, as demonstrated in the next section" (p. 277).
 
-#### 10.3.1.1. Implementation with ~~JAGS~~ brms.
+#### Implementation with ~~JAGS~~ brms.
 
-Load brms.
+Load **brms**.
 
 ```{r, warning = F, message = F}
 library(brms)
@@ -446,7 +452,7 @@ trial_data <-
   tibble(y = trial_data)
 ```
 
-Let's learn a new brms skill. When you want to enter variables into the parameters defining priors in `brms::brm()`, you need to specify them using the `stanvar()` function. Since we want to do this for two variables, we’ll use `stanvar()` twice and save the results as an object, conveniently named `stanvars`.
+Time to learn a new **brms** skill. When you want to enter variables into the parameters defining priors in `brms::brm()`, you need to specify them using the `stanvar()` function. Since we want to do this for two variables, we’ll use `stanvar()` twice and save the results as an object, conveniently named `stanvars`.
 
 ```{r}
 omega <- .75
@@ -475,11 +481,11 @@ Note how we fed our `stanvars` object into the `stanvars` function.
 
 Anyway, let's inspect the chains.
 
-```{r, fig.width = 8, fig.height = 1}
+```{r, fig.width = 8, fig.height = 1.4}
 plot(fit1)
 ```
 
-We'll glance at the model summary, too.
+They look great. Now we glance at the model summary.
 
 ```{r}
 print(fit1)
@@ -519,7 +525,7 @@ omega <- .75
 kappa <- 12
 ```
 
-Thus we'll use them to compute $\frac{1}{p(D)}$. Here we'll express Kruschke's `oneOverPD` as a function, `one_over_pd()`.
+The reason we're saving all these values is we're aiming to compute $p(D)$, the probability of the data (i.e., the marginal likelihood), given the model. But our intermediary step will be computing its reciprocal, $\frac{1}{p(D)}$. Here we'll express Kruschke's `oneOverPD` as a function, `one_over_pd()`.
 
 ```{r}
 one_over_pd <- function(theta) {
@@ -577,34 +583,42 @@ theta %>%
 
 Boom!
 
-### 10.3.2. Hierarchical MCMC computation of relative model probability.
+### Hierarchical MCMC computation ~~of relative model probability~~ is not available in brms: We'll cover information criteria instead.
 
-I'm not aware of a way to specify a model "in which the top-level parameter is the index across models" in brms (p. 278). If you know of a way, [share your code](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues).
+I'm not aware of a way to specify a model "in which the top-level parameter is the index across models" in **brms** (p. 278). If you know of a way, [share your code](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues).
 
-However, we do have options. We can compare and weight models using information criteria, about which you can learn more [here](https://youtu.be/t0pRuy1_190?t=978). In brms, the LOO and WAIC are two primary information criteria available. You can compute them for a given model with the `loo()` and `waic()` functions, respectively. Here we use `loo()` and save the output as objects. 
-
-```{r l_fit1_fit2, cache = T}
-l_fit1 <- loo(fit1)
-l_fit2 <- loo(fit2)
-```
-
-Here's the basic LOO summary for fit1.
+However, we do have options. We can compare and weight models using information criteria, about which you can learn more [here](https://youtu.be/t0pRuy1_190?t=978). In **brms**, the LOO and WAIC are two primary information criteria available. You can compute them for a given model with the `loo()` and `waic()` functions, respectively. Here's a quick example of how to use the `waic()` function.
 
 ```{r}
-print(l_fit1)
+waic(fit1)
 ```
 
-You get a wealth of output, more of which can be seen with `str(l_fit1)`. First, notice the message "All Pareto k estimates are good (k < 0.5)." Pareto $k$ values can be [used for diagnostics](https://cran.r-project.org/web/packages/loo/vignettes/loo2-example.html#plotting-pareto-k-diagnostics). Each case in the data gets its own $k$ value and we like it when those $k$s are low. The makers of the [loo package](https://github.com/stan-dev/loo) get worried when $k$ values exceed 0.7 and, as a result, `loo()` returns a warning message when they do. Happily, we have no such warning messages in this example.
+We'll explain that output in a bit. Before we do, you should know the current recommended workflow for information criteria with **brms** models is to use the `add_criterion()` function, which will allow us to compute information-criterion-related output and save it to our **brms** fit objects. Here's how to do that with both our fits.
 
-In the main section, we get estimates for the expected log predictive density (`elpd_loo`), the estimated effective number of parameters (`p_loo`), and the Pareto smoothed importance-sampling leave-one-out cross-validation (PSIS-LOO; `looic`). Each come with a standard error (i.e., `SE`). Like other information criteria, the LOO values aren't of interest in and of themselves. However, the estimate of one model's LOO relative to that of another is of great interest. We generally prefer models with lower information criteria. With the `compare_ic()` function, we can compute a formal difference score between multiple loo objects.
+```{r ic_fit1_fit2, cache = T}
+fit1 <- add_criterion(fit1, criterion = c("loo", "waic"))
+fit2 <- add_criterion(fit2, criterion = c("loo", "waic"))
+```
+
+You can extract the same WAIC output for `fit1` we saw above by executing `fit1$waic`. Here we look at the LOO summary for fit1, instead.
 
 ```{r}
-compare_ic(l_fit1, l_fit2)
+fit1$loo
 ```
 
-Each difference score also comes with a standard error. In this case, `fit1` has the lower estimates, but the standard error of their difference score is large relative to the size of their difference. So the LOO difference score puts them on similar footing. You can do a similar analysis with the WAIC estimates.
+You get a wealth of output, more of which can be seen by executing `str(fit1$loo)`. First, notice the message "All Pareto k estimates are good (k < 0.5)." Pareto $k$ values can be [used for diagnostics](https://cran.r-project.org/web/packages/loo/vignettes/loo2-example.html#plotting-pareto-k-diagnostics). Each case in the data gets its own $k$ value and we like it when those $k$s are low. The makers of the [**loo** package](https://github.com/stan-dev/loo) get worried when $k$ values exceed 0.7 and, as a result, we will get warning messages when they do. Happily, we have no such warning messages in this example.
 
-In addition to difference-score comparisons, you can also use the LOO or WAIC for AIC-type model weighting. In brms, you do this with the `model_weights()` function.
+In the main section, we get estimates for the expected log predictive density (`elpd_loo`), the estimated effective number of parameters (`p_loo`), and the Pareto smoothed importance-sampling leave-one-out cross-validation (PSIS-LOO; `looic`). Each come with a standard error (i.e., `SE`). Like other information criteria, the LOO values aren't of interest in and of themselves. However, the estimate of one model's LOO relative to that of another is of great interest. We generally prefer models with lower information criteria. With the `loo_compare()` function, we can compute a formal difference score between two models.
+
+```{r}
+loo_compare(fit1, fit2, criterion = "loo")
+```
+
+The `loo_compare()` output rank orders the models such that the best fitting model appears on top. All models receive a difference score relative to the best model. Here the best fitting model is `fit1` and since the LOO for `fit1` minus itself is zero, the values in the top row are all zero.
+
+Each difference score also comes with a standard error. In this case, even though `fit1` has the lower estimates, the standard error is twice the magnitude of the difference score. So the LOO difference score puts the two models on similar footing. You can do a similar analysis with the WAIC estimates.
+
+In addition to difference-score comparisons, you can also use the LOO or WAIC for AIC-type model weighting. In **brms**, you do this with the `model_weights()` function.
 
 ```{r mw_fit1_and_fit2, cache = T}
 (mw <- model_weights(fit1, fit2))
@@ -622,11 +636,11 @@ With `brms::model_weights()`, we have a variety of weighting schemes avaliable t
 model_weights(fit1, fit2, weights = "waic")
 ```
 
-Similar, for sure. But not the same. The stacking method via the brms default `weights = "loo2"` is the current preferred method by the folks on the Stan team (e.g., the authors of the above linked paper).
+The results are similar, for sure. But they're not the same. The stacking method via the **brms** default `weights = "loo2"` is the current preferred method by the folks on the Stan team (e.g., the authors of the above linked paper).
 
-For more on stacking and other weighting schemes, see Vehtari and Gabry’s vignette [*Bayesian Stacking and Pseudo-BMA weights using the loo package*](https://cran.r-project.org/web/packages/loo/vignettes/loo2-weights.html) or Vehtari's [modelselection_tutorial GitHub repository](https://github.com/avehtari/modelselection_tutorial). But don't worry. We will have more opportunities to practice with information criteria, model weights, and such later in this project.
+For more on stacking and other weighting schemes, see Vehtari and Gabry's vignette [*Bayesian Stacking and Pseudo-BMA weights using the loo package*](https://cran.r-project.org/web/packages/loo/vignettes/loo2-weights.html) or Vehtari's [modelselection_tutorial GitHub repository](https://github.com/avehtari/modelselection_tutorial). But don't worry. We will have more opportunities to practice with information criteria, model weights, and such later in this project.
 
-#### 10.3.2.1. ~~Using~~ [No need to use] pseudo-priors to reduce autocorrelation.
+#### ~~Using~~ [No need to use] pseudo-priors to reduce autocorrelation.
 
 Since we didn't use Kruschke's method from the last subsection, we don't have the same worry about autocorrelation. For example, here are the autocorrelation plots for `fit1`.
 
@@ -652,11 +666,9 @@ But we specified a lot of post-warmup iterations, so we're still in good shape. 
 rhat(fit1)[1]
 ```
 
-### 10.3.3. Models with different "noise" distributions in ~~JAGS~~ brms.
+### Models with different "noise" distributions in ~~JAGS~~ brms.
 
-Kruschke tells us
-
-> probability distribution[s are] sometimes [called "noise"] distribution[s] because [they describe] the random variability of the data values around the underlying trend. In more general applications, different models can have different noise distributions. For example, one model might describe the data as log-normal distributed, while another model might describe the data as gamma distributed. (p. 288)
+> Probability distribution[s are] sometimes [called "noise"] distribution[s] because [they describe] the random variability of the data values around the underlying trend. In more general applications, different models can have different noise distributions. For example, one model might describe the data as log-normal distributed, while another model might describe the data as gamma distributed. (p. 288)
 
 If there are more than one plausible noise distributions for our data, we might want to compare the models. Kruschke then gave us a general trick in the form of this JAGS code:
 
@@ -680,7 +692,7 @@ data {
 }
 ```
 
-I'm not aware that we can do this within the Stan/brms framework. If I'm in error and you know how, [please share your code](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues). However, we do have options. In anticipation of Chapter 16, let's consider Gaussian-like data with thick tails. We might generate some like this:
+I'm not aware that we can do this within the Stan/**brms** framework. If I'm in error and you know how, [please share your code](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues). However, we do have options. In anticipation of Chapter 16, let's consider Gaussian-like data with thick tails. We might generate some like this:
 
 ```{r}
 # how many draws would you like?
@@ -748,22 +760,22 @@ posterior_summary(fit3) %>% round(digits = 2)
 posterior_summary(fit4) %>% round(digits = 2)
 ```
 
-Now we can compare the two approaches using information criteria.
+Now we can compare the two approaches using information criteria. For kicks, we'll use the WAIC.
 
-```{r l_fit3_and_l_fit4, cache = T, warning = F}
-l_fit3 <- loo(fit3)
-l_fit4 <- loo(fit4)
+```{r ic_fit3_and_fit4, cache = T, warning = F}
+fit3 <- add_criterion(fit3, criterion = c("loo", "waic"))
+fit4 <- add_criterion(fit4, criterion = c("loo", "waic"))
 
-compare_ic(l_fit3, l_fit4)
+loo_compare(fit3, fit4, criterion = "waic")
 ```
 
-Based on the LOO difference, we hace some support for preferring the Student’s $t$, but do notice how wide that `SE` was. We can also compare the models using model weights. Here we'll use the default weighting scheme.
+Based on the WAIC difference, we hace some support for preferring the Student's $t$, but do notice how wide that `SE` was. We can also compare the models using model weights. Here we'll use the default weighting scheme.
 
 ```{r, warning = F, message = F}
 model_weights(fit3, fit4)
 ```
 
-In this, virtually all the weight was placed on the Student's-$t$ model, `fit4`. 
+Virtually all of the stacking weight was placed on the Student's-$t$ model, `fit4`. 
 
 Remember what that $p(\nu)$ looked like? Here’s our posterior distribution for $\nu$.
 
@@ -781,7 +793,7 @@ posterior_samples(fit4) %>%
 
 Even though our prior for $\nu$ was relatively weak, the posterior ended up concentrated on values in the middle-single-digit range. Recall the data-generating value was 7.
 
-We can also compare the models using posterior-predictive checks. There are a variety of ways we might do this, but the most convenient way is with `brms::pp_check()`, which is itself a wrapper for the family of `ppc` functions from the bayesplot package.
+We can also compare the models using posterior-predictive checks. There are a variety of ways we might do this, but the most convenient way is with `brms::pp_check()`, which is itself a wrapper for the family of `ppc` functions from the **bayesplot** package.
 
 ```{r, fig.width = 4, fig.height = 2, message = F}
 pp_check(fit3)
@@ -790,24 +802,22 @@ pp_check(fit4)
 
 The default `pp_check()` setting allows us to compare the density of the data $y$ (i.e., the dark blue) with 10 density’s simulated from the posterior $y_\text{rep}$ (i.e., the light blue). We prefer model that produce $y_\text{rep}$ distributions that resemble $y$. Though the results from both models were similar, the simulated distributions from `fit4` mimicked the original data a little more convincingly. To learn more about this approach, check out Gabry's vignette [*Graphical posterior predictive checks using the bayesplot package*](https://cran.r-project.org/web/packages/bayesplot/vignettes/graphical-ppcs.html).
 
-## 10.4. Prediction: Model averaging
+## Prediction: Model averaging
 
 > In many applications of model comparison, the analyst wants to identify the best model and then base predictions of future data on that single best model, denoted with index $b$. In this case, predictions of future $\hat{y}$ are based exclusively on the likelihood function $p_b(\hat{y} | \theta_b, m = b)$ and the posterior distribution $p_b(\theta_b | D, m = b)$ of the winning model:
-
-$$p_b(\hat y | D, m = b) = \int \text d \theta_b p_b (\hat{y} | \theta_b, m = b) p_b(\theta_b | D, m = b)$$
-
+>
+> $$p_b(\hat y | D, m = b) = \int \text d \theta_b p_b (\hat{y} | \theta_b, m = b) p_b(\theta_b | D, m = b)$$
+>
 > But the full model of the data is actually the complete hierarchical structure that spans all the models being compared, as indicated in Figure 10.1 (p. 267). Therefore, if the hierarchical structure really expresses our prior beliefs, then the most complete prediction of future data takes into account all the models, weighted by their posterior credibilities. In other words, we take a weighted average across the models, with the weights being the posterior probabilities of the models. Instead of conditionalizing on the winning model, we have
-
-$$
-\begin{eqnarray}
-p (\hat y | D) & = & \sum_m p (\hat y | D, m) p (m | D) \\
-& = & \sum_m \int \text d \theta_m p_m (\hat{y} | \theta_m, m) p_m(\theta_m | D, m) p (m | D)
-\end{eqnarray}
-$$
-
+>
+> \begin{align*}
+> p (\hat y | D) & = & \sum_m p (\hat y | D, m) p (m | D) \\
+> & = & \sum_m \int \text d \theta_m p_m (\hat{y} | \theta_m, m) p_m(\theta_m | D, m) p (m | D)
+> \end{align*}
+>
 > This is called model averaging. (p. 289)
 
-Okay, while the concept of model averaging is of great interest, we aren't going to be able to follow this approach to it within the Stan/brms paradigm. This, recall, is because our paradigm doesn't allow for a hierarchical organization of models in the same qay JAGS does. However, we can still play the model averaging game with extensions of our model weighting paradigm, above. Before we get into the details,
+Okay, while the concept of model averaging is of great interest, we aren't going to be able to follow this approach to it within the Stan/**brms** paradigm. This, recall, is because our paradigm doesn't allow for a hierarchical organization of models in the same way JAGS does. However, we can still play the model averaging game with extensions of our model weighting paradigm, above. Before we get into the details,
 
 > recall that there were two models of mints that created the coin, with one mint being tail-biased with mode $\omega = 0.25$ and one mint being head-biased with mode $\omega = 0.75$ The two subpanels in the lower-right illustrate the posterior distributions on $\omega$ within each model, $p(\theta | D, \omega = 0.25)$ and $p(\theta | D, \omega = 0.75)$ The winning model was $\omega = 0.75$, and therefore the predicted value of future data, based on the winning model alone, would use $p(\theta | D, \omega = 0.75)$. (p. 289)
 
@@ -831,29 +841,30 @@ posterior_samples(fit1) %>%
 
 > But the overall model included $\omega = 0.75$, and if we use the overall model, then the predicted value of future data should be based on the complete posterior summed across values of $\omega$. The complete posterior distribution [is] $p(\theta | D)$ (p. 289).
 
-The cool thing about the model weighting stuff we learned about earlier is that you can use those model weights to average across models. Again, we’re not weighting the models by posterior probabilities the way Kruschke discussed in text. However, the spirit is similar. We can use the `brms::pp_average()` function to make posterior predictive prediction with mixtures of the models, weighted by our chosen weighting scheme. Here, we’ll go with the default stacking weights.
+The cool thing about the model weighting stuff we learned about earlier is that you can use those model weights to average across models. Again, we're not weighting the models by posterior probabilities the way Kruschke discussed in text. However, the spirit is similar. We can use the `brms::pp_average()` function to make posterior predictive prediction with mixtures of the models, weighted by our chosen weighting scheme. Here, we’ll go with the default stacking weights.
 
-```{r pp_averaged_fit1_fit2, cache = T}
+```{r pp_averaged_fit1_fit2, warning = F, message = F}
 nd <- tibble(y = 1)
 
-pp_averaged <-
+pp_a <-
   pp_average(fit1, fit2, 
              newdata = nd,
              # this line is not necessary, but you should see how to choose weighing methods
              weights = "loo2",
              method = "fitted",
              summary = F) %>% 
-  as_tibble()
+  as_tibble() %>% 
+  set_names("theta")
 
 # what does this produce?
-head(pp_averaged) 
+head(pp_a) 
 ```
 
 We can plot our model-averaged $\theta$ with a little help from good old `tidybayes::stat_pointintervalh()`.
 
 ```{r, fig.width = 3.5, fig.height = 3}
-pp_averaged %>% 
-  ggplot(aes(x = V1)) +
+pp_a %>% 
+  ggplot(aes(x = theta)) +
   geom_histogram(color = "grey92", fill = "grey67",
                  size = .2, bins = 30) +
   stat_pointintervalh(aes(y = 0), 
@@ -867,7 +878,7 @@ pp_averaged %>%
 
 As Kruschke concluded, "you can see the contribution of $p(\theta | D, \omega = 0.25)$ as the extended leftward tail" (p. 289). Interestingly enough, that looks a lot like the density we made with grid approximation in Figure 10.3, doesn't it?
 
-## 10.5. Model complexity naturally accounted for
+## Model complexity naturally accounted for
 
 > A complex model (usually) has an inherent advantage over a simpler model because the complex model can find some combination of its parameter values that match the data better than the simpler model. There are so many more parameter options in the complex model that one of those options is likely to fit the data better than any of the fewer options in the simpler model. The problem is that data are contaminated by random noise, and we do not want to always choose the more complex model merely because it can better fit noise. Without some way of accounting for model complexity, the presence of noise in data will tend to favor the complex model.
 >
@@ -932,16 +943,16 @@ z <- 11
 p_d(z, n, a = 500, b = 500) / p_d(z, n, a = 1, b = 1)
 ```
 
-> The anything’s-possible model loses because it pays the price of having a small prior probability on the values of $\theta$ near the data proportion, while the must-be- fair model has large prior probability on $\theta$ values sufficiently near the data proportion to be credible. Thus, in Bayesian model comparison, a simpler model can win if the data are consistent with it, even if the complex model fits just as well. The complex model pays the price of having small prior probability on parameter values that describe simple data. (p. 291)
+> The anything’s-possible model loses because it pays the price of having a small prior probability on the values of $\theta$ near the data proportion, while the must-be-fair model has large prior probability on $\theta$ values sufficiently near the data proportion to be credible. Thus, in Bayesian model comparison, a simpler model can win if the data are consistent with it, even if the complex model fits just as well. The complex model pays the price of having small prior probability on parameter values that describe simple data. (p. 291)
 
-### 10.5.1. Caveats regarding nested model comparison.
+### Caveats regarding nested model comparison.
 
 > A frequently encountered special case of comparing models of different complexity occurs when one model is "nested" within the other. Consider a model that implements all the meaningful parameters we can contemplate for the particular application. We call that the full model. We might consider various restrictions of those parameters, such as setting some of them to zero, or forcing some to be equal to each other. A model with such a restriction is said to be nested within the full model. (p. 291)
 
-Kruschke didn't walk out the examples in this section. But for the sake of practice, let's work throug the first one. "Recall the hierarchical model of baseball batting abilities" from Chapter 9 (p. 291). Let's reload those data.
+Kruschke didn't walk out the examples in this section. But for the sake of practice, let's work through the first one. "Recall the hierarchical model of baseball batting abilities" from Chapter 9 (p. 291). Let's reload those data.
 
 ```{r, warning = F, message = F}
-my_data <- read_csv("data.R/BattingAverage.csv")
+my_data <- read_csv("/Users/solomon/Dropbox/Recoding Doing Bayesian Data Analysis/data.R/BattingAverage.csv")
 
 glimpse(my_data)
 ```
@@ -965,8 +976,8 @@ Next we'll consider a restricted version of `fit5` "in which all infielders (fir
 ```{r}
  my_data <-
   my_data %>% 
-  mutate(PriPos_small = ifelse(PriPos %in% c("Center Field", "Left Field", "Right Field"), 
-                               "Outfield", PriPos))
+  mutate(PriPos_small = if_else(PriPos %in% c("Center Field", "Left Field", "Right Field"),
+                                "Outfield", PriPos))
 ```
 
 Now use `update()` to fit the restricted model.
@@ -975,33 +986,50 @@ Now use `update()` to fit the restricted model.
 fit6 <-
   update(fit5,
          newdata = my_data,
-         formula = Hits  | trials(AtBats) ~ 1 + (1 | PriPos_small) + (1 | PriPos_small:Player),
+         formula = Hits | trials(AtBats) ~ 1 + (1 | PriPos_small) + (1 | PriPos_small:Player),
          iter = 3500, warmup = 500, chains = 3, cores = 3,
          control = list(adapt_delta = .99),
          seed = 10)
 ```
 
-Unlike with what Kruschke alluded to in the prose, here we’ll compare the two models with the LOO information criteria.
+Unlike with what Kruschke alluded to in the prose, here we'll compare the two models with the LOO information criteria.
 
-```{r loo_fit5_fit6, cache = T, warning = F}
-loo(fit5, fit6)
+```{r loo_fit5, cache = T, warning = F, echo = F}
+# hide from view
+fit5 <- add_criterion(fit5, criterion = "loo")
 ```
 
-Based on the LOO difference score, they're near equivalent. Now let’s see how their model weights shake out. Here we’ll continue to use the default stacking method.
+```{r loo_fit6, cache = T, warning = F, echo = F}
+# hide from view
+fit6 <- add_criterion(fit6, criterion = "loo")
+```
 
-```{r  md_fit5_fit6, cache = T, warning = F}
+```{r, eval = F}
+fit5 <- add_criterion(fit5, criterion = "loo")
+fit6 <- add_criterion(fit6, criterion = "loo")
+
+loo_compare(fit5, fit6)
+```
+
+```{r loo_compare_fit5_fit6, warning = F, echo = F}
+loo_compare(fit5, fit6)
+```
+
+Based on the LOO difference score, they're near equivalent. Now let's see how their model weights shake out. Here we'll continue to use the default stacking method.
+
+```{r mw_fit5_fit6, cache = T, warning = F}
 model_weights(fit5, fit6)
 ```
 
-Though most of the weight went to the parsimonious `fit6`, we should be skeptical. "Does that mean we should believe that [these positions] have literally identical batting abilities? Probably not" (p. 292). It’s good to be cautious of unnecessary model expansion. But we should also use good substantive reasoning, too. Just because you can restrict a model, that doesn’t necessarily mean it leads to better science.
+Though most of the weight went to the parsimonious `fit6`, we should be skeptical. "Does that mean we should believe that [these positions] have literally identical batting abilities? Probably not" (p. 292). It's good to be cautious of unnecessary model expansion. But we should also use good substantive reasoning, too. Just because you can restrict a model, that doesn't necessarily mean it leads to better science.
 
-## 10.6. Extreme sensitivity to the prior distribution
+## Extreme sensitivity to the prior distribution
 
-> In many realistic applications of Bayesian model comparison, the theoretical emphasis is on the difference between the models’ likelihood functions. For example, one theory predicts planetary motions based on elliptical orbits around the sun, and another theory predicts planetary motions based on circular cycles and epicycles around the earth. The two models involve very different parameters. In these sorts of models, the form of the prior distribution on the parameters is not a focus, and is often an afterthought. But, when doing Bayesian model comparison, the form of the prior is crucial because the Bayes factor integrates the likelihood function weighted by the prior distribution. (p. 292)
+> In many realistic applications of Bayesian model comparison, the theoretical emphasis is on the difference between the models' likelihood functions. For example, one theory predicts planetary motions based on elliptical orbits around the sun, and another theory predicts planetary motions based on circular cycles and epicycles around the earth. The two models involve very different parameters. In these sorts of models, the form of the prior distribution on the parameters is not a focus, and is often an afterthought. But, when doing Bayesian model comparison, the form of the prior is crucial because the Bayes factor integrates the likelihood function weighted by the prior distribution. (p. 292)
 
-However, "the sensitivity of Bayes factors to prior distributions is well known in the literature (e.g., [Kass & Raftery, 1995](https://www.stat.washington.edu/raftery/Research/PDF/kass1995.pdf); [Liu & Aitkin, 2008](http://psycnet.apa.org/record/2008-17435-006); [Vanpaemel, 2010](https://ppw.kuleuven.be/okp/_pdf/Vanpaemel2010PSITT.pdf))," and furthermore, when comparing Bayesian models using the methods Kruschke outlined in this chapter of the text, "different forms of vague priors can yield very different Bayes factors" (p. 293). 
+However, "the sensitivity of Bayes factors to prior distributions is well known in the literature (e.g., [Kass & Raftery, 1995](https://www.stat.washington.edu/raftery/Research/PDF/kass1995.pdf); [Liu & Aitkin, 2008](http://psycnet.apa.org/record/2008-17435-006); [Vanpaemel, 2010](https://ppw.kuleuven.be/okp/_pdf/Vanpaemel2010PSITT.pdf))," and furthermore, when comparing Bayesian models using the methods Kruschke outlined in this chapter of the text, "different forms of vague priors can yield very different Bayes factors" (p. 293).
 
-In the two BFs to follow, we compare the must-be-fair model and the anything’s-possible models from 10.5 to new data: $z = 65, N = 100$.
+In the two BFs to follow, we compare the must-be-fair model and the anything's-possible models from 10.5 to new data: $z = 65, N = 100$.
 
 ```{r}
 z <- 65
@@ -1010,9 +1038,9 @@ n <- 100
 p_d(z, n, a = 500, b = 500) / p_d(z, n, a = 1, b = 1)
 ```
 
-The resulting `r round(p_d(z, n, a = 500, b = 500) / p_d(z, n, a = 1, b = 1), 2)` favored the anything’s-possible model.
+The resulting `r round(p_d(z, n, a = 500, b = 500) / p_d(z, n, a = 1, b = 1), 2)` favored the anything's-possible model.
 
-Another way to express the anything’s-possible model is with the Haldane prior, which sets the two parameters within the beta distribution to be a) equivalent and b) quite small (i.e., 0.01 in this case).
+Another way to express the anything's-possible model is with the Haldane prior, which sets the two parameters within the beta distribution to be a) equivalent and b) quite small (i.e., 0.01 in this case).
 
 ```{r}
 p_d(z, n, a = 500, b = 500) / p_d(z, n, a = .01, b = .01)
@@ -1100,7 +1128,7 @@ Now we'll use our custom `hdi_of_qbeta()` to compute the HDIs.
  )
 ```
 
-Let's compare them in a plot.
+Let's compare those HDIs in a plot.
 
 ```{r, fig.width = 3.5, fig.height = 1.5}
 d %>% 
@@ -1116,9 +1144,11 @@ d %>%
         axis.text.y  = element_text(hjust = 0))
 ```
 
-### 10.6.1. Priors of different models should be equally informed.
+"The HDIs are virtually identical. In particular, for either prior, the posterior distribution rules out $\theta = 0.5$, which is to say that the must-be-fair hypothesis is not among the credible values" (p. 294).
 
-"We have established that seemingly innocuous changes in the vagueness of a vague prior can dramatically change a model’s marginal likelihood, and hence its Bayes factor in comparison with other models. What can be done to ameliorate the problem" (p. 294)? Kruschke posed one method might be taking a small representative portion of the data in hand and use them to make an empirically-based prior for the remaining set of data. From our previous example, "suppose that the 10% subset has 6 heads in 10 flips, so the remaining 90% of the data has $z = 65 − 6$ and $N  = 100 − 10$" (p. 294). 
+### Priors of different models should be equally informed.
+
+"We have established that seemingly innocuous changes in the vagueness of a vague prior can dramatically change a model's marginal likelihood, and hence its Bayes factor in comparison with other models. What can be done to ameliorate the problem" (p. 294)? Kruschke posed one method might be taking a small representative portion of the data in hand and use them to make an empirically-based prior for the remaining set of data. From our previous example, "suppose that the 10% subset has 6 heads in 10 flips, so the remaining 90% of the data has $z = 65 − 6$ and $N  = 100 − 10$" (p. 294).
 
 Here are the new Bayes factors based on that method.
 
@@ -1135,7 +1165,7 @@ p_d(z, n, a = 500 + 6, b = 500 + 10 - 6) / p_d(z, n, a = .01 + 6, b = .01 + 10 -
 
 Now the two Bayes Factors are nearly the same.
 
-It’s not in the text, but let’s compare these three models using brms, information criteria, model weights, model averaging, and posterior predictive checks. First, we’ll save the $z$ and $N$ information as a tibble with a series of 0s and 1s.
+It's not in the text, but let's compare these three models using **brms**, information criteria, model weights, model averaging, and posterior predictive checks. First, we'll save the $z$ and $N$ information as a tibble with a series of 0s and 1s.
 
 ```{r}
 z <- 65
@@ -1176,21 +1206,25 @@ fit9 <-
       seed = 10)
 ```
 
-Compare them by the LOO.
+Compare the models by the LOO.
 
-```{r l_fit7_through_fit9, cache = T}
-loo(fit7, fit8, fit9)
+```{r loo_fit7_through_fit9, cache = T}
+fit7 <- add_criterion(fit7, criterion = "loo")
+fit8 <- add_criterion(fit8, criterion = "loo")
+fit9 <- add_criterion(fit9, criterion = "loo")
+
+loo_compare(fit7, fit8, fit9)
 ```
 
 Based on the LOO comparisons, none of the three models was a clear favorite. Although both versions of the anything’s-possible model (i.e., `fit8` and `fit9`) had lower numeric estimates than the must-be-fair model (i.e., `fit7`), the standard errors on the difference scores were the same magnitude as the difference estimates themselves. As for comparing the two variants of the anything’s-possible model directly, their LOO estimates were almost indistinguishable.
 
 Now let's see what happens when we compute their model weights.
 
-```{r md_fit7_through_fit9, cache = T}
+```{r mw_fit7_through_fit9, cache = T}
 (mw <- model_weights(fit7, fit8, fit9))
 ```
 
-If you don't like scientific notation, just `round()`.
+If that's hard to read, just `round()`.
 
 ```{r}
 round(mw, digits = 2)
@@ -1220,21 +1254,27 @@ pp_average(fit7, fit8, fit9,
   theme(panel.grid = element_blank())
 ```
 
-Did you notice the `weights = mw` argument, there? From the `pp_average` section of the [brms reference manual (version 2.7.0)](https://cran.r-project.org/web/packages/brms/brms.pdf), we read: "Alternatively, weights can be a numeric vector of pre-specified weights." Since we saved the results of `model_weights()` as an object `mw`, we were able to capitalize on that feature. If you leave out that argument, you’ll have to wait a bit for brms to precompute those weights again from scratch.
+Did you notice the `weights = mw` argument, there? From the `pp_average` section of the [**brms** reference manual (version 2.10.0)](https://cran.r-project.org/web/packages/brms/brms.pdf), we read: "Alternatively, `weights` can be a numeric vector of pre-specified weights." Since we saved the results of `model_weights()` as an object `mw`, we were able to capitalize on that feature. If you leave out that argument, you'll have to wait a bit for **brms** to compute those weights again from scratch.
 
 And just for the sake of practice, we can also compare the models with separate posterior predictive checks using `pp_check()`.
 
 ```{r, fig.width = 4, fig.height = 2, message = F}
-pp_check(fit7, type = "bars", nsamples = 1e3)
-pp_check(fit8, type = "bars", nsamples = 1e3)
-pp_check(fit9, type = "bars", nsamples = 1e3)
+pp_check(fit7, type = "bars", nsamples = 1e3) + ylim(0, 80)
+pp_check(fit8, type = "bars", nsamples = 1e3) + ylim(0, 80)
+pp_check(fit9, type = "bars", nsamples = 1e3) + ylim(0, 80)
 ```
 
-Instead of the default 10, this time we used 1000 posterior simulations from each fit, which we summarized with dot and error bars. This method did a great job showing how little `fit7` learned from the data. Another nice thing about this method is it reveals how similar the results are between `fit8` and `fit9`, the two alternate versions of the anything’s-possible model.
+Instead of the default 10, this time we used 1000 posterior simulations from each fit, which we summarized with dot and error bars. This method did a great job showing how little `fit7` learned from the data. Another nice thing about this method is it reveals how similar the results are between `fit8` and `fit9`, the two alternate versions of the anything's-possible model. Also, did you notice how we tacked `ylim(0, 80)` onto the end of each plots' code? Holding the scale of the axes constant makes it easier to compare results across plots.
 
-## References {-}
+## Warning: Danger ahead
 
-Kruschke, J. K. (2015). *Doing Bayesian data analysis, Second Edition: A tutorial with R, JAGS, and Stan.* Burlington, MA: Academic Press/Elsevier.
+If you're new to model comparison with Bayes factors, information criteria, model stacking and so on, you should know these methods are still subject to spirited debate amongst scholars. For a recent example, see Gronau and Wagenmakers' (2019) [*Limitations of Bayesian leave-one-out cross-validation for model selection*](https://link.springer.com/article/10.1007/s42113-018-0011-7), which criticized the LOO. Their paper was commented on by [Navarro (2019)](https://link.springer.com/article/10.1007/s42113-018-0019-z); [Chandramouli and Shiffrin (2019)](https://link.springer.com/article/10.1007/s42113-018-0017-1); and [Vehtari, Simpson, Yao, and Gelman (2019)](https://link.springer.com/article/10.1007/s42113-018-0020-6). You can find Gronau and Wagenmakers' (2019) rejoinder [here](https://link.springer.com/article/10.1007/s42113-018-0022-4).
+
+And if you love those hot scholarly twitter discussions, these topics seem to spawn one every few months or so (e.g., [here](https://twitter.com/dan_p_simpson/status/1040885250832969728)).
+
+## Reference {-}
+
+[Kruschke, J. K. (2015). *Doing Bayesian data analysis, Second Edition: A tutorial with R, JAGS, and Stan.* Burlington, MA: Academic Press/Elsevier.](https://sites.google.com/site/doingbayesiandataanalysis/)
 
 ## Session info {-}
 
@@ -1243,8 +1283,15 @@ sessionInfo()
 ```
 
 ```{r, echo = F}
-# Here we'll remove our objects
-rm(length, p_d, p_d_1, p_d_2, d, p1, p2, bernoulli_likelihood, n, z, trial_data, omega, kappa, stanvars, fit1, theta, mean_theta, sd_theta, a_post, b_post, one_over_pd, fit2, mw, nd, pp_averaged, fit3, fit4, l_fit3, l_fit4, my_data, fit5, fit6, hdi_of_icdf, hdi_of_qbeta, fit7, fit8, fit9)
-
-theme_set(theme_grey())
+# remove our objects
+rm(length, p_d, p_d_1, p_d_2, d, p1, p2, bernoulli_likelihood, n, z, trial_data, omega, kappa, stanvars, fit1, theta, mean_theta, sd_theta, a_post, b_post, one_over_pd, fit2, mw, nd, pp_a, fit3, fit4, my_data, fit5, fit6, hdi_of_icdf, hdi_of_qbeta, fit7, fit8, fit9)
 ```
+
+```{r, echo = F, message = F, warning = F, results = "hide"}
+pacman::p_unload(pacman::p_loaded(), character.only = TRUE)
+
+ggplot2::theme_set(ggplot2::theme_grey())
+
+bayesplot::color_scheme_set("blue")
+```
+
