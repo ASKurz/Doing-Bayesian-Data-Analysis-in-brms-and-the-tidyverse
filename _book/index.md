@@ -1,8 +1,8 @@
 --- 
 title: "*Doing Bayesian Data Analysis* in brms and the tidyverse"
-subtitle: "version 0.0.1"
+subtitle: "version 0.0.2"
 author: ["A Solomon Kurz"]
-date: "2019-10-19"
+date: "2019-10-27"
 site: bookdown::bookdown_site
 output: bookdown::gitbook
 documentclass: book
@@ -27,9 +27,14 @@ This project is not meant to stand alone. It's a supplement to the second editio
 
 ## Caution: Work in progress {-}
 
-The first release of this project only contains chapters 1 through 5, the first section of the text. Most of the remaining chapters have completed drafts and just need another round of edits. I'll add them, soon.
+The first release of this project only contains Chapters 1 through 5. Welcome to version 0.0.2! The notable updates are:
 
-More importantly, there are sections and chapters in this project I have yet to work through. In addition to checking in here, you can follow my GitHub [progress log](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues/1). In that log, I will point out figures or sections I'm having trouble with. Please feel free to offer insights and suggestions, there.
+* the addition of Chapters 6 through 10 and
+* minor typo fixes to Chapter 5.
+
+Version 0.0.2 is also noteworthy in that it's the first version containing an incomplete chapter. At present, I do not know how to perform the simulation for Figure 7.3, nor do I understand how to run Kruschke's effective sample size simulations from subsection 7.5.2. Fans of this project are welcome to share solutions to those sections in the [Issues section of the GitHub repository for this project](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues).
+
+Most of the remaining chapters have completed drafts and just need another round of edits. I'll add them, soon. In addition to checking in here, you can follow my GitHub [progress log](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues/1), in which I will point out other figures or sections I'm having trouble with.
 
 
 
