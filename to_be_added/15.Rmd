@@ -8,15 +8,17 @@ output:
 
 # (PART) THE GENERALIZED LINEAR MODEL {-}
 
-We're finally ready for the generalized linear model (GLM). "The GLM encompasses multiple linear regression, logistic regression, and Bayesian analogues to classical analysis of variance (ANOVA) and frequency-table analysis, among other cases" (p. 417).
+We're finally ready for the workhorse of applied statistics, the generalized linear model (GLM)! "The GLM encompasses multiple linear regression, logistic regression, and Bayesian analogues to classical analysis of variance (ANOVA) and frequency-table analysis, among other cases" (p. 417).
 
 # Overview of the Generalized Linear Model
 
-Along with the text, in this part if the project we're moving away from simple Bernoulli coin flipping examples to more complicated analyses of the type we'd actually see in applied data analysis. As Kruschke explained, we'll be using a
+Along with Kruschke's text, in this part if the project we're moving away from simple Bernoulli coin flipping examples to more complicated analyses of the type we'd actually see in applied data analysis. As Kruschke explained, we'll be using a
 
 > versatile family of models known as the generalized linear model (GLM; [McCullagh & Nelder, 1989](https://www.crcpress.com/Generalized-Linear-Models-Second-Edition/McCullagh-Nelder/p/book/9780412317606); [Nelder & Wedderburn, 1972](https://www.jstor.org/stable/2344614?seq=1#page_scan_tab_contents)). This family of models comprises the traditional "off the shelf" analyses such as $t$ tests, analysis of variance (ANOVA), multiple linear regression, logistic regression, log-linear models, etc. (p. 420)
 
 ## Types of variables
+
+"To understand the GLM and its many specific cases, we must build up a variety of component concepts regarding relationships between variables and how variables are measured in the first place (p. 420)."
 
 ### Predictor and predicted variables.
 
@@ -24,21 +26,27 @@ It's worth repeating the second paragraph of this subsection in its entirety.
 
 > The key mathematical difference between predictor and predicted variables is that the likelihood function expresses the probability of values of the predicted variable as a function of values of the predictor variable. The likelihood function does not describe the probabilities of values of the predictor variable. The value of the predictor variable comes from outside the system being modeled, whereas the value of the predicted variable depends on the value of the predictor variable. (p. 420)
 
+This is one of those fine points that can be easy to miss when you're struggling through the examples in this book or chest-deep in the murky waters of your own real-world data problem. But write this down on a sticky note and put it in your sock drawer or something. There are good reasons to fret about the distributional properties of your predictor variables--rules of thumb about the likelihood aren't among them.
+
 ### Scale types: metric, ordinal, nominal, and count.
 
-Kruschke ended this subsection with the following.
+I don't know that I'm interested in detailing the content of this section. But it's worth while considering what Kruschke wrote in its close.
 
 > **Why we care:** We care about the scale type because the likelihood function must specify a probability distribution on the appropriate scale. If the scale has two nominal values, then a Bernoulli likelihood function may be appropriate. If the scale is metric, then a normal distribution may be appropriate as a probability distribution to describe the data. Whenever we are choosing a model for data, we must answer the question, What kind of scale are we dealing with? (p. 423, **emphasis** in the original)
 
 ## Linear combination of predictors
 
+"The core of the GLM is expressing the combined influence of predictors as their weighted sum. The following sections build this idea by scaffolding from the simplest intuitive cases" (p. 423).
+
 ### Linear function of a single metric predictor.
 
 "A linear function is the generic, 'vanilla,' off-the-shelf dependency that is used in statistical models" (p. 424). Its basic form is
 
-$$y = \beta_0 + \beta_1 x$$
+$$y = \beta_0 + \beta_1 x,$$
 
-We'll warm the tidyverse to make the left panel of Figure 15.1.
+where $y$ is the variable being predicted and $x$ is the predictor. $\beta_0$ is the intercept (i.e., the expected value when $x$ is zero) and $\beta_1$ is the expected increase in $y$ after a one-unit increase in $x$.
+
+We'll warm the **tidyverse** to make the left panel of Figure 15.1.
 
 ```{r, fig.width = 3, fig.height = 4, message = F, warning = F}
 library(tidyverse)
@@ -66,7 +74,7 @@ tibble(x = -3:7) %>%
   theme(panel.grid = element_blank())
 ```
 
-Here's the right panel.
+Did you notice how we followed the form of the basic linear function when we defined the values for `y_1` and `y_2`? It's that simple! Here's the right panel.
 
 ```{r, fig.width = 3, fig.height = 4, message = F, warning = F}
 tibble(x = -3:7) %>%
@@ -92,13 +100,24 @@ tibble(x = -3:7) %>%
   theme(panel.grid = element_blank())
 ```
 
+> **Summary of why we care.** The likelihood function includes the form of the dependency of $y$ on $x$. When $y$ and $x$ are metric variables, the simplest form of dependency, both mathematically and intuitively, is one that preserves proportionality. The mathematical expression of this relation is a so-called linear function. The usual mathematical expression of a line is the $y$-intercept form, but sometimes a more intuitive expression is the $x$ threshold form. Linear functions form the core of the GLM. (pp. 424--425, **emphasis** in the original)
+
 ### Additive combination of metric predictors.
 
 The linear combination of $K$ predictors has the general form
 
-$$y = \beta_0 + \beta_1 x_1 + \dots + \beta_K x_K$$
+$$
+\begin{align*}
+y & = \beta_0 + \beta_1 x_1 + \dots + \beta_K x_K \\
+  & = \beta_0 + \sum_{k = 1}^K \beta_k x_k.
+\end{align*}
+$$
 
-$$= \beta_0 + \sum_{k = 1}^K \beta_k x_k$$
+In the special case where $K = 0$, you have an intercept-only model,
+
+$$y = \beta_0,$$
+
+in which $\beta_0$ simply models the mean of $y$.
 
 We won't be able to reproduce the wireframe plots of Figure 15.2, exactly. But we can use some `geom_raster()` tricks from back in Chapter 10 to express the third y dimension as fill gradients. 
 
@@ -109,7 +128,9 @@ tibble(x1 = seq(from = 0, to = 10, by = .5)) %>%
          `y[2] ==  0 + 0 * x[1] + 2 * x[2]` =  0 + 0 * x1 + 2 * x2,
          `y[3] ==  0 + 1 * x[1] + 2 * x[2]` =  0 + 1 * x1 + 2 * x2,
          `y[4] == 10 + 1 * x[1] + 2 * x[2]` = 10 + 1 * x1 + 2 * x2) %>%
-  gather(key, y, -x1, -x2) %>% 
+  pivot_longer(-c(x1, x2),
+               names_to = "key",
+               values_to = "y") %>% 
   
   ggplot(aes(x = x1, y = x2, fill = y)) +
   geom_raster() +
@@ -123,11 +144,11 @@ tibble(x1 = seq(from = 0, to = 10, by = .5)) %>%
   facet_wrap(~key, labeller = label_parsed)
 ```
 
-Here we've somewhat reproduced Kruschke's grid aesthetic by keeping the `by` argument within `seq()` somewhat coarse and omitting the `interpolate = T` argument from `geom_raster()`. If you'd prefer smoother fill transitions for the y-values, set `by = .1` and `interpolate = T`.
+Here we've captures some of Kruschke's grid aesthetic by keeping the `by` argument within `seq()` somewhat coarse and omitting the `interpolate = T` argument from `geom_raster()`. If you'd prefer smoother fill transitions for the y-values, set `by = .1` and `interpolate = T`.
 
 ### Nonadditive interaction of metric predictors.
 
-Here's our version of Figure 15.3.
+As it turns out, "the combined influence of two predictors does not have to be additive" (p. 427). Let's explore what that can look like with our version of Figure 15.3.
 
 ```{r, fig.height = 5, fig.align = "left"}
 tibble(x1 = seq(from = 0, to = 10, by = .5)) %>% 
@@ -136,7 +157,9 @@ tibble(x1 = seq(from = 0, to = 10, by = .5)) %>%
          `y[2] == 0 +  1 * x[1] + 1 * x[2] +  0   * x[1] * x[2]` = 0 +  1 * x1 + 1 * x2 +  0   * x1 * x2,
          `y[3] == 0 +  1 * x[1] + 1 * x[2] + -0.3 * x[1] * x[2]` = 0 +  1 * x1 + 1 * x2 + -0.3 * x1 * x2,
          `y[4] == 0 + -1 * x[1] + 1 * x[2] +  0.2 * x[1] * x[2]` = 0 + -1 * x1 + 1 * x2 +  0.2 * x1 * x2) %>%
-  gather(key, y, -x1, -x2) %>% 
+  pivot_longer(-c(x1, x2),
+               names_to = "key",
+               values_to = "y") %>% 
   
   ggplot(aes(x = x1, y = x2, fill = y)) +
   geom_raster() +
@@ -150,23 +173,30 @@ tibble(x1 = seq(from = 0, to = 10, by = .5)) %>%
   facet_wrap(~key, labeller = label_parsed)
 ```
 
-Our fill grids start to look interesting when we add interaction terms to the $y_i$ equations.
+Did you notice all those `*` operators in the `mutate()` code? We're no longer just additive. We're square in multiplicative town!
+
+> There is a subtlety in the use of the term "linear" that can sometimes cause confusion in this context. The interactions shown in Figure 15.3 are *not* linear on the *two* predictors $x_1$ and $x_2$. But if the product of the two predictors, $x_1 x_2$, is thought of as a third predictor, then the model *is* linear on the *three* predictors, because the predicted value of $y$ is a weighted additive combination of the three predictors. This reconceptualization can be useful for implementing nonlinear interactions in software for linear models, but we will not be making that semantic leap to a third predictor, and instead we will think of a nonadditive combination of two predictors.
+>
+> A nonadditive interaction of predictors does not have to be multiplicative. Other types of interaction are possible. (p. 428, *emphasis* in the original)
 
 ### Nominal predictors.
 
 #### Linear model for a single nominal predictor.
 
-> Instead of representing the value of the nominal predictor by a single scalar value $x$, we will represent the nominal predictor by a vector $\vec{x} = \langle x_{[1]},...,x_{[J]} \rangle$ where $J$ is the number of categories that the predictor has... We will denote the baseline value of the prediction as $\beta_0$. The deflection for the $j$th level of the predictor is denoted $\beta_{[j]}$. Then the predicted value is
+> Instead of representing the value of the nominal predictor by a single scalar value $x$, we will represent the nominal predictor by a vector $\vec{x} = \langle x_{[1]},...,x_{[J]} \rangle$ where $J$ is the number of categories that the predictor has... 
 >
-> $$y = \beta_0 + \beta_{[1]} x_{[1]} + \dots + \beta_{[J]} x_{[J]}$$
+> We will denote the baseline value of the prediction as $\beta_0$. The deflection for the $j$th level of the predictor is denoted $\beta_{[j]}$. Then the predicted value is
 >
-> $$= \beta_0 + \vec{\beta} \cdot \vec{x}$$
+> \begin{align*}
+> y & = \beta_0 + \beta_{[1]} x_{[1]} + \dots + \beta_{[J]} x_{[J]} \\
+>   & = \beta_0 + \vec{\beta} \cdot \vec{x}
+> \end{align*}
 >
 > where the notation $\vec{\beta} \cdot \vec{x}$ is sometimes called the 'dot product' of the vectors. (p. 429)
 
 #### Additive combination of nominal predictors.
 
-Both panels in Figure 15.4 are going to require three separate data objects. Here's the top panel.
+Both panels in Figure 15.4 are going to require three separate data objects. Here's the code for the top panel.
 
 ```{r, fig.width = 4, fig.height = 3}
 arrows <-
@@ -182,7 +212,7 @@ betas <-
 tibble(x = 1:2,
        y = c(1.69 + .07, 1.69 - .07)) %>% 
   
-  # the plot
+  # plot!
   ggplot(aes(x = x, y = y)) +
   geom_hline(yintercept = 1.69, color = "white", linetype = 2) +
   geom_col(width = .075, fill = "grey67") +
@@ -201,7 +231,7 @@ tibble(x = 1:2,
         axis.ticks.x = element_blank())
 ```
 
-Here's the bottom panel.
+Here's the code for the bottom panel.
 
 ```{r, fig.width = 7, fig.height = 3}
 arrows <-
@@ -264,9 +294,11 @@ d %>%
         legend.position = "none")
 ```
 
+Did you notice our `filter()` trick in the code?
+
 #### Nonadditive interaction of nominal predictors.
 
-Now we're in nonadditive interaction land, here's the right panel of Figure 15.5.
+Now we're in nonadditive interaction land, here's the code for the right panel of Figure 15.5.
 
 ```{r, fig.width = 4, fig.height = 3}
 d <-
@@ -293,6 +325,8 @@ d %>%
         axis.ticks.x    = element_blank(),
         legend.position = "none")
 ```
+
+"The main point to understand now is that *the term 'interaction' refers to a nonadditive influence of the predictors on the predicted, regardless of whether the predictors are measured on a nominal scale or a metric scale*" (p. 434, *emphasis* in the original).
 
 ## Linking from combined predictors to noisy predicted data
 
