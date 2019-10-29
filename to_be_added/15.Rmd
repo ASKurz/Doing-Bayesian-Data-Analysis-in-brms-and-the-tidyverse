@@ -204,7 +204,7 @@ arrows <-
          y    = c(1, 1.69, 1.69),
          yend = c(1.69, 1.69 + .07, 1.69 - .07))
 
-betas <-
+text <-
   tibble(x     = c(0.44, 1.46, 2.51),
          y     = c(1.68, 1.753, 1.625),
          label = c("beta[0] == 1.69", "beta['[1]'] == 0.07", "beta['[2]'] == -0.07"))
@@ -220,7 +220,7 @@ tibble(x = 1:2,
                aes(xend = x, yend = yend),
                arrow = arrow(length = unit(0.2, "cm")),
                size = 1/3, color = "grey25") +
-  geom_text(data = betas,
+  geom_text(data = text,
             aes(label = label), 
             size = 3.5, parse = T) +
   scale_x_continuous(breaks = 1:2,
@@ -239,7 +239,7 @@ arrows <-
          y    = rep(c(50, 101), times = c(1, 5)),
          yend = c(101, 101 + 4, 101 - 3, 101 - 2, 101 + 6, 101 - 5))
 
-betas <-
+text <-
   tibble(x     = c(0.41, 1.36, 2.41, 3.4, 4.35, 5.4),
          y     = c(100.5, 104.5, 98.5, 99.5, 106.5, 96.5),
          label = c("beta[0] == 101", "beta['[1]'] == 4", "beta['[2]'] == -3", "beta['[3]'] == -2", "beta['[4]'] == 6", "beta['[5]'] == -5"))
@@ -255,7 +255,7 @@ tibble(x = 1:5,
                aes(xend = x, yend = yend),
                arrow = arrow(length = unit(0.2, "cm")),
                size = 1/3, color = "grey25") +
-  geom_text(data = betas,
+  geom_text(data = text,
             aes(label = label), 
             size = 3.5, parse = T) +
   scale_x_continuous(breaks = 1:5,
@@ -332,37 +332,37 @@ d %>%
 
 ### From predictors to predicted central tendency.
 
-> After the predictor variables are combined, they need to be mapped to the predicted variable. This mathematical mapping is called the *(inverse) link function*, and is denoted by $f()$ in the following equation:
+> After the predictor variables are combined, they need to be mapped to the predicted variable. This mathematical mapping is called the *(inverse) link* function, and is denoted by $f()$ in the following equation:
 >
-> $$y = f(\text{lin}(x))$$
+> $$y = f(\operatorname{lin}(x))$$
 > 
-> Until now, we have been assuming that the link function is merely the identity function, $y = f(\text{lin}(x))$. (p. 436, *emphasis* in the original)
+> Until now, we have been assuming that the link function is merely the identity function, $f(\operatorname{lin}(x)) = \operatorname{lin}(x)$. (p. 436, *emphasis* in the original)
 
-However, many models use links other than the identity function.
+Yet as we'll see, many models use links other than the identity function.
 
 #### The logistic function.
 
-The logistic link function:
+The logistic link function follows the form
 
-$$y = \text{logistic}(x) = \frac{1}{\big (1 + \text{exp} (-x) \big )}$$
+$$y = \operatorname{logistic}(x) = \frac{1}{ \big (1 + \exp (-x) \big )}.$$
 
 We can write the logistic function for a univariable metric predictor as
 
-$$y = \text{logistic}(x; \beta_0, \beta_1) = \frac{1}{\big (1 + \text{exp} (-(\beta_0 + \beta_1)) \big )}$$
+$$y = \operatorname{logistic}(x; \beta_0, \beta_1) = \frac{1}{\big (1 + \exp (-(\beta_0 + \beta_1)) \big )}$$
 
 And if we prefer to parameterize it in terms of gain $\gamma$ and threshold $\theta$, it'd be
 
-$$y = \text{logistic}(x; \gamma, \theta) = \frac{1}{\big (1 + \text{exp} (-\gamma(x - \theta)) \big )}$$
+$$y = \operatorname{logistic}(x; \gamma, \theta) = \frac{1}{ \big (1 + \exp (-\gamma (x - \theta)) \big )}.$$
 
 We can make the sexy logistic curves of Figure 15.6 with `stat_function()`, into which we'll plug our very own custom `make_logistic()` function. Here's the left panel.
 
 ```{r, fig.width = 3.25, fig.height = 3.5}
-make_logistic <- function(x, gamma, theta){
+make_logistic <- function(x, gamma, theta) {
   1 / (1 + exp(-gamma * (x - theta)))
 }
 
 # we'll need this for the annotation
-params <-
+text <-
   tibble(x     = c(-1, 3),
          y     = c(.9, .1),
          label = c('list(gamma == 0.5, theta == -1)',
@@ -378,7 +378,7 @@ tibble(x = c(-11, 11)) %>%
   stat_function(fun  = make_logistic, 
                 args = list(gamma = .5, theta = 3), 
                 size = 1, color = "grey50") +
-  geom_text(data = params,
+  geom_text(data = text,
             aes(y = y, label = label),
             size = 3.5, parse = T) +
   coord_cartesian(xlim = -10:10) +
@@ -386,37 +386,43 @@ tibble(x = c(-11, 11)) %>%
   theme(panel.grid = element_blank())  
 ```
 
-Here's the right panel.
+For kicks, we'll take a different approach for the right panel. Instead of pumping values through `stat_function()` within our plot code, we'll use our `make_logistic()` function within `mutate()` before beginning the plot code.
 
 ```{r, fig.width = 3.25, fig.height = 3.5}
-params <-
+# define the annotation values
+text <-
   tibble(x     = c(2, -2),
          y     = c(.92, .4),
          label = c('list(gamma == 2, theta == 4)',
                    'list(gamma == 0.2, theta == 4)'))
 
-tibble(x = c(-11, 11)) %>% 
-  ggplot(aes(x = x)) +
+# make the data
+tibble(gamma = c(2, .2),
+       theta = 4) %>% 
+  expand(nesting(gamma, theta),
+         x = seq(from = -11, to = 11, by = .2)) %>% 
+  mutate(y = make_logistic(x, gamma, theta)) %>% 
+  
+  # plot!
+  ggplot(aes(x = x, y = y)) +
   geom_vline(xintercept = 4, color = "white", linetype = 2) +
   geom_hline(yintercept = .5, color = "white", linetype = 2) +
-  stat_function(fun  = make_logistic, 
-                args = list(gamma = 2, theta = 4), 
-                size = 1, color = "grey50") +
-  stat_function(fun  = make_logistic, 
-                args = list(gamma = .2, theta = 4), 
-                size = 1, color = "grey50") +
-  geom_text(data = params,
-            aes(y = y, label = label),
+  geom_line(aes(group = gamma),
+            size = 1, color = "grey50") +
+  geom_text(data = text,
+            aes(label = label),
             size = 3.5, parse = T) +
   coord_cartesian(xlim = -10:10) +
   ggtitle("Different Gains") +
-  theme(panel.grid = element_blank())  
+  theme(panel.grid = element_blank())
 ```
+
+I don't know that one plotting approach is better than the other. It's good to have options.
 
 To make our two-dimensional version of the wireframe plots of Figure 15.7, we'll first want to define the `logistic()` function.
 
 ```{r}
-logistic <- function(x){
+logistic <- function(x) {
   1 / (1 + exp(-x))
 }
 ```
@@ -434,7 +440,7 @@ tibble(x1 = seq(from = -6, to = 6, by = .5)) %>%
   
   ggplot(aes(x = x1, y = x2, fill = y)) +
   geom_raster() +
-  scale_fill_viridis_c(option = "D") +
+  scale_fill_viridis_c(option = "D", limits = c(0, 1)) +
   scale_x_continuous(expression(x[1]), expand = c(0, 0),
                      breaks = seq(from = -6, to = 6, by = 2)) +
   scale_y_continuous(expression(x[2]), expand = c(0, 0),
@@ -447,21 +453,19 @@ tibble(x1 = seq(from = -6, to = 6, by = .5)) %>%
   facet_wrap(~key, labeller = label_parsed)
 ```
 
-We’ll revisit these sensibilities in Chapter 21.
+"The threshold determines the *position* of the logistical cliff. In other words, the threshold determines the x values for which $y = 0.5$... The gain determines the *steepness* of the logistical cliff" (pp. 437--439, *emphasis* in the original).
 
 #### The cumulative normal function.
 
-> The cumulative normal is denoted $\Phi(x; \mu, \sigma$), where x is a real number and where $\mu$ and $\sigma$ are parameter values, called the mean and standard deviation of the normal distribution. The parameter $\mu$ governs the point at which the cumulative normal, $\Phi(x)$, equals 0.5. In other words, $\mu$ plays the same role as the threshold in the logistic. The parameter $\sigma$ governs the steepness of the cumulative normal function at $x = \mu$, but inversely, such that a smaller value of $\sigma$ corresponds to a steeper cumulative normal. (p. 440)
+> The cumulative normal is denoted $\Phi (x; \mu, \sigma)$, where x is a real number and where $\mu$ and $\sigma$ are parameter values, called the mean and standard deviation of the normal distribution. The parameter $\mu$ governs the point at which the cumulative normal, $\Phi(x)$, equals 0.5. In other words, $\mu$ plays the same role as the threshold in the logistic. The parameter $\sigma$ governs the steepness of the cumulative normal function at $x = \mu$, but inversely, such that a *smaller* value of $\sigma$ corresponds to a steeper cumulative normal. (p. 440, *emphasis* in the original)
 
 Here we plot the standard normal density in the top panel of Figure 15.8.
 
 ```{r, fig.width = 3.25, fig.height = 3}
-d <-
-  tibble(x = seq(from = -4, to = 4, by = .1)) 
-
-d %>% 
+tibble(x = seq(from = -4, to = 4, by = .1)) %>% 
+  
   ggplot(aes(x = x)) +
-  geom_ribbon(data = d %>% filter(x <=1),
+  geom_ribbon(data = . %>% filter(x <=1),
               aes(ymin = 0, ymax = dnorm(x, mean = 0, sd = 1)),
               fill = "grey67") +
   stat_function(fun  = dnorm, 
@@ -473,18 +477,11 @@ d %>%
   theme(panel.grid = element_blank())  
 ```
 
-And here's the analogous cumulative normal function depicted in the bottom panel of Figure 15.8.
+Did you notice our `data = . %>% filter(x <=1)` trick in `geom_ribbon()`? Anyway, here's the analogous cumulative normal function depicted in the bottom panel of Figure 15.8.
 
 ```{r, fig.width = 3.25, fig.height = 3}
-arrows <-
-  tibble(x    = c(0.1, 1.1, 2.1),
-         y    = c(1, 1.69, 1.69),
-         yend = c(1.69, 1.69 + .07, 1.69 - .07))
-
-d <-
-  tibble(x = seq(from = -4, to = 4, by = .1)) 
-
-d %>% 
+tibble(x = seq(from = -4, to = 4, by = .1)) %>%
+  
   ggplot(aes(x = x)) +
   stat_function(fun  = pnorm, 
                 args = list(mean = 0, sd = 1), 
@@ -499,9 +496,21 @@ d %>%
   theme(panel.grid = element_blank())  
 ```
 
+> Terminology: The inverse of the cumulative normal is called the *probit* function. ("Probit" stands for "probability unit"; [Bliss, 1934](https://science.sciencemag.org/content/79/2037/38)). The probit function maps a value $p$, for $0.0 \leq p \leq 1.0$, onto the infinite real line, and a graph of the probit function looks very much like the logit function. (p. 439, *emphasis* in the original)
+
 ### From predicted central tendency to noisy data.
 
-The top panel of Figure 15.9 is tricky. One way to make those multiple densities tipped on their sides is with `ggridges:: geom_ridgeline()` followed by `coord_flip()`. However, I’d like to show a different approach that’ll come in handy in many of the plots we’ll be making in later chapters. The method requires we make a data set with the necessary coordinates for the side-tipped densities. Let’s walk through that step slowly.
+> In the real world, there is always variation in $y$ that we cannot predict from $x$. This unpredictable "noise" in $y$ might be deterministically caused by sundry factors we have neither measured nor controlled, or the noise might be caused by inherent non-determinism in $y$. It does not matter either way because in practice the best we can do is predict the *probability* that $y$ will have any particular value, dependent upon $x$...
+>
+> To make this notion of probabilistic tendency precise, we need to specify a probability distribution for $y$ that depends on $f (\operatorname{lin} (x))$. To keep the notation tractable, first define $\mu = f (\operatorname{lin} (x))$. The value $\mu$ represents the central tendency of the predicted $y$ values, which might or might not be the mean. With this notation, we then denote the probability distribution of $y$ as some to-be-specified probability density function, abbreviated as "pdf":
+>
+> $y \sim \operatorname{pdf} \big ( \mu, [\text{scale, shape, etc.}] \big )$
+>
+> As indicated by the bracketed terms after $\mu$, the pdf might have various additional parameters that control the distribution’s scale (i.e., standard deviation), shape, etc. 
+>
+> The form of the pdf depends on the measurement scale of the predicted variable. (pp. 440--441, *emphasis* in the original)
+
+The top panel of Figure 15.9 is tricky. One way to make those multiple densities tipped on their sides is with `ggridges::geom_ridgeline()` followed by `coord_flip()`. However, explore a different approach that'll come in handy in many of the plots we'll be making in later chapters. The method requires we make a data set with the necessary coordinates for the side-tipped densities. Let's walk through that step slowly.
 
 ```{r}
 curves <-
@@ -519,7 +528,7 @@ curves <-
   mutate(y = map2(ll, ul, seq, length.out = 100)) %>%
   
   # since that operation returned a nested column, we need to `unnest()`
-  unnest() %>%
+  unnest(y) %>%
   
   # compute the density values
   mutate(density = map2_dbl(y, y_mean, dnorm, sd = 2)) %>%
@@ -532,16 +541,17 @@ curves <-
 str(curves)
 ```
 
-In case it’s not clear, we’ll be plotting with the `x` and `y` columns. Think of the rest as showing our work. But now we’ve got those `curves` data, we're ready to simulate the points and plot.
+In case it's not clear, we'll be plotting with the `x` and `y` columns. Think of the other columns as showing our work. But now we've got those `curves` data, we're ready to simulate the points and plot.
 
 ```{r, fig.width = 4, fig.height = 3.75, message = F, warning = F}
 # how many points would you like?
 n_samples <- 750
 
+# generate the points
 tibble(x   = runif(n = n_samples, -10, 10)) %>% 
   mutate(y = rnorm(n = n_samples, mean = 10 + 2 * x, sd = 2)) %>% 
   
-  # plot
+  # plot!
   ggplot(aes(x = x, y = y)) +
   geom_vline(xintercept = 0, color = "white") +
   geom_hline(yintercept = 0, color = "white") +
@@ -557,25 +567,30 @@ tibble(x   = runif(n = n_samples, -10, 10)) %>%
   theme(panel.grid = element_blank()) 
 ```
 
-We'll revisit this method in Chapter 17. The wireframe plots at the bottom of Figure 15.9 and in Figure 15.10 are outside of our ggplot2 purview.
+We'll revisit this method in Chapter 17. The wireframe plots at the bottom of Figure 15.9 and in Figure 15.10 are outside of our **ggplot2** purview.
 
 ## Formal expression of the GLM
 
 We can write the GLM as
 
-$$\mu = f \big (\text{lin}(x), [\text{parameters}] \big )$$
+$$
+\begin{align*}
+y   & \sim \operatorname{pdf} \big (\mu, [\text{parameters}] \big ), \text{where} \\
+\mu & = f \big (\operatorname{lin}(x), [\text{parameters}] \big ).
+\end{align*}
+$$
 
-$$y \sim \text{pdf} \big (\mu, [\text{parameters}] \big )$$
-
-> As has been previously explained, the predictors $x$ are combined in the linear function $\text{lin}(x)$, and the function $f$ in [the first equation] is called the inverse link function. The data, $y$, are distributed around the central tendency $\mu$ according to the probability density function labeled "pdf." (p. 444)
+> As has been previously explained, the predictors $x$ are combined in the linear function $\operatorname{lin}(x)$, and the function $f$ in [the first equation] is called the inverse link function. The data, $y$, are distributed around the central tendency $\mu$ according to the probability density function labeled "pdf." (p. 444)
 
 ### Cases of the GLM.
 
 > When a client brings an application to a [statistical] consultant, one of the first things the consultant does is find out from the client which data are supposed to be predictors and which data are supposed to be predicted, and the measurement scales of the data... When you are considering how to analyze data, your first task is to be your own consultant and find out which data are predictors, which are predicted, and what measurement scales they are. (pp. 445--446)
 
-## References {-}
+Soak this last bit in. It's gold. I've found it to be true in my exchanges with other researchers and with my own data problems, too.
 
-Kruschke, J. K. (2015). *Doing Bayesian data analysis, Second Edition: A tutorial with R, JAGS, and Stan.* Burlington, MA: Academic Press/Elsevier.
+## Reference {-}
+
+[Kruschke, J. K. (2015). *Doing Bayesian data analysis, Second Edition: A tutorial with R, JAGS, and Stan.* Burlington, MA: Academic Press/Elsevier.](https://sites.google.com/site/doingbayesiandataanalysis/)
 
 ## Session info {-}
 
@@ -584,6 +599,11 @@ sessionInfo()
 ```
 
 ```{r, echo = F}
-# Here we'll remove our objects
-rm(arrows, betas, d, make_logistic, params, logistic, curves, n_samples)
+# remove the objects
+rm(arrows, text, d, make_logistic, logistic, curves, n_samples)
 ```
+
+```{r, echo = F, message = F, warning = F, results = "hide"}
+pacman::p_unload(pacman::p_loaded(), character.only = TRUE)
+```
+
