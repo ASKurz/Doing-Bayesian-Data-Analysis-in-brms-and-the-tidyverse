@@ -139,7 +139,7 @@ tibble(x = seq(from = 0, to = 12, by = .05)) %>%
   coord_cartesian(xlim = 0:10)
 ```
 
-The thing is, in **brms**, we typically estimate $\sigma$ rather than precision. Though gamma is also a feasible prior distribution for $\sigma$, we won't use it here. But we won't be using Kruschke's uniform prior distribution, either. The Stan team [discourages uniform priors for variance parameters](https://github.com/stan-dev/stan/wiki/Prior-Choice-Recommendations), such as our $\sigma$. I'm not going to get into the details of why, but you've got that hyperlink above and the good old [Stan User's Guide](https://mc-stan.org/users/documentation/) if you'd like to dive deeper. 
+The thing is, with **brms** we typically estimate $\sigma$ rather than precision. Though gamma is also a feasible prior distribution for $\sigma$, we won't use it here. But we won't be using Kruschke's uniform prior distribution, either. The Stan team [discourages uniform priors for variance parameters](https://github.com/stan-dev/stan/wiki/Prior-Choice-Recommendations), such as our $\sigma$. I'm not going to get into the details of why, but you've got that hyperlink above and the good old [Stan User's Guide](https://mc-stan.org/users/documentation/) if you'd like to dive deeper. 
 
 Here we'll use the half normal. By "half normal," we mean that the mean is zero and it's bounded from zero to positive infinity--no negative $\sigma$ values for us! By the "half normal," we also mean to suggest that smaller values are more credible than those approaching infinity. An easy way to do this is to plug in the `sd_y` value from that data into the $\sigma$ value for our half-normal prior. Here's that that looks like for this example.
 
@@ -174,7 +174,7 @@ tibble(x = seq(from = -10000, to = 10000, by = 1)) %>%
   scale_y_continuous(breaks = NULL)
 ```
 
-Yep, Kruschke's right. That is one non-committal prior. Anyway, here’s how to put our priors to use with **brms**.
+Yep, Kruschke's right. That is one non-committal prior. We could tighten that up by an order of magnitude and still have little influence on the posterior. Anyway, here’s how to put our priors to use with **brms**.
 
 ```{r fit1, cache = T, message = F, warning = F}
 fit1 <-
@@ -487,29 +487,30 @@ d %>%
 
 ### Using the $t$ distribution in ~~JAGS~~ brms.
 
-It's easy to use Student's $t$ in brms. Make sure to specify `family = student`. By default, brms already sets the lower bound for $\nu$ to 1. But we do still need to use 1/29. To get a sense, let's simulate.
+It's easy to use Student's $t$ in **brms**. Make sure to specify `family = student`. By default, **brms** already sets the lower bound for $\nu$ to 1. But we do still need to use 1/29. To get a sense, let's simulate exponential data using the `rexp()` function. Like Kruschke covered in the text (p. 462), the `rexp()` function has one parameter, `rate`, which is the reciprocal of the mean. Here we'll set the mean to 29.
 
 ```{r}
 n_draws <- 1e7
 mu      <- 29
 
 set.seed(16)
-tibble(y = rexp(n = n_draws, rate = 1/mu)) %>% 
-  mutate(y_at_least_1 = ifelse(y < 1, NA, y)) %>% 
-    gather() %>% 
-    group_by(key) %>% 
-    summarise(mean = mean(value, na.rm = T))
+
+tibble(y = rexp(n = n_draws, rate = 1 / mu)) %>% 
+  mutate(y_at_least_1 = ifelse(y < 1, NA, y)) %>%
+  gather() %>% 
+  group_by(key) %>% 
+  summarise(mean = mean(value, na.rm = T))
 ```
 
-The simulation showed that when we define the exponential rate as 1/29 and use the typical boundary at 0, the mean of our samples converges to 29. But when we only consider the samples of 1 or greater, the mean converges to 30. Thus, our exponential(1/29) prior with a boundary at 1 is how we get a shifted exponential distribution in brms. Just make sure to remember that if you want the mean to be 30, you'll need to specify the rate of 1/29.
+The simulation showed that when we define the exponential rate as 1/29 and use the typical boundary at 0, the mean of our samples converges to 29. But when we only consider the samples of 1 or greater, the mean converges to 30. Thus, our exponential(1/29) prior with a boundary at 1 is how we get a shifted exponential distribution when we use it as our prior for $\nu$ in **brms**. Just make sure to remember that if you want the mean to be 30, you'll need to specify the rate of 1/29.
 
 Also, Stan will bark if you try to enter the `1/29` into the exponential prior:
 
 > DIAGNOSTIC(S) FROM PARSER:
-Warning: integer division implicitly rounds to integer. Found int division: 1 / 29
-Positive values rounded down, negative values rounded up or down in platform-dependent way.
+Info: integer division implicitly rounds to integer. Found int division: 1 / 29
+ Positive values rounded down, negative values rounded up or down in platform-dependent way.
 
-To avoid this, just do the division beforehand.
+To avoid this, just do the division beforehand and save the results with `stanvar()`.
 
 ```{r}
 stanvars <- 
@@ -518,14 +519,14 @@ stanvars <-
   stanvar(1/29,   name = "one_over_twentynine")
 ```
 
-Here's the `brm()` code.
+Here's the `brm()` code. Note that we set the prior for our new $\nu$ parameter by specifying `class = nu` within the last `prior()` line.
 
 ```{r fit2, cache = T, message = F, warning = F}
 fit2 <-
   brm(data = my_data,
       family = student,
       Score ~ 1,
-      prior = c(prior(normal(mean_y, sd_y*100), class = Intercept),
+      prior = c(prior(normal(mean_y, sd_y * 100), class = Intercept),
                 prior(normal(0, sd_y), class = sigma),
                 prior(exponential(one_over_twentynine), class = nu)),
       chains = 4, cores = 4,
@@ -535,14 +536,14 @@ fit2 <-
 
 We can make the shifted exponential distribution (i.e., Figure 16.7) with simple addition.
 
-```{r, fig.width = 6, fig.height = 5, message = F, warning = F}
+```{r, fig.width = 5, fig.height = 4, message = F, warning = F}
 # how many draws would you like?
 n_draws <- 1e6
 
 # here are the data
 d <-
   tibble(exp = rexp(n_draws, rate = 1/29)) %>% 
-  transmute(exp_plus_1 = exp + 1,
+  transmute(exp_plus_1        = exp + 1,
             log_10_exp_plus_1 = log10(exp + 1))
   
 # this is the plot in the top panel
@@ -552,7 +553,7 @@ p1 <-
   geom_histogram(color = "grey92", fill = "grey67",
                  size = .2, binwidth = 5, boundary = 1) +
   stat_pointintervalh(aes(y = 0), 
-                      point_interval = mode_hdi, .prob = c(.95, .5)) +
+                      point_interval = mode_hdi, .width = c(.95, .5)) +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(title = expression(paste("exponential(", lambda, " = 29) shifted + 1")),
        x = expression(nu)) +
@@ -565,7 +566,7 @@ p2 <-
   geom_histogram(color = "grey92", fill = "grey67",
                  size = .2, binwidth = .1, boundary = 0) +
   stat_pointintervalh(aes(y = 0), 
-                      point_interval = mode_hdi, .prob = c(.95, .5)) +
+                      point_interval = mode_hdi, .width = c(.95, .5)) +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(title = " ",
        x = expression(paste("log10(", nu, ")"))) +
@@ -601,7 +602,7 @@ post %>%
   facet_grid(key~., scales = "free", switch = "y")
 ```
 
-If you want the Pearson's correlation coefficients, you can use base R `cor()`.
+If you want the Pearson's correlation coefficients, you can use base **R** `cor()`.
 
 ```{r}
 post %>% 
@@ -611,7 +612,7 @@ post %>%
   round(digits = 3)
 ```
 
-Here are four of the panels for Figure 16.9.
+The correlations among our parameters are a similar magnitude as those Kruschke presented in the text. Here are four of the panels for Figure 16.9.
 
 ```{r, fig.width = 6, fig.height = 4}
 # we'll use this to mark off the ROPEs as white strips in the background
@@ -644,12 +645,12 @@ post %>%
   facet_wrap(~key, scales = "free", ncol = 2)
 ```
 
-For the final panel of Figure 16.9, we’ll make our $t$ lines in much the same way we did, earlier. But last time, we just took the first $\mu$ and $\sigma$ values from the first 63 rows of the `post` tibble. This time we’ll use `dplyr::sample_n()` to take random draws from the `post` rows instead. We tell `sample_n()` how many draws we’d like with the `size` argument. Since `sample_n()` tells us which rows it drew from in the form of rownames, we then use the `tibble::rownames_to_column()` function to save those rownames in an actual column named `draw`--this is the variable we group the lines by in `geom_line()`.
+For the final panel of Figure 16.9, we'll make our $t$ lines in much the same way we did, earlier. But last time, we just took the first $\mu$ and $\sigma$ values from the first 63 rows of the `post` tibble. This time we'll use `dplyr::sample_n()` to take *random draws* from the `post` rows instead. We tell `sample_n()` how many draws we'd like with the `size` argument. Since `sample_n()` tells us which rows it drew from in the form of rownames, we then use the `tibble::rownames_to_column()` function to save those rownames in an actual column named `draw`--this is the variable we group the lines by in `geom_line()`.
 
-In addition to the change in our row selection strategy, this time we’ll slightly amend the code within `pmap_dbl()`. Since we’d like to work with the $t$ distribution, we specified `metRology::dt.scaled` in `pmap_dbl()`’s function argument. And since the first four arguments within the `dt.scaled()` function are `x`, `df`, `mean`, and `sd`, we inserted `nu` in between `Score` and `b_Intercept `.
+In addition to the change in our row selection strategy, this time we'll slightly amend the code within the last `mutate()` line. Since we'd like to work with the $t$ distribution, we specified `metRology::dt.scaled()` function instead of `dnorm()`. 
 
 ```{r, fig.width = 3, fig.height = 2.25}
-# How many credible density lines would you like?
+# how many credible density lines would you like?
 n_lines <- 63
 
 # setting the seed makes the results from `sample_n()` reproducible
@@ -661,7 +662,7 @@ post %>%
   rownames_to_column(var = "draw") %>% 
   expand(nesting(b_Intercept, sigma, nu, draw),
          Score = seq(from = 40, to = 250, by = 1)) %>% 
-  mutate(density = pmap_dbl(list(Score, nu, b_Intercept, sigma), metRology::dt.scaled)) %>% 
+  mutate(density = metRology::dt.scaled(x = Score, df = nu, mean = b_Intercept, sd = sigma)) %>% 
   
   # plot
   ggplot(aes(x = Score)) + 
@@ -677,15 +678,37 @@ post %>%
        x = "y")
 ```
 
-In case you were wondering, here's the model `summary()`:
+Much like Kruschke mused in the text, this plot
+
+> shows that the posterior predictive $t$ distributions appear to describe the data better than the normal distribution in Figure 16.3, insofar as the data histogram does not poke out at the mode and the gaps under the shoulders are smaller. (p. 464)
+
+In case you were wondering, here's the model `summary()`.
 
 ```{r}
 summary(fit2)
 ```
 
+It's easy to miss how
+
+> $\sigma$ in the robust estimate is much smaller than in the normal estimate. What we had interpreted as increased standard deviation induced by the smart drug might be better described as increased outliers. Both of these differences, that is, $\mu$ more tightly estimated and σ smaller in magnitude, are a result of there being outliers in the data. The only way a normal distribution can accommodate the outliers is to use a large value for $\sigma$. In turn, that leads to "slop" in the estimate of $\mu$ because there is a wider range of $\mu$ values that reasonably fit the data when the standard deviation is large. (p. 464)
+
+We can use the `brms::VarCorr()` function to pull the summary statistics for $\sigma$ from both models.
+
+```{r}
+VarCorr(fit1)$residual__$sd
+VarCorr(fit2)$residual__$sd
+```
+
+It is indeed the case that estimate for $\sigma$ is smaller in the $t$ model. That smaller $\sigma$ resulted in a more precise estimate for $\mu$, as can be seen in the 'Est.Error' columns from the `fixef()` output.
+
+```{r}
+fixef(fit1)
+fixef(fit2)
+```
+
 ### Using the $t$ distribution in Stan.
 
-Kruschke expressed concern about high autocorrelations in the chains of his JAGS model. Here are the results of our Stan/brms attempt.
+Kruschke expressed concern about high autocorrelations in the chains of his JAGS model. Here are the results of our Stan/**brms** attempt.
 
 ```{r, fig.width = 6, fig.height = 4, message = F, warning = F}
 post <- posterior_samples(fit2, add_chain = T)
@@ -709,7 +732,7 @@ The trace plots look fine.
 plot(fit2)
 ```
 
-`nu` is pretty skewed, but hopefully it makes sense to you why that might be the case. Here are the overlaid density plots.
+The values for `nu` are pretty skewed, but hopefully it makes sense to you why that might be the case. Here are the overlaid density plots.
 
 ```{r, fig.width = 8, fig.height = 2}
 mcmc_dens_overlay(post, pars = c("b_Intercept", "sigma", "nu"))
@@ -721,13 +744,13 @@ The $\hat{R}$ values are right where we like them.
 rhat(fit2)
 ```
 
-If you peer into the contents of a `brm()` fit object (e.g., `fit2 %>% str()`), you'll discover it contains the Scan code. Here it is for our `fit2`.
+If you peer into the contents of a `brm()` fit object (e.g., `fit2 %>% str()`), you'll discover it contains the Stan code. Here it is for our `fit2`.
 
 ```{r}
 fit2$fit@stanmodel
 ```
 
-Note the last line in the parameters block, "real\<lower=1\> nu;  // degrees of freedom or shape." By default, brms set the lower bound for $\nu$ to 1.
+Note the last line in the parameters block, "real\<lower=1\> nu;  // degrees of freedom or shape." By default, **brms** set the lower bound for $\nu$ to 1.
 
 Just for kicks and giggles, the `pp_check()` offers us a handy way to compare the performance of our Gaussian `fit2` and our Student's $t$ `fit2`. If we set `type = "ecdf_overlay"` within `pp_check()`, we'll get the criterion `Score` displayed as a cumulative distribution function (CDF) rather than a typical density. Then, `pp_check()` presents CDF's based on draws from the posterior for comparison. Just like with the default `pp_check()` plots, we like it when those simulated distributions mimic the one from the original data.
 
@@ -748,10 +771,11 @@ p2 <-
 grid.arrange(p1, p2, ncol = 2)
 ```
 
-It’s subtle, but you might notice that the simulated CDFs from `fit1` have steeper slopes in the middle when compared to the original data in the dark blue. However, the `fit2`-based simulated CDFs match up more closely with the original data. This suggests an edge for `fit2`. Revisiting our skills from Chapter 10, we might also compare their model weights.
+It's subtle, but you might notice that the simulated CDFs from `fit1` have steeper slopes in the middle when compared to the original data in the dark blue. However, the `fit2`-based simulated CDFs match up more closely with the original data. This suggests an edge for `fit2`. Revisiting our skills from Chapter 10, we might also compare their model weights.
 
-```{r}
-model_weights(fit1, fit2)
+```{r, warning = F, message = F}
+model_weights(fit1, fit2) %>% 
+  round(digits = 6)
 ```
 
 Almost all the [stacking weight](http://www.stat.columbia.edu/~gelman/research/published/stacking_paper_discussion_rejoinder.pdf) went to `fit2`, our robust Student's $t$ model.
@@ -763,7 +787,7 @@ Almost all the [stacking weight](http://www.stat.columbia.edu/~gelman/research/p
 Since we subset the data, earlier, we'll just reload it to get the full data set.
 
 ```{r, message = F}
-my_data <- read_csv("data.R/TwoGroupIQ.csv")
+my_data <- read_csv("/Users/solomon/Dropbox/Recoding Doing Bayesian Data Analysis/data.R/TwoGroupIQ.csv")
 ```
 
 This time, we'll compute `mean_y` and `sd_y` from the full data.
@@ -778,20 +802,22 @@ stanvars <-
   stanvar(1/29,   name = "one_over_twentynine")
 ```
 
-Within the brms framework, Bürkner calls it distributional modeling when you model more than the mean. Since we're now modeling both $\mu$ and $\sigma$, we're fitting a distributional model. When doing so with brms, you wrap your `formula` syntax into the `bf()` function. It's also important to know that when modeling $\sigma$, brms defaults to modeling its log. So we'll use `log(sd_y)` in its prior. For more on all this, see Bürkner"s [*Estimating Distributional Models with brms*](https://cran.r-project.org/web/packages/brms/vignettes/brms_distreg.html).
+Within the **brms** framework, Bürkner calls it distributional modeling when you model more than the mean. Since we're now modeling both $\mu$ and $\sigma$, we're fitting a distributional model. When doing so with **brms**, you typically wrap your `formula` syntax into the `bf()` function. It's also important to know that when modeling $\sigma$, **brms** defaults to modeling its log. So we'll use `log(sd_y)` in its prior. For more on all this, see Bürkner"s [*Estimating Distributional Models with brms*](https://cran.r-project.org/web/packages/brms/vignettes/brms_distreg.html).
 
 ```{r fit3, cache = T, message = F, warning = F}
 fit3 <-
   brm(data = my_data,
       family = student,
       bf(Score ~ 0 + Group, sigma ~ 0 + Group),
-      prior = c(prior(normal(mean_y, sd_y*100), class = b),
+      prior = c(prior(normal(mean_y, sd_y * 100), class = b),
                 prior(normal(0, log(sd_y)), class = b, dpar = sigma),
                 prior(exponential(one_over_twentynine), class = nu)),
       chains = 4, cores = 4,
       stanvars = stanvars,
       seed = 16)
 ```
+
+Did you catch our `~ 0 + Group` syntax? That suppressed the usual intercept for our estimates of both $\mu$ and $\log (\sigma)$. Since `Group` is a categorical variable, that results in `brm()` fitting separate intercepts for each category. This is our **brms** analogue to the `x[i]` syntax Kruschke mentioned on page 468. It's what allowed us to estimate $\mu_j$ and $\log (\sigma_j)$.
 
 Let's look at the model summary.
 
@@ -805,9 +831,7 @@ Remember that the $\sigma$s are now in the log scale. If you want a quick and di
 fixef(fit3)[3:4, 1] %>% exp()
 ```
 
-But please don't stop there. Get your hands dirty with the full posterior. Speaking of which...
-
-If we want to make the histograms in Figure 16.12, we'll need to first extract the posterior samples.
+But please don't stop there. Get your hands dirty with the full posterior. Speaking of which, if we want to make the histograms in Figure 16.12, we'll need to first extract the posterior samples.
 
 ```{r}
 post <- posterior_samples(fit3)
@@ -867,9 +891,9 @@ post %>%
 
 Now let's make the upper two panels in the right column of Figure 16.12.
 
-You might note a few things in our wrangling code. First, in the `mutate()` function, we defined the density values for the two `Group` conditions one at a time. If you look carefully within those definitions, you’ll see we used `10^Normality` for the `df` argument, rather than just `Normality`. *Why?* Remember how a few code blocks up we transformed the original `nu` column to `Normality` by placing it within `log10()`? Well, if you want to undo that, you have to take 10 to the power of `Normality`. Next, notice that we subset the `post` tibble with `select()`. This wasn’t technically necessary, but it made the next line easier. Finally, with the `gather()` function, we transformed the `Placebo` and `Smart Drug` columns into an index column strategically named `Group`, which matched up with the original `my_data` data, and a `density` column, which contained the actual density values for the lines. 
+You might note a few things in our wrangling code. First, in the `mutate()` function, we defined the density values for the two `Group` conditions one at a time. If you look carefully within those definitions, you’ll see we used `10^Normality` for the `df` argument, rather than just `Normality`. *Why?* Remember how a few code blocks up we transformed the original `nu` column to `Normality` by placing it within `log10()`? Well, if you want to undo that, you have to take 10 to the power of `Normality`. Next, notice that we subset the `post` tibble with `select()`. This wasn't technically necessary, but it made the next line easier. Finally, with the `gather()` function, we transformed the `Placebo` and `Smart Drug` columns into an index column strategically named `Group`, which matched up with the original `my_data` data, and a `density` column, which contained the actual density values for the lines. 
 
-I know. That’s a lot to take in. If you’re confused, run the lines in the code one at a time to see how they work. But anyway, here’s the final result!
+I know. That's a lot to take in. If you're confused, run the lines in the code one at a time to see how they work. But anyway, here's the final result!
 
 ```{r, fig.width = 6, fig.height = 2.5}
 # How many credible density lines would you like?
@@ -884,8 +908,9 @@ post %>%
   rownames_to_column(var = "draw") %>% 
   expand(nesting(draw, `Placebo Mean`, `Smart Drug Mean`, `Placebo Scale`, `Smart Drug Scale`, Normality),
          Score = seq(from = 40, to = 250, by = 1)) %>% 
-  mutate(Placebo = pmap_dbl(list(Score, 10^Normality, `Placebo Mean`, `Placebo Scale`), metRology::dt.scaled),
-         `Smart Drug` = pmap_dbl(list(Score, 10^Normality, `Smart Drug Mean`, `Smart Drug Scale`), metRology::dt.scaled)) %>% 
+  
+  mutate(Placebo      = metRology::dt.scaled(x = Score, df = 10^Normality, mean = `Placebo Mean`,    sd = `Placebo Scale`),
+         `Smart Drug` = metRology::dt.scaled(x = Score, df = 10^Normality, mean = `Smart Drug Mean`, sd = `Smart Drug Scale`)) %>% 
   select(draw, Score:`Smart Drug`) %>% 
   gather(Group, density, -draw, -Score) %>% 
   
@@ -906,21 +931,21 @@ post %>%
 
 ### Analysis by NHST.
 
-Here's the $t$-test:
+Here's how we might perform a $t$-test.
 
 ```{r}
 t.test(data = my_data,
        Score ~ Group)
 ```
 
-To help with the comparison, notice how the 95% CIs from the $t$-test range from -15.7 to 0.1. That indicates that the $t$-test subtracted the `Smart Drug` from `Placebo`. I point this out because the difference scores we computed along with Kruschke for Figure 16.12 did the subtraction in the other direction. But don't fret. The magnitude of the difference stays the same either way. Only the signs change. For example:
+To help with the comparison, notice how the 95% CIs from the $t$-test range from -15.7 to 0.1. That indicates that the $t$-test subtracted the `Smart Drug` from `Placebo`. I point this out because the difference scores we computed along with Kruschke for Figure 16.12 did the subtraction in the other direction. But don't fret. The magnitude of the difference stays the same either way. Only the signs changed. For example:
 
 ```{r}
 fixef(fit3)["GroupPlacebo", 1] - fixef(fit3)["GroupSmartDrug", 1]
 fixef(fit3)["GroupSmartDrug", 1] - fixef(fit3)["GroupPlacebo", 1]
 ```
 
-But anyway, in addition to the difference distributions from Figure 16.12, we might also use `brms::hypothesis()` to do something of a Bayesian $t$-test.
+But anyway, in addition to the difference distributions from Figure 16.12, we might also use the `brms::hypothesis()` function to do something of a Bayesian $t$-test.
 
 ```{r}
 hypothesis(fit3,
@@ -931,9 +956,9 @@ See how our 95% ETIs are both negative and how we have that little `*` in the `S
 
 > The reason that the $t$ test is less sensitive than the Bayesian estimation in this example is that the $t$ test assumes normality and therefore its estimate of the within-group variances is too large when there are outliers.
 >
-> The $t$ test has other problems. Unlike the Bayesian analysis, the $t$ test provides only a test of the equality of means, without a test of the equality of variances. To test equality of variances, we need to run an additional test, namely an $F$ test of the ratio of variances, which would inflate the $p$ values of both tests. Moreover, both tests compute $p$ values based on hypothetical normally distributed data, and the $F$ test is particularly sensitive to violations of this assumption. Therefore it would be better to use resampling methods to compute the p values (and correcting them for multiple tests). (pp. 471--472)
+> The $t$ test has other problems. Unlike the Bayesian analysis, the $t$ test provides only a test of the equality of means, without a test of the equality of variances. To test equality of variances, we need to run an additional test, namely an $F$ test of the ratio of variances, which would inflate the $p$ values of both tests. Moreover, both tests compute $p$ values based on hypothetical normally distributed data, and the $F$ test is particularly sensitive to violations of this assumption. Therefore it would be better to use resampling methods to compute the $p$ values (and correcting them for multiple tests). (pp. 471--472)
 
-Dont' do all that. Just use robust Bayes. Just for kicks, we can compare the $\sigma$s with `hypothesis()`, too.
+Don't do all that. Use robust Bayes, instead. Just for kicks, we can compare the $\sigma$s with `hypothesis()`, too.
 
 ```{r}
 hypothesis(fit3,
@@ -946,13 +971,13 @@ See? We don't need an $F$ test.
 
 It's worth repeating a portion of this section.
 
-> If the initially assumed noise distribution does not match the data distribution, there are two ways to pursue a better description. The preferred way is to use a better noise distribution. The other way is to transform the data to a new scale so that they tolerably match the shape of the assumed noise distribution. In other words, we can either change the shoe to fit the foot, or we can squeeze the foot to fit in the shoe. Changing the shoe is preferable to squeezing the foot. In traditional statistical software, users were stuck with the pre-packaged noise distribution, and had no way to change it, so they transformed their data and squeezed them into the software. This practice can lead to confusion in interpreting the parameters because they are describing the transformed data, not the data on the original scale. In software such as [brms, we can spend less time squeezing our feet into ill-fitting shoes]. (p. 472)
+> If the initially assumed noise distribution does not match the data distribution, there are two ways to pursue a better description. The preferred way is to use a better noise distribution. The other way is to transform the data to a new scale so that they tolerably match the shape of the assumed noise distribution. In other words, we can either change the shoe to fit the foot, or we can squeeze the foot to fit in the shoe. Changing the shoe is preferable to squeezing the foot. In traditional statistical software, users were stuck with the pre-packaged noise distribution, and had no way to change it, so they transformed their data and squeezed them into the software. This practice can lead to confusion in interpreting the parameters because they are describing the transformed data, not the data on the original scale. In software such as [**brms**, we can spend less time squeezing our feet into ill-fitting shoes]. (p. 472)
 
 We'll have more practice with the robust Student's $t$ in some of the following chapters. But if you'd like even more, you might check out my blog on the topic [*Robust Linear Regression with Student's $t$-Distribution*](https://solomonkurz.netlify.com/post/robust-linear-regression-with-the-robust-student-s-t-distribution/) and the companion post [*Bayesian robust correlations with brms (and why you should love Student’s $t$)*](https://solomonkurz.netlify.com/post/bayesian-robust-correlations-with-brms-and-why-you-should-love-student-s-t/).
 
-## References {-}
+## Reference {-}
 
-Kruschke, J. K. (2015). *Doing Bayesian data analysis, Second Edition: A tutorial with R, JAGS, and Stan.* Burlington, MA: Academic Press/Elsevier.
+[Kruschke, J. K. (2015). *Doing Bayesian data analysis, Second Edition: A tutorial with R, JAGS, and Stan.* Burlington, MA: Academic Press/Elsevier.](https://sites.google.com/site/doingbayesiandataanalysis/)
 
 ## Session info {-}
 
@@ -963,6 +988,11 @@ sessionInfo()
 ```{r, echo = F}
 # Here we'll remove our objects
 rm(sequence_length, d, my_data, mean_y, sd_y, stanvars, fit1, post, rope, n_lines, n_draws, mu, p1, p2, fit3)
-
-theme_set(theme_grey())
 ```
+
+```{r, echo = F, message = F, warning = F, results = "hide"}
+pacman::p_unload(pacman::p_loaded(), character.only = TRUE)
+
+ggplot2::theme_set(ggplot2::theme_grey())
+```
+
