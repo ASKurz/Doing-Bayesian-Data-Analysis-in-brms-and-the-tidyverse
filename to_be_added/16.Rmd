@@ -8,13 +8,17 @@ output:
 
 # Metric-Predicted Variable on One or Two Groups
 
-> In the context of the generalized linear model (GLM) introduced in the previous chapter, this chapter’s situation involves the most trivial cases of the linear core of the GLM, as indicated in the left cells of Table 15.1 (p. 434), with a link function that is the identity along with a normal distribution for describing noise in the data, as indicated in the first row of Table 15.2 (p. 443). We will explore options for the prior distribution on parameters of the normal distribution, and methods for Bayesian estimation of the parameters. We will also consider alternative noise distributions for describing data that have outliers. (pp. 449--450)
+> In the context of the generalized linear model (GLM) introduced in the previous chapter, this chapter's situation involves the most trivial cases of the linear core of the GLM, as indicated in the left cells of Table 15.1 (p. 434), with a link function that is the identity along with a normal distribution for describing noise in the data, as indicated in the first row of Table 15.2 (p. 443). We will explore options for the prior distribution on parameters of the normal distribution, and methods for Bayesian estimation of the parameters. We will also consider alternative noise distributions for describing data that have outliers. (pp. 449--450)
+
+Although I agree this chapter covers the "most trivial cases of the linear core of the GLM", Kruschke's underselling himself a bit, here. If he only stuck with the "most trivial" cases, he would have only demonstrated the Gaussian likelihood. But Kruschke went well beyond and introduced robust Student's $t$ modeling. It's a great testament to Kruchke's rigorous approach that he did so right away. IMO, we could use more robust Student's $t$ models in the social sciences. So heed well, friends.
 
 ## Estimating the mean and standard deviation of a normal distribution
 
-Here's the Gaussian probability density function:
+The Gaussian probability density function follows the form
 
-$$p(y | \mu, \sigma) = \frac{1}{\sigma \sqrt{2 \pi}} \text{exp}(-\frac{1}{2} \frac{(y - \mu)^2}{\sigma^2})$$
+$$p(y | \mu, \sigma) = \frac{1}{\sigma \sqrt{2 \pi}} \exp \Bigg (-\frac{1}{2} \frac{(y - \mu)^2}{\sigma^2} \Bigg ),$$
+
+where the two parameters to estimate are $\mu$ (i.e., the mean) and $\sigma$ (i.e., the standard deviation). If you prefer to think in terms of $\sigma^2$, that's the variance. In case is wasn't clear, $\pi$ is the actual number $\pi$, not a parameter to be estimated.
 
 We'll divide Figure 16.1 into data and plot steps. I came up with the primary data like so:
 
@@ -27,9 +31,12 @@ d <-
   tibble(mu = c(87.8, 100, 112)) %>% 
   expand(mu, 
          sigma = c(7.35, 12.2, 18.4),
-         y     = seq(from = 50, to = 150, length.out = sequence_length))
+         y     = seq(from = 50, to = 150, length.out = sequence_length)) %>% 
+  mutate(density = dnorm(y, mean = mu, sd = sigma),
+         mu      = factor(mu, labels = str_c("mu==", c(87.8, 100, 112))),
+         sigma   = factor(sigma, labels = str_c("sigma==", c(7.35, 12.2, 18.4))))
 
-d
+head(d)
 ```
 
 Instead of putting the coordinates for the three data points in our `d` tibble, I just threw them into their own tibble in the `geom_point()` function.
@@ -39,33 +46,32 @@ Instead of putting the coordinates for the three data points in our `d` tibble, 
 theme_set(theme_grey() +
             theme(panel.grid = element_blank()))
 
+# plot!
 d %>% 
   ggplot(aes(x = y)) +
-  geom_ribbon(aes(ymin = 0, ymax = dnorm(y, mean = mu, sd = sigma)),
+  geom_ribbon(aes(ymin = 0, ymax = density),
               fill = "grey67") +
   geom_vline(xintercept = c(85, 100, 115), 
              linetype = 3, color = "grey92") +
   geom_point(data = tibble(y = c(85, 100, 115)),
              aes(y = 0),
              size = 2) +
-  scale_y_continuous(breaks = NULL) +
-  labs(title = "Competing Gaussian likelihoods given the same data",
-       subtitle = expression(paste("The columns are arranged by increasing values of ", mu, " and the rows by increasing values of ", sigma, ".")),
-       y = expression(paste("p(y|", mu, ", ", sigma, ")"))) +
+  scale_y_continuous(expression(paste("p(y|", mu, ", ", sigma, ")")), breaks = NULL) +
+  ggtitle("Competing Gaussian likelihoods given the same data") +
   coord_cartesian(xlim = 60:140) +
-  facet_grid(sigma ~ mu)
+  facet_grid(sigma ~ mu, labeller = label_parsed)
 ```
 
-### Solution by mathematical analysis.
+### ~~Solution by mathematical analysis~~ Heads up on precision.
 
-Not much for us, here. But we might reiterate that sometimes we talk about the *precision* (see page 453), which is the reciprocal of the squared standard deviation (i.e., $\frac{1}{\sigma^2}$). As we'll see, the brms package doesn't use priors parameterized in terms of precision. But JAGS does, which means we'll need to be able to translate Kruschke's precision-laden JAGS code into $\sigma$-oriented brms code in many of the remaining chapters of this project.
+Not much for us, here. But we might reiterate that sometimes we talk about the *precision* (see page 453), which is the reciprocal of the variance (i.e., $\frac{1}{\sigma^2}$). As we'll see, the **brms** package doesn't use priors parameterized in terms of precision. But JAGS does, which means we'll need to be able to translate Kruschke's precision-laden JAGS code into $\sigma$-oriented **brms** code in many of the remaining chapters. Proceed with caution.
 
 ### Approximation by ~~MCMC in JAGS~~ HMC in brms.
 
 Let's load and `glimpse()` at the data.
 
 ```{r, message = F}
-my_data <- read_csv("data.R/TwoGroupIQ.csv")
+my_data <- read_csv("/Users/solomon/Dropbox/Recoding Doing Bayesian Data Analysis/data.R/TwoGroupIQ.csv")
 
 glimpse(my_data)
 ```
@@ -77,7 +83,7 @@ my_data %>%
   distinct(Group)
 ```
 
-We'll use `filter()` to subset.
+Kruschke clarified that for the following example, "the data are IQ (intelligence quotient) scores from a group of people who have consumed a 'smart drug'" (p. 456). That means we'll want to subset the data.
 
 ```{r}
 my_data <-
@@ -85,7 +91,7 @@ my_data <-
   filter(Group == "Smart Drug")
 ```
 
-Those subsetted data look like this:
+It's a good idea to take a look at the data before modeling.
 
 ```{r, fig.width = 4, fig.height = 3}
 my_data %>% 
@@ -103,7 +109,7 @@ Here are the mean and $SD$ of the `Score` data.
 (sd_y   <- sd(my_data$Score))
 ```
 
-We're ready to load brms.
+Those values will come in handy in just a bit. But first, let's load **brms**.
 
 ```{r, message = F, warning = F}
 library(brms)
@@ -117,27 +123,74 @@ stanvars <-
   stanvar(sd_y,   name = "sd_y")
 ```
 
-It’s been a while since we used the `stanvar()` function, so we should review. Though we've saved that as `stanvars`, you could name it whatever you want. But the trick is to them tell `brm()` about your values in a `stanvars` statement. 
+It's been a while since we used the `stanvar()` function, so we should review. Though we've saved that as `stanvars`, you could name it whatever you want. But the trick is to them tell `brms::brm()` about your values in a `stanvars` statement. 
 
-Another thing before we fit the model. In brms, we typically estimate $\sigma$ rather than precision. Though gamma is also a feasible prior distribution for $\sigma$, we won’t use it here. But we won’t be using Kruschke’s uniform prior distribution, either. The Stan team [discourages uniform priors for variance parameters](https://github.com/stan-dev/stan/wiki/Prior-Choice-Recommendations), such as our $\sigma$. I’m not going to get into the details of why, but you’ve got that hyperlink above and the good old [Stan User’s Guide](https://mc-stan.org/users/documentation/) if you’d like to dive deeper. 
+Kruschke mentioned that the "the conventional noncommittal gamma prior [for the precision] has shape and rate constants that are close to zero, such as Sh = 0.01 and R = 0.01" (p. 456). Here's what that looks like.
 
-Here we'll use the half Normal. By half normal, we mean that the mean is zero and it’s bounded from zero to positive infinity. No negative $\sigma$ values for us. By the half normal, we also mean to suggest that smaller values are more credible than those approaching infinity. An easy way to do this is to plug in the `sd_y` value from that data into the $\sigma$ value for our half Normal prior. 
+```{r, fig.width = 6, fig.height = 3}
+tibble(x = seq(from = 0, to = 12, by = .05)) %>% 
+  mutate(d = dgamma(x, shape = 0.01, rate = 0.01)) %>% 
+  
+  ggplot(aes(x = x, ymin = 0, ymax = d)) +
+  geom_ribbon(fill = "grey67") +
+  geom_vline(xintercept = 1 / sd_y, linetype = 2) +
+  labs(subtitle = "The grey density in the background is the conventional gamma prior for precision.\nThe dashed vertical line is our precision value.") +
+  scale_y_continuous(breaks = NULL) +
+  coord_cartesian(xlim = 0:10)
+```
+
+The thing is, in **brms**, we typically estimate $\sigma$ rather than precision. Though gamma is also a feasible prior distribution for $\sigma$, we won't use it here. But we won't be using Kruschke's uniform prior distribution, either. The Stan team [discourages uniform priors for variance parameters](https://github.com/stan-dev/stan/wiki/Prior-Choice-Recommendations), such as our $\sigma$. I'm not going to get into the details of why, but you've got that hyperlink above and the good old [Stan User's Guide](https://mc-stan.org/users/documentation/) if you'd like to dive deeper. 
+
+Here we'll use the half normal. By "half normal," we mean that the mean is zero and it's bounded from zero to positive infinity--no negative $\sigma$ values for us! By the "half normal," we also mean to suggest that smaller values are more credible than those approaching infinity. An easy way to do this is to plug in the `sd_y` value from that data into the $\sigma$ value for our half-normal prior. Here's that that looks like for this example.
+
+```{r, fig.width = 6, fig.height = 3}
+tibble(x = seq(from = 0, to = 110, by = .1)) %>% 
+  mutate(d = dnorm(x, mean = 0, sd = sd_y)) %>% 
+  
+  ggplot(aes(x = x, ymin = 0, ymax = d)) +
+  geom_ribbon(fill = "grey67") +
+  geom_vline(xintercept = sd_y, linetype = 2) +
+  labs(subtitle = "The grey density in the background is the half-normal prior for sigma.\nThe dashed vertical line is our 'sd_y' value.") +
+  scale_y_continuous(breaks = NULL) +
+  coord_cartesian(xlim = 0:100)
+```
+
+This prior isn’t quite as non-committal as the conventional gamma prior for precision. It weakly regularizes the value for $\sigma$ away from large values, like + 50,000 and so on. In practice, it will have a minimal influence on the posterior other that it will discourage the HMC algorithm from exploring ridiculously large values in the parameter space.
+
+Kruschke has this to say about the prior for the mean:
+
+> In this application we seek broad priors relative to typical data, so that the priors have minimal influence on the posterior. One way to discover the constants is by asking an expert in the domain being studied. But in lieu of that, we will use the data themselves to tell us what the typical scale of the data is. We will set *M* to the mean of the data, and set *S* to a huge multiple (e.g., 100) of the standard deviation of the data. This way, no matter what the scale of the data is, the prior will be vague. (p. 455, *emphasis* in the original)
+
+In case you're not following along closely in the text, we often use the normal distribution for the intercept and slope parameters in a simple regression model. By *M* and *S*, Kruschke was referring to the $\mu$ and $\sigma$ parameters of the normal prior for our intercept. Here's what that prior looks like in this data example.
+
+```{r, fig.width = 6, fig.height = 3}
+tibble(x = seq(from = -10000, to = 10000, by = 1)) %>% 
+  mutate(d = dnorm(x, mean = mean_y, sd = sd_y * 100)) %>% 
+  
+  ggplot(aes(x = x, ymin = 0, ymax = d)) +
+  geom_ribbon(fill = "grey67") +
+  geom_vline(xintercept = mean_y, linetype = 2) +
+  labs(subtitle = "The grey density in the background is the normal prior for mu.\nThe dashed vertical line is our 'mean_y' value.") +
+  scale_y_continuous(breaks = NULL)
+```
+
+Yep, Kruschke's right. That is one non-committal prior. Anyway, here’s how to put our priors to use with **brms**.
 
 ```{r fit1, cache = T, message = F, warning = F}
 fit1 <-
   brm(data = my_data,
       family = gaussian,
       Score ~ 1,
-      prior = c(prior(normal(mean_y, sd_y*100), class = Intercept),
+      prior = c(prior(normal(mean_y, sd_y * 100), class = Intercept),
                 prior(normal(0, sd_y), class = sigma)),
       chains = 4, cores = 4,
       stanvars = stanvars, 
       seed = 16)
 ```
 
-To be more explicit, the `stanvars = stanvars` argument at the bottom of our code is what allowed us to define our intercept prior as `normal(mean_y, sd_y*100)` instead of requiring us to type in the parameters as `normal(107.8413, 25.4452*100)`. Same basic point for our $\sigma$ prior.
+To be more explicit, the `stanvars = stanvars` argument at the bottom of our code is what allowed us to define our intercept prior as `normal(mean_y, sd_y * 100)` instead of requiring us to type in the parameters as `normal(107.8413, 25.4452 * 100)`. Same basic point goes for our $\sigma$ prior.
 
-Also, notice our prior code for $\sigma$, `prior(normal(0, sd_y), class = sigma)`. Nowhere in there did we actually say we wanted a half Normal as opposed to a typical normal. That’s because the brms default is to set the lower bound for priors of `class = sigma` to zero. There’s no need for us to fiddle with it.
+Also, notice our prior code for $\sigma$, `prior(normal(0, sd_y), class = sigma)`. Nowhere in there did we actually say we wanted a half normal as opposed to a typical normal. That's because the **brms** default is to set the lower bound for priors of `class = sigma` to zero. There's no need for us to fiddle with it.
 
 Let's examine the chains.
 
@@ -180,7 +233,7 @@ rope <-
 post %>% 
   transmute(Mean = b_Intercept, 
             `Standard Deviation` = sigma) %>% 
-  mutate(`Effect Size` = (Mean - 100)/`Standard Deviation`) %>% 
+  mutate(`Effect Size` = (Mean - 100) / `Standard Deviation`) %>% 
   gather() %>% 
   
   # the plot
@@ -201,11 +254,11 @@ post %>%
 
 If we wanted those exact 95% HDIs, we'd execute this.
 
-```{r}
+```{r, warning = F, message = F}
 post %>% 
   transmute(Mean = b_Intercept, 
             `Standard Deviation` = sigma) %>% 
-  mutate(`Effect Size` = (Mean - 100)/`Standard Deviation`) %>% 
+  mutate(`Effect Size` = (Mean - 100) / `Standard Deviation`) %>% 
   gather() %>% 
   group_by(key) %>% 
   mode_hdi(value)
@@ -226,16 +279,16 @@ By default, `head()` returned six rows, each one corresponding to the credible p
 5. `Score` ~ $N$(`r round(post[5, 1], 3)`, `r round(post[5, 2], 3)`)
 6. `Score` ~ $N$(`r round(post[6, 1], 3)`, `r round(post[6, 2], 3)`)
 
-Each row of `post` yields a full model equation credibly describing the data—or at least as credibly as we can within the limits of the model. We can give voice to a subset of these credible distributions with our version of the upper right panel of Figure 16.3.
+Each row of `post` yields a full model equation credibly describing the data--or at least as credibly as we can within the limits of the model. We can give voice to a subset of these credible distributions with our version of the upper right panel of Figure 16.3.
 
-Before I show that plotting code, it might make sense to slow down on the preparatory data wrangling steps. There are several ways to make overlay multiple posterior predictive density lines like those in our upcoming plots. Over the next few chapters, we'll practice a few. For the method we'll use in this chapter, it's handy to first determine how many you'd like. Here we'll follow Kruschke and choose 63, which we'll save as `n_lines`.
+Before I show that plotting code, it might make sense to slow down on the preparatory data wrangling steps. There are several ways to overlay multiple posterior predictive density lines like those in our upcoming plots. We'll practice a few over the next few chapters. For the method we'll use in this chapter, it's handy to first determine how many you'd like. Here we'll follow Kruschke and choose 63, which we'll save as `n_lines`.
 
 ```{r}
-# How many credible density lines would you like?
+# how many credible density lines would you like?
 n_lines <- 63
 ```
 
-Now we've got our `n_lines` value, we'll use it to subset the rows in `post` with the `slice()` function. Next, we'll use `expand()` to include a sequence of `Score` values to correspond to the formula implied in each of the remaining rows of `post`. Notice how we also kept the `iter` index in the game. That will help us with the plot in a bit. But the main event is how we used `Score`, `b_Intercept`, and `sigma` as the input for the first three arguments in the `dnorm()` function within the `pmap_dbl()` function. The output is a column of the corresponding density values.
+Now we've got our `n_lines` value, we'll use it to subset the rows in `post` with the `slice()` function. We'll then use `expand()` to include a sequence of `Score` values to correspond to the formula implied in each of the remaining rows of `post`. Notice how we also kept the `iter` index in the game. That will help us with the plot in a bit. But the main event is how we used `Score`, `b_Intercept`, and `sigma` as the input for the arguments in the `dnorm()`. The output is a column of the corresponding density values.
 
 ```{r}
 post <-
@@ -243,14 +296,14 @@ post <-
   slice(1:n_lines) %>% 
   expand(nesting(b_Intercept, sigma, iter),
          Score = seq(from = 40, to = 250, by = 1)) %>% 
-  mutate(density = pmap_dbl(list(Score, b_Intercept, sigma), dnorm))
+  mutate(density = dnorm(x = Score, mean = b_Intercept, sd = sigma))
 
 str(post)
 ```
 
 Note that after using `expand()`, we have a rather long data frame. Anyway, now we're ready to plot.
 
-```{r, fig.width = 3, fig.height = 2.25}
+```{r, fig.width = 3, fig.height = 2.25, warning = F, message = F}
 post %>% 
   ggplot(aes(x = Score)) + 
   geom_histogram(data = my_data, 
@@ -259,30 +312,33 @@ post %>%
                  size = .2, binwidth = 5, boundary = 0) +
   geom_line(aes(y = density, group = iter),
             size  = 1/4, alpha = 1/3, color = "grey25") +
+  scale_x_continuous("y", limits = c(50, 210)) +
   scale_y_continuous(NULL, breaks = NULL) +
-  coord_cartesian(xlim = 50:210) +
-  labs(title = "Data with Post. Pred.",
-       x = "y")
+  ggtitle("Data with Post. Pred.")
 ```
 
-Note the `stat(density)` argument in the `geom_histogram()` function. That’s what rescaled the histogram to the density metric. If you leave that part out, all the density lines will drop to the bottom of the plot. Also, did you see how we used `iter` to group the density lines within the `geom_line()` function? That’s why we kept that information. Without that `group = iter` argument, the resulting lines are a mess.
+Note the `stat(density)` argument in the `geom_histogram()` function. That's what rescaled the histogram to the density metric. If you leave that part out, all the density lines will drop to the bottom of the plot. Also, did you see how we used `iter` to group the density lines within the `geom_line()` function? That's why we kept that information. Without that `group = iter` argument, the resulting lines are a mess.
+
+Kruschke pointed out this last plot
+
+> constitutes a form of posterior-predictive check, by which we check whether the model appears to be a reasonable description of the data. With such a small amount of data, it is difficult to visually assess whether normality is badly violated, but there appears to be a hint that the normal model is straining to accommodate some outliers: The peak of the data protrudes prominently above the normal curves, and there are gaps under the shoulders of the normal curves. (p. 458)
 
 ## Outliers and robust estimation: The $t$ distribution
 
-We'll employ a little `expand()` and `map2_dbl()` to make the data for Figure 16.4.
+Here's the code for our version of Figure 16.4.
 
 ```{r, fig.width = 5.5, fig.height = 3.5}
 # wrangle
 tibble(nu = c(Inf, 4, 2, 1)) %>%
   expand(nu, y = seq(from = -8, to = 8, length.out = 500)) %>% 
-  mutate(density = map2_dbl(y, nu, dt)) %>% 
+  mutate(density = dt(x = y, df = nu)) %>% 
   # this line is unnecessary, but will help with the plot legend
   mutate(nu = factor(nu, levels = c("Inf", "4", "2", "1"))) %>% 
   
   # plot
   ggplot(aes(x = y, y = density, group = nu, color = nu)) +
   geom_line() +
-  scale_color_viridis_d(expression(paste("t"[nu])), option = "B", direction = 1, end = .8) +
+  scale_color_viridis_d(expression(paste(italic(t)[nu])), option = "B", direction = 1, end = .8) +
   coord_cartesian(xlim = -6:6) +
   labs(y = "p(y)") +
   theme(legend.position = c(.92, .75),
@@ -290,7 +346,7 @@ tibble(nu = c(Inf, 4, 2, 1)) %>%
         legend.key = element_rect(color = "transparent", fill = "transparent"))
 ```
 
-> Although the $t$ distribution is usually conceived as a sampling distribution for the NHST $t$ test, we will use it instead as a convenient descriptive model of data with outliers... Outliers are simply data values that fall unusually far from a model’s expected value. Real data often contain outliers relative to a normal distribution. Sometimes the anomalous values can be attributed to extraneous influences that can be explicitly identified, in which case the affected data values can be corrected or removed. But usually we have no way of knowing whether a suspected outlying value was caused by an extraneous influence, or is a genuine representation of the target being measured. Instead of deleting suspected outliers from the data according to some arbitrary criterion, we retain all the data but use a noise distribution that is less affected by outliers than is the normal distribution. (p. 459)
+> Although the $t$ distribution is usually conceived as a sampling distribution for the NHST $t$ test, we will use it instead as a convenient descriptive model of data with outliers... Outliers are simply data values that fall unusually far from a model's expected value. Real data often contain outliers relative to a normal distribution. Sometimes the anomalous values can be attributed to extraneous influences that can be explicitly identified, in which case the affected data values can be corrected or removed. But usually we have no way of knowing whether a suspected outlying value was caused by an extraneous influence, or is a genuine representation of the target being measured. Instead of deleting suspected outliers from the data according to some arbitrary criterion, we retain all the data but use a noise distribution that is less affected by outliers than is the normal distribution. (p. 459)
 
 Here's Figure 16.5.a.
 
@@ -312,13 +368,16 @@ tibble(y = seq(from = -10, to = 20, length.out = 1e3)) %>%
        y = "p(y)")
 ```
 
-I'm now aware that we have the data for the bottom panel of Figure 16.5. However, we can simulate similar data with the `rt.scaled()` function from the [metRology package](https://sourceforge.net/projects/metrology/).
+I'm now aware that we have the data for the bottom panel of Figure 16.5. However, we can simulate similar data with the `rt.scaled()` function from the [**metRology** package](https://sourceforge.net/projects/metrology/).
 
 ```{r, fig.width = 6, fig.height = 3}
 set.seed(145)
+
+# simulate the data
 d <-
   tibble(y = metRology::rt.scaled(n = 177, df = 2.63, mean = 1.11, sd = 0.15))
 
+# plot
 tibble(y = seq(from = -3, to = 12, length.out = 1e3)) %>% 
   ggplot(aes(y)) +
   geom_histogram(data = d,
@@ -338,7 +397,7 @@ tibble(y = seq(from = -3, to = 12, length.out = 1e3)) %>%
 In case you were curious, this is how I selected the seed for the plot. Run the code yourself to get a sense of how it works.
 
 ```{r, fig.width = 2, fig.height = 8, eval = F}
-# In the R Notebook code block settings, I used: fig.width = 2, fig.height = 8
+# in the R Notebook code block settings, I used: fig.width = 2, fig.height = 8
 
 t_maker <- function(seed) {
   set.seed(seed)
@@ -350,7 +409,7 @@ t_maker <- function(seed) {
 
 tibble(seed = 1:200) %>% 
   mutate(t = map(seed, t_maker)) %>% 
-  unnest() %>%
+  unnest(t) %>%
   
   ggplot(aes(x = reorder(seed, spread), ymin = min, ymax = max)) +
   geom_hline(yintercept = 0, color = "white") +
@@ -376,7 +435,7 @@ d %>%
   geom_ribbon(aes(ymin = 0,
                   ymax = dt(y, df = nu)),
               fill = "grey67") +
-  geom_ribbon(data = d %>% 
+  geom_ribbon(data = . %>% 
                 filter(y >= -1 & y <= 1),
               aes(ymin = 0,
                   ymax = dt(y, df = nu)),
@@ -384,14 +443,12 @@ d %>%
   # note how this function has its own data
   geom_text(data = tibble(
     y = 0,
-    density = .175,
     label = factor(c("nu == Inf", "nu == 5", "nu == 2", "nu == 1")),
     text = c("68%", "64%", "58%", "50%")),
-    aes(y = density, label = text),
+    aes(y = .175, label = text),
     color = "grey92") +
-  scale_y_continuous(breaks = c(0, .2, .4)) +
+  scale_y_continuous("p(y)", breaks = c(0, .2, .4)) +
   coord_cartesian(xlim = -6:6) +
-  ylab("p(y)") +
   facet_wrap(~label, ncol = 1, labeller = label_parsed)
 ```
 
@@ -405,8 +462,8 @@ d <-
   mutate(ymax = -ymin) %>% 
   expand(nesting(nu, ymin, ymax),
          y = seq(from = -8, to = 8, length.out = 1e3)) %>%
-  mutate(label = str_c("nu == ", nu) %>% 
-           factor(., levels = c("nu == Inf", "nu == 5", "nu == 2", "nu == 1")))
+  mutate(label = factor(str_c("nu==", nu), 
+                        levels = str_c("nu==", c(Inf, 5, 2, 1))))
 
 # the plot
 d %>% 
@@ -414,16 +471,15 @@ d %>%
   geom_ribbon(aes(ymin = 0,
                   ymax = dt(y, df = nu)),
               fill = "grey67") +
-  geom_ribbon(data = d %>% 
+  geom_ribbon(data = . %>% 
                 # notice our `filter()` argument has changed
                 filter(y >= ymin & y <= ymax),
               aes(ymin = 0,
                   ymax = dt(y, df = nu)),
               fill = "grey33") +
   annotate(geom = "text", x = 0, y = .175, label = "68%", color = "grey92") +
-  scale_y_continuous(breaks = c(0, .2, .4)) +
+  scale_y_continuous("p(y)", breaks = c(0, .2, .4)) +
   coord_cartesian(xlim = -6:6) +
-  ylab("p(y)") +
   facet_wrap(~label, ncol = 1, labeller = label_parsed)
 ```
 
