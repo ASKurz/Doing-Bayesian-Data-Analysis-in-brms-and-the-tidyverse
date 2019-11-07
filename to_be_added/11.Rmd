@@ -16,7 +16,7 @@ It's worth repeating a couple paragraphs from page 298 (*emphasis* in the origin
 
 ## Paved with good intentions
 
-This is a little silly, but I wanted to challenge myself to randomly generate a series of 24 `H` and `T` characters for which there were 7 `H`s. The base R `sample()` function gets us part of the way there.
+This is a little silly, but I wanted to challenge myself to randomly generate a series of 24 `H` and `T` characters for which there were 7 `H`s. The base **R** `sample()` function gets us part of the way there.
 
 ```{r}
 sample(c("H", "T"), size = 24, replace = T)
@@ -27,32 +27,31 @@ I wanted the solution to be reproducible, which required I find the appropriate 
 ```{r, warning = F, message = F}
 library(tidyverse)
 
-h_counter <- function(i) {
-  set.seed(i)
+h_counter <- function(seed) {
+  set.seed(seed)
   coins <- sample(c("H", "T"), size = 24, replace = T)
   length(which(coins == "H"))
 }
 
 coins <-
-  tibble(seed = 1:50) %>% 
-  mutate(n_heads = map(seed, h_counter)) %>% 
-  unnest()
+  tibble(seed = 1:200) %>% 
+  mutate(n_heads = map_dbl(seed, h_counter))
 
 coins %>% 
   filter(n_heads == 7)
 ```
 
-Looks like 32 works. 
+Looks like `set.seed(115)` will work. 
 
 ```{r}
-set.seed(32)
+set.seed(115)
 sample(c("H", "T"), size = 24, replace = T)
 ```
 
-The sequence isn’t in the exact order as the data from page 300, but they do have the crucial ratio of heads to tails.
+The sequence isn't in the exact order as the data from page 300, but they do have the crucial ratio of heads to tails.
 
 ```{r, fig.width = 3.5, fig.height = 3}
-set.seed(32)
+set.seed(115)
 tibble(flips = sample(c("H", "T"), size = 24, replace = T)) %>% 
   
   ggplot(aes(x = flips)) +
@@ -74,44 +73,53 @@ tibble(flips = sample(c("H", "T"), size = 24, replace = T)) %>%
 
 ### With intention to fix $N$.
 
-To do factorials in R, use the `factorial()` function. E.g., we can use the formula near the bottom of the main paragraph on page 303 like so:
+In this subsection, "the space of possible outcomes is restricted to combinations of $z$ and $N$ for which $N$ is fixed at $N = 24$" (p. 302).
+
+> What is the probability of getting a particular number of heads when N is fixed? The answer is provided by the *binomial probability distribution*, which states that the probability of getting z heads out of N flips is
+>
+> $$ p(z | N, \theta) = \begin{pmatrix} N \\ z \end{pmatrix} \theta^z (1 - \theta)^{N - z}$$
+>
+where the notation $\begin{pmatrix} N \\ z \end{pmatrix}$ [is a shorthand notation defined in more detail in the text. It has to do with factorials and, getting more to the point,] the number of ways of allocating $z$ heads among $N$ flips, without duplicate counting of equivalent allocations, is $N !/[(N − z)!z!]$. This factor is also called the number of ways of choosing $z$ items from $N$ possibilities, or "$N$ choose $z$" for short, and is denoted $\begin{pmatrix} N \\ z \end{pmatrix}$. Thus, the overall probability of getting $z$ heads in $N$ flips is the probability of any particular sequence of $z$ heads in $N$ flips times the number of ways of choosing $z$ slots from among the $N$ possible flips. (p. 303, *emphasis* in the original)
+
+To do factorials in **R**, use the `factorial()` function. E.g., we can use the formula $N! / [(N − z)!z!]$ like so:
 
 ```{r}
-N <- 24
+n <- 24
 z <- 7
 
-factorial(N) / (factorial(N - z) * factorial(z))
+factorial(n) / (factorial(n - z) * factorial(z))
 ```
 
-That formula's a little cumbersome. We can make our programming lives easier by wrapping it into a function.
+That value, recall, is a count, "the number of ways of allocating $z$ heads among $N$ flips, without duplicate counting of equivalent allocations" (p. 303). That formula's a little cumbersome to work with. We can make our programming lives easier by wrapping it into a function.
 
 ```{r}
-N_choose_z <- function(N, z) {
-  factorial(N) / (factorial(N - z) * factorial(z))
+n_choose_z <- function(n, z) {
+  factorial(n) / (factorial(n - z) * factorial(z))
   }
 ```
 
-Now we can employ `N_choose_z()` to help make the data we'll use for Figure 11.3.b. Here are the data.
+Now we can employ our `n_choose_z()` function to help make the data we'll use for Figure 11.3.b. Here are the data.
 
 ```{r}
 flips <-
   tibble(z          = 0:24) %>% 
-  mutate(N_choose_z = N_choose_z(N, z)) %>% 
-  mutate(`p(z/N)`   = N_choose_z/sum(N_choose_z),
-         `Sample Proportion z/N` = z/N)
+  mutate(n_choose_z = n_choose_z(n, z)) %>% 
+  mutate(`p(z/N)`   = n_choose_z / sum(n_choose_z),
+         `Sample Proportion z/N` = z / n)
 
 head(flips, n = 10)
 ```
 
-The figure:
+Now here's the histogram of that sampling distribution.
 
 ```{r, fig.width = 5, fig.height = 3.25}
 flips %>% 
   
   ggplot(aes(x = `Sample Proportion z/N`, y = `p(z/N)`,
-             fill = z <= 7)) +
+             fill = z <= 7, color = z <= 7)) +
   geom_col(width = .025) +
   scale_fill_viridis_d(option = "B", end = .6) +
+  scale_color_viridis_d(option = "B", end = .6) +
   ggtitle("Implied Sampling Distribution") +
   theme(panel.grid = element_blank(),
         legend.position = "none")
@@ -128,7 +136,7 @@ flips %>%
 Here's Figure 11.3.a.
 
 ```{r, fig.width = 2.75, fig.height = 3.5}
-tibble(y = c("tail", "head") %>% factor(., levels = c("tail", "head")),
+tibble(y = factor(c("tail", "head"), levels = c("tail", "head")),
        `p(y)` = .5) %>% 
   
   ggplot(aes(x = y, y = `p(y)`)) +
@@ -136,35 +144,81 @@ tibble(y = c("tail", "head") %>% factor(., levels = c("tail", "head")),
   coord_cartesian(ylim = 0:1) +
   labs(title    = "Hypothetical Population",
        subtitle = expression(paste(theta, " = .5"))) +
-  theme(panel.grid = element_blank(),
+  theme(panel.grid   = element_blank(),
         axis.ticks.x = element_blank())
 ```
 
 As Kruschke wrote on page 304, "It is important to understand that the sampling distribution is a probability distribution over samples of data, and is *not* a probability distribution over parameter values."
 
+Here is the probability "of getting *exactly* $z = 7$ heads in $N = 24$ flips" (p. 304, *emphasis* in the original):
+
+```{r}
+flips %>% 
+  filter(z == 7)
+```
+
+It was already sitting there in our `p(z/N)` column.
+
+> Here's the conclusion for our particular case. The actual observation was $z/N = 7/24$. The one-tailed probability is $p = 0.032$, which was computed from Equation 11.4, and is shown in Figure 11.3. Because the $p$ value is not less than 2.5%, we do *not* reject the null hypothesis that $\theta = 0.5$. In NHST parlance, we would say that the result "has failed to reach significance." This does not mean we *accept* the null hypothesis; we merely suspend judgment regarding rejection of this particular hypothesis. Notice that we have not determined any degree of belief in the hypothesis that $\theta = 0.5$. The hypothesis might be true or might be false; we suspend judgment. (p. 305, *emphasis* in the original)
+
 ### With intention to fix $z$.
 
-Figure 11.4.a is the same as Figure 11.3.a, above. Here's Figure 11.4.b.
+In this subsection, "$z$ is fixed in advance and $N$ is the random variable. We don’t talk about the probability of getting $z$ heads out of $N$ flips, we instead talk about the probability of taking $N$ flips to get $z$ heads" (p. 306).
 
-```{r, fig.width = 5, fig.height = 3.25, warning = F}
+This time we're interested in
+
+> *What is the probability of taking $N$ flips to get $z$ heads*? To answer this question, consider this: We know that the $N$th flip is the $z$th head, because that is what caused flipping to stop. Therefore the previous $N - 1$ flips had $z - 1$ heads in some random sequence. The probability of getting $z - 1$ heads in $N - 1$ flips is $\begin{pmatrix} N-1 \\ z-1 \end{pmatrix} \theta^{z-1} (1 - \theta)^{N - z}$. The probability that the last flip comes up heads is $\theta$. Therefore, the probability that it takes $N$ flips to get $z$ heads is
+>
+> $$
+> \begin{align*}
+> p(N | z, \theta) & = \begin{pmatrix} N-1 \\ z-1 \end{pmatrix} \theta^{z-1} (1 - \theta)^{N - z} \cdot \theta \\
+>                  & = \begin{pmatrix} N-1 \\ z-1 \end{pmatrix} \theta^z (1 - \theta)^{N - z} \\
+>                  & = \frac{z}{N} \begin{pmatrix} N \\ z \end{pmatrix} \theta^z (1 - \theta)^{N - z}
+> \end{align*}
+> $$
+> 
+> (This distribution is sometimes called the "negative binomial" but that term sometimes refers to other formulations and can be confusing, so I will not use it here.) This is a sampling distribution, like the binomial distribution, because it specifies the relative probabilities of all the possible data outcomes for the hypothesized fixed value of $\theta$ and the intended stopping rule. (p. 306, *emphasis* added)
+
+With that formula in hand, here's how to generate the data for Figure 11.4.b.
+
+```{r}
 theta <- .5
 
-flips <-
-  tibble(N             = 7:100) %>% 
-  mutate(N_choose_z  = N_choose_z(N, z)) %>% 
-  mutate(`p(z/N)`    = N_choose_z/sum(N_choose_z),
-         `Sample Proportion z/N` = z/N,
-         `p(N|z,theta)` = (z/N) * N_choose_z * (theta^z) * (1 - theta)^(N - z))
+# we have to stop somewhere. where should we stop?
+highest_n <- 100
 
+flips <-
+  tibble(n              = 7:highest_n) %>% 
+  mutate(n_choose_z     = n_choose_z(n, z)) %>% 
+  mutate(`p(z/N)`       = n_choose_z / sum(n_choose_z),
+         `Sample Proportion z/N` = z / n,
+         `p(N|z,theta)` = (z / n) * n_choose_z * (theta^z) * (1 - theta)^(n - z))
+```
+
+To keep things simple, we just went up to $N = 100$.
+
+At the bottom of page 306, Kruschke described the probability "spikes" for various values of $N$ when $z/N = 7/7$, $z/N = 7/8$, and $z/N = 7/9$. We have those spike values in the `Sample Proportion z/N` column of our `flips` data. Here are those first three spikes.
+
+```{r}
+flips %>% 
+  head(n = 3)
+```
+
+Those values correspond to the rightmost vertical lines in our Figure 11.4.b, below.
+
+```{r, fig.width = 5, fig.height = 3.25, warning = F}
 flips %>%
   ggplot(aes(x = `Sample Proportion z/N`, y = `p(N|z,theta)`,
-             fill = N >= 24)) +
-  geom_col(width = .01) +
+             fill = n >= 24, color = n >= 24)) +
+  geom_col(width = .005) +
   scale_fill_viridis_d(option = "B", end = .6) +
+  scale_color_viridis_d(option = "B", end = .6) +
   ggtitle("Implied Sampling Distribution") +
   theme(panel.grid = element_blank(),
         legend.position = "none")
 ```
+
+Our Figure 11.4.a is the same as Figure 11.3.a, above. I won't repeat it, here.
 
 We got the formula for that last variable, `p(N|z,theta)`, from formula 11.6 on page 306. You'll note how Kruschke continued to refer to it as $p(z|N)$ in his Figure 11.4. It's entirely opaque, to me, how $p(z|N) = p(N|z, \theta)$. I'm just going with it.  
 
@@ -172,11 +226,19 @@ Here's the $p$-value.
 
 ```{r}
 flips %>% 
-  filter(N >= 24) %>% 
-  summarise(p_value = sum(`p(N|z,theta)`))
+  filter(n >= 24) %>% 
+  summarise(p_value = sum(`p(N|z,theta)`) %>% round(digits = 3))
 ```
 
+If you experiment a bit with the `highest_n` value from above, you'll see that the exact value for the $p$-value is dependent on what $N$ you go up to. 
+
 ### With intention to fix duration.
+
+In this subsection, 
+
+> neither $N$ nor $z$ is fixed...
+>
+> The key to analyzing this scenario is specifying how various combinations of $z$ and $N$ can arise when sampling for a fixed duration. There is no single, uniquely "correct" specification, because there are many different real-world constraints on sampling through time. But one approach is to think of the sample size $N$ as a random value. (p. 308).
 
 Here's a glance at the Poisson distribution for which $\lambda = 24$. The mean is colored orange.
 
@@ -185,31 +247,70 @@ tibble(x = 1:50) %>%
   mutate(y = dpois(x = x, lambda = 24)) %>% 
   
   ggplot(aes(x = x, y = y,
-             fill = x == 24)) +
-  geom_col(width = .75) +
+             fill = x == 24, color = x == 24)) +
+  geom_col(width = .5) +
   scale_fill_viridis_d(option = "B", end = .75) +
+  scale_color_viridis_d(option = "B", end = .75) +
   scale_y_continuous(NULL, breaks = NULL) +
   theme(panel.grid = element_blank(),
         legend.position = "none")
 ```
 
-Here's my attempt to make a mixture of binomial distributions. I use the custom `z_maker()` function to simulate $N$-values from $Poisson(24)$. We then plug in sequences of 0:$N$ into a tibble and compute `p(z/N)` and such, by sequence. 
+In the note for Figure 11.5, Kruschke explained the "sample sizes are drawn randomly from a Poisson distribution with mean $\lambda$". Earlier in the prose he explained "$\lambda$ was set to 24 merely to match $N$ and make the example most comparable to the preceding examples" (p. 309). To do such a simulation, one must choose how many draws to take from $Poisson(24)$. Here's an example where we take just one.
+
+```{r}
+set.seed(11)
+
+n_iter <- 1
+
+flips <-
+  tibble(iter = 1:n_iter,
+         n    = rpois(n_iter, lambda = 24)) %>% 
+  mutate(z    = map(n, ~seq(from = 0, to = ., by = 1))) %>% 
+  unnest(z) %>% 
+  mutate(n_choose_z = n_choose_z(n, z)) %>% 
+  mutate(`p(z/N)`   = n_choose_z / sum(n_choose_z),
+         `Sample Proportion z/N` = z / n) 
+
+flips
+```
+
+As indicate in our `n` column, by chance we drew a 21. We then computed the same values for all possible values of `z`, ranging from 0 to 21. But this doesn't make for a very interesting plot, nor does it make for the same kind of plot Kruschke made in Figure 11.5.b.
 
 ```{r, fig.width = 5, fig.height = 3.25, warning = F}
+flips %>%
+  ggplot(aes(x = `Sample Proportion z/N`, y = `p(z/N)`,
+             fill = z <= 7, color = z <= 7)) +
+  geom_col(width = .01) +
+  scale_fill_viridis_d(option = "B", end = .6) +
+  scale_color_viridis_d(option = "B", end = .6) +
+  theme(panel.grid = element_blank(),
+        legend.position = "none")
+```
+
+Instead we have to take many draws to take from $Poisson(24)$. Here's what it looks like when we take 10,000.
+
+```{r, fig.width = 5, fig.height = 3.25, warning = F}
+n_iter <- 10000
+
+set.seed(11)
+
 flips <-
-  tibble(iter = 1:1000,
-         N    = rpois(1000, lambda = 24)) %>% 
-  mutate(z    = map(N, ~seq(from = 0, to = ., by = 1))) %>% 
+  tibble(iter = 1:n_iter,
+         n    = rpois(n_iter, lambda = 24)) %>% 
+  mutate(z    = map(n, ~seq(from = 0, to = ., by = 1))) %>% 
   unnest(z) %>% 
-  mutate(N_choose_z = N_choose_z(N, z)) %>% 
-  mutate(`p(z/N)`   = N_choose_z / sum(N_choose_z),
-         `Sample Proportion z/N` = z/N) 
+  mutate(n_choose_z = n_choose_z(n, z)) %>% 
+  mutate(`p(z/N)`   = n_choose_z / sum(n_choose_z),
+         `Sample Proportion z/N` = z / n) 
 
 flips %>%
   ggplot(aes(x = `Sample Proportion z/N`, y = `p(z/N)`,
-             fill = z <= 7)) +
-  geom_col(width = .0075) +
+             fill = z <= 7, color = z <= 7)) +
+  geom_col(width = .003, size = 1/15) +
   scale_fill_viridis_d(option = "B", end = .6) +
+  scale_color_viridis_d(option = "B", end = .6) +
+  coord_cartesian(ylim = c(0, 0.03)) +
   theme(panel.grid = element_blank(),
         legend.position = "none")
 ```
@@ -224,18 +325,20 @@ flips %>%
   summarise(p_value = sum(`p(z/N)`))
 ```
 
+It's unclear, to me, why it's so much lower than the one Kruschke reported in the text.
+
 ### With intention to make multiple tests.
 
 I'm not sure how to do the simulation for this section. This, for example, doesn't get the job done.
 
 ```{r}
 flips <-
-  tibble(coin       = rep(letters[1:2], each = 25),
-         z          = rep(0:24, times = 2)) %>% 
+  tibble(z          = 0:24) %>%
+  expand(z, coin = letters[1:2]) %>% 
   group_by(coin) %>% 
-  mutate(N_choose_z = N_choose_z(N, z)) %>% 
-  mutate(`p(z/N)`   = N_choose_z / sum(N_choose_z),
-         `Sample Proportion z/N` = z/N)
+  mutate(n_choose_z = n_choose_z(n, z)) %>% 
+  mutate(`p(z/N)`   = n_choose_z / sum(n_choose_z),
+         `Sample Proportion z/N` = z / n)
 
 head(flips, n = 10)
 ```
@@ -246,9 +349,10 @@ The result is a failed attempt at Figure 11.6:
 flips %>% 
   
   ggplot(aes(x = `Sample Proportion z/N`, y = `p(z/N)`,
-             fill = z <= 7)) +
-  geom_col(width = .025) +
+             fill = z <= 7, color = z <= 7)) +
+  geom_col(width = .01) +
   scale_fill_viridis_d(option = "B", end = .6) +
+  scale_color_viridis_d(option = "B", end = .6) +
   ggtitle("Implied Sampling Distribution") +
   theme(panel.grid = element_blank(),
         legend.position = "none")
@@ -258,9 +362,11 @@ If you know how to do the simulation properly, [please share your code](https://
 
 ### Soul searching.
 
+> Within the context of NHST, the solution is to establish the true intention of the researcher. This is the approach taken explicitly when applying corrections for multiple tests. The analyst determines what the truly intended tests are, and determines whether those testing intentions were honestly conceived *a priori* or *post hoc* (i.e., motivated only after seeing the data), and then computes the appropriate $p$ value. The same approach should be taken for stopping rules: The data analyst should determine what the truly intended stopping rule was, and then compute the appropriate $p$ value. Unfortunately, determining the true intentions can be difficult. Therefore, perhaps researchers who use $p$ values to make decisions should be required to publicly pre-register their intended stopping rule and tests, before collecting the data. (p. 314, *emphasis* in the original)
+
 ### Bayesian analysis.
 
-Kruschke began the subsection with "The Bayesian interpretation of data does not depend on the covert sampling and testing intentions of the data collector."
+Happily for us, "the Bayesian interpretation of data does not depend on the covert sampling and testing intentions of the data collector" (p. 314).
 
 ## Prior knowledge 
 
@@ -272,34 +378,32 @@ More nothing.
 
 ### Bayesian analysis.
 
-If you recall from chapter 6, we need a function to compute the Bernoulli likelihood.
+If you recall from Chapter 6, we need a function to compute the Bernoulli likelihood.
 
 ```{r}
-Bernoulli_likelihood <- function(theta, data) {
-  # theta = success probability parameter ranging from 0 to 1
-  # data = the vector of data (i.e., a series of 0s and 1s)
-  N   <- length(data)
+bernoulli_likelihood <- function(theta, data) {
+  n   <- length(data)
   z   <- sum(data)
-  return(theta^z * (1 - theta)^(N - sum(data)))
+  return(theta^z * (1 - theta)^(n - sum(data)))
   }
 ```
 
-There are a handful of steps before we can use our `Bernoulli_likelihood()` function to make the plot data. All these are repeats from chapter 6.
+There are a handful of steps before we can use our `bernoulli_likelihood()` function to make the plot data. All these are repeats from Chapter 6.
 
 ```{r}
 # we need these to compute the likelihood
-N <- 24
+n <- 24
 z <- 7
 
-trial_data <- c(rep(0, times = N - z), rep(1, times = z))                  # (i.e., data)
+trial_data <- c(rep(0, times = n - z), rep(1, times = z))           # (i.e., data)
 
 d_nail <-
-  tibble(theta = seq(from = 0, to = 1, length.out = 1000)) %>%             # (i.e., theta)
+  tibble(theta = seq(from = 0, to = 1, length.out = 1000)) %>%      # (i.e., theta)
   mutate(Prior = dbeta(x = theta, shape1 = 2, shape2 = 20)) %>% 
-  mutate(Likelihood = Bernoulli_likelihood(theta = theta,                  # (i.e., p(D | theta))
+  mutate(Likelihood = bernoulli_likelihood(theta = theta,           # (i.e., p(D | theta))
                                            data = trial_data)) %>%
-  mutate(normalizing_constant = sum(Likelihood * Prior / sum(Prior))) %>%  # (i.e., p(D))
-  mutate(Posterior = Likelihood * Prior / normalizing_constant)            # (i.e., p(theta | D))
+  mutate(evidence = sum(Likelihood * Prior)) %>%                    # (i.e., p(D))
+  mutate(Posterior = Likelihood * Prior / evidence)                 # (i.e., p(theta | D))
   
 glimpse(d_nail)
 ```
@@ -346,17 +450,48 @@ library(gridExtra)
 grid.arrange(plot_1, plot_2, plot_3)
 ```
 
-To get the left column of Figure 11.7, we have to update the data with our new prior, $\text{beta} (11, 11)$.
+If we'd like the 95% HDIs, we'll need to redifine the `hdi_of_icdf()` function.
+
+```{r}
+hdi_of_icdf <- function(name = qbeta, width = .95, tol = 1e-8, ... ) {
+
+  incredible_mass <-  1.0 - width
+  interval_width  <- function(low_tail_prob, name, width, ...) {
+    name(width + low_tail_prob, ...) - name(low_tail_prob, ...)
+  }
+  
+  opt_info <- optimize(interval_width, c(0, incredible_mass), 
+                       name = name, width = width, 
+                       tol = tol, ...)
+  
+  hdi_lower_tail_prob <- opt_info$minimum
+  
+  return(c(name(hdi_lower_tail_prob, ...),
+           name(width + hdi_lower_tail_prob, ...)))
+  
+}
+```
+
+Note that this time we made the `qbeta()` function the default setting for the `name` argument. Here are the HDIs for the prior and posterior, above.
+
+```{r}
+hdi_of_icdf(shape1 = 2,
+            shape2 = 20)
+
+hdi_of_icdf(shape1 = 2 + z,
+            shape2 = 20 + (n - z))
+```
+
+To get the left column of Figure 11.7, we have to update the data with our new prior, $\operatorname{beta} (11, 11)$.
 
 ```{r, fig.width = 4, fig.height = 6, warning = F, message = F}
-# Here are the data based on our updated beta(11, 11) prior
+# here are the data based on our updated beta(11, 11) prior
 d_coin <-
   tibble(theta = seq(from = 0, to = 1, length.out = 1000)) %>%
   mutate(Prior = dbeta(x = theta, shape1 = 11, shape2 = 11)) %>% 
-  mutate(Likelihood = Bernoulli_likelihood(theta = theta,
+  mutate(Likelihood = bernoulli_likelihood(theta = theta,
                                            data = trial_data)) %>%
-  mutate(normalizing_constant = sum(Likelihood * Prior / sum(Prior))) %>%
-  mutate(Posterior = Likelihood * Prior / normalizing_constant)
+  mutate(Posterior = Likelihood * Prior / sum(Likelihood * Prior))
 
 # The updated plots:
 plot_1 <-
@@ -396,6 +531,16 @@ plot_3 <-
 grid.arrange(plot_1, plot_2, plot_3)
 ```
 
+Here are the corresponding HDIs for $\operatorname{beta} (11, 11)$ and $\operatorname{beta} (11 + 7, 11 + 24 - 7)$.
+
+```{r}
+hdi_of_icdf(shape1 = 11,
+            shape2 = 11)
+
+hdi_of_icdf(shape1 = 11 + z,
+            shape2 = 11 + (n - z))
+```
+
 #### Priors are overt and relevant.
 
 In this subsection's opening paragraph, Kruschke opined:
@@ -408,37 +553,39 @@ In this subsection's opening paragraph, Kruschke opined:
 
 ### CI depends on intention.
 
+> The primary goal of NHST is determining whether a particular "null" value of a parameter can be rejected. One can also ask what *range* of parameter values would not be rejected. This range of nonrejectable parameter values is called the CI. (There are different ways of defining an NHST CI; this one is conceptually the most general and coherent with NHST precepts.) The 95% CI consists of all values of $\theta$ that would not be rejected by a (two-tailed) significance test that allows 5% false alarms. (p. 318, *emphasis* in the original)
+
 Here's the upper left panel of Figure 11.8.
 
 ```{r, fig.width = 2.75, fig.height = 3.5}
-tibble(y = c("tail", "head") %>% factor(., levels = c("tail", "head")),
+tibble(y = factor(c("tail", "head"), levels = c("tail", "head")),
        `p(y)` = c(1 - .126, .126)) %>% 
   
   ggplot(aes(x = y, y = `p(y)`)) +
   geom_col() +
   coord_cartesian(ylim = 0:1) +
-  labs(title = "Hypothetical Population",
+  labs(title    = "Hypothetical Population",
        subtitle = expression(paste(theta, " = .126"))) +
-  theme(panel.grid = element_blank(),
+  theme(panel.grid   = element_blank(),
         axis.ticks.x = element_blank())
 ```
 
 Here's the lower left panel of Figure 11.8.
 
 ```{r, fig.width = 2.75, fig.height = 3.5}
-tibble(y = c("tail", "head") %>% factor(., levels = c("tail", "head")),
+tibble(y = factor(c("tail", "head"), levels = c("tail", "head")),
        `p(y)` = c(1 - .511, .511)) %>% 
   
   ggplot(aes(x = y, y = `p(y)`)) +
   geom_col() +
   coord_cartesian(ylim = 0:1) +
-  labs(title = "Hypothetical Population",
+  labs(title    = "Hypothetical Population",
        subtitle = expression(paste(theta, " = .511"))) +
-  theme(panel.grid = element_blank(),
+  theme(panel.grid   = element_blank(),
         axis.ticks.x = element_blank())
 ```
 
-Here's the upper right.
+Here's the upper right panel, the sampling distribution for when $\theta = .126$.
 
 ```{r, fig.width = 5, fig.height = 3.25}
 tibble(z = 0:24,
@@ -455,7 +602,7 @@ tibble(z = 0:24,
         legend.position = "none")
 ```
 
-And here's the lower right.
+And here's the lower right, the sampling distribution for when $\theta = .511$.
 
 ```{r, fig.width = 5, fig.height = 3.25}
 tibble(z = 0:24,
@@ -475,7 +622,7 @@ tibble(z = 0:24,
 The upper left panel in Figure 11.9 is the same as 11.8, which you can see above. Here's the lower left panel.
 
 ```{r, fig.width = 2.75, fig.height = 3.5}
-tibble(y = c("tail", "head") %>% factor(., levels = c("tail", "head")),
+tibble(y = factor(c("tail", "head"), levels = c("tail", "head")),
        `p(y)` = c(1 - .484, .484)) %>% 
   
   ggplot(aes(x = y, y = `p(y)`)) +
@@ -493,17 +640,18 @@ We'll need fresh data for the upper right panel of Figure 11.9.
 theta <- .126
 
 flips <-
-  tibble(N           = 7:100) %>% 
-  mutate(N_choose_z  = N_choose_z(N, z)) %>% 
-  mutate(`p(z/N)`    = N_choose_z / sum(N_choose_z),
-         `Sample Proportion z/N` = z / N,
-         `p(N|z,theta)` = (z/N) * N_choose_z * (theta^z) * (1 - theta)^(N - z))
+  tibble(n           = 7:100) %>% 
+  mutate(n_choose_z  = n_choose_z(n, z)) %>% 
+  mutate(`p(z/N)`    = n_choose_z / sum(n_choose_z),
+         `Sample Proportion z/N` = z / n,
+         `p(N|z,theta)` = (z / n) * n_choose_z * (theta^z) * (1 - theta)^(n - z))
 
 flips %>%
   ggplot(aes(x = `Sample Proportion z/N`, y = `p(N|z,theta)`,
-             fill = N <= 24)) +
-  geom_col(width = .01) +
+             fill = n <= 24, color = n <= 24)) +
+  geom_col(width = .005) +
   scale_fill_viridis_d(option = "B", end = .6) +
+  scale_color_viridis_d(option = "B", end = .6) +
   ggtitle("Implied Sampling Distribution") +
   theme(panel.grid = element_blank(),
         legend.position = "none")
@@ -515,17 +663,18 @@ And once again, we'll renew `theta` and the data for the lower right panel.
 theta <- .484
 
 flips <-
-  tibble(N           = 7:100) %>% 
-  mutate(N_choose_z  = N_choose_z(N, z)) %>% 
-  mutate(`p(z/N)`    = N_choose_z / sum(N_choose_z),
-         `Sample Proportion z/N` = z / N,
-         `p(N|z,theta)` = (z/N) * N_choose_z * (theta^z) * (1 - theta)^(N - z))
+  tibble(n           = 7:100) %>% 
+  mutate(n_choose_z  = n_choose_z(n, z)) %>% 
+  mutate(`p(z/N)`    = n_choose_z / sum(n_choose_z),
+         `Sample Proportion z/N` = z / n,
+         `p(N|z,theta)` = (z / n) * n_choose_z * (theta^z) * (1 - theta)^(n - z))
 
 flips %>%
   ggplot(aes(x = `Sample Proportion z/N`, y = `p(N|z,theta)`,
-             fill = N >= 24)) +
-  geom_col(width = .01) +
+             fill = n >= 24, color = n >= 24)) +
+  geom_col(width = .005) +
   scale_fill_viridis_d(option = "B", end = .6) +
+  scale_color_viridis_d(option = "B", end = .6) +
   ggtitle("Implied Sampling Distribution") +
   theme(panel.grid = element_blank(),
         legend.position = "none")
@@ -534,7 +683,7 @@ flips %>%
 Here's the lower left panel for Figure 11.10.
 
 ```{r, fig.width = 2.75, fig.height = 3.5}
-tibble(y      = c("tail", "head") %>% factor(., levels = c("tail", "head")),
+tibble(y      = factor(c("tail", "head"), levels = c("tail", "head")),
        `p(y)` = c(1 - .135, .135)) %>% 
   
   ggplot(aes(x = y, y = `p(y)`)) +
@@ -549,7 +698,7 @@ tibble(y      = c("tail", "head") %>% factor(., levels = c("tail", "head")),
 After switching out a few theta values, here's the lower right panel of Figure 11.10.
 
 ```{r, fig.width = 2.75, fig.height = 3.5}
-tibble(y      = c("tail", "head") %>% factor(., levels = c("tail", "head")),
+tibble(y      = factor(c("tail", "head"), levels = c("tail", "head")),
        `p(y)` = c(1 - .497, .497)) %>% 
   
   ggplot(aes(x = y, y = `p(y)`)) +
@@ -576,11 +725,11 @@ tibble(seed = 1:100) %>%
   mutate(z = map(seed, z_maker)) %>% 
   unnest() %>% 
   group_by(seed) %>% 
-  mutate(N = n()) %>% 
-  mutate(N_choose_z = N_choose_z(N, z)) %>% 
-  mutate(`p(z/N)`   = N_choose_z / sum(N_choose_z),
-         `Sample Proportion z/N` = z/N) %>%
-  mutate(`p(N|z,theta)` = (z / N) * N_choose_z * (theta^z) * (1 - theta)^(N - z)) %>% 
+  mutate(n = n()) %>% 
+  mutate(n_choose_z  = n_choose_z(n, z)) %>% 
+  mutate(`p(z/N)`    = n_choose_z / sum(n_choose_z),
+         `Sample Proportion z/N` = z / n,
+         `p(N|z,theta)` = (z / n) * n_choose_z * (theta^z) * (1 - theta)^(n - z)) %>% 
   
   ggplot(aes(x = `Sample Proportion z/N`, y = `p(N|z,theta)`,
              fill = `Sample Proportion z/N` >= 7 / 24)) +
@@ -597,11 +746,11 @@ tibble(seed = 1:100) %>%
   mutate(z = map(seed, z_maker)) %>% 
   unnest() %>% 
   group_by(seed) %>% 
-  mutate(N = n()) %>% 
-  mutate(N_choose_z = N_choose_z(N, z)) %>% 
-  mutate(`p(z/N)`   = N_choose_z / sum(N_choose_z),
-         `Sample Proportion z/N` = z / N) %>%
-  mutate(`p(N|z,theta)` = (z / N) * N_choose_z * (theta^z) * (1 - theta)^(N - z)) %>% 
+  mutate(n = n()) %>% 
+  mutate(n_choose_z  = n_choose_z(n, z)) %>% 
+  mutate(`p(z/N)`    = n_choose_z / sum(n_choose_z),
+         `Sample Proportion z/N` = z / n,
+         `p(N|z,theta)` = (z / n) * n_choose_z * (theta^z) * (1 - theta)^(n - z)) %>% 
   
   ggplot(aes(x = `Sample Proportion z/N`, y = `p(N|z,theta)`,
              fill = `Sample Proportion z/N` <= 7 / 24)) +
@@ -614,30 +763,30 @@ tibble(seed = 1:100) %>%
 Let's leave failure behind. Here's the upper left panel for Figure 11.11.
 
 ```{r, fig.width = 2.75, fig.height = 3.5}
-tibble(y = c("tail", "head") %>% factor(., levels = c("tail", "head")),
+tibble(y      = factor(c("tail", "head"), levels = c("tail", "head")),
        `p(y)` = c(1 - .11, .11)) %>% 
   
   ggplot(aes(x = y, y = `p(y)`)) +
   geom_col() +
   coord_cartesian(ylim = 0:1) +
-  labs(title = "Hypothetical Population",
+  labs(title    = "Hypothetical Population",
        subtitle = expression(paste(theta[1], " = .11; ", theta[2], " = .11"))) +
-  theme(panel.grid = element_blank(),
+  theme(panel.grid   = element_blank(),
         axis.ticks.x = element_blank())
 ```
 
 And the lower panel for Figure 11.11.
 
 ```{r, fig.width = 2.75, fig.height = 3.5}
-tibble(y = c("tail", "head") %>% factor(., levels = c("tail", "head")),
+tibble(y      = factor(c("tail", "head"), levels = c("tail", "head")),
        `p(y)` = c(1 - .539, .539)) %>% 
   
   ggplot(aes(x = y, y = `p(y)`)) +
   geom_col() +
   coord_cartesian(ylim = 0:1) +
-  labs(title = "Hypothetical Population",
+  labs(title    = "Hypothetical Population",
        subtitle = expression(paste(theta[1], " = .539; ", theta[2], " = .539"))) +
-  theme(panel.grid = element_blank(),
+  theme(panel.grid   = element_blank(),
         axis.ticks.x = element_blank())
 ```
 
@@ -647,11 +796,18 @@ Much like with Figure 11.6, I don't understand how to do the simulation properly
 
 > A CI is merely two end points. A common misconception of a confidence interval is that it indicates some sort of probability distribution over values of $\theta$. It is very tempting to think that values of $\theta$ in the middle of a CI should be more believable than values of $\theta$ at or beyond the limits of the CI.
 >
-... methods for imposing a distribution upon a CI seem to be motivated by a natural Bayesian intuition: Parameter values that are consistent with the data should be more credible than parameter values that are not consistent with the data (subject to prior credibility). If we were confined to frequentist methods, then the various proposals outlined above would be expressions of that intuition. But we are not confined to frequentist methods. Instead, we can express our natural Bayesian intuitions in fully Bayesian formalisms. (pp. 323--324)
+... Methods for imposing a distribution upon a CI seem to be motivated by a natural Bayesian intuition: Parameter values that are consistent with the data should be more credible than parameter values that are not consistent with the data (subject to prior credibility). If we were confined to frequentist methods, then the various proposals outlined above would be expressions of that intuition. But we are not confined to frequentist methods. Instead, we can express our natural Bayesian intuitions in fully Bayesian formalisms. (pp. 323--324)
 
 ### Bayesian HDI.
 
 "The 95% HDI consists of those values of $\theta$ that have at least some minimal level of posterior credibility, such that the total probability of all such $\theta$ values is 95%" (p. 324).
+
+Once again, here's how to analytically compute the 95% HDIs for our example of $z = 7, N = 24$ and the prior of $\operatorname{beta} (11, 11)$.
+
+```{r}
+hdi_of_icdf(shape1 = 11 + z,
+            shape2 = 11 + (n - z))
+```
 
 ## Multiple comparisons
 
@@ -660,6 +816,10 @@ It's worth quoting Kruschke at length:
 > When comparing multiple conditions, a key goal in NHST is to keep the overall false alarm rate down to a desired maximum such as 5%. Abiding by this constraint depends on the number of comparisons that are to be made, which in turn depends on the intentions of the experimenter. In a Bayesian analysis, however, there is just one posterior distribu- tion over the parameters that describe the conditions. That posterior distribution is unaffected by the intentions of the experimenter, and the posterior distribution can be examined from multiple perspectives however is suggested by insight and curiosity. (p. 325)
 
 ### NHST correction for experiment wise error.
+
+> In NHST, we have to take into account all comparisons we intend for the whole experiment. Suppose we set a criterion for rejecting the null such that each decision has a "per-comparison" (PC) false alarm rate of $\alpha_\text{PC}$, e.g., 5%. Our goal is to determine the overall false alarm rate when we conduct several comparisons. To get there, we do a little algebra. First, suppose the null hypothesis is true, which means that the groups are identical, and we get apparent differences in the samples by chance alone. This means that we get a false alarm on a proportion $\alpha_\text{PC}$ of replications of a comparison test. Therefore, we do *not* get a false alarm on the complementary proportion $1 - \alpha_\text{PC}$ of replications. If we run *c* independent comparison tests, then the probability of not getting a false alarm on *any* of the tests is $(1 - \alpha_\text{PC})^c$. Consequently, the probability of getting at least one false alarm is $1 - (1 - \alpha_\text{PC})^c$. We call that probability of getting at least one false alarm, across all the comparisons in the experiment, the "experimentwise" false alarm rate, denoted $\alpha_\text{EW}$. (pp. 325--326, *emphasis* in the original)
+
+Here's what this looks like in action.
 
 ```{r}
 alpha_pc <- .05
@@ -696,6 +856,13 @@ tibble(c = 1:100) %>%
   theme(panel.grid = element_blank(),
         legend.position = "none")
 ```
+
+One way to keep the experimentwise false alarm rate down to 5% is by reducing the
+permitted false alarm rate for the individual comparisons, i.e., setting a more stringent
+criterion for rejecting the null hypothesis in individual comparisons. One often-used re-
+setting is the Bonferonni correction, which sets $\alpha_\text{PC} = \alpha_\text{EW}^\text{desired} / c$.
+
+Here's how to apply the Bonferonni correction to our example if the desired false-alarm rate is .05.
 
 ```{r}
 alpha_pc <- .05
@@ -734,9 +901,7 @@ But just look at how low the values on the y-axis get.
 
 ### Just one Bayesian posterior no matter how you look at it.
 
-Kruschke:
-
-> In a Bayesian analysis, the interpretation of the data is not influenced by the experimenter’s stopping and testing intentions (assuming that those intentions do not affect the data). A Bayesian analysis yields a posterior distribution over the parameters of the model. The posterior distribution is the complete implication of the data. The posterior distribution can be examined in as many different ways as the analyst deems interesting; various comparisons of groups are merely different perspectives on the posterior distribution. (p. 328)
+> In a Bayesian analysis, the interpretation of the data is not influenced by the experimenter's stopping and testing intentions (assuming that those intentions do not affect the data). A Bayesian analysis yields a posterior distribution over the parameters of the model. The posterior distribution is the complete implication of the data. The posterior distribution can be examined in as many different ways as the analyst deems interesting; various comparisons of groups are merely different perspectives on the posterior distribution. (p. 328)
 
 ### How Bayesian analysis mitigates false alarms.
 
@@ -754,9 +919,9 @@ Gelman touched on these sensibilities in a [recent blog post](http://andrewgelma
 
 There's no shortage of ppc talk on Gelman's blog (e.g., [here](http://andrewgelman.com/2017/09/07/touch-want-feel-data/) or [here](http://andrewgelman.com/2014/08/11/discussion-sander-greenland-posterior-predictive-checks/) or [here](http://andrewgelman.com/2009/02/07/confusions_abou/)).
 
-## References {-}
+## Reference {-}
 
-Kruschke, J. K. (2015). *Doing Bayesian data analysis, Second Edition: A tutorial with R, JAGS, and Stan.* Burlington, MA: Academic Press/Elsevier.
+[Kruschke, J. K. (2015). *Doing Bayesian data analysis, Second Edition: A tutorial with R, JAGS, and Stan.* Burlington, MA: Academic Press/Elsevier.](https://sites.google.com/site/doingbayesiandataanalysis/)
 
 ## Session info {-}
 
@@ -766,5 +931,14 @@ sessionInfo()
 
 ```{r, message = F, warning = F, echo = F}
 # Here we'll remove our objects
-rm(h_counter, coins, N, z, N_choose_z, flips, Bernoulli_likelihood, trial_data, d_nail, d_coin, plot_1, plot_2, plot_3, theta, alpha_pc, c)
+rm(h_counter, coins, n, z, n_choose_z, flips, highest_n, bernoulli_likelihood, trial_data, d_nail, d_coin, plot_1, plot_2, plot_3, hdi_of_icdf, theta, alpha_pc, c, z_maker, n_iter)
 ```
+
+```{r, echo = F, message = F, warning = F, results = "hide"}
+pacman::p_unload(pacman::p_loaded(), character.only = TRUE)
+
+ggplot2::theme_set(ggplot2::theme_grey())
+
+bayesplot::color_scheme_set("blue")
+```
+
