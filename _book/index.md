@@ -1,8 +1,8 @@
 --- 
 title: "*Doing Bayesian Data Analysis* in brms and the tidyverse"
-subtitle: "version 0.0.2"
+subtitle: "version 0.0.3"
 author: ["A Solomon Kurz"]
-date: "2019-10-27"
+date: "2019-11-09"
 site: bookdown::bookdown_site
 output: bookdown::gitbook
 documentclass: book
@@ -27,14 +27,14 @@ This project is not meant to stand alone. It's a supplement to the second editio
 
 ## Caution: Work in progress {-}
 
-The first release of this project only contains Chapters 1 through 5. Welcome to version 0.0.2! The notable updates are:
+The first release of this project only contained Chapters 1 through 5. Version 0.0.2 added Chapters 6 through 10. Welcome to version 0.0.3! The notable updates are:
 
-* the addition of Chapters 6 through 10 and
-* minor typo fixes to Chapter 5.
+* the addition of Chapters 11, 12, and 15 through 18
+* a minor typo fix in Chapter 8.
 
-Version 0.0.2 is also noteworthy in that it's the first version containing an incomplete chapter. At present, I do not know how to perform the simulation for Figure 7.3, nor do I understand how to run Kruschke's effective sample size simulations from subsection 7.5.2. Fans of this project are welcome to share solutions to those sections in the [Issues section of the GitHub repository for this project](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues).
+Version 0.0.3 is noteworthy in that it's the first version containing placeholder chapters. To accommodate the formatting conventions of the [bookdown package](https://bookdown.org/), I included Chapters 13 and 14, though their content is not yet fleshed out. Of greater interest, Chapter 11 in Kruschke's text contains several examples I have yet to sucessfully reproduce. They and other difficulties are detailed in the GitHub [progress log](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues/1). If you would like to share your solutions to those sections or any other section in the project, please open an [issue in this project's GitHub repository](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues). It would be a tremendous help.
 
-Most of the remaining chapters have completed drafts and just need another round of edits. I'll add them, soon. In addition to checking in here, you can follow my GitHub [progress log](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues/1), in which I will point out other figures or sections I'm having trouble with.
+Many of the remaining chapters have completed drafts and just need another round of edits. I'll add them, soon.
 
 
 
