@@ -16,7 +16,7 @@ load("20_fits.rda")
 
 # Metric Predicted Variable with Multiple Nominal Predictors
 
-> This chapter considers data structures that consist of a metric predicted variable and two (or more) nominal predictors. This chapter extends ideas introduced in the previous chapter, so please read the previous chapter if you have not already....
+> This chapter considers data structures that consist of a metric predicted variable and two (or more) nominal predictors. This chapter extends ideas introduced in the previous chapter, so please read the previous chapter if you have not already...
 >
 > The traditional treatment of this sort of data structure is called multifactor analysis of variance (ANOVA). Our Bayesian approach will be a hierarchical generalization of the traditional ANOVA model. The chapter also considers generalizations of the traditional models, because it is straight forward in Bayesian software to implement heavy-tailed distributions to accommodate outliers, along with hierarchical structure to accommodate heterogeneous variances in the different groups. (pp. 583--584)
 
@@ -24,26 +24,21 @@ load("20_fits.rda")
 
 Quick reprise:
 
-> Suppose we have two nominal predictors, denoted $\overrightarrow x_1$ and $\overrightarrow x_2$. A datum from the $j$th level of $\overrightarrow x_1$ is denoted $x_{1[j]}$, and analogously for the second factor. The predicted value is a baseline plus a deflection due to the level of factor 1 plus a deflection due to the level of factor 2 plus a residual deflection due to the interaction of factors:
+Suppose we have two nominal predictors, denoted $\overrightarrow x_1$ and $\overrightarrow x_2$. A datum from the $j$th level of $\overrightarrow x_1$ is denoted $x_{1[j]}$, and analogously for the second factor. The predicted value is a baseline plus a deflection due to the level of factor 1 plus a deflection due to the level of factor 2 plus a residual deflection due to the interaction of factors:
 >
->$$
->\begin{eqnarray}
->\mu & = & \beta_0 + \overrightarrow \beta_1 \cdot \overrightarrow x_1 + \overrightarrow \beta_2 \cdot \overrightarrow x_2 + \overrightarrow \beta_{1 \times 2} \cdot \overrightarrow x_{1 \times 2} \\
->& = & \beta_0 + \sum_j \beta_{1[j]} x_{1[j]} + \sum_k \beta_{2[k]} x_{2[k]} + \sum_{j, k} \beta_{1 \times 2[j, k]} x_{1 \times 2[j, k]}
->\end{eqnarray}
->$$
+> \begin{align*}
+> \mu & = \beta_0 + \overrightarrow \beta_1 \cdot \overrightarrow x_1 + \overrightarrow \beta_2 \cdot \overrightarrow x_2 + \overrightarrow \beta_{1 \times 2} \cdot \overrightarrow x_{1 \times 2} \\
+> & = \beta_0 + \sum_j \beta_{1[j]} x_{1[j]} + \sum_k \beta_{2[k]} x_{2[k]} + \sum_{j, k} \beta_{1 \times 2[j, k]} x_{1 \times 2[j, k]}
+> \end{align*}
 >
 > The deflections within factors and within the interaction are constrained to sum to zero:
 >
->$$
->\begin{eqnarray}
->\sum_j \beta_{1[j]} = 0 & \;\;\;\; \text{ and } \;\;\;\; & \sum_k \beta_{2[k]} = 0 \;\;\;\; \text{ and} \\
->\sum_j \beta_{1 \times 2[j, k]} = 0 \text{ for all } k & \;\;\;\; \text{ and } \;\;\;\; & \sum_k \beta_{1 \times 2[j, k]} = 0 \text{ for all } j
->\end{eqnarray}
->$$
+> \begin{align*}
+> \sum_j \beta_{1[j]} = 0                                &&& \text{and} && \sum_k \beta_{2[k]} = 0 \;\;\; \text{and} \\
+> \sum_j \beta_{1 \times 2[j, k]} = 0 \text{ for all } k &&& \text{and} && \sum_k \beta_{1 \times 2[j, k]} = 0 \text{ for all } j
+> \end{align*}
 >
-> ([these equations] are repetitions of Equations 15.9 and 15.10, p. 434). The actual
-data are assumed to be randomly distributed around the predicted value. (pp. 584--585)
+> ([these equations] are repetitions of Equations 15.9 and 15.10, p. 434). The actual data are assumed to be randomly distributed around the predicted value. (pp. 584--585)
 
 ### Interaction.
 
@@ -84,9 +79,8 @@ p <-
                        labels = c("x2[1]", "x2[2]")) +
   scale_x_continuous(breaks = c(-1, 1),
                      labels = c("x1[1]", "x1[2]")) +
-  scale_y_continuous(breaks = seq(from = 0, to = 10, by = 2)) +
+  scale_y_continuous(expression(mu), breaks = seq(from = 0, to = 10, by = 2)) +
   coord_cartesian(ylim = 0:10) +
-  ylab(expression(mu)) +
   theme(panel.grid        = element_blank(),
         axis.ticks.x      = element_blank(),
         legend.position   = c(.17, .875),
@@ -96,10 +90,10 @@ p <-
 p
 ```
 
-Now we have `p`, we’ll add panel-specific elements to it, which we’ll save as individual objects, `p1`, `p2`, and `p3`. That’s step 2. Then for step 3, we’ll bring them all together with `grid.arrange()`.
+Now we have `p`, we'll add panel-specific elements to it, which we'll save as individual objects, `p1`, `p2`, and `p3`. That's step 2. Then for step 3, we'll bring them all together with `grid.arrange()`.
 
 ```{r, fig.height = 3, fig.width = 8.25, warning = F, message = F}
-# Deflection from additive
+# deflection from additive
 p1 <-
   p +
   geom_segment(aes(x = x1_offset, xend = x1_offset,
@@ -113,7 +107,7 @@ p1 <-
   coord_cartesian(ylim = 0:10) +
   ggtitle("Deflection from additive")
   
-# Effect of x1 depends on x2
+# effect of x1 depends on x2
 p2 <-
   p +
   geom_segment(aes(x = x1_offset, xend = x1_offset,
@@ -126,7 +120,7 @@ p2 <-
             size = 1.25) +
   ggtitle("Effect of x1 depends on x2")
 
-# Effect of x2 depends on x1
+# effect of x2 depends on x1
 p3 <-
   p +
   geom_segment(aes(x = x1_offset, xend = x1_offset,
@@ -150,7 +144,7 @@ And in case it's not clear, "the average deflection from baseline due to a predi
 
 ### Traditional ANOVA.
 
-> The Bayesian approach is not ANOVA, but is analogous to ANOVA. Traditional ANOVA makes decisions about equality of groups (i.e., null hypotheses) on the basis of $p$ values using a null hypothesis that assumes (i) the data are normally distributed within groups, and (ii) the standard deviation of the data within each group is the same for all groups. The second assumption is sometimes called "homogeneity of variance." The entrenched precedent of ANOVA is why basic models of grouped data make those assumptions, and why the basic models presented in this chapter will also make those assumptions. Later in the chapter, those constraints will be relaxed. (pp. 587--588)
+> As was explained in Section 19.2 (p. 556), the terminology, "analysis of variance," comes from a decomposition of overall data variance into within-group variance and between-group variance... The Bayesian approach is not ANOVA, but is analogous to ANOVA. Traditional ANOVA makes decisions about equality of groups (i.e., null hypotheses) on the basis of $p$ values using a null hypothesis that assumes (i) the data are normally distributed within groups, and (ii) the standard deviation of the data within each group is the same for all groups. The second assumption is sometimes called "homogeneity of variance." The entrenched precedent of ANOVA is why basic models of grouped data make those assumptions, and why the basic models presented in this chapter will also make those assumptions. Later in the chapter, those constraints will be relaxed. (pp. 587--588)
 
 ## Hierarchical Bayesian approach 
 
@@ -158,7 +152,7 @@ And in case it's not clear, "the average deflection from baseline due to a predi
 
 ### Implementation in ~~JAGS~~ brms.
 
-Below is how to implement the model based on the code from Kruschke's `Jags-Ymet-Xnom2fac-MnormalHom.R` and `Jags-Ymet-Xnom2fac-MnormalHom-Example.R` scripts. In brms, we'll need to specify the `stanvars`.
+Below is how to implement the model based on the code from Kruschke's `Jags-Ymet-Xnom2fac-MnormalHom.R` and `Jags-Ymet-Xnom2fac-MnormalHom-Example.R` scripts. With **brms**, we'll need to specify the `stanvars`.
 
 ```{r, eval = F}
 mean_y <- mean(my_data$y)
@@ -205,12 +199,12 @@ If you have reason to use different priors for the random effects, you can alway
 
 The big new element is multiple `(|)` parts in the `formula`. In this simple model type, we're only working random intercepts, in this case with two factors and their interaction. The `formula` above presumes the interaction is not itself coded within the data. But consider the case you have data including a term for the interaction of the two lower-level factors, called `interaction`. In that case, you'd have that last part of the `formula` read `(1 | interaction)`, instead. 
 
-### Example: It’s only money.
+### Example: It's only money.
 
 Load the salary data.
 
 ```{r, message = F, warning = F}
-my_data <- read_csv("data.R/Salary.csv")
+my_data <- read_csv("/Users/solomon/Dropbox/Recoding Doing Bayesian Data Analysis/data.R/Salary.csv")
 
 glimpse(my_data)
 ```
@@ -226,19 +220,20 @@ my_data <-
                       labels  = c("Assis", "Assoc", "Full", "Endow", "Disting")))
 ```
 
-With 1080 cases, two factors, and a criterion, these data are a little too unwieldy to look at the individual case level. But if we're tricky on how we aggregate, we can get a good sense of their structure with a `geom_tile()` plot. Here our strategy is to aggregate by our two factors, `Pos` and `Org`. Since our criterion is `Salary`, we'll compute the mean value of the cases within each unique paring, encoded as `m_Salary`. Also, we'll get a sense of how many cases there are within each factor pairing with `n`.
+With 1080 cases, two factors, and a criterion, these data are a little too unwieldy to look at the individual case level. But if we're tricky on how we aggregate, we can get a good sense of their structure with a `geom_tile()` plot. Here our strategy is to aggregate by our two factors, `Pos` and `Org`. Since our criterion is `Salary`, we'll compute the mean value of the cases within each unique paring, encoded as `m_salary`. Also, we'll get a sense of how many cases there are within each factor pairing with `n`.
 
 ```{r, fig.width = 9, fig.height = 2.5}
 my_data %>% 
   group_by(Pos, Org) %>% 
-  summarise(m_Salary = mean(Salary),
-            n = n()) %>% 
+  summarise(m_salary = mean(Salary),
+            n        = n()) %>% 
+  ungroup() %>% 
+  mutate(Org = fct_reorder(Org, m_salary),
+         Pos = fct_reorder(Pos, m_salary)) %>% 
   
-  ggplot(aes(x = reorder(Org, m_Salary), 
-             y = reorder(Pos, m_Salary), 
-             fill = m_Salary)) +
+  ggplot(aes(x = Org, y = Pos, fill = m_salary)) +
   geom_tile() +
-  geom_text(aes(label = n, color = m_Salary > 170000),
+  geom_text(aes(label = n, color = m_salary > 170000),
             size = 2.75) +
   # everything below this is really just aesthetic flourish
   scale_fill_viridis_c("median Salary", option = "D", 
@@ -254,9 +249,9 @@ my_data %>%
         axis.text.y = element_text(hjust = 0))
 ```
 
-Hopefully it’s clear that each cell is a unique pairing of `Org` and `Pos`. The cells are color coded by the mean `Salary`. The numbers in the cells give the $n$ cases they represent. When there’s no data for a unique combination of `Org` and `Pos`, the cells are left light gray blank.
+Hopefully it's clear that each cell is a unique pairing of `Org` and `Pos`. The cells are color coded by the mean `Salary`. The numbers in the cells give the $n$ cases they represent. When there's no data for a unique combination of `Org` and `Pos`, the cells are left light gray and blank.
 
-Load brms.
+Load **brms**.
 
 ```{r, warning = F, message = F}
 library(brms)
@@ -282,7 +277,16 @@ stanvars <-
 
 Now fit the model.
 
-```{r fit1, cache = T, warning = F, message = F}
+```{r, echo = F, warning = F, message = F}
+# too large and slow to fit multiple times
+
+save("fit1", file = "/Users/solomon/Dropbox/Recoding Doing Bayesian Data Analysis/fits/20_fit1.rda")
+rm(fit1)
+
+load("/Users/solomon/Dropbox/Recoding Doing Bayesian Data Analysis/fits/20_fit1.rda")
+```
+
+```{r fit1, eval = F}
 fit1 <-
   brm(data = my_data,
       family = gaussian,
@@ -309,7 +313,7 @@ Here's the model summary.
 print(fit1)
 ```
 
-This was a difficult model to fit in brms. Stan does well when the criteria are on or close to a standardized metric. These `Salary` data are a far far cry from that. Tuning `adapt_delta` and `max_treedepth` helped a bit, but the effective samples are still modest given the number of iterations.
+This was a difficult model to fit with **brms**. Stan does well when the criteria are on or close to a standardized metric. These `Salary` data are a far far cry from that. Tuning `adapt_delta` and `max_treedepth` helped a bit, but the effective samples are still modest given the number of iterations.
 
 Okay, let's get ready for our version of Figure 20.3. First, we'll use `tidybayes::add_fitted_draws()` to help organize the necessary posterior draws.
 
@@ -331,8 +335,8 @@ f <-
   mutate(ll      = qnorm(.025, mean = mu, sd = sigma),
          ul      = qnorm(.975, mean = mu, sd = sigma)) %>% 
   mutate(Salary  = map2(ll, ul, seq, length.out = 100)) %>% 
-  mutate(density = pmap(list(Salary, mu, sigma), dnorm)) %>% 
   unnest() %>% 
+  mutate(density = dnorm(Salary, mu, sigma)) %>% 
   group_by(.draw) %>% 
   mutate(density = density / max(density)) %>% 
   mutate(Org = factor(Org, levels = c("BFIN", "CHEM", "PSY", "ENG")))
@@ -370,13 +374,13 @@ f %>%
   facet_wrap(~Org, ncol = 2)
 ```
 
-The brms package doesn't have a convenience function that returns output quite like what Kruschke displayed in his Table 20.2. But we can get close. Due to space concerns, I won't show the output, here, but the `posterior_summary()` will return posterior means, $SD$s, and percentile-based 95% intervals for all model parameters.
+The **brms** package doesn't have a convenience function that returns output quite like what Kruschke displayed in his Table 20.2. But we can get close. The `posterior_summary()` will return posterior means, $SD$s, and percentile-based 95% intervals for all model parameters. Due to space concerns, I'll just show the first ten lines.
 
-```{r, eval = F}
-posterior_summary(fit1)
+```{r}
+posterior_summary(fit1)[1:10,]
 ```
 
-I'm not aware of a simple way to extract the effective samples for all parameters within a brms fit object. There is no `effsamples()` function. However, we do have `neff_ratio()`, which returns a named vector of the ratios. For space constraints, here we look at the first ten values.
+I'm not aware of a simple way to extract the effective samples for all parameters within a **brms** fit object. There is no `effsamples()` function. However, we do have `neff_ratio()`, which returns a named vector of the ratios. For space constraints, here we look at the first ten values.
 
 ```{r}
 neff_ratio(fit1)[1:10]
@@ -392,7 +396,7 @@ And now we have `n_iter`, we can calculate the 'Eff.Sample' values.
 
 ```{r}
 neff_ratio(fit1) %>% 
-  as.data.frame() %>% 
+  data.frame() %>% 
   rownames_to_column() %>% 
   set_names("parameter", "neff_ratio") %>% 
   mutate(eff_sample = (neff_ratio * n_iter) %>% round(digits = 0)) %>% 
@@ -470,7 +474,7 @@ Comparisons that "involve levels of a single factor and collapse across the othe
 
 Here's the first contrast.
 
-```{r, fig.width = 3, fig.height = 2.5}
+```{r, fig.width = 3, fig.height = 2.5, warning = F, message = F}
 # define the new data
 nd <- 
   tibble(Pos = c("Assis", "Assoc"),
@@ -479,9 +483,9 @@ nd <-
 # feed the new data into `fitted()`
 f <-
   fitted(fit1,
-       newdata = nd,
-       summary = F,
-       allow_new_levels = T) %>% 
+         newdata = nd,
+         summary = F,
+         allow_new_levels = T) %>% 
   as_tibble() %>% 
   set_names("Assis", "Assoc") %>% 
   mutate(`Assoc vs Assis` = Assoc - Assis)
@@ -501,7 +505,7 @@ f %>%
 
 In case you were curious, here are the summary statistics.
 
-```{r}
+```{r, warning = F, message = F}
 f %>% 
   mode_hdi(`Assoc vs Assis`) %>% 
   select(`Assoc vs Assis`:.upper) %>% 
@@ -517,9 +521,9 @@ nd <-
 
 f <-
   fitted(fit1,
-       newdata = nd,
-       summary = F,
-       allow_new_levels = T) %>% 
+         newdata = nd,
+         summary = F,
+         allow_new_levels = T) %>% 
   as_tibble() %>% 
   set_names("BFIN", "CHEM", "ENG", "PSY") %>% 
   transmute(`CHEM vs PSY`     = CHEM - PSY,
@@ -542,7 +546,7 @@ f %>%
 
 And here are their numeric summaries.
 
-```{r}
+```{r, warning = F, message = F}
 f %>% 
   gather(contrast, mode) %>% 
   group_by(contrast) %>% 
@@ -552,22 +556,33 @@ f %>%
   mutate_if(is.double, round, digits = 0)
 ```
 
-**Side note:** For further discussion on marginal contrasts in brms, see [this discussion](https://github.com/paul-buerkner/brms/issues/552) on the brms GitHub issues section and [this discussion](https://discourse.mc-stan.org/t/how-do-i-get-marginal-effects-for-categorical-variables-to-condition-on-an-average-rather-than-a-category/5323) in the Stan user forums.
+For further discussion on marginal contrasts in **brms**, see [this discussion](https://github.com/paul-buerkner/brms/issues/552) on the **brms** GitHub issues section and [this discussion](https://discourse.mc-stan.org/t/how-do-i-get-marginal-effects-for-categorical-variables-to-condition-on-an-average-rather-than-a-category/5323) in the Stan user forums.
 
 ### Interaction contrasts and simple effects.
 
-If we'd like to make the simple effects and interaction contrasts like Kruschke displayed in Figure 20.5 within our tidyverse/brms paradigm, it'll be simplest to just redefine our `nd` data and use `fitted()`, again.
+If we'd like to make the simple effects and interaction contrasts like Kruschke displayed in Figure 20.5 within our **tidyverse**/**brms** paradigm, it'll be simplest to just redefine our `nd` data and use `fitted()`, again.
+
+
+ˆ
+```{r}
+crossing(Pos = c("Assis", "Full"),
+         Org = c("CHEM", "PSY"))
+
+
+  tibble(Pos = c("Assis", "Full")) %>% 
+  expand(Pos, Org = c("CHEM", "PSY")) 
+```
 
 ```{r}
 # define our new data
 nd <-
-  tibble(Pos = c("Assis", "Full")) %>% 
-  expand(Pos, Org = c("CHEM", "PSY")) 
+  crossing(Pos = c("Assis", "Full"),
+           Org = c("CHEM", "PSY")) 
 
 # we need to update our col_names
 brief_col_names <-
-  tibble(Pos = c("Assis", "Full")) %>% 
-  expand(Pos, Org = c("CHEM", "PSY")) %>% 
+  crossing(Pos = c("Assis", "Full"),
+           Org = c("CHEM", "PSY")) %>% 
   unite(key, Pos, Org) %>% 
   pull()
 
@@ -579,8 +594,8 @@ f1 <-
   # wrangle
   as_tibble() %>% 
   set_names(brief_col_names) %>% 
-  mutate(`Full - Assis @ PSY`  = Full_PSY - Assis_PSY,
-         `Full - Assis @ CHEM` = Full_CHEM - Assis_CHEM) %>% 
+  mutate(`Full - Assis @ PSY`          = Full_PSY - Assis_PSY,
+         `Full - Assis @ CHEM`         = Full_CHEM - Assis_CHEM) %>% 
   mutate(`Full.v.Assis (x) CHEM.v.PSY` = `Full - Assis @ CHEM` - `Full - Assis @ PSY`)
 
 # what have we done?
@@ -615,25 +630,25 @@ f1 %>%
             aes(y = y, label = label),
             color = "white", size = 5) +
   scale_y_continuous(NULL, breaks = NULL) +
-  labs(x     = "Difference") +
+  xlab("Difference") +
   theme(panel.grid = element_blank()) +
   facet_wrap(~key, scales = "free_y")
 ```
 
 If it was really important that the labels in the x-axes were different, like they are in Kruschke's Figure 20.5, you could always make the three plots separately and then bind them together with `gridExtra::grid.arrange()`.
 
-Though he didn’t show the results, Kruschke mentioned a few other contrasts we might do at the top of page 598. The example entailed comparing the differences within `BFIN` to the average of the other three. Let’s walk it out.
+Though he didn't show the results, Kruschke mentioned a few other contrasts we might do at the top of page 598. The example entailed comparing the differences within `BFIN` to the average of the other three. Let's walk it out.
 
 ```{r}
 # define our new data
 nd <-
-  tibble(Pos = c("Assis", "Full")) %>% 
-  expand(Pos, Org = c("BFIN", "CHEM", "ENG", "PSY"))
+  crossing(Pos = c("Assis", "Full"),
+           Org = c("BFIN", "CHEM", "ENG", "PSY"))
 
 # we need to update our `brief_col_names`
 brief_col_names <-
-  tibble(Pos = c("Assis", "Full")) %>% 
-  expand(Pos, Org = c("BFIN", "CHEM", "ENG", "PSY")) %>% 
+  crossing(Pos = c("Assis", "Full"),
+           Org = c("BFIN", "CHEM", "ENG", "PSY")) %>% 
   unite(key, Pos, Org) %>% 
   pull()
 
@@ -671,16 +686,16 @@ f2 %>%
   stat_pointintervalh(aes(y = 0),
                       point_interval = mode_hdi, .width = c(.95, .5)) +
   scale_y_continuous(NULL, breaks = NULL) +
-  labs(x     = "Difference") +
+  xlab("Difference") +
   theme(panel.grid = element_blank()) +
   facet_wrap(~key, scales = "free_y", ncol = 2)
 ```
 
-So while the overall pay averages for those in `BFIN` were larger than those in the other three departments, the differences between full and associate professors within `BFIN` wasn’t substantially different from the differences within the other three departments. To be sure, the interquartile range of that last difference distribution fell below both zero and the ROPE, but there’s still a lot of spread in the rest of the distribution.
+So while the overall pay averages for those in `BFIN` were larger than those in the other three departments, the differences between full and associate professors within `BFIN` wasn’t substantially different from the differences within the other three departments. To be sure, the interquartile range of that last difference distribution fell below both zero and the ROPE, but there's still a lot of spread in the rest of the distribution.
 
 #### Interaction effects: High uncertainty and shrinkage.
 
-If we start with our `fitted()` object `f1`, we wrangle a bit, compute the HDIs with `tidybayes::mode_hdi()` and then use simple subtraction to compute the interval range for each difference.
+If we start with our `fitted()` object `f1`, we can wrangle a bit, compute the HDIs with `tidybayes::mode_hdi()` and then use simple subtraction to compute the interval range for each difference.
 
 ```{r}
 f1 %>% 
@@ -701,7 +716,7 @@ Gelman has blogged on this, a bit (e.g., [*You need 16 times the sample size to 
 
 There is also shrinkage.
 
-> The interaction contrasts also can experience notable shrinkage from the hierarchical model. In the present application, for example, there are 300 interaction deflections (5 levels of seniority times 60 departments) that are assumed to come from a higher- level distribution that has an estimated standard deviation, denoted $\sigma_{\beta 1 \times 2}$ in Figure 20.2. Chances are that most of the 300 interaction deflections will be small, and therefore the estimated standard deviation of the interaction deflections will be small, and therefore the estimated deflections themselves will be shrunken toward zero. This shrinkage is inherently neither good nor bad; it is simply the correct consequence of the model assumptions. The shrinkage can be good insofar as it mitigates false alarms about interactions, but the shrinkage can be bad if it inappropriately obscures meaningful interactions.
+> The interaction contrasts also can experience notable shrinkage from the hierarchical model. In the present application, for example, there are 300 interaction deflections (5 levels of seniority times 60 departments) that are assumed to come from a higher- level distribution that has an estimated standard deviation, denoted $\sigma_{\beta 1 \times 2}$ in Figure 20.2. Chances are that most of the 300 interaction deflections will be small, and therefore the estimated standard deviation of the interaction deflections will be small, and therefore the estimated deflections themselves will be shrunken toward zero. This shrinkage is inherently neither good nor bad; it is simply the correct consequence of the model assumptions. The shrinkage can be good insofar as it mitigates false alarms about interactions, but the shrinkage can be bad if it inappropriately obscures meaningful interactions. (p. 598)
 
 Here's that $\sigma_{\beta 1 \times 2}$.
 
@@ -725,7 +740,7 @@ d <-
   tibble(monetary_units = c(10, 12, 15, 18),
          sex            = rep(c("women", "men"), times = 2),
          politics       = rep(c("democrat", "republican"), each = 2)) %>% 
-  mutate(sex_number = ifelse(sex == "women", 1, 2),
+  mutate(sex_number = if_else(sex == "women", 1, 2),
          politics   = factor(politics, levels = c("republican", "democrat")))
 
 d %>% 
@@ -783,6 +798,20 @@ stanvars <-
 
 Recall that to fit a robust hierarchical variances model, we need to wrap our two formulas within the `bf()` function. **Warning**: this one takes a while to fit.
 
+```{r, echo = F, warning = F, message = F}
+# too large and slow to fit multiple times
+
+# As of 11-12-19, this model still needs work. The saved version has one divergent transition. Refit!
+# control = list(adapt_delta = 0.999,
+#                      max_treedepth = 15), yielded one divergent transition (took about 6 hours to fit!)
+      
+
+save("fit2", file = "/Users/solomon/Dropbox/Recoding Doing Bayesian Data Analysis/fits/20_fit2.rda")
+rm(fit2)
+
+load("/Users/solomon/Dropbox/Recoding Doing Bayesian Data Analysis/fits/20_fit2.rda")
+```
+
 ```{r fit2, cache = T, message = F, warning = F}
 fit2 <-
   brm(data = my_data,
@@ -824,8 +853,8 @@ my_data %>%
   mutate(ll      = qt(.025, df = nu),
          ul      = qt(.975, df = nu)) %>% 
   mutate(Salary  = map2(ll, ul, seq, length.out = 100)) %>% 
-  mutate(density = map2(Salary, nu, dt)) %>% 
   unnest() %>%
+  mutate(density = dt(Salary, nu)) %>% 
   # notice the conversion
   mutate(Salary = mu + Salary * sigma) %>% 
   group_by(.draw) %>% 
@@ -857,7 +886,7 @@ my_data %>%
   facet_wrap(~Org, ncol = 2)
 ```
 
-Our results for the bottom panel of Figure 20.8 will differ fundamentally from Kruschke's. Recall that Kurschke modeled $\sigma_{[j, k](i)}$ with a hierarchical gamma distribution and using the $\omega + \sigma$ parameterization. We, however, modeled our hierarchical log(sigma) with the typical normal distribution. As such, we have posteriors for $\sigma_\mu$ and $\sigma_\sigma$. 
+Our results for the bottom panel of Figure 20.8 will differ substantially from Kruschke's. Recall that Kurschke modeled $\sigma_{[j, k](i)}$ with a hierarchical gamma distribution and using the $\omega + \sigma$ parameterization. We, however, modeled our hierarchical $\log (\sigma)$ with the typical normal distribution. As such, we have posteriors for $\sigma_\mu$ and $\sigma_\sigma$. 
 
 ```{r, fig.width = 8, fig.height = 2.5}
 # wrangle
@@ -885,13 +914,13 @@ Though our $\sigma_\mu$ is on a similar metric to Kruschke's $\sigma_\omega$, ou
 ```{r}
 # define our new data
 nd <-
-  tibble(Pos = c("Assis", "Full")) %>% 
-  expand(Pos, Org = c("CHEM", "PSY"))
+  crossing(Pos = c("Assis", "Full"),
+           Org = c("CHEM", "PSY"))
 
 # we need to update our col_names
 brief_col_names <-
-  tibble(Pos = c("Assis", "Full")) %>% 
-  expand(Pos, Org = c("CHEM", "PSY")) %>% 
+  crossing(Pos = c("Assis", "Full"),
+           Org = c("CHEM", "PSY")) %>% 
   unite(key, Pos, Org) %>% 
   pull()
 
@@ -903,8 +932,8 @@ f <-
   # wrangle
   as_tibble() %>% 
   set_names(brief_col_names) %>% 
-  transmute(`Full - Assis @ CHEM` = Full_CHEM - Assis_CHEM,
-            `Full - Assis @ PSY`  = Full_PSY - Assis_PSY) %>% 
+  transmute(`Full - Assis @ CHEM`      = Full_CHEM - Assis_CHEM,
+            `Full - Assis @ PSY`       = Full_PSY - Assis_PSY) %>% 
   mutate(`Full.v.Assis (x) CHEM.v.PSY` = `Full - Assis @ CHEM` - `Full - Assis @ PSY`) %>% 
   gather() %>% 
   mutate(key = factor(key, levels = c("Full - Assis @ PSY", "Full - Assis @ CHEM", "Full.v.Assis (x) CHEM.v.PSY")))
@@ -933,7 +962,7 @@ f %>%
 
 See? Our contrast distributions are really similar those in the text. Here are the numeric estimates.
 
-```{r}
+```{r, warning = F, message = F}
 f %>% 
   group_by(key) %>% 
   mode_hdi(value) %>% 
@@ -941,14 +970,14 @@ f %>%
   mutate_if(is.double, round, digits = 0)
 ```
 
-In the second half of the middle paragraph on page 605, Kruschke contrasted the $\sigma_{\beta 1 \times 2}$ parameter in the two models (i.e., our `fit1` and `fit2`). Recall that in the brms output, these are termed `sd_Pos:Org__Intercept`. Here are the comparisons from our brms models.
+In the second half of the middle paragraph on page 605, Kruschke contrasted the $\sigma_{\beta 1 \times 2}$ parameter in the two models (i.e., our `fit1` and `fit2`). Recall that in the **brms** output, these are termed `sd_Pos:Org__Intercept`. Here are the comparisons from our **brms** models.
 
 ```{r}
 posterior_summary(fit1)["sd_Pos:Org__Intercept", ]
 posterior_summary(fit2)["sd_Pos:Org__Intercept", ]
 ```
 
-Similar to the values in the text. And recall, of course, the `brms::posterior_summary()` function returns posterior means. If you really wanted the posterior modes, like Kruschke reported in the text, you'll have to work a little harder.
+They are similar to the values in the text. And recall, of course, the `brms::posterior_summary()` function returns posterior means. If you really wanted the posterior modes, like Kruschke reported in the text, you'll have to work a little harder.
 
 ```{r}
 posterior_samples(fit1) %>% 
@@ -968,10 +997,13 @@ posterior_samples(fit1) %>%
 "Which model is a better description of the data?... In principle, an intrepid programmer could do a Bayesian model comparison..." (pp. 605--606). We could also examine iformation criteria, like the LOO.
 
 ```{r l_fit1_fit2, cache = T}
-l <- loo(fit1, fit2)
+fit1 <- add_criterion(fit1, "loo")
+fit2 <- add_criterion(fit2, "loo")
+
+l <- loo_compare(fit1, fit2)
 ```
 
-Sigh. Both models had high pareto_k values, suggesting there were outliers relative to what was expected by their likelihoods. Just a little further in the text, Kruschke gives us hints why this might be so: 
+Sigh. Both models had high `pareto_k` values, suggesting there were outliers relative to what was expected by their likelihoods. Just a little further in the text, Kruschke gives us hints why this might be so: 
 
 > Moreover, both models assume that the data within cells are distributed symmetrically above and below their central tendency, either as a normal distribution or a $t$-distribution. The data instead seem to be skewed toward larger values, especially for advanced seniorities. (p. 606)
 
@@ -981,12 +1013,12 @@ Here's the current LOO difference.
 print(l)
 ```
 
-For a more robust model comparison, we might follow the `kfold()` suggestion in the warning. However, be warned; The `kfold()` function entails refitting the model `K` times. Both these models took some time to fit, particularly `fit2`.
+For a more robust model comparison, we might follow the `kfold()` suggestion in the warning. However, be warned: The `kfold()` function entails refitting the model `K` times. Both these models took some time to fit, particularly `fit2`.
 
-But really, "we might want to create a model that describes the data within each cell as a skewed distribution such as a Weibull" (p. 606). Yes, brms can handle Weibull regression (e.g., [here](https://discourse.mc-stan.org/t/fitting-time-to-event-data-with-weibull-hazard-using-brm-function/4638)).
+But really, "we might want to create a model that describes the data within each cell as a skewed distribution such as a Weibull" (p. 606). Yes, **brms** can handle Weibull regression (e.g., [here](https://discourse.mc-stan.org/t/fitting-time-to-event-data-with-weibull-hazard-using-brm-function/4638)).
 
 ```{r, echo = F}
-# these fits are sufficiently large that I’d like to clear them out before moving on
+# these fits are sufficiently large that I'd like to clear them out before moving on
 rm(fit1, fit2)
 ```
 
@@ -994,38 +1026,34 @@ rm(fit1, fit2)
 
 > When every subject contributes many measurements to every cell, then the model of the situation is a straight-forward extension of the models we have already considered. We merely add "subject" as another nominal predictor in the model, with each individual subject being a level of the predictor. If there is one predictor other than subject, the model becomes
 >
-> $$
-> y = \beta_0 + \overrightarrow \beta_1 \overrightarrow x_1 + \overrightarrow \beta_S \overrightarrow x_S + \overrightarrow \beta_{1 \times S} \overrightarrow x_{1 \times S} 
-> $$
+> $$ y = \beta_0 + \overrightarrow \beta_1 \overrightarrow x_1 + \overrightarrow \beta_S \overrightarrow x_S + \overrightarrow \beta_{1 \times S} \overrightarrow x_{1 \times S} $$
 >
 > This is exactly the two-predictor model we have already considered, with the second predictor being subject. When there are two predictors other than subject, the model becomes
 > 
-> $$
-> \begin{eqnarray}
-> y & = & \beta_0 \\
-> && + \overrightarrow \beta_1 \overrightarrow x_1 + \overrightarrow \beta_2 \overrightarrow x_2 + \overrightarrow \beta_S \overrightarrow x_S \\
-> && + \overrightarrow \beta_{1 \times 2} \overrightarrow x_{1 \times 2} + \overrightarrow \beta_{1 \times S} \overrightarrow x_{1 \times S} + \overrightarrow \beta_{2 \times S} \overrightarrow x_{2 \times S} \\
-> && + \overrightarrow \beta_{1 \times 2 \times S} \overrightarrow x_{1 \times 2 \times S} 
-> \end{eqnarray}
-> $$
+> \begin{align*}
+> y = & \; \beta_0 & \text{baseline} \\
+> & + \overrightarrow \beta_1 \overrightarrow x_1 + \overrightarrow \beta_2 \overrightarrow x_2 + \overrightarrow \beta_S \overrightarrow x_S  & \text{main effects} \\
+> & + \overrightarrow \beta_{1 \times 2} \overrightarrow x_{1 \times 2} + \overrightarrow \beta_{1 \times S} \overrightarrow x_{1 \times S} + \overrightarrow \beta_{2 \times S} \overrightarrow x_{2 \times S} & \text{two-way interactions} \\
+> & + \overrightarrow \beta_{1 \times 2 \times S} \overrightarrow x_{1 \times 2 \times S} & \text{three-way interactions}
+> \end{align*}
 > 
 > This model includes all the two-way interactions of the factors, plus the three-way interaction. (p. 607)
 
 In situations in which subjects only contribute one observation per condition/cell, we simplify the model to
 
-$$
-\begin{eqnarray}
-y & = & \beta_0 \\
-&& + \overrightarrow \beta_1 \overrightarrow x_1 + \overrightarrow \beta_2 \overrightarrow x_2 + \overrightarrow \beta_{1 \times 2} \overrightarrow x_{1 \times 2} \\
-&& + \overrightarrow \beta_S \overrightarrow x_S
-\end{eqnarray}
-$$
+\begin{align*}
+y = & \; \beta_0 \\
+& + \overrightarrow \beta_1 \overrightarrow x_1 + \overrightarrow \beta_2 \overrightarrow x_2 + \overrightarrow \beta_{1 \times 2} \overrightarrow x_{1 \times 2} \\
+& + \overrightarrow \beta_S \overrightarrow x_S
+\end{align*}
 
 "In other words, we assume a main effect of subject, but no interaction of subject with other predictors. In this model, the subject effect (deflection) is constant across treatments, and the treatment effects (deflections) are constant across subjects" (p. 608).
 
 ### Why use a within-subject design? And why not?
 
-Kruschke opined "the primary reason to use a within-subject design is that you can achieve greater precision in the estimates of the effects than in a between-subject design" (p. 608). Well, to that I counterpoint: "No one goes to the circus to see the average dog jump through the hoop significantly oftener than untrained does raised under the same circumstances" ([Skinner, 1956](https://pdfs.semanticscholar.org/a113/55f49947e4c77659ec9fa5c6b69bd7798194.pdf), p. 228). And it’s unlikely you’ll make a skillful jumper of your dog without repeated trials. But I digress.
+Kruschke opined "the primary reason to use a within-subject design is that you can achieve greater precision in the estimates of the effects than in a between-subject design" (p. 608). Well, to that I counterpoint: "No one goes to the circus to see the average dog jump through the hoop significantly oftener than untrained does raised under the same circumstances" ([Skinner, 1956](https://pdfs.semanticscholar.org/a113/55f49947e4c77659ec9fa5c6b69bd7798194.pdf), p. 228). And it's unlikely you’ll make a skillful jumper of your dog without repeated trials. There's also the related issue that between- and within-person processes aren't necessarily the same. For an introduction to the issue, see Hamaker's (2012) chapter, [*Why researchers should think "within-person": A paradigmatic rationale*](https://www.researchgate.net/publication/266896375_Why_researchers_should_think_within-person_A_paradigmatic_rationale) or Bolger, Zee, Rossignac-Milon, and Hassin's (2019) paper, [*Causal Processes in Psychology Are Heterogeneous*](https://www.researchgate.net/profile/Niall_Bolger/publication/332358948_Causal_processes_in_psychology_are_heterogeneous/links/5cd9b471a6fdccc9ddaa7879/Causal-processes-in-psychology-are-heterogeneous.pdf).
+
+But we digress.
 
 Here's the 4-subject response time data.
 
@@ -1061,8 +1089,9 @@ To give you a sense of the design, here's a quick visual of what a split plot de
 
 ```{r, fig.width = 3.5, fig.height = 3.5}
 set.seed(20)
-tibble(farmer = str_c("farmer ", 1:4)) %>%
-  expand(farmer, x = 0:2, y = 0:2) %>% 
+crossing(farmer = str_c("farmer ", 1:4),
+         x      = 0:2, 
+         y      = 0:2) %>% 
   group_by(farmer) %>% 
   mutate(fertalizer = sample(letters[1:9], replace = F)) %>% 
   
@@ -1080,7 +1109,7 @@ tibble(farmer = str_c("farmer ", 1:4)) %>%
 Load the agronomy data.
 
 ```{r, warning = F, message = F}
-my_data <- read_csv("data.R/SplitPlotAgriData.csv")
+my_data <- read_csv("/Users/solomon/Dropbox/Recoding Doing Bayesian Data Analysis/data.R/SplitPlotAgriData.csv")
 
 glimpse(my_data)
 ```
@@ -1127,7 +1156,7 @@ stanvars <-
   stanvar(s_r$rate,  name = "beta")
 ```
 
-Fit the model.
+Fit the model with `brm()`.
 
 ```{r fit3, cache = T, warning = F, message = F}
 fit3 <-
