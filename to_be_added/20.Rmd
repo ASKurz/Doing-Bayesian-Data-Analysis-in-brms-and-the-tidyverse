@@ -6,13 +6,9 @@ output:
   github_document
 ---
 
-```{r, echo = F, eval = F}
-# remove this for the bookdown version
-
-# save(list = c("fit1", "fit2"), file = "20_fits.rda")
-load("20_fits.rda")
+```{r, echo = FALSE, cachse = FALSE}
+options(width = 100)
 ```
-
 
 # Metric Predicted Variable with Multiple Nominal Predictors
 
@@ -280,8 +276,8 @@ Now fit the model.
 ```{r, echo = F, warning = F, message = F}
 # too large and slow to fit multiple times
 
-save("fit1", file = "/Users/solomon/Dropbox/Recoding Doing Bayesian Data Analysis/fits/20_fit1.rda")
-rm(fit1)
+# save("fit1", file = "/Users/solomon/Dropbox/Recoding Doing Bayesian Data Analysis/fits/20_fit1.rda")
+# rm(fit1)
 
 load("/Users/solomon/Dropbox/Recoding Doing Bayesian Data Analysis/fits/20_fit1.rda")
 ```
@@ -562,17 +558,6 @@ For further discussion on marginal contrasts in **brms**, see [this discussion](
 
 If we'd like to make the simple effects and interaction contrasts like Kruschke displayed in Figure 20.5 within our **tidyverse**/**brms** paradigm, it'll be simplest to just redefine our `nd` data and use `fitted()`, again.
 
-
-ˆ
-```{r}
-crossing(Pos = c("Assis", "Full"),
-         Org = c("CHEM", "PSY"))
-
-
-  tibble(Pos = c("Assis", "Full")) %>% 
-  expand(Pos, Org = c("CHEM", "PSY")) 
-```
-
 ```{r}
 # define our new data
 nd <-
@@ -697,7 +682,7 @@ So while the overall pay averages for those in `BFIN` were larger than those in 
 
 If we start with our `fitted()` object `f1`, we can wrangle a bit, compute the HDIs with `tidybayes::mode_hdi()` and then use simple subtraction to compute the interval range for each difference.
 
-```{r}
+```{r, warning = F, message = F}
 f1 %>% 
   select(-contains("_")) %>% 
   gather() %>% 
@@ -800,19 +785,13 @@ Recall that to fit a robust hierarchical variances model, we need to wrap our tw
 
 ```{r, echo = F, warning = F, message = F}
 # too large and slow to fit multiple times
-
-# As of 11-12-19, this model still needs work. The saved version has one divergent transition. Refit!
-# control = list(adapt_delta = 0.999,
-#                      max_treedepth = 15), yielded one divergent transition (took about 6 hours to fit!)
-      
-
-save("fit2", file = "/Users/solomon/Dropbox/Recoding Doing Bayesian Data Analysis/fits/20_fit2.rda")
-rm(fit2)
+# save("fit2", file = "/Users/solomon/Dropbox/Recoding Doing Bayesian Data Analysis/fits/20_fit2.rda")
+# rm(fit2)
 
 load("/Users/solomon/Dropbox/Recoding Doing Bayesian Data Analysis/fits/20_fit2.rda")
 ```
 
-```{r fit2, cache = T, message = F, warning = F}
+```{r, eval = F}
 fit2 <-
   brm(data = my_data,
       family = student,
@@ -825,7 +804,7 @@ fit2 <-
                 prior(exponential(one_over_twentynine), class = nu)),
       iter = 4000, warmup = 1000, chains = 4, cores = 4,
       seed = 20,
-      control = list(adapt_delta = 0.999,
+      control = list(adapt_delta = 0.9995,
                      max_treedepth = 15),
       stanvars = stanvars)
 ``` 
@@ -960,7 +939,7 @@ f %>%
   facet_wrap(~key, scales = "free", ncol = 3)
 ```
 
-See? Our contrast distributions are really similar those in the text. Here are the numeric estimates.
+See? Our contrast distributions are really close those in the text. Here are the numeric estimates.
 
 ```{r, warning = F, message = F}
 f %>% 
@@ -979,7 +958,7 @@ posterior_summary(fit2)["sd_Pos:Org__Intercept", ]
 
 They are similar to the values in the text. And recall, of course, the `brms::posterior_summary()` function returns posterior means. If you really wanted the posterior modes, like Kruschke reported in the text, you'll have to work a little harder.
 
-```{r}
+```{r, warning = F, message = F}
 posterior_samples(fit1) %>% 
   transmute(value = `sd_Pos:Org__Intercept`) %>% 
   mutate(key = "fit1") %>% 
@@ -996,11 +975,9 @@ posterior_samples(fit1) %>%
 
 "Which model is a better description of the data?... In principle, an intrepid programmer could do a Bayesian model comparison..." (pp. 605--606). We could also examine iformation criteria, like the LOO.
 
-```{r l_fit1_fit2, cache = T}
+```{r}
 fit1 <- add_criterion(fit1, "loo")
 fit2 <- add_criterion(fit2, "loo")
-
-l <- loo_compare(fit1, fit2)
 ```
 
 Sigh. Both models had high `pareto_k` values, suggesting there were outliers relative to what was expected by their likelihoods. Just a little further in the text, Kruschke gives us hints why this might be so: 
@@ -1010,10 +987,10 @@ Sigh. Both models had high `pareto_k` values, suggesting there were outliers rel
 Here's the current LOO difference.
 
 ```{r}
-print(l)
+loo_compare(fit1, fit2) %>% print(simplify = F)
 ```
 
-For a more robust model comparison, we might follow the `kfold()` suggestion in the warning. However, be warned: The `kfold()` function entails refitting the model `K` times. Both these models took some time to fit, particularly `fit2`.
+For a more robust model comparison, we might follow the `kfold()` suggestion in the warning. However, be warned: The `kfold()` function entails refitting the model `K` times. Both these models took hours to fit, particularly `fit2`.
 
 But really, "we might want to create a model that describes the data within each cell as a skewed distribution such as a Weibull" (p. 606). Yes, **brms** can handle Weibull regression (e.g., [here](https://discourse.mc-stan.org/t/fitting-time-to-event-data-with-weibull-hazard-using-brm-function/4638)).
 
@@ -1085,24 +1062,9 @@ Here there is more variability between subjects than within them, which you'd ne
 
 "Split-plot experiments were invented by [Fisher (1925)](http://psycnet.apa.org/record/1925-15003-000)" (p. 610).
 
-To give you a sense of the design, here's a quick visual of what a split plot design might look like if you had 4 farmers and randomly split their plots of land into 9 subplots, each with a different fertilizer.
+Kruschke then wrote this to set the stage for the next subsection:
 
-```{r, fig.width = 3.5, fig.height = 3.5}
-set.seed(20)
-crossing(farmer = str_c("farmer ", 1:4),
-         x      = 0:2, 
-         y      = 0:2) %>% 
-  group_by(farmer) %>% 
-  mutate(fertalizer = sample(letters[1:9], replace = F)) %>% 
-  
-  ggplot(aes(x = x, y = y)) +
-  geom_tile(aes(fill = fertalizer), show.legend = F) +
-  geom_text(aes(label = fertalizer)) +
-  scale_fill_viridis_d(option = "C", begin = .15) +
-  scale_x_continuous(NULL, breaks = NULL, expand = c(0, 0)) +
-  scale_y_continuous(NULL, breaks = NULL, expand = c(0, 0)) +
-  facet_wrap(~farmer)
-```
+> Consider an agricultural experiment investigating the productivity of different soil tilling methods and different fertilizers. It is relatively easy to provide all the farmers with the several different fertilizers. But it might be relatively difficult to provide all farmers with all the machinery for several different tilling methods. Therefore, any particular farmer will use a single (randomly assigned) tilling method on his whole plot, and tilling methods will differ between whole plots. Each farmer will split his field into subplots and apply all the fertilizers to different (randomly assigned) split plots, and fertilizers will differ across split plots within whole plots. This type of experiment inspires the name, split-plot design. The generic experiment-design term for the farmer's field is "block." Then, the factor that varies within every field is called the within-block factor and the factor that varies between fields is called the between-block factor. Notice also that each split plot yields a single measurement (in this case the productivity measured in bushels per acre), not multiple measurements. (p. 610)
 
 #### Example: Knee high by the fourth of July.
 
@@ -1114,7 +1076,7 @@ my_data <- read_csv("/Users/solomon/Dropbox/Recoding Doing Bayesian Data Analysi
 glimpse(my_data)
 ```
 
-Keeping with our `geom_tile()` method from above, we might visualize the data like this.
+We might use `geom_tile()` to visualize the data like this.
 
 ```{r, fig.width = 6, fig.height = 4}
 my_data %>% 
@@ -1156,9 +1118,17 @@ stanvars <-
   stanvar(s_r$rate,  name = "beta")
 ```
 
-Fit the model with `brm()`.
+Here's how to fit the model with `brm()`.
 
-```{r fit3, cache = T, warning = F, message = F}
+```{r, echo = F, warning = F, message = F}
+# especially with that reloo below, too large and slow to fit multiple times
+# save("fit3", file = "/Users/solomon/Dropbox/Recoding Doing Bayesian Data Analysis/fits/20_fit3.rda")
+# rm(fit3)
+
+load("/Users/solomon/Dropbox/Recoding Doing Bayesian Data Analysis/fits/20_fit3.rda")
+```
+
+```{r, eval = F}
 fit3 <-
   brm(data = my_data,
       family = gaussian,
@@ -1175,7 +1145,7 @@ fit3 <-
 
 #### Results.
 
-Here's the summary.
+Check the summary.
 
 ```{r}
 print(fit3)
@@ -1185,15 +1155,14 @@ We might compare the $\sigma$ posteriors with a plot.
 
 ```{r, fig.width = 8, fig.height = 2.5}
 posterior_samples(fit3) %>% 
-  select(sigma, starts_with("sd")) %>% 
-  gather() %>% 
+  pivot_longer(c(sigma, starts_with("sd"))) %>% 
     
-  ggplot(aes(x = value, y = key)) +
+  ggplot(aes(x = value, y = name)) +
   geom_halfeyeh(point_interval = mode_hdi, .width = c(.5, .95),
                 scale = "width", relative_scale = .9) +
   labs(x = NULL,
        y = NULL) +
-  coord_cartesian(xlim = 0:60,
+  coord_cartesian(xlim = 0:50,
                   ylim = c(1.25, 5.5)) +
   theme(panel.grid   = element_blank(),
         axis.text.y  = element_text(hjust = 0),
@@ -1212,8 +1181,8 @@ my_data %>%
   mutate(ll      = qnorm(.025, mean = mu, sd = sigma),
          ul      = qnorm(.975, mean = mu, sd = sigma)) %>% 
   mutate(Yield   = map2(ll, ul, seq, length.out = 100)) %>% 
-  mutate(density = pmap(list(Yield, mu, sigma), dnorm)) %>% 
-  unnest() %>% 
+  unnest(Yield) %>% 
+  mutate(density = dnorm(Yield, mu, sigma)) %>% 
   group_by(.draw) %>% 
   mutate(density = density / max(density)) %>% 
   
@@ -1233,14 +1202,14 @@ my_data %>%
   scale_x_continuous(breaks = seq(from = 100, to = 180, by = 20)) +
   coord_flip(xlim = 90:190,
              ylim = c(0.5, 2.75)) +
-  labs(title = "Data with Posterior Predictive Distribution") +
+  ggtitle("Data with Posterior Predictive Distribution") +
   theme(panel.grid      = element_blank(),
         axis.ticks.x    = element_blank(),
         legend.position = "none") +
   facet_wrap(~Till)
 ```
 
-Let's make our Figure 20.11 contrasts.
+Now let's make our Figure 20.11 contrasts.
 
 ```{r, fig.width = 8, fig.height = 2.5}
 col_names <-
@@ -1269,8 +1238,8 @@ fitted(fit3,
     
     `Chisel.Moldbrd.v.Ridge (x) Broad.v.Deep.Surface` = (((Chisel_Broad + Chisel_Deep + Chisel_Surface + Moldbrd_Broad + Moldbrd_Deep + Moldbrd_Surface) / 6) - ((Ridge_Broad + Ridge_Deep + Ridge_Surface) / 3)) - (((Chisel_Broad + Moldbrd_Broad + Ridge_Broad) / 3) - ((Chisel_Deep + Moldbrd_Deep + Ridge_Deep + Chisel_Surface + Moldbrd_Surface + Ridge_Surface) / 6))
     ) %>% 
-  gather() %>% 
-  mutate(key = factor(key, levels = c("Moldbrd vs Ridge", "Moldbrd.Ridge vs Chisel", "Deep.Surface vs Broad", "Chisel.Moldbrd.v.Ridge (x) Broad.v.Deep.Surface"))) %>% 
+  pivot_longer(everything()) %>% 
+  mutate(name = factor(name, levels = c("Moldbrd vs Ridge", "Moldbrd.Ridge vs Chisel", "Deep.Surface vs Broad", "Chisel.Moldbrd.v.Ridge (x) Broad.v.Deep.Surface"))) %>% 
   
   ggplot(aes(x = value)) +
   geom_rect(xmin = -5, xmax = 5,
@@ -1284,14 +1253,22 @@ fitted(fit3,
   xlab("Difference") +
   theme(panel.grid = element_blank(),
         strip.text = element_text(size = 6)) +
-  facet_wrap(~key, scales = "free", ncol = 4)
+  facet_wrap(~name, scales = "free", ncol = 4)
 ```
 
 As far as I can tell, it appears that our contrasts indicate our variance parameter for `Till` ended up larger than Kruschke’s.
 
-Krushke then posed a model "with field/subject coding suppressed, hence no lines connecting data from the same field/subject" (p. 616). Here's how to fit that model.
+Kruschke then posed a model "with field/subject coding suppressed, hence no lines connecting data from the same field/subject" (p. 616). Here's how to fit that model.
 
-```{r fit4, cache = T, warning = F, message = F}
+```{r, echo = F, warning = F, message = F}
+# too large and slow to fit multiple times
+# save("fit4", file = "/Users/solomon/Dropbox/Recoding Doing Bayesian Data Analysis/fits/20_fit4.rda")
+# rm(fit4)
+
+load("/Users/solomon/Dropbox/Recoding Doing Bayesian Data Analysis/fits/20_fit4.rda")
+```
+
+```{r, eval = F}
 fit4 <-
   brm(data = my_data,
       family = gaussian,
@@ -1331,8 +1308,8 @@ my_data %>%
   mutate(ll      = qnorm(.025, mean = mu, sd = sigma),
          ul      = qnorm(.975, mean = mu, sd = sigma)) %>% 
   mutate(Yield   = map2(ll, ul, seq, length.out = 200)) %>% 
-  mutate(density = pmap(list(Yield, mu, sigma), dnorm)) %>% 
-  unnest() %>% 
+  unnest(Yield) %>% 
+  mutate(density = dnorm(Yield, mu, sigma)) %>% 
   group_by(.draw) %>% 
   mutate(density = density / max(density)) %>% 
   
@@ -1349,14 +1326,14 @@ my_data %>%
   scale_x_continuous(breaks = seq(from = 100, to = 180, by = 20)) +
   coord_flip(xlim = 90:190,
              ylim = c(0.5, 2.75)) +
-  labs(title = "Data with Posterior Predictive Distribution") +
+  ggtitle("Data with Posterior Predictive Distribution") +
   theme(panel.grid      = element_blank(),
         axis.ticks.x    = element_blank(),
         legend.position = "none") +
   facet_wrap(~Till)
 ```
 
-Now the contrast distributions.
+Now the make the plots for the contrast distributions.
 
 ```{r, fig.width = 8, fig.height = 2.5}
 fitted(fit4,
@@ -1393,19 +1370,32 @@ fitted(fit4,
   facet_wrap(~key, scales = "free", ncol = 4)
 ```
 
+Though not identical, these were closer to those Kruschke displayed in the text.
+
 #### Model comparison approach.
 
-Like we covered in Chapter 10, I'm not aware that Stan/brms will allow for $\delta$ factor-inclusion parameters the way JAGS allows. However, if you'd like to compare models with different parameters, you can always use information criteria.
+Like we covered in Chapter 10, I'm not aware that Stan/**brms** will allow for $\delta$ factor-inclusion parameters the way JAGS allows. However, if you'd like to compare models with different parameters, you can always use information criteria.
 
-```{r l_fit3_fit4, cache = T}
-loo(fit3, fit4)
+```{r, eval = F}
+fit3 <- add_criterion(fit3, "loo")
+fit4 <- add_criterion(fit4, "loo")
 ```
+
+Executing that yielded the following warning message:
+
+> Found 5 observations with a pareto_k > 0.7 in model 'fit3'. It is recommended to set 'reloo = TRUE' in order to calculate the ELPD without the assumption that these observations are negligible. This will refit the model 5 times to compute the ELPDs for the problematic observations directly.
 
 Let's follow the diagnostic warnings to make sure the model comparison is robust to the outlying values.
 
-```{r rl_fit3_fit4, cache = T}
-loo(fit3, fit4,
-    reloo = T)
+```{r, eval = F}
+fit3 <- add_criterion(fit3, "loo", reloo = T)
+```
+
+We're finally ready for the LOO comparison. 
+
+```{r}
+loo_compare(fit3, fit4) %>% 
+  print(simplify = F)
 ```
 
 All good. Based on the LOO values, we should prefer the fuller model. This, of course, should be no surprise. The posterior for $\sigma_\text{Field}$ was a far cry from zero.
@@ -1414,9 +1404,15 @@ All good. Based on the LOO values, we should prefer the fuller model. This, of c
 posterior_summary(fit3)["sd_Field__Intercept", ]
 ```
 
-## References {-}
+Kruschke ended this chapter by mentioning Bayes' factors:
 
-Kruschke, J. K. (2015). *Doing Bayesian data analysis, Second Edition: A tutorial with R, JAGS, and Stan.* Burlington, MA: Academic Press/Elsevier.
+> Bayes' factor approaches to hypothesis tests in ANOVA were presented by [Rouder, Morey, Speckman, and Province (2012)](http://pcl.missouri.edu/sites/default/files/Rouder.JMP_.2012.pdf) and [Wetzels, Grasman, and Wagenmakers (2012)](https://www.ejwagenmakers.com/2012/WetzelsEtAl2012AmStat.pdf). Morey and Rouder's BayesFactor package for R is available at the Web site [http://bayesfactorpcl.r-forge.r-project.org/](http://bayesfactorpcl.r-forge.r-project.org/). (p. 618)
+
+If you wanna go that route, you're on your own.
+
+## Reference {-}
+
+[Kruschke, J. K. (2015). *Doing Bayesian data analysis, Second Edition: A tutorial with R, JAGS, and Stan.* Burlington, MA: Academic Press/Elsevier.](https://sites.google.com/site/doingbayesiandataanalysis/)
 
 ## Session info {-}
 
@@ -1425,8 +1421,15 @@ sessionInfo()
 ```
 
 ```{r, message = F, echo = F}
-# Here we'll remove our objects
-rm(grand_mean, deflection_1, deflection_2, nonadditive_component, d, p, p1, p2, p3, gamma_a_b_from_omega_sigma, my_data, mean_y, sd_y, omega, sigma, s_r, stanvars, n_draw, f, n_iter, post, nd, brief_col_names, f1, text, f2, l, fit3, col_names, fit4)
-
-theme_set(theme_grey())
+# remove the objects
+rm(grand_mean, deflection_1, deflection_2, nonadditive_component, d, p, p1, p2, p3, gamma_a_b_from_omega_sigma, my_data, mean_y, sd_y, omega, sigma, s_r, stanvars, n_draw, f, n_iter, post, nd, brief_col_names, f1, text, f2, fit3, col_names, fit4)
 ```
+
+```{r, echo = F, message = F, warning = F, results = "hide"}
+pacman::p_unload(pacman::p_loaded(), character.only = TRUE)
+
+ggplot2::theme_set(ggplot2::theme_grey())
+
+bayesplot::color_scheme_set("blue")
+```
+
