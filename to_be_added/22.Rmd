@@ -6,31 +6,47 @@ output:
   github_document
 ---
 
+# Nominal Predicted Variable
+
+> This chapter considers data structures that have a nominal predicted variable. When the nominal predicted variable has only two possible values, this reduces to the case of the dichotomous predicted variable considered in the previous chapter. In the present chapter, we generalize to cases in which the predicted variable has three or more categorical values...
+>
+> The traditional treatment of this sort of data structure is called multinomial logistic regression or conditional logistic regression. We will consider Bayesian approaches to these methods. As usual, in Bayesian software it is easy to generalize the traditional models so they are robust to outliers, allow different variances within levels of a nominal predictor, and have hierarchical structure to share information across levels or factors as appropriate. (p. 649)
+
 ## 22.1. Softmax regression
 
- > This chapter considers data structures that have a nominal predicted variable. When the nominal predicted variable has only two possible values, this reduces to the case of the dichotomous predicted variable considered in the previous chapter. In the present chapter, we generalize to cases in which the predicted variable has three or more categorical values. (p. 649)
-
-"The key descriptor of the [models in this chapter is their] inverse-link function, which is the softmax function (which will be defined below). Therefore, [Kruschke] refer[s] to the method as softmax regression instead of multinomial logistic regression" (p. 650)
+"The key descriptor of the [models in this chapter is their] inverse-link function, which is the softmax function (which will be defined below). Therefore, [Kruschke] refer[ed] to the method as softmax regression instead of multinomial logistic regression" (p. 650)
 
 Say we have a metric predictor $x$ and a multinomial criterion $\lambda$ with $k$ categories. We can express the basic liner model as
 
-$$\lambda_k = \beta_{0, k} + \beta_{1, k} x$$
+$$\lambda_k = \beta_{0, k} + \beta_{1, k} x,$$
 
-for which the subscripts $k$ indicate there's a linear model for each of the $k$ categories. We call the possible set of $k$ outcomes $S$. The probability of a given outcome $k$ follows the formula
+for which the subscripts $k$ indicate there's a linear model for each of the $k$ categories. We call the possible set of $k$ outcomes $S$. Taking the case where $k = 3$, we'd have
 
-$$\phi_k = \text{softmax}_S ({\lambda_k}) = \frac{\text{exp}(\lambda_k)}{\sum_{c \in S} \text{exp} (\lambda_c)}$$
+$$
+\begin{align*}
+\lambda_{[1]} & = \beta_{0, [1]} + \beta_{1, [1]} x, \\
+\lambda_{[2]} & = \beta_{0, [2]} + \beta_{1, [2]} x, \text{and} \\
+\lambda_{[3]} & = \beta_{0, [3]} + \beta_{1, [3]} x.
+\end{align*}
+$$
 
-"In words, [the equation] says that the probability of outcome $k$ is the exponentiated linear propensity of outcome $k$ relative to the sum of exponentiated linear propensities across all outcomes in the set $S$."
+In this scenerio, what we want to know is the probability of $\lambda_{[1]}$, $\lambda_{[2]}$, and $\lambda_{[3]}$. The probability of a given outcome $k$ follows the formula
+
+$$\phi_k = \operatorname{softmax}_S (\{\lambda_k\}) = \frac{\exp (\lambda_k)}{\sum_{c \in S} \exp  (\lambda_c)}$$
+
+> In words, [the equation] says that the probability of outcome $k$ is the exponentiated linear propensity of outcome $k$ relative to the sum of exponentiated linear propensities across all outcomes in the set $S$. You may be wondering, Why exponentiate? Intuitively, we have to go from propensities that can have negative values to probabilities that can only have non-negative values, and we have to preserve order. The exponential function satisfies that need. (p. 650)
+
+There are are indeterminacies in the system of equations Kruschke covered in this section, the upshot of which is we'll end up making one of the $k$ categories the reference category, which we term $r$. Continuing on with our univariable model, we choose convenient constants for our parameters for $r$: $\beta_{0, r} = 0$ and $\beta_{1, r} = 0$. As such, the regression coefficients for the remaining categories are relative to those for $r$.
 
 
 Kruschke saved the data for Figure 22.1 in the `SoftmaxRegData1.csv` and `SoftmaxRegData2.csv` files.
 
-```{r}
+```{r, warning = F, message = F}
 library(readr)
 library(tidyverse)
 
-d1 <- read_csv("data.R/SoftmaxRegData1.csv")
-d2 <- read_csv("data.R/SoftmaxRegData2.csv")
+d1 <- read_csv("/Users/solomon/Dropbox/Recoding Doing Bayesian Data Analysis/data.R/SoftmaxRegData1.csv")
+d2 <- read_csv("/Users/solomon/Dropbox/Recoding Doing Bayesian Data Analysis/data.R/SoftmaxRegData2.csv")
 
 glimpse(d1)
 glimpse(d2)
@@ -43,25 +59,82 @@ bind_rows(d1, d2) %>%
   mutate(data = rep(str_c("d", 1:2), each = n() / 2)) %>% 
   
   ggplot(aes(x = X1, y = X2, label = Y, color = Y)) +
-  geom_hline(yintercept = 0, color = "grey85") +
-  geom_vline(xintercept = 0, color = "grey85") +
+  geom_hline(yintercept = 0, color = "white") +
+  geom_vline(xintercept = 0, color = "white") +
   geom_text(size = 3) +
   scale_color_viridis_c(end = .9) +
   coord_equal() +
+  labs(x = expression(x[1]),
+       y = expression(x[2])) +
   theme(panel.grid = element_blank(),
         legend.position = "none") +
   facet_wrap(~data, ncol = 2)
 ```
 
+
+```{r}
+tibble(k  = 1:4,
+       b0 = c(0, 3, 2, 0),
+       b1 = c(0, 5, 1, 10),
+       b2 = c(0, 1, 5, 3)) %>% 
+  expand(nesting(k, b0, b1, b2),
+         x1 = seq(from = -2, to = 2, by = .1),
+         x2 = seq(from = -2, to = 2, by = .1))
+```
+
+
+
+
+
+
+
+
 ### 22.1.1 Softmax reduces to logistic for two outcomes
 
-
+"When there are only two outcomes, the softmax formulation reduces to the logistic regression of Chapter 21" (p. 653)
 
 ### 22.1.2 Independence from irrelevant attributes
 
+> An important property of the softmax function of Equation 22.2 is known as independence from irrelevant attributes (Luce, 1959, 2008). The model implies that the ratio of probabilities of two outcomes is the same regardless of what other possible outcomes are included in the set. Let $S$ denote the set of possible outcomes. Then, from the definition of the softmax function, the ratio of outcomes $j$ and $k$ is
+>
+> $$\frac{\phi_j}{\phi_k} = \frac{\exp (\lambda_j) / \sum_{c \in S} \exp (\lambda_c)}{\exp (\lambda_k) / \sum_{c \in S} \exp (\lambda_c)}$$
+>
+> The summation in the denominators cancels and has no effect on the ratio of probabilities. Obviously if we changed the set of outcomes $S$ to any other set $S^*$ that still contains outcomes $j$ and $k$, the summation $\sum_{c \in S^*}$ would still cancel and have no effect on the ratio of probabilities. (p. 654)
+
+Just to walk that denominators canceling business out a through a little further, 
+
+$$
+\begin{align*}
+\frac{\phi_j}{\phi_k} & = \frac{\exp (\lambda_j) / \sum_{c \in S} \exp (\lambda_c)}{\exp (\lambda_k) / \sum_{c \in S} \exp (\lambda_c)} \\
+& = \frac{\exp (\lambda_j)}{\exp (\lambda_k)}.
+\end{align*}
+$$
+
+Thus even in the case of a very different set of possible outcomes $S^\text{very different}$, it remains that $\frac{\phi_j}{\phi_k} = \frac{\exp (\lambda_j)}{\exp (\lambda_k)}$.
+
+Getting more applied, here's a tibble presentation of Kruschke's commute example with three modes of transportation.
+
+```{r}
+tibble(mode         = c("walking", "bicycling", "bussing"),
+       preference   = 3:1) %>% 
+  mutate(`chance %` = (100 * preference / sum(preference)) %>% round(digits = 1))
+```
+
+Sticking with the example, if we take bicycling out of the picture, the `preference` values remain, but the `chance %` values change.
+
+```{r}
+tibble(mode         = c("walking", "bussing"),
+       preference   = c(3, 1)) %>% 
+  mutate(`chance %` = 100 * preference / sum(preference))
+```
+
+Same walking/bussing ratio, different model.
+
 ## 22.2. Conditional logistic regression
 
-## 22.3. Implementation in JAGS
+## 22.3. Implementation in ~~JAGS~~ brms
+
+
 
 ### 22.3.1 Softmax model
 
@@ -70,6 +143,117 @@ bind_rows(d1, d2) %>%
 ### 22.3.3 Results: Interpreting the regression coefficients
 
 #### 22.3.3.1 Softmax model
+
+```{r, warning = F, message = F}
+library(brms)
+```
+
+
+```{r}
+get_prior(data = d1, 
+      family = categorical(link = logit),
+      Y ~ 0 + intercept + X1 + X2)
+```
+
+In case it's not clear, the `X1` and `X2` variables are in a standardized metric.
+
+```{r}
+d1 %>% 
+  pivot_longer(-Y) %>% 
+  group_by(name) %>% 
+  summarise(mean = mean(value), 
+            sd   = sd(value)) %>% 
+  mutate_if(is.double, round, digits = 2)
+```
+
+This will make it easier to set the priors. Here we'll just use the rather wide priors Kruschke indicated on page 662.
+
+```{r}
+fit1 <-
+  brm(data = d1, 
+      family = categorical(link = logit),
+      Y ~ 0 + intercept + X1 + X2,
+      prior(normal(0, 20), class = b),
+      iter = 2000, warmup = 1000, cores = 4, chains = 4,
+      seed = 22)
+```
+
+
+```{r}
+print(fit1)
+```
+
+Here's how we might make the histograms in Figure 22.5.
+
+```{r, fig.width = 8, fig.height = 4, warning = F, message = F}
+library(tidybayes)
+
+# extract the posterior draws
+post <- posterior_samples(fit1)
+
+# wrangle
+post %>% 
+  pivot_longer(-lp__) %>% 
+  mutate(name      = str_remove(name, "b_")) %>% 
+  mutate(lambda    = str_extract(name, "[2-4]+") %>% str_c("lambda==", .),
+         parameter = if_else(str_detect(name, "intercept"), "beta[0]",
+                             if_else(str_detect(name, "X1"), "beta[1]", "beta[2]"))) %>% 
+  
+  # plot
+  ggplot(aes(x = value)) +
+  geom_histogram(color = "grey92", fill = "grey67",
+                 size = .2, bins = 60) +
+  stat_pointintervalh(aes(y = 0),
+                      point_interval = mode_hdi, .width = .95, size = 1) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  xlab("marginal posterior") +
+  theme(panel.grid = element_blank()) +
+  facet_grid(lambda~parameter, labeller = label_parsed, scales = "free_x")
+```
+
+Because the $\beta$ values for when $\lambda = 1$ are all fixed to 0, we left those plots out of our version of the figure. If you really wanted them, you'd have to enter the corresponding cells into the data before plotting. If you summarize each parameter by it's posterior mean, `round()`, and wrangle a little, you can arrange the results in a similar way that the equations for $\lambda_2$ through $\lambda_4$ are displayed on the left side of Figure 22.5
+
+```{r}
+post %>% 
+  pivot_longer(-lp__) %>% 
+  mutate(name      = str_remove(name, "b_")) %>% 
+  mutate(lambda    = str_extract(name, "[2-4]+") %>% str_c("lambda[", ., "]"),
+         parameter = if_else(str_detect(name, "intercept"), "beta[0]",
+                             if_else(str_detect(name, "X1"), "beta[1]", "beta[2]"))) %>% 
+  group_by(lambda, parameter) %>% 
+  summarise(mean = mean(value) %>% round(digits = 1)) %>% 
+  pivot_wider(names_from  = parameter,
+              values_from = mean)
+```
+
+As Kruschke mentioned in the text, "the estimated parameter values should be near the generating values, but not exactly the same because the data are merely a finite random sample" (pp. 662--663).
+
+Krschke didn't show a plot like this, but it might be helpful to further understand what this model means in terms of probabilities for a given `y` value. Be default, 
+
+
+```{r, fig.width = 6, fig.height = 5}
+nd <- crossing(X1 = seq(from = -2, to = 2, length.out = 50),
+               X2 = seq(from = -2, to = 2, length.out = 50))
+
+fitted(fit1,
+       newdata = nd) %>% 
+  as_tibble() %>% 
+  select(contains("Estimate")) %>% 
+  set_names(str_c("lambda==", 1:4)) %>% 
+  bind_cols(nd) %>% 
+  pivot_longer(contains("lambda"),
+               values_to = "probability") %>% 
+  
+  ggplot(aes(x = X1, y = X2, fill = probability)) +
+  geom_raster(interpolate = T) +
+  scale_fill_viridis_c(option = "A", limits = c(0, 1)) +
+  scale_x_continuous(expand = c(0, 0)) +
+  scale_y_continuous(expand = c(0, 0)) +
+  theme(panel.grid = element_blank()) +
+  facet_wrap(~name, labeller = label_parsed)
+```
+
+
 
 #### 22.3.3.2 Conditional logistic model
 
