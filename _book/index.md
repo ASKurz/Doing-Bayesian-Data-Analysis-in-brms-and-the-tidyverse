@@ -1,8 +1,8 @@
 --- 
 title: "*Doing Bayesian Data Analysis* in brms and the tidyverse"
-subtitle: "version 0.0.3"
+subtitle: "version 0.0.4"
 author: ["A Solomon Kurz"]
-date: "2019-11-09"
+date: "2019-11-27"
 site: bookdown::bookdown_site
 output: bookdown::gitbook
 documentclass: book
@@ -23,18 +23,21 @@ description: "This project is an attempt to re-express the code in Kruschke's (2
 
 Kruschke began his text with "This book explains how to actually do Bayesian data analysis, by real people (like you), for realistic data (like yours)." In the same way, this project is designed to help those real people do Bayesian data analysis. My contribution is converting Kruschke's JAGS code for use in Bürkner's [**brms** package](https://github.com/paul-buerkner/brms), which makes it easier to fit Bayesian regression models in **R** using Hamiltonian Monte Carlo (HMC). I also prefer plotting and data wrangling with the packages from the [**tidyverse**](http://style.tidyverse.org). So we'll be using those methods, too.
 
-This project is not meant to stand alone. It's a supplement to the second edition of [Kruschke’s *Doing Bayesian Data Analysis*](https://sites.google.com/site/doingbayesiandataanalysis/). Please give the source material some love.
+This project is not meant to stand alone. It's a supplement to the second edition of [Kruschke's *Doing Bayesian Data Analysis*](https://sites.google.com/site/doingbayesiandataanalysis/). Please give the source material some love.
 
 ## Caution: Work in progress {-}
 
-The first release of this project only contained Chapters 1 through 5. Version 0.0.2 added Chapters 6 through 10. Welcome to version 0.0.3! The notable updates are:
+The first release of this project only contained Chapters 1 through 5. Version 0.0.2 added Chapters 6 through 10. Version 0.0.3 added Chapters 11, 12, and 15 through 18, with placeholders for Chapters 13 and 14.  Welcome to version 0.0.4! The notable updates are:
 
-* the addition of Chapters 11, 12, and 15 through 18
-* a minor typo fix in Chapter 8.
+* the addition of Chapters 19 through 21,
+* a first draft of content in Chapter 13, up through section 13.3.1,
+* incorporation of some of the corrections listed in Kruschke's [Corrigenda](https://sites.google.com/site/doingbayesiandataanalysis/corrigenda),
+* replacements of overly-verbose `expand()` code with `tidyr::crossing()`, and
+* minor typo fixes throughout.
 
-Version 0.0.3 is noteworthy in that it's the first version containing placeholder chapters. To accommodate the formatting conventions of the [bookdown package](https://bookdown.org/), I included Chapters 13 and 14, though their content is not yet fleshed out. Of greater interest, Chapter 11 in Kruschke's text contains several examples I have yet to sucessfully reproduce. They and other difficulties are detailed in the GitHub [progress log](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues/1). If you would like to share your solutions to those sections or any other section in the project, please open an [issue in this project's GitHub repository](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues). It would be a tremendous help.
+Several sections still remain in Chapters 7 and 11 that I have yet to master. They and other difficulties are detailed in the GitHub [progress log](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues/1). If you would like to share your solutions to those sections or any other section in the project, please open an [issue in this project's GitHub repository](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues). It would be a tremendous help.
 
-Many of the remaining chapters have completed drafts and just need another round of edits. I'll add them, soon.
+Content will continue trickling in as I get to it.
 
 
 
