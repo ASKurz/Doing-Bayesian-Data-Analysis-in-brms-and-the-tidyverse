@@ -120,8 +120,8 @@ in which $\beta_0$ simply models the mean of $y$.
 We won't be able to reproduce the wireframe plots of Figure 15.2, exactly. But we can use some `geom_raster()` tricks from back in Chapter 10 to express the third y dimension as fill gradients. 
 
 ```{r, fig.height = 5, fig.align = "left"}
-tibble(x1 = seq(from = 0, to = 10, by = .5)) %>% 
-  expand(x1, x2 = seq(from = 0, to = 10, by = .5)) %>% 
+crossing(x1 = seq(from = 0, to = 10, by = .5),
+         x2 = seq(from = 0, to = 10, by = .5)) %>% 
   mutate(`y[1] ==  0 + 1 * x[1] + 0 * x[2]` =  0 + 1 * x1 + 0 * x2,
          `y[2] ==  0 + 0 * x[1] + 2 * x[2]` =  0 + 0 * x1 + 2 * x2,
          `y[3] ==  0 + 1 * x[1] + 2 * x[2]` =  0 + 1 * x1 + 2 * x2,
@@ -149,8 +149,8 @@ Here we've captures some of Kruschke's grid aesthetic by keeping the `by` argume
 As it turns out, "the combined influence of two predictors does not have to be additive" (p. 427). Let's explore what that can look like with our version of Figure 15.3.
 
 ```{r, fig.height = 5, fig.align = "left"}
-tibble(x1 = seq(from = 0, to = 10, by = .5)) %>% 
-  expand(x1, x2 = seq(from = 0, to = 10, by = .5)) %>% 
+crossing(x1 = seq(from = 0, to = 10, by = .5),
+         x2 = seq(from = 0, to = 10, by = .5)) %>% 
   mutate(`y[1] == 0 +  0 * x[1] + 0 * x[2] +  0.2 * x[1] * x[2]` = 0 +  0 * x1 + 0 * x2 +  0.2 * x1 * x2,
          `y[2] == 0 +  1 * x[1] + 1 * x[2] +  0   * x[1] * x[2]` = 0 +  1 * x1 + 1 * x2 +  0   * x1 * x2,
          `y[3] == 0 +  1 * x[1] + 1 * x[2] + -0.3 * x[1] * x[2]` = 0 +  1 * x1 + 1 * x2 + -0.3 * x1 * x2,
@@ -263,6 +263,8 @@ tibble(x = 1:5,
   theme(panel.grid   = element_blank(),
         axis.ticks.x = element_blank())
 ```
+
+Before we make our versions of the two panels in Figure 15.5, we should note that the values in the prose are at odds with the values implied in the figure. For simplicity, our versions of Figure 15.5 will match up with the values in the original figure, *not* the prose. For a look at what the figure might have looked like had it been based on the values in the prose, check out Kruschke’s [Corrigenda](https://sites.google.com/site/doingbayesiandataanalysis/corrigenda).
 
 Here's the code for the left panel of Figure 15.5.
 
@@ -395,11 +397,9 @@ text <-
                    'list(gamma == 0.2, theta == 4)'))
 
 # make the data
-tibble(gamma = c(2, .2),
-       theta = 4) %>% 
-  expand(nesting(gamma, theta),
-         x = seq(from = -11, to = 11, by = .2)) %>% 
-  mutate(y = make_logistic(x, gamma, theta)) %>% 
+crossing(gamma = c(2, .2),
+         x     = seq(from = -11, to = 11, by = .2)) %>% 
+  mutate(y     = make_logistic(x, gamma, theta = 4)) %>% 
   
   # plot!
   ggplot(aes(x = x, y = y)) +
@@ -428,8 +428,8 @@ logistic <- function(x) {
 Now we'll just extend the same method we used for Figures 15.2 and 15.3.
 
 ```{r, fig.height = 5, fig.align = "left"}
-tibble(x1 = seq(from = -6, to = 6, by = .5)) %>% 
-  expand(x1, x2 = seq(from = -6, to = 6, by = .5)) %>% 
+crossing(x1 = seq(from = -6, to = 6, by = .5),
+         x2 = seq(from = -6, to = 6, by = .5)) %>% 
   mutate(`y[1] == logistic(1 * ( 0    * x[1] + 1    * x[2] -  0))` = logistic(1 * ( 0    * x1 + 1    * x2 -  0)),
          `y[2] == logistic(1 * ( 0.71 * x[1] + 0.71 * x[2] -  0))` = logistic(1 * ( 0.71 * x1 + 0.71 * x2 -  0)),
          `y[3] == logistic(2 * ( 0    * x[1] + 1    * x[2] - -3))` = logistic(2 * ( 0    * x1 + 1    * x2 - -3)),
