@@ -6,13 +6,17 @@ output:
   github_document
 ---
 
+```{r, echo = FALSE, cachse = FALSE}
+options(width = 100)
+```
+
 # Nominal Predicted Variable
 
 > This chapter considers data structures that have a nominal predicted variable. When the nominal predicted variable has only two possible values, this reduces to the case of the dichotomous predicted variable considered in the previous chapter. In the present chapter, we generalize to cases in which the predicted variable has three or more categorical values...
 >
 > The traditional treatment of this sort of data structure is called multinomial logistic regression or conditional logistic regression. We will consider Bayesian approaches to these methods. As usual, in Bayesian software it is easy to generalize the traditional models so they are robust to outliers, allow different variances within levels of a nominal predictor, and have hierarchical structure to share information across levels or factors as appropriate. (p. 649)
 
-## 22.1. Softmax regression
+## Softmax regression
 
 "The key descriptor of the [models in this chapter is their] inverse-link function, which is the softmax function (which will be defined below). Therefore, [Kruschke] refer[ed] to the method as softmax regression instead of multinomial logistic regression" (p. 650)
 
@@ -22,13 +26,11 @@ $$\lambda_k = \beta_{0, k} + \beta_{1, k} x,$$
 
 for which the subscripts $k$ indicate there's a linear model for each of the $k$ categories. We call the possible set of $k$ outcomes $S$. Taking the case where $k = 3$, we'd have
 
-$$
 \begin{align*}
 \lambda_{[1]} & = \beta_{0, [1]} + \beta_{1, [1]} x, \\
 \lambda_{[2]} & = \beta_{0, [2]} + \beta_{1, [2]} x, \text{and} \\
 \lambda_{[3]} & = \beta_{0, [3]} + \beta_{1, [3]} x.
 \end{align*}
-$$
 
 In this scenerio, what we want to know is the probability of $\lambda_{[1]}$, $\lambda_{[2]}$, and $\lambda_{[3]}$. The probability of a given outcome $k$ follows the formula
 
@@ -71,44 +73,24 @@ bind_rows(d1, d2) %>%
   facet_wrap(~data, ncol = 2)
 ```
 
-
-```{r}
-tibble(k  = 1:4,
-       b0 = c(0, 3, 2, 0),
-       b1 = c(0, 5, 1, 10),
-       b2 = c(0, 1, 5, 3)) %>% 
-  expand(nesting(k, b0, b1, b2),
-         x1 = seq(from = -2, to = 2, by = .1),
-         x2 = seq(from = -2, to = 2, by = .1))
-```
-
-
-
-
-
-
-
-
-### 22.1.1 Softmax reduces to logistic for two outcomes
+### Softmax reduces to logistic for two outcomes.
 
 "When there are only two outcomes, the softmax formulation reduces to the logistic regression of Chapter 21" (p. 653)
 
-### 22.1.2 Independence from irrelevant attributes
+### Independence from irrelevant attributes.
 
-> An important property of the softmax function of Equation 22.2 is known as independence from irrelevant attributes (Luce, 1959, 2008). The model implies that the ratio of probabilities of two outcomes is the same regardless of what other possible outcomes are included in the set. Let $S$ denote the set of possible outcomes. Then, from the definition of the softmax function, the ratio of outcomes $j$ and $k$ is
+> An important property of the softmax function of Equation 22.2 is known as independence from irrelevant attributes (Luce, [1959](https://www.amazon.com/gp/product/0486441369/ref=dbs_a_def_rwt_bibl_vppi_i1), [2008](http://scholarpedia.org/article/Luce's_choice_axiom)). The model implies that the ratio of probabilities of two outcomes is the same regardless of what other possible outcomes are included in the set. Let $S$ denote the set of possible outcomes. Then, from the definition of the softmax function, the ratio of outcomes $j$ and $k$ is
 >
 > $$\frac{\phi_j}{\phi_k} = \frac{\exp (\lambda_j) / \sum_{c \in S} \exp (\lambda_c)}{\exp (\lambda_k) / \sum_{c \in S} \exp (\lambda_c)}$$
 >
 > The summation in the denominators cancels and has no effect on the ratio of probabilities. Obviously if we changed the set of outcomes $S$ to any other set $S^*$ that still contains outcomes $j$ and $k$, the summation $\sum_{c \in S^*}$ would still cancel and have no effect on the ratio of probabilities. (p. 654)
 
-Just to walk that denominators canceling business out a through a little further, 
+Just to walk that denominators-canceling business out a through a little further, 
 
-$$
 \begin{align*}
 \frac{\phi_j}{\phi_k} & = \frac{\exp (\lambda_j) / \sum_{c \in S} \exp (\lambda_c)}{\exp (\lambda_k) / \sum_{c \in S} \exp (\lambda_c)} \\
 & = \frac{\exp (\lambda_j)}{\exp (\lambda_k)}.
 \end{align*}
-$$
 
 Thus even in the case of a very different set of possible outcomes $S^\text{very different}$, it remains that $\frac{\phi_j}{\phi_k} = \frac{\exp (\lambda_j)}{\exp (\lambda_k)}$.
 
@@ -128,34 +110,81 @@ tibble(mode         = c("walking", "bussing"),
   mutate(`chance %` = 100 * preference / sum(preference))
 ```
 
-Same walking/bussing ratio, different model.
+Though we retain the same walking/bussing ratio, we end up with a different model of relative probabilities.
 
-## 22.2. Conditional logistic regression
+## Conditional logistic regression
 
-## 22.3. Implementation in ~~JAGS~~ brms
+> Softmax regression conceives of each outcome as an independent change in log odds from the reference outcome, and a special case of that is dichotomous logistic regression. But we can generalize logistic regression another way, which may better capture some patterns of data. The idea of this generalization is that we divide the set of outcomes into a hierarchy of two-set divisions, and use a logistic to describe the probability of each branch of the two-set divisions. (p. 655)
 
+The model follows the generic equation
 
+\begin{align*}
+\phi_{S^* | S} = \operatorname{logistic} (\lambda_{S^* | S}) \\
+\lambda_{S^* | S} = \beta_{0, S^* | S} + \beta_{1, {S^* | S}} x,
+\end{align*}
 
-### 22.3.1 Softmax model
+where the conditional response probability (i.e., the goal of the analysis) is $\phi_{S^* | S}$. $S^*$ and $S$ denote the subset of outcomes and larger set of outcomes, respectively, and $\lambda_{S^* | S}$ is the propensity based on some linear model. 
 
-### 22.3.2 Conditional logistic model
+Kruschke saved the data for Figure 22.3 in the `CondLogistRegData1.csv` and `CondLogistRegData2.csv` files.
 
-### 22.3.3 Results: Interpreting the regression coefficients
+```{r, warning = F, message = F}
+d3 <- read_csv("/Users/solomon/Dropbox/Recoding Doing Bayesian Data Analysis/data.R/CondLogistRegData1.csv")
+d4 <- read_csv("/Users/solomon/Dropbox/Recoding Doing Bayesian Data Analysis/data.R/CondLogistRegData2.csv")
 
-#### 22.3.3.1 Softmax model
+glimpse(d3)
+glimpse(d4)
+```
+
+Let's bind the two data frames together and plot in bulk.
+
+```{r, fig.width = 5}
+bind_rows(d3, d4) %>%
+  mutate(data = rep(str_c("d", 3:4), each = n() / 2)) %>% 
+  
+  ggplot(aes(x = X1, y = X2, label = Y, color = Y)) +
+  geom_hline(yintercept = 0, color = "white") +
+  geom_vline(xintercept = 0, color = "white") +
+  geom_text(size = 3) +
+  scale_color_viridis_c(end = .9) +
+  coord_equal() +
+  labs(x = expression(x[1]),
+       y = expression(x[2])) +
+  theme(panel.grid = element_blank(),
+        legend.position = "none") +
+  facet_wrap(~data, ncol = 2)
+```
+
+## Implementation in ~~JAGS~~ brms
+
+### Softmax model.
+
+Kruschke pointed out in his Figure 22.4 and the surrounding prose that we speak of the *categorical distribution* when fitting softmax models. Our **brms** paradigm will be much the same. To fit a softmax model with the `brm()` function, you specify `family = categorical`. The default is to use the logit link. In his [*Parameterization of Response Distributions in brms*](https://cran.r-project.org/web/packages/brms/vignettes/brms_families.html#ordinal-and-categorical-models) vignette, Bürkner clarified:
+
+> The **categorical** family is currently only implemented with the multivariate logit link function and has density
+>
+> $$f(y) = \mu_y = \frac{\exp (\eta_y)}{\sum_{k = 1}^K \exp  (\eta_k)}$$
+>
+> Note that $\eta$ does also depend on the category $k$. For reasons of identifiability, $\eta_1$ is set to $0$.
+
+Though there's no explicit softmax talk in that vignette, you can find it documented in his code [here](https://github.com/paul-buerkner/brms/blob/bc550ff3a2d41656a6711737faf1049207657800/R/distributions.R), starting in line 1891.
+
+### Conditional logistic model.
+
+The conditional logistic regression models are not natively supported in **brms** at this time. However, if you follow [issue #560](https://github.com/paul-buerkner/brms/issues/560), you'll see there are ways to fit them using the nonlinear syntax. If you compare the syntax Bürkner used in that thread on January 30^th^ to the JAGS syntax Kruschke showed on pages 661 and 662, you'll see they appears to follow contrasting parameterizations.
+
+I think that's about as far as I'm going with this model type at this time. If you work through the solution, [please share your code](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues).
+
+### Results: Interpreting the regression coefficients.
+
+#### Softmax model.
+
+Load **brms**.
 
 ```{r, warning = F, message = F}
 library(brms)
 ```
 
-
-```{r}
-get_prior(data = d1, 
-      family = categorical(link = logit),
-      Y ~ 0 + intercept + X1 + X2)
-```
-
-In case it's not clear, the `X1` and `X2` variables are in a standardized metric.
+Along with Kruschke, we'll be modeling the `d1` data. In case it's not clear, the `X1` and `X2` variables are already in a standardized metric.
 
 ```{r}
 d1 %>% 
@@ -168,7 +197,14 @@ d1 %>%
 
 This will make it easier to set the priors. Here we'll just use the rather wide priors Kruschke indicated on page 662.
 
-```{r}
+```{r, echo = F, warning = F, message = F}
+# save("fit1", file = "/Users/solomon/Dropbox/Recoding Doing Bayesian Data Analysis/fits/22_fit1.rda")
+# rm(fit1)
+
+load("/Users/solomon/Dropbox/Recoding Doing Bayesian Data Analysis/fits/22_fit1.rda")
+```
+
+```{r, eval = F}
 fit1 <-
   brm(data = d1, 
       family = categorical(link = logit),
@@ -178,10 +214,13 @@ fit1 <-
       seed = 22)
 ```
 
+Since it's the default, we didn't have to include the `(link = logit)` bit in the `family` argument. I'm just being explicit for the sake of pedagogy. Take a look at the parameter summary.
 
 ```{r}
 print(fit1)
 ```
+
+As indicated in the formulas, above, we get posteriors for each level of `Y`, except for `Y == 1`. That serves as the reference category. The values for $\beta_{i, k = 1}$ are all fixed at $0$.
 
 Here's how we might make the histograms in Figure 22.5.
 
@@ -226,12 +265,13 @@ post %>%
               values_from = mean)
 ```
 
-As Kruschke mentioned in the text, "the estimated parameter values should be near the generating values, but not exactly the same because the data are merely a finite random sample" (pp. 662--663).
+As Kruschke mentioned in the text, "the estimated parameter values should be near the generating values, but not exactly the same because the data are merely a finite random sample" (pp. 662--663). Furthermore,
 
-Krschke didn't show a plot like this, but it might be helpful to further understand what this model means in terms of probabilities for a given `y` value. Be default, 
+>  interpreting the parameters is always contextualized relative to the model. For the softmax model, the regression coefficient for outcome $k$ on predictor $x_j$ indicates that rate at which the log odds of that outcome increase relative to the reference outcome for a one unit increase in $x_j$, assuming that a softmax model is a reasonable description of the data. (p. 663)
 
+Unfortunately, this makes the parameters difficult to interpret directly. Kruschke didn't show a plot like this, but it might be helpful to further understand what this model means in terms of probabilities for a given `y` value. Here we'll use the `fitted()` function to return the conditional probabilities for all four response options for `Y` based on various combinations of `X1` and `X2`.
 
-```{r, fig.width = 6, fig.height = 5}
+```{r, fig.width = 6, fig.height = 5, warning = F, message = F}
 nd <- crossing(X1 = seq(from = -2, to = 2, length.out = 50),
                X2 = seq(from = -2, to = 2, length.out = 50))
 
@@ -253,17 +293,21 @@ fitted(fit1,
   facet_wrap(~name, labeller = label_parsed)
 ```
 
+Now use that plot while you walk through the final paragraph in this subsection.
 
+> It is easy to transform the estimated parameter values to a different reference category. Recall from Equation 22.3 (p. 651) that arbitrary constants can be added to all the regression coefficients without changing the model prediction. Therefore, to change the parameters estimates so they are relative to outcome $R$, we simply subtract $\beta_{j, R}$ from $\beta_{j, k}$ for all predictors $j$ and all outcomes $k$. We do this at every step in the MCMC chain. For example, in Figure 22.5, consider the regression coefficient on $x_1$ for outcome 2. Relative to reference outcome 1, this coefficient is positive, meaning that the probability of outcome 2 increases relative to outcome 1 when $x_1$ increases. You can see this in the data graph, as the region of 2's falls to right side (positive $x_1$ direction) of the region of 1's. But if the reference outcome is changed to outcome 4, then the coefficient on $x_1$ for outcome 2 changes to a negative value. Algebraically this happens because the coefficient on $x_1$ for outcome 4 is larger than for outcome 2, so when the coefficient for outcome 4 is subtracted, the result is a negative value for the coefficient on outcome 2. Visually, you can see this in the data graph, as the region of 2's falls to the left side (negative $x_1$ direction) of the region of 4's. Thus, *interpreting regression coefficients in a softmax model is rather different than in linear regression. In linear regression, a positive regression coefficient implies that* $y$ *increases when the predictor increases. But not in softmax regression, where a positive regression coefficient is only positive with respect to a particular reference outcome*. (p. 664, *emphasis* added)
 
-#### 22.3.3.2 Conditional logistic model
+#### Conditional logistic model.
 
-## 22.4. Generalizations and variations of the models
+I'm not pursuing this model type at this time. If you work through the solution, [please share your code](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues).
 
-## 22.5. Exercises
+## Generalizations and variations of the models
 
-## References {-}
+These models can be generalized to include different kinds of predictors, variants robust to outliers, and model comparison via information criteria and so forth. Also, you can find a couple more examples with softmax regression in Chapter 10 of McElreath's [*Statistical Rethinking*](https://xcelab.net/rm/statistical-rethinking/).
 
-Kruschke, J. K. (2015). *Doing Bayesian data analysis, Second Edition: A tutorial with R, JAGS, and Stan.* Burlington, MA: Academic Press/Elsevier.
+## Reference {-}
+
+[Kruschke, J. K. (2015). *Doing Bayesian data analysis, Second Edition: A tutorial with R, JAGS, and Stan.* Burlington, MA: Academic Press/Elsevier.](https://sites.google.com/site/doingbayesiandataanalysis/)
 
 ## Session info {-}
 
@@ -272,10 +316,15 @@ sessionInfo()
 ```
 
 ```{r, message = F, echo = F}
-# Here we'll remove our objects
-rm()
-
-theme_set(theme_grey())
+# remove the objects
+rm(d1, d2, d3, d4, fit1, post, nd)
 ```
 
+```{r, echo = F, message = F, warning = F, results = "hide"}
+pacman::p_unload(pacman::p_loaded(), character.only = TRUE)
+
+ggplot2::theme_set(ggplot2::theme_grey())
+
+bayesplot::color_scheme_set("blue")
+```
 
