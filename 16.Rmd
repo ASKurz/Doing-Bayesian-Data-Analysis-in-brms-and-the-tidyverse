@@ -422,9 +422,9 @@ tibble(seed = 1:200) %>%
 
 > It is important to understand that the scale parameter $\sigma$ in the $t$ distribution is not the standard deviation of the distribution. (Recall that the standard deviation is the square root of the variance, which is the expected value of the squared deviation from the mean, as defined back in Equation 4.8, p. 86.) The standard deviation is actually larger than $\sigma$ because of the heavy tails... While this value of the scale parameter is not the standard deviation of the distribution, it does have an intuitive relation to the spread of the data. Just as the range $\pm \sigma$ covers the middle 68% of a *normal* distribution, the range $\pm \sigma$ covers the middle 58% of a $t$ distribution when $\nu = 2$, and the middle 50% when $\nu = 1$. These areas are illustrated in the left column of Figure 16.6. The right column of Figure 16.6 shows the width under the middle of a $t$ distribution that is needed to span 68.27% of the distribution, which is the area under a normal distribution for $\sigma = \pm 1$. (pp. 460--461, *emphasis* in the original)
 
-Speaking of which, here's the left column for Figure 16.6.
+Speaking of which, here's the code for the left column for Figure 16.6.
 
-```{r, fig.width = 4, fig.height = 6}
+```{r}
 # the primary data
 d <-
   crossing(nu = c(Inf, 5, 2, 1),
@@ -432,8 +432,9 @@ d <-
   mutate(label = str_c("nu == ", nu) %>% 
            factor(., levels = c("nu == Inf", "nu == 5", "nu == 2", "nu == 1")))
 
-# the plot
-d %>% 
+# the subplot
+p1 <-
+  d %>% 
   ggplot(aes(x = y)) +
   geom_ribbon(aes(ymin = 0,
                   ymax = dt(y, df = nu)),
@@ -452,12 +453,13 @@ d %>%
     color = "grey92") +
   scale_y_continuous("p(y)", breaks = c(0, .2, .4)) +
   coord_cartesian(xlim = -6:6) +
+  labs(subtitle = "Shaded from y = - 1 to y = 1") +
   facet_wrap(~label, ncol = 1, labeller = label_parsed)
 ```
 
-Now here's the right column.
+Here's the code for the right column.
 
-```{r, fig.width = 4, fig.height = 6}
+```{r}
 # the primary data
 d <-
   tibble(nu   = c(Inf, 5, 2, 1),
@@ -468,8 +470,9 @@ d <-
   mutate(label = factor(str_c("nu==", nu), 
                         levels = str_c("nu==", c(Inf, 5, 2, 1))))
 
-# the plot
-d %>% 
+# the subplot
+p2 <-
+  d %>% 
   ggplot(aes(x = y)) +
   geom_ribbon(aes(ymin = 0,
                   ymax = dt(y, df = nu)),
@@ -483,7 +486,16 @@ d %>%
   annotate(geom = "text", x = 0, y = .175, label = "68%", color = "grey92") +
   scale_y_continuous("p(y)", breaks = c(0, .2, .4)) +
   coord_cartesian(xlim = -6:6) +
+  labs(subtitle = "Shaded for the middle 68.27%") +
   facet_wrap(~label, ncol = 1, labeller = label_parsed)
+```
+
+Now we'll bind the two ggplots together with the **patchwork** package to make the full version of Figure 16.6.
+
+```{r, fig.width = 7, fig.height = 6, warning = F, message = F}
+library(patchwork)
+
+p1 + p2
 ```
 
 > The use of a heavy-tailed distribution is often called *robust estimation* because the estimated value of the central tendency is stable, that is, "robust," against outliers. The $t$ distribution is useful as a likelihood function for modeling outliers at the level of observed data. But the $t$ distribution is also useful for modeling outliers at higher levels in a hierarchical prior. We will encounter several applications. (p. 462, *emphasis* in the original)
@@ -575,10 +587,8 @@ p2 <-
        x     = expression(paste("log10(", nu, ")"))) +
   coord_cartesian(xlim = c(0, 2.5))
 
-# here we'll use `gridExtra::grid.arrange()` to put them together
-library(gridExtra)
-
-grid.arrange(p1, p2)
+# bind them together
+p1 / p2
 ```
 
 Here are the scatter plots of Figure 16.8.
@@ -757,13 +767,14 @@ Note the last line in the parameters block, "real\<lower=1\> nu;  // degrees of 
 
 Just for kicks and giggles, the `pp_check()` offers us a handy way to compare the performance of our Gaussian `fit2` and our Student's $t$ `fit2`. If we set `type = "ecdf_overlay"` within `pp_check()`, we'll get the criterion `Score` displayed as a cumulative distribution function (CDF) rather than a typical density. Then, `pp_check()` presents CDF's based on draws from the posterior for comparison. Just like with the default `pp_check()` plots, we like it when those simulated distributions mimic the one from the original data.
 
-```{r, fig.width = 8, fig.height = 3}
+```{r, fig.width = 7, fig.height = 3}
 # fit1 with Gaus
 set.seed(16)
 p1 <-
   pp_check(fit1, nsamples = 63, type = "ecdf_overlay") + 
   labs(subtitle = "fit1 with `family = gaussian`") +
-  coord_cartesian(xlim = range(my_data$Score))
+  coord_cartesian(xlim = range(my_data$Score)) +
+  theme(legend.position = "none")
 
 # fit2 with Student's t
 p2 <-
@@ -771,7 +782,8 @@ p2 <-
   labs(subtitle = "fit2 with `family = student`") +
   coord_cartesian(xlim = range(my_data$Score))
 
-grid.arrange(p1, p2, ncol = 2)
+# combine the subplots
+p1 + p2
 ```
 
 It's subtle, but you might notice that the simulated CDFs from `fit1` have steeper slopes in the middle when compared to the original data in the dark blue. However, the `fit2`-based simulated CDFs match up more closely with the original data. This suggests an edge for `fit2`. Revisiting our skills from Chapter 10, we might also compare their model weights.
