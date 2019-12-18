@@ -138,25 +138,37 @@ glimpse(my_data)
 
 Now we have the [Guber (1999)](https://pdfs.semanticscholar.org/29c3/0e9dc77b56340faa5e6ad35e0741a5a83d49.pdf) data, here are three of the four plots.
 
-```{r, fig.width = 3.5, fig.height = 3.25}
-my_data %>% 
+```{r, fig.width = 6, fig.height = 6, warning = F, message = F}
+library(patchwork)
+
+p1 <-
+  my_data %>% 
   ggplot(aes(x = Spend, y = SATT)) +
   geom_point(alpha = 2/3) +
   coord_cartesian(ylim = 800:1120)
 
-my_data %>% 
+p2 <-
+  my_data %>% 
   ggplot(aes(x = PrcntTake, y = SATT)) +
   geom_point(alpha = 2/3) +
   xlab("% Take") +
   coord_cartesian(ylim = 800:1120)
 
-my_data %>% 
+p3 <-
+  my_data %>% 
   ggplot(aes(x = PrcntTake, y = Spend)) +
   geom_vline(xintercept = seq(from = 5,   to = 80, by = 5), color = "grey98") +
   geom_hline(yintercept = seq(from = 3.5, to = 10, by = .5), color = "grey98") +
   geom_point(alpha = 2/3) +
   xlab("% Take")
+
+# bind them together and add a title
+wrap_elements(grid::textGrob('No 3D wireframe plots for us')) + 
+  p1 + p2 + p3 + 
+  plot_annotation(title = "SATT ~ N(m,sd=31.5), m = 993.8 + −2.9 %Take + 12.3 Spend")
 ```
+
+You can learn more about how we added that title to our plot ensemble [here](https://patchwork.data-imaginist.com/articles/guides/annotation.html) and more about how we added that text in place of a wireframe plot [here](https://patchwork.data-imaginist.com/articles/guides/assembly.html).
 
 ### The model and implementation.
 
@@ -212,7 +224,7 @@ So when we use a multivariable model, increases in spending now appear associate
 
 ### The posterior distribution.
 
-Based on equation 18.1, we can convert the standardized coefficients from our multivariable model back to their original metric as follows:
+Based on Equation 18.1, we can convert the standardized coefficients from our multivariable model back to their original metric as follows:
 
 \begin{align*}
 \beta_0 & = \operatorname{SD}_y \zeta_0 + M_y - \operatorname{SD}_y \sum_j \frac{\zeta_j M_{x_j}}{\operatorname{SD}_{x_j}} \;\;\; \text{and} \\
@@ -308,7 +320,7 @@ post %>%
   mode_hdi(value, .width = .5)
 ```
 
-The `brms::bayes_R2()` function makes it easy to compute a Bayesian $R^2$. Simply feed a `brm()` fit object into `bayes_R2()` and you'll bet back the posterior mean, $SD$, and 95% intervals.
+The `brms::bayes_R2()` function makes it easy to compute a Bayesian $R^2$. Simply feed a `brm()` fit object into `bayes_R2()` and you'll get back the posterior mean, $SD$, and 95% intervals.
 
 ```{r}
 bayes_R2(fit1)
@@ -349,7 +361,7 @@ post %>%
   mcmc_pairs(off_diag_args = list(size = 1/8, alpha = 1/8))
 ```
 
-To get the Pearson's correlation coefficients among the parameters, we'll use `psych::lowerCor()`.
+One way to get the Pearson's correlation coefficients among the parameters is with `psych::lowerCor()`.
 
 ```{r}
 post %>% 
@@ -445,7 +457,7 @@ neff_ratio(fit2)[1:6] %>%
   yaxis_text(hjust = 0)
 ```
 
-The `brms::vcov()` function returns a variance/covariance matrix--or a correlation matrix when you set `correlation = T`--of the population-level parameters (i.e., the fixed effects). It returns the values to an unnecessary level of precision, so we'll simplify the output with `round()`.
+The `brms::vcov()` function returns a variance/covariance matrix--or a correlation matrix when you set `correlation = T`--of the population-level parameters (i.e., the fixed effects). It returns the values to a decadent level of precision, so we'll simplify the output with `round()`.
 
 ```{r}
 vcov(fit2, correlation = T) %>% 
@@ -550,7 +562,7 @@ post %>%
   mcmc_pairs(off_diag_args = list(size = 1/8, alpha = 1/8))
 ```
 
-Here are the Pearson's correlations.
+Since `brms::vcov()` only computes the Pearson's correlations among the untransformed population-level intercepts and slopes, it will be of limited use computing the correlations among all our parameters of interest. So here we'll use `psych::lowerCor()` to compute the correlations among the full range of our parameters.
 
 ```{r}
 post %>% 
