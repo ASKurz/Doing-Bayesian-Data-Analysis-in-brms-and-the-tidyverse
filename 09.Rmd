@@ -34,12 +34,15 @@ On page 224, Kruschke wrote: "The value of $\kappa$ governs how near $\theta$ is
 library(tidyverse)
 library(ggridges)
 
-beta_by_k <- function(k){
+beta_by_k <- function(k) {
+  
   w <- .25
+  
   tibble(x = seq(from = 0, to = 1, length.out = 1000)) %>% 
     mutate(theta = dbeta(x = x,
                          shape1 = w * (k - 2) + 1,
                          shape2 = (1 - w) * (k - 2) + 1))
+  
 }
 
 tibble(k = seq(from = 10, to = 200, by = 10)) %>% 
@@ -771,28 +774,47 @@ d <-
   mutate(prior = prior / sum(prior))
 ```
 
-Note how the only thing we changed from the last time was increasubf `kappa` to 75. Also like last time, the plots in the left and middle columns of the top row are the same save for their indices. So we'll just focus on the one on the left.
+Note how the only thing we changed from the last time was increasing `kappa` to 75. Also like last time, the plots in the left and middle columns of the top row are the same save for their indices. But unlike last time, we'll make both in preparation for a grand plotting finale. You'll see.
 
-```{r, fig.height = 3}
-d %>% 
+```{r, fig.height = 3, fig.width = 3.25}
+p11 <-
+  d %>% 
   group_by(theta_1, omega) %>% 
   summarise(prior = sum(prior)) %>% 
-
   ggplot(aes(x = theta_1, y = omega, fill = prior)) +
   geom_raster(interpolate = T) +
+  annotate(x = .05, y = .925, label = "p(list(theta[1], omega))", 
+           geom = "text", parse = T, color = "grey92", hjust = 0) +
   scale_fill_viridis_c(option = "A") +
   labs(x = expression(theta[1]),
        y = expression(omega)) +
-  coord_equal() +
   theme(panel.grid = element_blank(),
         legend.position = "none")
+
+p12 <-
+  d %>% 
+  group_by(theta_2, omega) %>% 
+  summarise(prior = sum(prior)) %>% 
+  ggplot(aes(x = theta_2, y = omega, fill = prior)) +
+  geom_raster(interpolate = T) +
+  annotate(x = .05, y = .925, label = "p(list(theta[2], omega))", 
+           geom = "text", parse = T, color = "grey92", hjust = 0) +
+  scale_fill_viridis_c(option = "A") +
+  labs(x = expression(theta[2]),
+       y = expression(omega)) +
+  theme(panel.grid = element_blank(),
+        legend.position = "none")
+
+p11
+p12
 ```
 
 Now we'll average over `omega` and `theta` to plot their marginal prior distributions.
 
 ```{r, fig.width = 3.5, fig.height = 3}
 # for omega
-d %>%
+p13 <-
+  d %>%
   group_by(omega) %>% 
   summarise(prior = sum(prior)) %>% 
   
@@ -805,8 +827,9 @@ d %>%
   coord_flip(ylim = c(0, .04)) +
   theme(panel.grid = element_blank())
 
-# for theta
-d %>%
+# for theta_1
+p21 <-
+  d %>%
   group_by(theta_1) %>% 
   summarise(prior = sum(prior)) %>% 
 
@@ -818,11 +841,30 @@ d %>%
        y = expression(paste("p(", theta[1], ")"))) +
   coord_cartesian(ylim = c(0, .04)) +
   theme(panel.grid = element_blank())
+
+# for theta_2
+p22 <-
+  d %>%
+  group_by(theta_2) %>% 
+  summarise(prior = sum(prior)) %>% 
+
+  ggplot(aes(x = theta_2,
+             ymin = 0,
+             ymax = prior)) +
+  geom_ribbon(fill = "grey67") +
+  labs(x = expression(theta[2]),
+       y = expression(paste("p(", theta[2], ")"))) +
+  coord_cartesian(ylim = c(0, .04)) +
+  theme(panel.grid = element_blank())
+
+p13
+p21
+p22
 ```
 
 Let's get those likelihoods in there and plot.
 
-```{r, fig.height = 3}
+```{r, fig.height = 3, fig.width = 3.25}
 # D1: 3 heads, 12 tails
 n <- 15
 z <- 3
@@ -845,7 +887,8 @@ d <-
   mutate(likelihood = likelihood_1 * likelihood_2)
 
 # plot likelihood_1
-d %>%
+p31 <-
+  d %>%
   group_by(theta_1, omega) %>% 
   summarise(likelihood = sum(likelihood)) %>% 
   
@@ -854,12 +897,12 @@ d %>%
   scale_fill_viridis_c(option = "A") +
   labs(x = expression(theta[1]),
        y = expression(omega)) +
-  coord_equal() +
   theme(panel.grid = element_blank(),
         legend.position = "none")
 
 # plot likelihood_2
-d %>%
+p32 <-
+  d %>%
   group_by(theta_2, omega) %>% 
   summarise(likelihood = sum(likelihood)) %>% 
   
@@ -868,52 +911,62 @@ d %>%
   scale_fill_viridis_c(option = "A") +
   labs(x = expression(theta[2]),
        y = expression(omega)) +
-  coord_equal() +
   theme(panel.grid = element_blank(),
         legend.position = "none")
+
+p31
+p32
 ```
 
 Compute the posterior and make the left and middle plots of the second row to the bottom of Figure 9.6.
 
-```{r, fig.height = 3}
+```{r, fig.height = 3, fig.width = 3.25, warning = F, message = F}
 d <-
   d %>% 
   mutate(posterior = (prior * likelihood) / sum(prior * likelihood))
 
 # posterior_1
-d %>% 
+p41 <-
+  d %>% 
   group_by(theta_1, omega) %>% 
   summarise(posterior = sum(posterior)) %>% 
   
   ggplot(aes(x = theta_1, y = omega, fill = posterior)) +
   geom_raster(interpolate = T) +
+  annotate(x = .05, y = .925, label = expression(paste("p(", list(theta[1], omega), "|D)")), 
+           geom = "text", parse = T, color = "grey92", hjust = 0) +
   scale_fill_viridis_c(option = "A") +
   labs(x = expression(theta[1]),
        y = expression(omega)) +
-  coord_equal() +
   theme(panel.grid = element_blank(),
         legend.position = "none")
 
 # posterior_2
-d %>% 
+p42 <-
+  d %>% 
   group_by(theta_2, omega) %>% 
   summarise(posterior = sum(posterior)) %>%
   
   ggplot(aes(x = theta_2, y = omega, fill = posterior)) +
   geom_raster(interpolate = T) +
+  annotate(x = .05, y = .925, label = expression(paste("p(", list(theta[2], omega), "|D)")), 
+           geom = "text", parse = T, color = "grey92", hjust = 0) +
   scale_fill_viridis_c(option = "A") +
   labs(x = expression(theta[2]),
        y = expression(omega)) +
-  coord_equal() +
   theme(panel.grid = element_blank(),
         legend.position = "none")
+
+p41
+p42
 ```
 
 Here's the right plot on the same row, the posterior distribution for $\omega$.
 
 ```{r, fig.width = 3.5, fig.height = 3}
 # for omega
-d %>%
+p43 <-
+  d %>%
   group_by(omega) %>% 
   summarise(posterior = sum(posterior)) %>% 
   
@@ -925,13 +978,16 @@ d %>%
        y = expression(paste("p(", omega, "|D)"))) +
   coord_flip(ylim = c(0, .04)) +
   theme(panel.grid = element_blank())
+
+p43
 ```
 
 Finally, here are the marginal posterior plots on the bottom row of Figure 9.6.
 
 ```{r, fig.width = 3.5, fig.height = 3}
 # for theta_1
-d %>%
+p51 <-
+  d %>%
   group_by(theta_1) %>% 
   summarise(posterior = sum(posterior)) %>% 
   
@@ -945,7 +1001,8 @@ d %>%
   theme(panel.grid = element_blank())
 
 # for theta_2
-d %>%
+p52 <-
+  d %>%
   group_by(theta_2) %>% 
   summarise(posterior = sum(posterior)) %>% 
   
@@ -957,7 +1014,73 @@ d %>%
        y = expression(paste("p(", theta[2], "|D)"))) +
   coord_cartesian(ylim = c(0, .04)) +
   theme(panel.grid = element_blank())
+
+p51
+p52
 ```
+
+Did you notice how we saved each of plot from this last batch as objects? For our grand finale for this subsection, we'll be stitching all those subplots together using syntax from the **patchwork** package. But before we do, we need to define three more subplots: the subplots with the annotation.
+
+```{r, fig.width = 3, fig.height = 3}
+text <-
+  tibble(x = 1,
+         y = 10:8,
+         label = c("Prior", "list(A[omega]==2, B[omega]==2)", "K==75"),
+         size = c(2, 1, 1))
+
+p23 <-
+  text %>% 
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(aes(size = size), 
+            parse = T, hjust = 0, show.legend = F) +
+  scale_size_continuous(range = c(3.5, 5.5)) +
+  coord_cartesian(xlim = 1:2,
+                  ylim = 4:11) +
+  theme(panel.grid = element_blank(),
+        text       = element_text(color = "white"),
+        axis.text  = element_text(color = "white"),
+        axis.ticks = element_blank())
+
+text <-
+  tibble(x = 1,
+         y = 10:8,
+         label = c("Likelihood", "D1: 3 heads, 12 tails", "D2: 4 heads, 1 tail"),
+         size = c(2, 1, 1))
+
+p33 <-
+  text %>% 
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(aes(size = size), 
+            hjust = 0, show.legend = F) +
+  scale_size_continuous(range = c(3.5, 5.5)) +
+  coord_cartesian(xlim = 1:2,
+                  ylim = 4:11) +
+  theme(panel.grid = element_blank(),
+        text       = element_text(color = "white"),
+        axis.text  = element_text(color = "white"),
+        axis.ticks = element_blank())
+
+p53 <-
+  ggplot() +
+  annotate(x = 1, y = 10, label = "Posterior",
+           geom = "text", size = 6, hjust = 0) +
+  coord_cartesian(xlim = 1:2,
+                  ylim = 3:11) +
+  theme(panel.grid = element_blank(),
+        text       = element_text(color = "white"),
+        axis.text  = element_text(color = "white"),
+        axis.ticks = element_blank())
+```
+
+Okay, let's make the full version of Figure 9.6.
+
+```{r, fig.width = 6.5, fig.height = 9, warning = F, message = F}
+library(patchwork)
+
+(p11 / p21 / p31 / p41 / p51) | (p12 / p22 / p32 / p42 / p52) | (p13 / p23 / p33 / p43 / p53)
+```
+
+Oh mamma!
 
 > The grid approximation displayed in Figures 9.5 and 9.6 used combs of only [101] points on each parameter ($\omega$, $\theta_1$, and $\theta_2$). This means that the 3D grid had [101^3^ = 1,030,301] points, which is a size that can be handled easily on an ordinary desktop computer of the early 21st century. It is interesting to remind ourselves that the grid approximation displayed in Figures 9.5 and 9.6 would have been on the edge of computability 50 years ago, and would have been impossible 100 years ago. The number of points in a grid approximation can get hefty in a hurry. If we were to expand the example by including a third coin, with its parameter $\theta_3$, then the grid would have [101^4^ = 104,060,401] points, which already strains small computers. Include a fourth coin, and the grid contains over [10 billion] points. Grid approximation is not a viable approach to even modestly large problems, which we encounter next. (p. 235)
 
@@ -1215,8 +1338,6 @@ post_small %>%
 And here are the Figure 9.10 scatter plots.
 
 ```{r, fig.width = 8, fig.height = 2.5, warning = F, message = F}
-library(cowplot)
-
 p1 <-
   post_small %>% 
   ggplot(aes(x = `theta[1]`, y = `theta[14]`)) +
