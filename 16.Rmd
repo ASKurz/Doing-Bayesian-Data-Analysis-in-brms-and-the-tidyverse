@@ -144,7 +144,7 @@ tibble(x   = seq(from = 0, to = 12, by = .05)) %>%
 
 The thing is, with **brms** we typically estimate $\sigma$ rather than precision. Though gamma is also a feasible prior distribution for $\sigma$, we won't use it here. But we won't be using Kruschke's uniform prior distribution, either. The Stan team [discourages uniform priors for variance parameters](https://github.com/stan-dev/stan/wiki/Prior-Choice-Recommendations), such as our $\sigma$. I'm not going to get into the details of why, but you've got that hyperlink above and the good old [Stan User's Guide](https://mc-stan.org/users/documentation/) if you'd like to dive deeper. 
 
-Here we'll use the half normal. By "half normal," we mean that the mean is zero and it's bounded from zero to positive infinity--no negative $\sigma$ values for us! By the "half normal," we also mean to suggest that smaller values are more credible than those approaching infinity. An easy way to do this is to plug in the `sd_y` value from that data into the $\sigma$ value for our half-normal prior. Here's that that looks like for this example.
+Here we'll use the half normal. By "half normal," we mean that the mean is zero and it's bounded from zero to positive infinity--no negative $\sigma$ values for us! By the "half normal," we also mean to suggest that smaller values are more credible than those approaching infinity. When working with unstandardized data, an easy default for a weakly-regularizing half normal is to set the $\sigma$ hyperparameter (i.e., *S*) to the standard deviation of the criterion variable (i.e., $s_Y$). Here's that that looks like for this example.
 
 ```{r, fig.width = 6, fig.height = 3}
 tibble(x   = seq(from = 0, to = 110, by = .1)) %>% 
@@ -153,18 +153,34 @@ tibble(x   = seq(from = 0, to = 110, by = .1)) %>%
   ggplot(aes(x = x, ymin = 0, ymax = d)) +
   geom_ribbon(fill = "grey67") +
   geom_vline(xintercept = sd_y, linetype = 2) +
-  labs(subtitle = "The grey density in the background is the half-normal prior for sigma.\nThe dashed vertical line is our 'sd_y' value.") +
+  labs(subtitle = "The gray density in the background is the half-normal prior for sigma.\nThe dashed vertical line is our 'sd_y' value.") +
   scale_y_continuous(breaks = NULL) +
   coord_cartesian(xlim = 0:100)
 ```
 
-This prior isn’t quite as non-committal as the conventional gamma prior for precision. It weakly regularizes the value for $\sigma$ away from large values, like + 50,000 and so on. In practice, it will have a minimal influence on the posterior other that it will discourage the HMC algorithm from exploring ridiculously large values in the parameter space.
+This prior isn't quite as non-committal as the conventional gamma prior for precision. It discourages the HMC algorithm from exploring $\sigma$ values much larger than two or three times the standard deviation in the data themselves. In practice, it will have a minimal influence on the posterior. If you'd like to make it even less committal, try setting that $\sigma$ hyperparameter to some multiple of $s_Y$ like $2 \times s_Y$ or $10 \times s_Y$. Compare this to Kruschke's recommendations for setting a noncommittal uniform prior for $\sigma$. When using the uniform distribution, $\operatorname{uniform} (L, H)$, 
 
-Kruschke has this to say about the prior for the mean:
+> we will set the high value $H$ of the uniform prior on $\sigma$ to a huge multiple of the standard deviation in the data, and set the low value $L$ to a tiny fraction of the standard deviation in the data. Again, this means that the prior is vague no matter what the scale of the data happens to be. (p. 455)
 
-> In this application we seek broad priors relative to typical data, so that the priors have minimal influence on the posterior. One way to discover the constants is by asking an expert in the domain being studied. But in lieu of that, we will use the data themselves to tell us what the typical scale of the data is. We will set *M* to the mean of the data, and set *S* to a huge multiple (e.g., 100) of the standard deviation of the data. This way, no matter what the scale of the data is, the prior will be vague. (p. 455, *emphasis* in the original)
+On page 456, Kruschke gave an example of such a uniform prior with the code snip `dunif( sdY/1000 , sdY*1000 )`. Here's what that would look like with our data.
 
-In case you're not following along closely in the text, we often use the normal distribution for the intercept and slope parameters in a simple regression model. By *M* and *S*, Kruschke was referring to the $\mu$ and $\sigma$ parameters of the normal prior for our intercept. Here's what that prior looks like in this data example.
+```{r, fig.width = 6, fig.height = 3}
+tibble(x   = 0:(sd_y * 1000)) %>% 
+  mutate(d = dunif(x, min = sd_y / 1000, max = sd_y * 1000)) %>% 
+  
+  ggplot(aes(x = x, ymin = 0, ymax = d)) +
+  geom_ribbon(fill = "grey67") +
+  geom_vline(xintercept = sd_y, linetype = 2) +
+  labs(subtitle = "The gray density in the background is Kruschke's uniform prior for sigma.\nThe dashed vertical line is our 'sd_y' value.") +
+  scale_y_continuous(breaks = NULL) +
+  coord_cartesian()
+```
+
+That's really noncommittal. I'll stick with my half normal. You do you. Kruschke has this to say about the prior for the mean:
+
+> In this application we seek broad priors relative to typical data, so that the priors have minimal influence on the posterior. One way to discover the constants is by asking an expert in the domain being studied. But in lieu of that, we will use the data themselves to tell us what the typical scale of the data is. We will set $M$ to the mean of the data, and set $S$ to a huge multiple (e.g., 100) of the standard deviation of the data. This way, no matter what the scale of the data is, the prior will be vague. (p. 455)
+
+In case you're not following along closely in the text, we often use the normal distribution for the intercept and slope parameters in a simple regression model. By $M$ and $S$, Kruschke was referring to the $\mu$ and $\sigma$ parameters of the normal prior for our intercept. Here's what that prior looks like in this data example.
 
 ```{r, fig.width = 6, fig.height = 3}
 tibble(x   = seq(from = -10000, to = 10000, by = 1)) %>% 
@@ -177,7 +193,7 @@ tibble(x   = seq(from = -10000, to = 10000, by = 1)) %>%
   scale_y_continuous(breaks = NULL)
 ```
 
-Yep, Kruschke's right. That is one non-committal prior. We could tighten that up by an order of magnitude and still have little influence on the posterior. Anyway, here’s how to put our priors to use with **brms**.
+Yep, Kruschke's right. That is one non-committal prior given our data. We could tighten that up by an order of magnitude and still have little influence on the posterior. Anyway, here’s how to put our priors to use with **brms**.
 
 ```{r 16_fit1, cache = T, message = F, warning = F}
 fit1 <-
@@ -234,7 +250,7 @@ rope <-
 
 # here are the primary data
 post %>% 
-  transmute(Mean = b_Intercept, 
+  transmute(Mean                 = b_Intercept, 
             `Standard Deviation` = sigma) %>% 
   mutate(`Effect Size` = (Mean - 100) / `Standard Deviation`) %>% 
   gather() %>% 
@@ -304,7 +320,7 @@ post <-
 str(post)
 ```
 
-Note that after using `expand()`, we have a rather long data frame. Anyway, now we're ready to plot.
+Note that after using `expand()`, we have a rather long data frame. Anyway, we're ready to plot.
 
 ```{r, fig.width = 3, fig.height = 2.25, warning = F, message = F}
 post %>% 
@@ -325,6 +341,18 @@ Note the `stat(density)` argument in the `geom_histogram()` function. That's wha
 Kruschke pointed out this last plot
 
 > constitutes a form of posterior-predictive check, by which we check whether the model appears to be a reasonable description of the data. With such a small amount of data, it is difficult to visually assess whether normality is badly violated, but there appears to be a hint that the normal model is straining to accommodate some outliers: The peak of the data protrudes prominently above the normal curves, and there are gaps under the shoulders of the normal curves. (p. 458)
+
+We can perform a similar posterior-predictive check with the `brms::pp_check()` function. By default, it will return 10 simulated density lines. Like we did above, we'll increase that by setting the `nsamples` argument to our `n_lines` value.
+
+```{r, fig.width = 4, fig.height = 2.25, warning = F, message = F}
+pp_check(fit1, nsamples = n_lines)
+```
+
+Before we move on, we should talk a little about effect sizes, which we all but glossed over in our code. 
+
+> *Effect size* is simply the amount of change induced by the treatment relative to the standard deviation: $(\mu - 100) / \sigma$. In other words, the effect size is the "standardized" change... A conventionally "small" effect size in psychological research is 0.2 ([Cohen, 1988](https://www.taylorfrancis.com/books/9780203771587)), and the ROPE limits are set at half that size for purposed of illustration. (p. 457, *emphasis* in the original).
+
+Another way to describe this kind of effect size is as a *standardized mean difference*. In addition to the seminal work by Cohen, you might brush up on effect sizes with Kelley and Preacher's (2012) [*On effect size*](https://www3.nd.edu/~kkelley/publications/articles/Kelley_and_Preacher_Psychological_Methods_2012.pdf).
 
 ## Outliers and robust estimation: The $t$ distribution
 
