@@ -1707,6 +1707,85 @@ If you work them through, the approaches we took for `fit7` and `fit8` can be ge
 
 It's also the case the that standardized mean differences we computed for `fit1`, above, are not quite Cohen's $d$ effect sizes in the same way these have been. This is because the hierarchical approach we used partially pooled the estimates for each group toward the grand mean. You might say they were hierarchically-regularized Cohen's $d$s. But then again, Cohen's formula for his $d$ statistic did not account for Bayesian priors, either. So perhaps a purist would deny that any of the standardized mean differences we've computed in this chapter were proper Cohen's $d$ effect sizes. To be on the safe side, tell your readers exactly how you computed your models and what formulas you used to compute your effect sizes.
 
+### Populations and samples.
+
+You may have noticed that in our equation for $d$, above, we defined it in terms of sample statistics. Here it is again:
+
+$$d = \frac{\bar y_A - \bar y_B}{s_y}$$
+
+Sometimes we speak of the population parameter $\delta$, which is correspondingly defined as
+
+$$\delta = \frac{\mu_A - \mu_B}{\sigma},$$
+
+where $\mu_A$ and $\mu_B$ are the population means for the two groups under consideration and $\sigma$ is the pooled standard deviation in the population. Often times we don't have access to these values, which is why we run experiments and fit statistical models. But sometimes we do have access to the population parameters. In those cases, we can just plug them into the formula rather than estimate them in our models or with our sample statistics. 
+
+Back in section 16.1.2, we saw an example of this with the `TwoGroupIQ` data. Let's load them, again.
+
+```{r, message = F}
+my_data <- read_csv("data.R/TwoGroupIQ.csv")
+
+glimpse(my_data)
+```
+
+The data are IQ scores for participants in two groups. They look like this.
+
+```{r, fig.width = 5, fig.height = 2.75}
+my_data %>% 
+  ggplot(aes(x = Score, Group)) +
+  geom_halfeyeh(point_interval = mode_hdi, .width = c(.95, .5)) +
+  xlab("IQ score") +
+  coord_cartesian(ylim = c(1.5, 2.25))
+```
+
+If we wanted to compute the point estimate for Cohen's $d$ by hand, we might extract the necessary sample statistics and go.
+
+```{r}
+# save the sample means for the groups
+y_bar_a <- filter(my_data, Group == "Smart Drug") %>% summarise(mean = mean(Score)) %>% pull()
+y_bar_b <- filter(my_data, Group == "Placebo")    %>% summarise(mean = mean(Score)) %>% pull()
+
+# save the pooled standard deviation in the sample
+s_y <- sd(my_data$Score)
+
+# compute Cohen's d
+(y_bar_a - y_bar_b) / s_y
+```
+
+To get full posteriors for $d$, you might use any of the three methods we practiced with, above. Because we're only working with sample statistics, these are all only approximations of $\delta$. The thing about IQ scores is we actually know the population mean and standard deviation for IQ. They are 100 and 15, respectively. We know this because the people who make IQ tests design them that way. Let's see how well out sample statistics approximate the population parameters.
+
+```{r}
+my_data %>% 
+  group_by(Group) %>% 
+  summarise(mean = mean(Score),
+            sd = sd(Score))
+```
+
+Unsurprisingly, the values for the `Smart Drug` group are notably different from the population parameters. But notice how close the values from the `Placebo` group are to the population parameters. If they weren’t, we’d be concerned the `Placebo` condition was not a valid control. Looks like it was.
+
+However, notice that the mean and standard deviation for the `Placebo` group aren’t the exact values of 100 and 15 the way they are in the population. If we wanted to compute a standardized mean difference between our `Smart Drug` group and folks in the population, we could just plug those values directly into our effect size equation. Here's what that would look like if we plug in the population mean for the control group.
+
+```{r}
+(y_bar_a - 100) / s_y
+```
+
+The result is very close to the one above. But this time our equation for $d$ was
+
+$$d = \frac{\bar y_A - \mu_B}{s_y},$$
+
+where we used the population mean $\mu_B$, but the other two terms were based on values from the sample. As long as you are defining the `Placebo` control as a stand-in for the population, this is a more precice way to compute $d$. Going further, we can also replace our $s_y$ with $\sigma$ (i.e., 15). 
+
+```{r}
+(y_bar_a - 100) / 15
+```
+
+Now our estimate is quite different. *Why*? Recall that sample standard deviations for both groups were larger than 15. That resulted in a $s_y$ value that was larger than 15, which meant we divided the unstandardized difference by a larger denominator. That larger denominator returned a smaller product. 
+
+We have more than simple algebra to contend with, though. Replacing $s_y$ with 15 actually changed the meaning of the effect size. We were no longer using a pooled standard deviation. Rather, we were using the unconditional population standard deviation. Again, as long as we're equating our `Placebo` group with the population, we might restate that 15 as $\sigma_B$. Sometimes you might see this expressed as $\sigma_C$, where $C$ indicates "Control" (i.e., the reference category). That changed our formula to this:
+
+$$d = \frac{\bar y_A - \mu_B}{\sigma_B}$$
+
+So yes, that's right. We don't have to use pooled standard deviations to compute our standardized mean differences. If we have a good reference category, we could just use the sample estimate or population parameter for that, instead. Confusingly, you might see all these variants referred to as Cohen's $d$ within the literature. As with all the other decisions you make with experimental design and data analysis, use carefully reasoning to decide on how you'd like to compute your effect sizes, report them transparently to your audience, and prepare yourself for a collegial debate with Reviewer #2.
+
 ## Reference {-}
 
 [Kruschke, J. K. (2015). *Doing Bayesian data analysis, Second Edition: A tutorial with R, JAGS, and Stan.* Burlington, MA: Academic Press/Elsevier.](https://sites.google.com/site/doingbayesiandataanalysis/)
