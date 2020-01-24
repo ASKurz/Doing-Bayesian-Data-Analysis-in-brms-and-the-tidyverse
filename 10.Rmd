@@ -92,10 +92,9 @@ tibble(Model = c("1", "2"),
 Consider the Bernoulli bar plots in the bottom panels of Figure 10.2. The heights of the bars are arbitrary and just intended to give a sense of the Bernoulli distribution. If we wanted the heights to correspond to the Beta distributions above them, we might do so like this.
 
 ```{r, fig.width = 5, fig.height = 2}
-tibble(factory = rep(str_c("factory ", 1:2), each  = 2),
-       flip    = rep(c("tails", "heads"), times = 2) %>% 
-         factor(., levels = c("tails", "heads")),
-       prob    = c(.75, .25, .25, .75)) %>% 
+crossing(factory = str_c("factory ", 1:2),
+         flip    = factor(c("tails", "heads"), levels = c("tails", "heads"))) %>% 
+  mutate(prob = c(.75, .25, .25, .75)) %>% 
   
   ggplot(aes(x = flip, y = prob)) +
   geom_col(width = .75, fill = "grey50") +
@@ -209,9 +208,7 @@ We won't be able to make the wireframe plots on the left of Figure 10.3, but we 
 tibble(omega = seq(from = 0, to = 1, length.out = length)) %>% 
   mutate(m_p = ifelse(omega %in% c(.25, .75), 15, 0)) %>% 
   
-  ggplot(aes(x = omega, 
-             ymin = 0,
-             ymax = m_p)) +
+  ggplot(aes(x = omega, ymin = 0, ymax = m_p)) +
   geom_ribbon(fill = "grey67", color = "grey67") +
   coord_flip(ylim = 0:25) +
   labs(subtitle = "Remember, the scale on the x is arbitrary.",
@@ -247,9 +244,7 @@ p1 <-
   d %>% 
   filter(omega == .75) %>% 
   
-  ggplot(aes(x = theta, 
-             ymin = 0, 
-             ymax = prior)) +
+  ggplot(aes(x = theta, ymin = 0, ymax = prior)) +
   geom_ribbon(fill = "grey67") +
   labs(x = expression(theta),
        y = expression(paste("p(", theta, "|", omega, " = .75)"))) +
@@ -259,9 +254,7 @@ p2 <-
   d %>% 
   filter(omega == .25) %>% 
   
-  ggplot(aes(x = theta, 
-             ymin = 0, 
-             ymax = prior)) +
+  ggplot(aes(x = theta, ymin = 0, ymax = prior)) +
   geom_ribbon(fill = "grey67") +
   labs(x = expression(theta),
        y = expression(paste("p(", theta, "|", omega, " = .25)"))) +
@@ -276,14 +269,12 @@ p1 / p2
 We can continue to build on those sensibilities for the middle panel of the same row. Here we're literally adding $p_{m = 1}(\theta)$ to $p_{m = 2}(\theta)$ and taking their average.
 
 ```{r, fig.width = 3.5, fig.height = 3}
-tibble(theta  = seq(from = 0, to = 1, length.out = length)) %>% 
+tibble(theta = seq(from = 0, to = 1, length.out = length)) %>% 
   mutate(d_75 = dbeta(x = theta, shape1 = 8.5, shape2 = 3.5),
          d_25 = dbeta(x = theta, shape1 = 3.5, shape2 = 8.5)) %>% 
   mutate(mean_prior = (d_75 + d_25) / 2) %>% 
 
-  ggplot(aes(x = theta, 
-             ymin = 0, 
-             ymax = mean_prior)) +
+  ggplot(aes(x = theta, ymin = 0, ymax = mean_prior)) +
   geom_ribbon(fill = "grey67") +
   coord_cartesian(ylim = 0:3) +
   labs(x = expression(theta),
@@ -295,10 +286,12 @@ We need the Bernoulli likelihood function for the next step.
 
 ```{r}
 bernoulli_likelihood <- function(theta, data) {
+  
   n <- length(data)
   z <- sum(data)
+  
   return(theta^z * (1 - theta)^(n - sum(data)))
-  }
+}
 ```
 
 Time to feed our data and the parameter space into `bernoulli_likelihood()`, which will allow us to make the 2-dimensional density plot at the heart of Figure 10.3.
@@ -350,9 +343,7 @@ Here, then, is a way to get the panel in on the right of the second row from the
 d %>% 
   mutate(marginal = (posterior / max(posterior)) * 25) %>% 
 
-  ggplot(aes(x = omega,
-             ymin = 0,
-             ymax = marginal)) +
+  ggplot(aes(x = omega, ymin = 0, ymax = marginal)) +
   geom_ribbon(fill = "grey67", color = "grey67") +
   coord_flip(ylim = 0:25) +
   labs(subtitle = "Remember, the scale on the x is arbitrary.",
@@ -368,9 +359,7 @@ To make the middle bottom panel of Figure 10.3, we have to average the posterior
   group_by(theta) %>% 
   summarise(marginal_theta = mean(posterior)) %>% 
   
-  ggplot(aes(x = theta, 
-             ymin = 0,
-             ymax = marginal_theta)) +
+  ggplot(aes(x = theta, ymin = 0, ymax = marginal_theta)) +
   geom_ribbon(fill = "grey67") + 
   labs(x = expression(theta),
        y = expression(paste("Marginal p(", theta, "|D)"))) +
@@ -384,9 +373,7 @@ d %>%
   filter(omega %in% c(.25, .75)) %>% 
   mutate(omega = str_c("omega == ", omega)) %>%
 
-  ggplot(aes(x = theta, 
-             ymin = 0,
-             ymax = posterior)) +
+  ggplot(aes(x = theta, ymin = 0, ymax = posterior)) +
   geom_ribbon(fill = "grey67") + 
   labs(x = expression(theta),
        y = expression(paste("Marginal p(", theta, "|", omega, ")"))) +
@@ -401,9 +388,7 @@ d %>%
   filter(omega %in% c(.25, .75)) %>% 
   mutate(omega = str_c("omega == ", omega)) %>%
 
-  ggplot(aes(x = theta, 
-             ymin = 0,
-             ymax = posterior)) +
+  ggplot(aes(x = theta, ymin = 0, ymax = posterior)) +
   geom_ribbon(fill = "grey67") + 
   labs(x = expression(theta),
        y = expression(paste("Marginal p(", theta, "|", omega, ")"))) +
@@ -512,7 +497,6 @@ The `fixef()` function will return the posterior summaries for the model interce
 ```{r}
 fixef(fit1)
 
-
 (mean_theta <- fixef(fit1)[1])
 (sd_theta <- fixef(fit1)[2])
 ```
@@ -537,9 +521,11 @@ The reason we're saving all these values is we're aiming to compute $p(D)$, the 
 
 ```{r}
 one_over_pd <- function(theta) {
+  
   mean(dbeta(theta, a_post, b_post ) / 
          (theta^z * (1 - theta)^(n - z) * 
             dbeta(theta, omega * (kappa - 2) + 1, (1 - omega) * (kappa - 2) + 1 )))
+  
 }
 ```
 
@@ -614,15 +600,15 @@ waic(fit1)
 
 We'll explain that output in a bit. Before we do, you should know the current recommended workflow for information criteria with **brms** models is to use the `add_criterion()` function, which will allow us to compute information-criterion-related output and save it to our **brms** fit objects. Here's how to do that with both our fits.
 
-```{r ic_fit1_fit2, cache = T}
+```{r ic_fit1_fit2}
 fit1 <- add_criterion(fit1, criterion = c("loo", "waic"))
 fit2 <- add_criterion(fit2, criterion = c("loo", "waic"))
 ```
 
-You can extract the same WAIC output for `fit1` we saw above by executing `fit1$waic`. Here we look at the LOO summary for fit1, instead.
+You can extract the same WAIC output for `fit1` we saw above by executing `fit1$criteria$waic`. Here we look at the LOO summary for fit1, instead.
 
 ```{r}
-fit1$loo
+fit2$criteria$loo
 ```
 
 You get a wealth of output, more of which can be seen by executing `str(fit1$loo)`. First, notice the message "All Pareto k estimates are good (k < 0.5)." Pareto $k$ values can be [used for diagnostics](https://cran.r-project.org/web/packages/loo/vignettes/loo2-example.html#plotting-pareto-k-diagnostics). Each case in the data gets its own $k$ value and we like it when those $k$s are low. The makers of the [**loo** package](https://github.com/stan-dev/loo) get worried when $k$ values exceed 0.7 and, as a result, we will get warning messages when they do. Happily, we have no such warning messages in this example.
@@ -639,7 +625,7 @@ Each difference score also comes with a standard error. In this case, even thoug
 
 In addition to difference-score comparisons, you can also use the LOO or WAIC for AIC-type model weighting. In **brms**, you do this with the `model_weights()` function.
 
-```{r mw_fit1_and_fit2, cache = T}
+```{r mw_fit1_and_fit2}
 (mw <- model_weights(fit1, fit2))
 ```
 
@@ -679,7 +665,7 @@ neff_ratio(fit1)[1] %>%
   yaxis_text(hjust = 0)
 ```
 
-But we specified a lot of post-warmup iterations, so we're still in good shape. Plus, the $\hat{R}$ was fine.
+But we specified a lot of post-warmup iterations, so we're still in good shape. Plus, the $\hat R$ was fine.
 
 ```{r}
 rhat(fit1)[1]
@@ -744,7 +730,7 @@ fit3 <-
       prior = c(prior(normal(0, 5), class = Intercept),
                 prior(normal(0, 5), class = sigma)),  # by default, this has a lower bound of 0
       chains = 4, cores = 4,
-      seed = 10)  
+      seed = 10)
 
 fit4 <-
   brm(data = d,
@@ -754,7 +740,7 @@ fit4 <-
                 prior(normal(0, 5), class = sigma),
                 prior(gamma(2, 0.1), class = nu)),  # this is the brms default prior for nu
       chains = 4, cores = 4,
-      seed = 10) 
+      seed = 10)
 ```
 
 In case you were curious, here's what that default `gamma(2, 0.1)` prior on `nu` looks like.
@@ -1033,36 +1019,22 @@ fit6 <-
          seed = 10)
 ```
 
-Unlike with what Kruschke alluded to in the prose, here we'll compare the two models with the LOO information criteria.
+Unlike with what Kruschke alluded to in the prose, here we'll compare the two models with the WAIC.
 
-```{r loo_fit5, cache = T, warning = F, echo = F}
-# hide from view
-fit5 <- add_criterion(fit5, criterion = "loo")
+```{r waic_fit5_fit6, warning = F, echo = F}
+fit5 <- add_criterion(fit5, criterion = "waic")
+fit6 <- add_criterion(fit6, criterion = "waic")
+
+loo_compare(fit5, fit6, criterion = "waic")
 ```
 
-```{r loo_fit6, cache = T, warning = F, echo = F}
-# hide from view
-fit6 <- add_criterion(fit6, criterion = "loo")
+Based on the WAIC difference score, they're near equivalent. Now let's see how their WAIC weights shake out.
+
+```{r}
+model_weights(fit5, fit6, weights = "waic") %>% round(2)
 ```
 
-```{r, eval = F}
-fit5 <- add_criterion(fit5, criterion = "loo")
-fit6 <- add_criterion(fit6, criterion = "loo")
-
-loo_compare(fit5, fit6)
-```
-
-```{r loo_compare_fit5_fit6, warning = F, echo = F}
-loo_compare(fit5, fit6)
-```
-
-Based on the LOO difference score, they're near equivalent. Now let's see how their model weights shake out. Here we'll continue to use the default stacking method.
-
-```{r mw_fit5_fit6, cache = T, warning = F}
-model_weights(fit5, fit6)
-```
-
-Though most of the weight went to the parsimonious `fit6`, we should be skeptical. "Does that mean we should believe that [these positions] have literally identical batting abilities? Probably not" (p. 292). It's good to be cautious of unnecessary model expansion. But we should also use good substantive reasoning, too. Just because you can restrict a model, that doesn't necessarily mean it leads to better science.
+In this case, most of the weight went to the full model, `fit5`. However, the overall pattern between the WAIC difference and the WAIC weights was uncertainty. Make sure to use good substantive reasoning when comparing models.
 
 ## Extreme sensitivity to the prior distribution
 
@@ -1119,6 +1091,7 @@ Before we can complete the analyses of this subsection, we'll need to define our
 
 ```{r}
 hdi_of_icdf <- function(name, width = .95, tol = 1e-8, ... ) {
+  
   incredible_mass <-  1.0 - width
   interval_width  <- function(low_tail_prob, name, width, ...) {
     name(width + low_tail_prob, ...) - name(low_tail_prob, ...)
@@ -1127,8 +1100,10 @@ hdi_of_icdf <- function(name, width = .95, tol = 1e-8, ... ) {
                        name = name, width = width, 
                        tol = tol, ...)
   hdi_lower_tail_prob <- opt_info$minimum
+  
   return(c(name(hdi_lower_tail_prob, ...),
            name(width + hdi_lower_tail_prob, ...)))
+  
 }
 ```
 
@@ -1136,12 +1111,14 @@ And here we'll make a custom variant to be more useful within the context of `ma
 
 ```{r}
 hdi_of_qbeta <- function(shape1, shape2) {
+  
   hdi_of_icdf(name = qbeta,
               shape1 = shape1,
               shape2 = shape2) %>% 
     data.frame() %>% 
     mutate(level = c("ll", "ul")) %>% 
     spread(key = level, value = ".")
+  
 }
 ```
 
@@ -1178,8 +1155,8 @@ d %>%
   geom_segment(size = .75) +
   coord_cartesian(xlim = 0:1) +
   labs(subtitle = "Those two sets of HDIs are quite similar.\nIt almost seems silly their respective BFs\nare so different.",
-       x        = expression(theta),
-       y        = NULL) +
+       x = expression(theta),
+       y = NULL) +
   theme(panel.grid   = element_blank(),
         axis.ticks.y = element_blank(),
         axis.text.y  = element_text(hjust = 0))
@@ -1224,7 +1201,7 @@ Next, fit the three models with `brms::brm()`.
 # I tried executing `bookdown::publish_book()`.
 # this was a quick solution
 
-# save(list = c("fit7", "fit8", "fit9"), 
+# save(list = c("fit7", "fit8", "fit9"),
 #      file = "fits/10_fit7_to_fit9.rda")
 # rm(fit7, fit8, fit9)
 
@@ -1261,7 +1238,7 @@ fit9 <-
 
 Compare the models by the LOO.
 
-```{r loo_fit7_through_fit9, cache = T}
+```{r loo_fit7_through_fit9}
 fit7 <- add_criterion(fit7, criterion = "loo")
 fit8 <- add_criterion(fit8, criterion = "loo")
 fit9 <- add_criterion(fit9, criterion = "loo")
@@ -1271,19 +1248,16 @@ loo_compare(fit7, fit8, fit9)
 
 Based on the LOO comparisons, none of the three models was a clear favorite. Although both versions of the anything’s-possible model (i.e., `fit8` and `fit9`) had lower numeric estimates than the must-be-fair model (i.e., `fit7`), the standard errors on the difference scores were the same magnitude as the difference estimates themselves. As for comparing the two variants of the anything’s-possible model directly, their LOO estimates were almost indistinguishable.
 
-Now let's see what happens when we compute their model weights.
+Now let's see what happens when we compute their model weights. Here we'll contrast the LOO weights wiht the stackign weights
 
 ```{r mw_fit7_through_fit9, cache = T}
-(mw <- model_weights(fit7, fit8, fit9))
+model_weights(fit7, fit8, fit9, weights = "loo") %>% 
+  round(digits = 2)
+model_weights(fit7, fit8, fit9) %>% 
+  round(digits = 2)
 ```
 
-If that's hard to read, just `round()`.
-
-```{r}
-round(mw, digits = 2)
-```
-
-Here most of the stacking weight went to `fit8`, the model with the Beta(1, 1) prior.
+Here the evidence varied by the specific weight. Across both, the model with the Haldane prior (`fit9`) did arguably the best. But the model with the uniform prior (`fit8`) was clearly in the running. Overall, the evidence for one versus another was weak.
 
 Like we did earlier with `fit1` and `fit2`, we can use the `pp_average()` function to compute the stacking weighted posterior for $\theta$.
 
@@ -1307,14 +1281,25 @@ pp_average(fit7, fit8, fit9,
   theme(panel.grid = element_blank())
 ```
 
-Did you notice the `weights = mw` argument, there? From the `pp_average` section of the [**brms** reference manual (version 2.10.0)](https://cran.r-project.org/web/packages/brms/brms.pdf), we read: "Alternatively, `weights` can be a numeric vector of pre-specified weights." Since we saved the results of `model_weights()` as an object `mw`, we were able to capitalize on that feature. If you leave out that argument, you'll have to wait a bit for **brms** to compute those weights again from scratch.
+Did you notice the `weights = mw` argument, there? From the `pp_average.brmsfit` section of the [**brms** reference manual (version 2.11.1)](https://cran.r-project.org/web/packages/brms/brms.pdf), we read "`weights` may also be be a numeric vector of pre-specified weights." Since we saved the results of `model_weights()` as an object `mw`, we were able to capitalize on that feature. If you leave out that argument, you'll have to wait a bit for **brms** to compute those weights again from scratch.
 
 And just for the sake of practice, we can also compare the models with separate posterior predictive checks using `pp_check()`.
 
-```{r, fig.width = 4, fig.height = 2, message = F}
-pp_check(fit7, type = "bars", nsamples = 1e3) + ylim(0, 80)
-pp_check(fit8, type = "bars", nsamples = 1e3) + ylim(0, 80)
-pp_check(fit9, type = "bars", nsamples = 1e3) + ylim(0, 80)
+```{r, fig.width = 4, fig.height = 6, message = F}
+p1 <-
+  pp_check(fit7, type = "bars", nsamples = 1e3) +
+  ggtitle("fit7")
+
+p2 <-
+  pp_check(fit8, type = "bars", nsamples = 1e3) +
+  ggtitle("fit8")
+
+p3 <-
+  pp_check(fit9, type = "bars", nsamples = 1e3) +
+  ggtitle("fit9")
+
+((p1 / p2 / p3) & ylim(0, 80)) + 
+  plot_layout(guides = 'collect')
 ```
 
 Instead of the default 10, this time we used 1000 posterior simulations from each fit, which we summarized with dot and error bars. This method did a great job showing how little `fit7` learned from the data. Another nice thing about this method is it reveals how similar the results are between `fit8` and `fit9`, the two alternate versions of the anything's-possible model. Also, did you notice how we tacked `ylim(0, 80)` onto the end of each plots' code? Holding the scale of the axes constant makes it easier to compare results across plots.
@@ -1337,7 +1322,7 @@ sessionInfo()
 
 ```{r, echo = F}
 # remove our objects
-rm(length, p_d, p_d_1, p_d_2, d, p1, p2, bernoulli_likelihood, n, z, trial_data, omega, kappa, stanvars, fit1, theta, mean_theta, sd_theta, a_post, b_post, one_over_pd, fit2, mw, nd, pp_a, fit3, fit4, my_data, fit5, fit6, hdi_of_icdf, hdi_of_qbeta, fit7, fit8, fit9)
+rm(length, p_d, p_d_1, p_d_2, d, p1, p2, bernoulli_likelihood, n, z, trial_data, omega, kappa, stanvars, fit1, theta, mean_theta, sd_theta, a_post, b_post, one_over_pd, fit2, mw, nd, pp_a, fit3, fit4, my_data, fit5, fit6, hdi_of_icdf, hdi_of_qbeta, fit7, fit8, fit9, p3)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
