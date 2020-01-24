@@ -71,7 +71,7 @@ For both plots, `z` is in a standardized metric (i.e., $z$-score). With the cumu
 
 The inverse of $\Phi(x)$ is the *probit* function. As indicated in the above block quote, we'll be making extensive use of the probit function in this chapter to model our ordinal data.
 
-## 23.1. Modeling ordinal data with an underlying metric variable
+## Modeling ordinal data with an underlying metric variable
 
 > You can imagine that the distribution of ordinal values might not resemble a normal distribution, even though the underlying metric values are normally distributed. Figure 23.1 shows some examples of ordinal outcome probabilities generated from an underlying normal distribution. The horizontal axis is the underlying continuous metric value. Thresholds are plotted as vertical dashed lines, labeled $\theta$. In all examples, the ordinal scale has 7 levels, and hence, there are 6 thresholds. The lowest threshold is set at $\theta_1 = 1.5$ (to separate outcomes 1 and 2), and the highest threshold is set at $\theta_1 = 6.5$ (to separate outcomes 6 and 7). The normal curve in each panel shows the distribution of underlying continuous values. What differs across panels are the settings of means, standard deviations, and remaining thresholds. (p. 672)
 
@@ -329,7 +329,7 @@ Oh mamma. "*The crucial concept in Figure 23.1 is that the probability of a part
 >
 > Thus, a normally distributed underlying metric value can yield a clearly non-normal distribution of discrete ordinal values. This result does not imply that the ordinal values can be treated as if they were themselves metric and normally distributed; in fact it implies the opposite: We might be able to model a distribution of ordinal values as consecutive intervals of a normal distribution on an underlying metric scale with appropriately positioned thresholds. (pp. 674--675)
 
-## 23.2. The case of a single group
+## The case of a single group
 
 Given a model with no predictors, "if there are $K$ ordinal values, the model has $K + 1$ parameters: $\theta_1,...,\theta_{K - 1}, \mu$, and $\sigma$. If you think about it a moment, you’ll realize that the parameter values trade-off and are undetermined" (p. 675). The solution Kruschke took throughout this chapter was to fix the two thresholds at the ends, $\theta_1$  and $\theta_{K - 1}$, to the constants
 
@@ -349,7 +349,7 @@ $$
 
 As we'll see, there are other ways to parameterize these models.
 
-### 23.2.1 Implementation in ~~JAGS~~ **brms**.
+### Implementation in ~~JAGS~~ **brms**.
 
 The syntax to fit a basic ordered probit model with `brms::brm()` is pretty simple.
 
@@ -367,7 +367,7 @@ Remember how, at the end of the last section, we said there are other ways to pa
 
 At this point, this all probably seems abstract. We'll get a lot of practice comparing the two approaches as we go along. Each has its strengths and weaknesses. At this point, the thing to get is that when fitting a single-group ordered probit model with the `brm()` function, there will be no priors for $\mu$ and $\sigma$. We only have to worry about setting the priors for all $K - 1$ thresholds. And because those thresholds are conditional on $\Phi(z)$, we should think about their priors with respect to the standard normal distribution. Thus, to continue on with Kruschke's minimally-informative prior approach, something like `prior(normal(0, 4), class = Intercept)` might be a good starting place. Do feel free to experiment with different settings.
 
-### 23.2.2 Examples: Bayesian estimation recovers true parameter values.
+### Examples: Bayesian estimation recovers true parameter values.
 
 The data for Kruschke's first example come from his `OrdinalProbitData-1grp-1.csv` file. Load the data.
 
@@ -432,43 +432,64 @@ post <-
 Here's our **brms** version of the bottom plot of Figure 23.2
 
 ```{r, fig.width = 5, fig.height = 2}
+means <-
+  post %>% 
+  summarise_at(vars(`Intercept[1]`:`Intercept[6]`), mean) %>% 
+  pivot_longer(everything(),
+               values_to = "mean")
+
 post %>% 
-    gather(name, threshold, -iter) %>% 
-    group_by(iter) %>% 
-    mutate(theta_bar = mean(threshold)) %>% 
+  gather(name, threshold, -iter) %>% 
+  group_by(iter) %>% 
+  mutate(theta_bar = mean(threshold)) %>% 
   
-  ggplot(aes(x = threshold, y = theta_bar)) +
-  geom_point(aes(color = name),
-             alpha = 1/10) +
+  ggplot(aes(x = threshold, y = theta_bar, color = name)) +
+  geom_vline(data = means,
+             aes(xintercept = mean, color = name),
+             linetype = 2) +
+  geom_point(alpha = 1/10) +
   scale_color_viridis_d(option = "D", end = .85, direction = -1) +
   ylab("mean threshold") +
   theme(panel.grid = element_blank(),
         legend.position = "none") 
 ```
 
-Did you see what we did there with those `group_by()` and `mutate()` lines? That's how we computed the mean threshold within each step of the HMC chain, what Kruschke (p. 680) denoted as $\bar \theta (s) = \sum_k^{K-1} \theta_k (s) / (K - 1)$, where $s$ refers to particular steps in the HMC chain.
+The initial `means` data at the top contains the $\theta_i$-specific means, which we used to make the dashed vertical lines within `geom_vline()`. Did you see what we did there with those `group_by()` and `mutate()` lines? That's how we computed the mean threshold within each step of the HMC chain, what Kruschke (p. 680) denoted as $\bar \theta (s) = \sum_k^{K-1} \theta_k (s) / (K - 1)$, where $s$ refers to particular steps in the HMC chain. 
 
 Perhaps of greater interest, you might have noticed how different out plot is from the one in the text. We might should compare the plot of our **brms** parameterization of $\theta_{[i]}$ with one based on the parameterization in the text in an expanded version of the bottom plot of Figure 23.2. To convert our **brms** output to match Kruschke's, we'll rescale our $\theta_{[i]}$ draws with help from the `scales::rescale()` function, which you might learn more about [here](https://www.rdocumentation.org/packages/scales/versions/0.4.1/topics/rescale).
 
 ```{r, fig.width = 5, fig.height = 3.5}
-bind_rows(
-  # brms parameterization
-  post %>% 
-    gather(name, threshold, -iter) %>% 
-    group_by(iter) %>% 
-    mutate(theta_bar = mean(threshold)),
-  # Kruschke's parameterization
-  post %>% 
-    gather(name, threshold, -iter) %>% 
-    group_by(iter) %>% 
-    mutate(threshold = scales::rescale(threshold, to = c(1.5, 6.5))) %>% 
-    mutate(theta_bar = mean(threshold))
-) %>% 
+# primary data wrangling
+p <-
+  bind_rows(
+    # brms parameterization
+    post %>% 
+      gather(name, threshold, -iter) %>% 
+      group_by(iter) %>% 
+      mutate(theta_bar = mean(threshold)),
+    # Kruschke's parameterization
+    post %>% 
+      gather(name, threshold, -iter) %>% 
+      group_by(iter) %>% 
+      mutate(threshold = scales::rescale(threshold, to = c(1.5, 6.5))) %>% 
+      mutate(theta_bar = mean(threshold))
+  ) %>% 
   # add an index
-  mutate(model = rep(c("brms parameterization", "Kruschke's parameterization"), each = n() / 2)) %>% 
-  
-  # plot!
+  mutate(model = rep(c("brms parameterization", "Kruschke's parameterization"), each = n() / 2))
+
+# compute the means by model and threshold for the vertical lines
+means <-
+  p %>% 
+  ungroup() %>% 
+  group_by(model, name) %>% 
+  summarise(mean = mean(threshold))
+
+# plot!
+p %>% 
   ggplot(aes(x = threshold, y = theta_bar)) +
+  geom_vline(data = means,
+             aes(xintercept = mean, color = name),
+             linetype = 2) +
   geom_point(aes(color = name),
              alpha = 1/10, size = 1/2) +
   scale_color_viridis_d(option = "D", end = .85, direction = -1) +
@@ -478,13 +499,66 @@ bind_rows(
   facet_wrap(~model, ncol = 1, scales = "free")
 ```
 
-Here is the correlation matrix among the thresholds.
+We can take our rescaling approach further to convert the posterior distributions for $\mu$ and $\sigma$ from the **brms** $\operatorname{Normal} (0, 1)$ constants to the metric from Kruschke's approach. Say $y_1$ and $y_2$ are two draws from some Gaussian and $z_1$ and $z_2$ are their corresponding $z$-scores. Here’s how to solve for $\sigma$.
+
+$$
+\begin{align*}
+z_1 - z_2 & = \frac{(y_1 - \mu)}{\sigma} - \frac{(y_2 - \mu)}{\sigma} \\
+z_1 - z_2 & = \frac{(y_1 - \mu) - (y_2 - \mu)}{\sigma} \\
+z_1 - z_2 & = \frac{y_1 - \mu - y_2 + \mu}{\sigma} \\
+z_1 - z_2 & = \frac{y_1 - y_2}{\sigma}, \;\; \text{therefore} \\
+\sigma    & = \frac{y_1 - y_2}{z_1 – z_2}.
+\end{align*}
+$$
+
+If you'd like to compute $\mu$, it's even simpler.
+
+$$
+\begin{align*}
+z_1 & = \frac{y_1 - \mu}{\sigma} \\
+z_1 \sigma & = y_1 - \mu \\
+z_1 \sigma + \mu & = y_1, \;\; \text{therefore}  \\
+\mu & = y_1 - z_1 \sigma
+\end{align*}
+$$
+
+Big shout out to my math-stats savvy friends academic twitter for the formulas, especially [Ph.Demetri](https://twitter.com/PhDemetri), [Lukas Neugebauer](https://twitter.com/lukasneugebau), and [Brenton Wiernik](https://twitter.com/bmwiernik) for walking the formulas out (see [this twitter thread](https://twitter.com/SolomonKurz/status/1219649489016958976)). For our application, `Intercept[1]` and `Intercept[6]` will be our two $z$-scores and Kruschke's 1.5 and 6.5 will be their corresponding $y$-values.
+
+```{r, fig.width = 8, fig.height = 2.25}
+library(tidybayes)
+
+post %>% 
+  select(iter, `Intercept[1]`, `Intercept[6]`) %>% 
+  mutate(`y[1]` = 1.5,
+         `y[6]` = 6.5) %>% 
+  mutate(mu     = `y[1]` - `Intercept[1]` * 1,
+         sigma  = (`y[1]` - `y[6]`) / (`Intercept[1]` - `Intercept[6]`)) %>% 
+  mutate(`(mu-2)/sigma` = (mu - 2) / sigma) %>% 
+  pivot_longer(mu:`(mu-2)/sigma`) %>% 
+  mutate(name = factor(name,
+                       levels = c("mu", "sigma", "(mu-2)/sigma"))) %>%
+  
+  ggplot(aes(x = value)) +
+  geom_histogram(color = "grey92", fill = "grey67",
+                 size = .05, bins = 40) +
+  geom_halfeyeh(aes(y = 0),
+                point_interval = mode_hdi, .width = .95) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  theme(panel.grid = element_blank()) +
+  facet_wrap(~name, scales = "free", labeller = label_parsed)
+```
+
+Our results are similar to Kruschke's. Given we used a different algorithm, a different parameterization, and different priors, I'm not terribly surprised. If you have more insight on the matter or have spotted a flaw in this method, [please share with the rest of us](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues).
+
+It's unclear, to me, how we'd interpret the effect size. The difficulty isn't that Kruschke's comparison of $C = 2.0$ is arbitrary, but that the only way we can interpret the comparison given the model assumption of $\theta_1 = 1.5$ and $\theta_6 = 6.5$. If your theory doesn't allow you to understand the meaning of those constants and why you'd prefer them to slightly different ones, you'd be fooling yourself if you attempted to interpret any effect sizes conditional on their values. Proceed with caution.
+
+In the large paragraph on the lower part of page 679, Kruschke discussed why the thresholds tend to have nontrivial covariances. This is what he was trying to convey with the bottom subplot in Figure 23.2. Here is the correlation matrix among the thresholds.
 
 ```{r}
 vcov(fit1, correlation = T) %>% round(digits = 2)
 ```
 
-```{r}
+```{r, echo = F}
 # Valid distributional parameters are: 'mu', 'disc'
 # fitted(fit1)
 ```
@@ -508,7 +582,7 @@ post %>%
   pivot_longer(everything(), names_to = "Y") %>% 
   
   ggplot(aes(x = value, y = Y)) +
-  geom_halfeyeh(.width = .95, size = 1/2) +
+  geom_halfeyeh(point_interval = mode_hdi, .width = .95, size = 1/2) +
   xlab(expression(paste(italic(p), "[Y = ", italic(i), "]"))) +
   coord_cartesian(xlim = 0:1) +
   theme(panel.grid = element_blank())
@@ -547,18 +621,6 @@ pp_check(fit1, type = "bars", nsamples = 1000) +
   theme(legend.position = c(.9, .8))
 ```
 
-Because our **brms** parameterization used a fixed mean and standard deviation (i.e., $\operatorname{Normal} (0, 1)$), I'm not aware that we can make versions of the Figure 23.2 subplots for the mean, standard deviation, and effect size. This brings up another difficulty. Kruschke wrote that the 
-
-> effect size for a single group must be defined with respect to a comparison value $C$; for purposes of illustration, the comparison value here is chosen to be $C = 2.0$. Effect size is defined as the difference between the mean and the comparison value, relative to the standard deviation: $(\mu - C) / \sigma$. (p. 6.70)
-
-Sure, since our **brms** values are $\mu = 0$ and $\sigma = 1$, we could go through the steps with $C = 2.0$:
-
-$$(0 - 2) / 1 = -2$$
-
-We have an effect size of -2. Because there is no uncertainty in any of the three values in the equation, all the mass in the posterior is on a single point. There are no 95% intervals. 
-
-From another angle, it's unclear, to me, how we'd interpret Kruchke's effect size of -0.41, 95% HDI [-0.65, -0.18] (see page 678). The difficulty isn't that his comparison of $C = 2.0$ is arbitrary, but that the only way we can interpret the comparison given the model assumption of $\theta_1 = 1.5$ and $\theta_6 = 6.5$. If your theory doesn't allow you to understand the meaning of those constants and why you'd prefer them to slightly different ones, you'd be fooling yourself if you attempted to interpret any effect sizes conditional on their values.
-
 Load the data for the next model.
 
 ```{r, warning = F, message = F}
@@ -593,20 +655,34 @@ Now we might compare the **brms** parameterization of $\theta_{[i]}$ with the pa
 ```{r}
 compare_thresholds <- function(data, lb = 1.5, ub = 6.5) {
   
-  bind_rows(
-    data %>% 
-      gather(name, threshold, -iter) %>% 
-      group_by(iter) %>% 
-      mutate(theta_bar = mean(threshold)),
-    data %>% 
-      gather(name, threshold, -iter) %>% 
-      group_by(iter) %>% 
-      mutate(threshold = scales::rescale(threshold, to = c(lb, ub))) %>% 
-      mutate(theta_bar = mean(threshold))
-  ) %>% 
-    mutate(model = rep(c("brms parameterization", "Kruschke's parameterization"), each = n() / 2)) %>% 
-    
+  # primary data wrangling
+  p <-
+    bind_rows(
+      data %>% 
+        gather(name, threshold, -iter) %>% 
+        group_by(iter) %>% 
+        mutate(theta_bar = mean(threshold)),
+      data %>% 
+        gather(name, threshold, -iter) %>% 
+        group_by(iter) %>% 
+        mutate(threshold = scales::rescale(threshold, to = c(lb, ub))) %>% 
+        mutate(theta_bar = mean(threshold))
+    ) %>% 
+    mutate(model = rep(c("brms parameterization", "Kruschke's parameterization"), each = n() / 2)) 
+  
+  # compute the means by model and threshold for the vertical lines
+  means <-
+    p %>% 
+    ungroup() %>% 
+    group_by(model, name) %>% 
+    summarise(mean = mean(threshold))
+  
+  # plot!
+  p %>% 
     ggplot(aes(x = threshold, y = theta_bar)) +
+    geom_vline(data = means,
+               aes(xintercept = mean, color = name),
+               linetype = 2) +
     geom_point(aes(color = name),
                alpha = 1/10, size = 1/2) +
     scale_color_viridis_d(option = "D", end = .85, direction = -1) +
@@ -620,12 +696,36 @@ compare_thresholds <- function(data, lb = 1.5, ub = 6.5) {
 
 Take that puppy for a spin.
 
-```{r, fig.width = 5, fig.height = 3.5}
+```{r, fig.width = 4, fig.height = 3.5}
 post %>% 
   compare_thresholds(lb = 1.5, ub = 6.5)
 ```
 
-Like before, we don't have posterior distributions for $\mu$ and $\sigma$. Those are fixed at 0 and 1, respectively. As such, it isn't of much use to compute an effect size, either. We can, at least, make our version of the upper-right panel of Figure 23.3.
+Oh man, that works sweet. Now let's use the same parameter-transformation approach from before to get our un-standardized posteriors for $\mu$, $\sigma$, and the effect size.
+
+```{r, fig.width = 8, fig.height = 2.25}
+post %>% 
+  select(iter, `Intercept[1]`, `Intercept[6]`) %>% 
+  mutate(`y[1]` = 1.5,
+         `y[6]` = 6.5) %>% 
+  mutate(mu     = `y[1]` - `Intercept[1]` * 1,
+         sigma  = (`y[1]` - `y[6]`) / (`Intercept[1]` - `Intercept[6]`)) %>% 
+  mutate(`(mu-4)/sigma` = (mu - 4) / sigma) %>% 
+  pivot_longer(mu:`(mu-4)/sigma`) %>% 
+  mutate(name = factor(name,
+                       levels = c("mu", "sigma", "(mu-4)/sigma"))) %>%
+  
+  ggplot(aes(x = value)) +
+  geom_histogram(color = "grey92", fill = "grey67",
+                 size = .05, bins = 40) +
+  geom_halfeyeh(aes(y = 0),
+                point_interval = mode_hdi, .width = .95) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  theme(panel.grid = element_blank()) +
+  facet_wrap(~name, scales = "free", labeller = label_parsed)
+```
+
+Now use `pp_check()` to make our version of the upper-right panel of Figure 23.3.
 
 ```{r, fig.width = 4, fig.height = 2.5, message = F, warning = F}
 set.seed(23)
@@ -657,13 +757,13 @@ post %>%
   pivot_longer(everything(), names_to = "Y") %>% 
   
   ggplot(aes(x = value, y = Y)) +
-  geom_halfeyeh(.width = .95, size = 1/2) +
+  geom_halfeyeh(point_interval = mode_hdi, .width = .95, size = 1/2) +
   xlab(expression(paste(italic(p), "[Y = ", italic(i), "]"))) +
   coord_cartesian(xlim = 0:1) +
   theme(panel.grid = element_blank())
 ```
 
-Before we move on, it might be helpful to nail down what the thresholds mean within the context of our **brms** parameterization. 
+Before we move on, it might be helpful to nail down what the thresholds mean within the context of our **brms** parameterization. To keep things simple, we'll focus on their posterior means.
 
 ```{r, fig.width = 5, fig.height = 3}
 tibble(x = seq(from = -3.5, to = 3.5, by = .01)) %>%
@@ -683,7 +783,7 @@ tibble(x = seq(from = -3.5, to = 3.5, by = .01)) %>%
 
 Compare that to Figure 23.1.
 
-#### 23.2.2.1 Not the same results as pretending the data are metric.
+#### Not the same results as pretending the data are metric.
 
 "In some conventional approaches to ordinal data, the data are treated as if they were metric and normally distributed" (p. 681). Here's what that `brms::brm()` model might look like using methods from back in Chapter 16. First, we'll define our `stanvars`.
 
@@ -730,11 +830,10 @@ Yeah, that's not a good fit. We won't be conducting a $t$-test like Kruschke did
 posterior_samples(fit3) %>% 
   mutate(`2 - b_Intercept` = 2 - b_Intercept,
          `effect size`     = (2 - b_Intercept) / sigma) %>% 
-  
   pivot_longer(-c(sigma, Intercept, lp__)) %>% 
   
   ggplot(aes(x = value, y = 0)) +
-  geom_halfeyeh(.width = .95) +
+  geom_halfeyeh(point_interval = mode_hdi, .width = .95) +
   scale_y_continuous(NULL, breaks = NULL) +
   theme(panel.grid = element_blank()) +
   facet_wrap(~name, scales = "free")
@@ -764,11 +863,10 @@ Let's just jump to the plot. This time we're comparing the `b_Intercept` to the 
 posterior_samples(fit4) %>% 
   mutate(`2 - b_Intercept` = 4 - b_Intercept,
          `effect size`     = (4 - b_Intercept) / sigma) %>% 
-  
   pivot_longer(-c(sigma, Intercept, lp__)) %>% 
   
   ggplot(aes(x = value, y = 0)) +
-  geom_halfeyeh(.width = .95) +
+  geom_halfeyeh(point_interval = mode_hdi, .width = .95) +
   scale_y_continuous(NULL, breaks = NULL) +
   theme(panel.grid = element_blank()) +
   facet_wrap(~name, scales = "free")
@@ -804,7 +902,7 @@ p2 <-
 
 "Which of the analyses yields the more trustworthy conclusion? The one that describes the data better. In these cases, there is no doubt that the cumulative-normal model is the better description of the data" than the conventional Gaussian model (p. 682).
 
-#### 23.2.2.2 Ordinal outcomes versus Likert scales.
+#### Ordinal outcomes versus Likert scales.
 
 Just for fun,
 
@@ -812,11 +910,11 @@ Just for fun,
 
 Kruschke then went on to briefly introduce how one might combine several such meaningfully-related Likert-type responses with latent variable methods. He then clarified this text will not explore that approach, further. The current version of **brms** (i.e., [2.11.0](https://CRAN.R-project.org/package=brms/news/news.html)) has very limited latent variable capacities. However, they are in the works. Interested models can follow Bürkner's progress in [GitHub issue #304](https://github.com/paul-buerkner/brms/issues/304). In the meantime, one can fit Bayesian latent variable models with the [**blavaan** package](https://faculty.missouri.edu/~merklee/blavaan/).
 
-## 23.3. The case of two groups
+## The case of two groups
 
 > In both examples in the preceding text, the two groups of outcomes were on the same ordinal scale. In the first example, both questionnaire statements were answered on the same disagree–agree scale. In the second example, both groups responded on the same very unhappy–very happy scale. Therefore, we assume that both groups have the same underlying metric variable with the same thresholds. (p. 682)
 
-### 23.3.1 Implementation in ~~JAGS~~ **brms**.
+### Implementation in ~~JAGS~~ **brms**.
 
 The `brms::brm()` syntax for adding a single categorical predictor to an ordered probit model is much like with any other likelihood. We just add it to the right side of the `~` in the `formula` argument. If you're like me and like to use the verbose `1` syntax for your model intercepts--thresholds in these models--just use the `+` operator between them. For example, this is what it'd look like for an ordered categorical criterion `y` and a single categorical predictor `x`.
 
@@ -829,9 +927,94 @@ fit <-
                 prior(normal(0, 4), class = b)))
 ```
 
-Also of note, we've expanded the `prior` section to include a line for `class = b`. As with the thresholds, interpret this prior through the context of the underlying standard normal cumulative distribution, $\Phi(z)$.
+Also of note, we've expanded the `prior` section to include a line for `class = b`. As with the thresholds, interpret this prior through the context of the underlying standard normal cumulative distribution, $\Phi(z)$. Note the interpretation, though. By **brms** defaults, the underlying Gaussian for the reference category for `x` will be $\operatorname{Normal} (0, 1)$. Thus whatever parameter value you get for the other categories in `x`, those will be standardized mean differences.
 
-### 23.3.2 Examples: Not funny.
+The above all presumes you're only interested in comparing means between groups. Things get more complicated if you want groups to vary by $\sigma$, too. 
+
+Hold on tight, friends. First, look back at the output from `print(fit1)` or `print(fit2)`. The second line for both reads: `Links: mu = probit; disc = identity`. Hopefully the `mu = probit` part is no surprise. Probit regression is the primary focus of this chapter. But check out the `disc = identity` part and notice that nowhere in there is there any mention of `sigma = identity` like we get when treating the criterion as metric as in conventional Gaussian models (i.e., execute `print(fit3)` or `print(fit4)`). 
+
+Yes, there is a relationship between `disc` and `sigma`. `disc` is shorthand for *discrimination*. The term comes from the item response theory (IRT) literature and discrimination is the inverse of $\sigma$ (see Bürkner's [*Bayesian Item Response Modelling in R with brms and Stan*](https://arxiv.org/pdf/1905.09501.pdf)). In IRT, discrimination is often denoted by $a$ or $\alpha$. Here I'll adopt the latter, making $\sigma = 1 / \alpha$. But focusing back on **brms** summary output, notice how both `disc` and `sigma` are modeled using the identity link. If you recall from earlier chapters, we switched to the log link to constrain the values to zero and above when we allowed $\sigma$ to vary across groups. It's the same thing for our discrimination parameter, $\alpha$. Because $\alpha$ should always be zero or above, **brms** defaults to the log link when modeling it with predictors.
+
+As with $\sigma$ in conventional Gaussian models, we'll be using some version of the `bf()` syntax when modeling the discrimination parameter in **brms**. For a general introduction to what Bürkner calls distributional modeling, see his vignette, [*Estimating Distributional Models with brms*](https://cran.r-project.org/web/packages/brms/vignettes/brms_distreg.html). In the case of the discrimination parameter for the cumulative model, we'll want more focused instructions. From Bürkner and Vouree [(2019)](https://journals.sagepub.com/doi/abs/10.1177/2515245918823199), we read:
+
+> Conceptually, unequal variances are incorporated in the model by specifying an additional regression formula for the variance component of the latent variable $\tilde Y$. In brms, the parameter related to latent variances is called *disc* (short for "discrimination"), following conventions in item response theory. Note that disc is not the variance itself, but the inverse of the standard deviation, $s$. That is, $s = 1/ \text{disc}$. Further, because disc must be strictly positive, it is by default modeled on the log scale.
+>
+> Predicting auxiliary parameters (parameters of the distribution other than the mean/location) in brms is accomplished by passing multiple regression formulas to the `brm()` function. Each formula must first be wrapped in another function, `bf()` or `lf()` (for "linear formula")--depending on whether it is a main or an auxiliary formula, respectively. The formulas are then combined and passed to the `formula` argument of `brm()`. Because the standard deviation of the latent variable is fixed to 1 for the baseline [group, disc cannot be estimated for the baseline group]. We must therefore ensure that disc is estimated only for [non-baseline groups]. To do so, we omit the intercept from the model of disc by writing `0 + ...` on the right-hand side of the regression formula. By default, R applies cell-mean coding to factors in formulas without an intercept. That would lead to disc being estimated for [all groups], so we must deactivate it via the `cmc` argument of `lf()`. (pp. 11--12)
+
+Here's what that might look like.
+
+```{r, eval = F}
+fit <-
+  brm(data = my_data,
+      family = cumulative(probit),
+      bf(y ~ 1 + x) +
+        lf(disc ~ 0 + x, cmc = F),
+      prior = c(prior(normal(0, 4), class = Intercept),
+                prior(normal(0, 4), class = b),
+                prior(normal(0, 4), class = b, dpar = dics)))
+```
+
+Note how when using the `0 + ...` syntax, the `disc` parameters are of `class = b` within the `prior()` function. If you'd like to assign them priors differing from the other `b` parameters, you'll need to specify `dpar = dics`. Again, though the mean structure for this model is on the probit scale, the discrimination structure is on the log scale. Recalling that $\sigma = 1/\alpha$, which means $\alpha = 1/\sigma$, and also that we're modeling $\log (\alpha)$, the priors for the standard deviations of the non-reference category groups are on the scale of $\log (1 / \sigma)$. 
+
+To get a better sense of how one might set a prior on such a scale, we might compare $\sigma$, $\alpha$, and $\log (\alpha)$. Here are the density and cumulative density functions for $\operatorname{Normal} (0, 0.5)$, $\operatorname{Normal} (0, 1)$, and $\operatorname{Normal} (0, 1.5)$.
+
+```{r, fig.width = 6.5, fig.height = 4}
+tibble(mu    = 0,
+       sigma = c(0.5, 1, 2)) %>%
+  expand(nesting(mu, sigma),
+         y = seq(from = -5, to = 5, by = 0.1)) %>% 
+  mutate(`p(y)`   = dnorm(y, mu, sigma),
+         `Phi(y)` = pnorm(y, mu, sigma)) %>% 
+  mutate(alpha = 1 / sigma,
+         loga  = log(1 / sigma)) %>% 
+  mutate(label = str_c("list(sigma==", sigma, ",alpha==", alpha, ",log(alpha)==", round(loga, 2), ")")) %>% 
+  pivot_longer(`p(y)`:`Phi(y)`) %>% 
+  
+  ggplot(aes(x = y, y = value)) +
+  geom_line(size = 1.5, color = "grey50") +
+  scale_y_continuous(NULL, breaks = NULL) +
+  xlab(NULL) +
+  coord_cartesian(xlim = -4:4) +
+  theme(panel.grid = element_blank()) +
+  facet_grid(name~label, labeller = label_parsed, switch = "y")
+```
+
+Put another way, here's how $\alpha$ and $\log (\alpha)$ scale on values of $\sigma$ ranging from 0.0001 to 10.
+
+```{r, fig.width = 6, fig.height = 2.5}
+tibble(sigma = seq(from = 0.0001, to = 10, by = 0.01)) %>%
+  mutate(alpha        = 1 / sigma,
+         `log(alpha)` = log(1 / sigma)) %>% 
+  pivot_longer(-sigma, names_to = "labels") %>% 
+  
+  ggplot(aes(x = sigma, y = value)) +
+  geom_hline(yintercept = 0, color = "white") +
+  geom_vline(xintercept = 0, color = "white") +
+  geom_line(size = 1.5, color = "grey50") +
+  coord_cartesian(ylim = -2:10) +
+  theme(panel.grid = element_blank()) +
+  facet_grid(~labels, labeller = label_parsed)
+```
+
+When $\sigma$ goes below 1, both explode upward. As $\sigma$ increases, $\alpha$ asymptotes at zero and $\log (\alpha)$ slowly descends below zero. Put another way, here is how $\sigma$ scales as a function of $\log (\alpha)$.
+
+```{r, fig.width = 6, fig.height = 2.5}
+tibble(`log(alpha)` = seq(from = -3, to = 3, by = 0.01)) %>%
+  mutate(sigma = 1 / exp(`log(alpha)`)) %>%
+  
+  ggplot(aes(x = `log(alpha)`, y = sigma)) +
+  geom_hline(yintercept = 0, color = "white") +
+  geom_line(size = 1.5, color = "grey50") +
+  labs(x = expression(log(alpha)),
+       y = expression(sigma)) +
+  coord_cartesian(xlim = c(-2.5, 2.5),
+                  ylim = 0:10) +
+  theme(panel.grid = element_blank())
+```
+
+In the context where the underlying distribution for the reference category will be the standard normal, it seems like a $\operatorname{Normal} (0, 1)$ prior would be fairly permissive for $\log (\alpha)$. This is what I will use gong forward. Choose your priors with care.
+
+### Examples: Not funny.
 
 Load the data for the next model.
 
@@ -841,15 +1024,17 @@ my_data <- read_csv("/Users/solomon/Dropbox/Recoding Doing Bayesian Data Analysi
 glimpse(my_data)
 ```
 
-Fit the univariable model.
+Fit the first ordinal probit model with group-specific $\mu$ and $\sigma$ values for the underlying normal distributions for the ordinal variable `Y`.
 
 ```{r fit5, cache = T, warning = F, message = F}
 fit5 <-
   brm(data = my_data,
       family = cumulative(probit),
-      Y ~ 1 + X,
+      bf(Y ~ 1 + X) +
+        lf(disc ~ 0 + X, cmc = FALSE),
       prior = c(prior(normal(0, 4), class = Intercept),
-                prior(normal(0, 4), class = b)),
+                prior(normal(0, 4), class = b),
+                prior(normal(0, 1), class = b, dpar = disc)),
       iter = 3000, warmup = 1000, chains = 4, cores = 4,
       seed = 23)
 ```
@@ -860,7 +1045,38 @@ Check the summary.
 print(fit5)
 ```
 
-Return and wrangle the posterior draws.
+Because our fancy new parameter `disc_XB` is on the $\log (\alpha)$ scale, we can convert it to the $\sigma$ scale with $\frac{1}{\exp (\log \alpha)}$. For a quick and dirty example, here it is with the posterior mean.
+
+```{r}
+1 / (exp(fixef(fit5)["disc_XB", 1]))
+```
+
+Before we follow along with Kruschke, let's hammer these distributions home. Here is a density plot of the two underlying latent distributions for `Y`, given `X`. We'll throw in the thresholds for good measure. To keep things simple, we'll just express the distributions in terms of the posterior means of each parameter.
+
+```{r, fig.width = 4, fig.height = 2.5}
+tibble(X     = LETTERS[1:2],
+       mu    = c(0, fixef(fit5)["XB", 1]),
+       sigma = c(1, 1 / (exp(fixef(fit5)["disc_XB", 1])))) %>% 
+  expand(nesting(X, mu, sigma),
+         y = seq(from = -5, to = 5, by = 0.1)) %>% 
+  mutate(d = dnorm(y, mu, sigma)) %>% 
+  
+  ggplot(aes(x = y, ymin = 0, ymax = d)) +
+  geom_ribbon(aes(fill = X),
+              alpha = 2/3) +
+  geom_vline(xintercept = fixef(fit5)[1:4, 1],
+             color = "grey80", linetype = 3) +
+  scale_x_continuous(sec.axis = dup_axis(breaks = fixef(fit5)[1:4, 1] %>% as.double(),
+                                         labels = parse(text = str_c("theta[", 1:4, "]")))) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  scale_fill_viridis_d(option = "A", begin = .33, end = .67) +
+  labs(title = "Underlying latent scale for Y, given X",
+       x = NULL) +
+  theme(panel.grid = element_blank(),
+        axis.ticks.x.top = element_blank())
+```
+
+Returning to our previous workflow, let's extract the posterior draws and wrangle.
 
 ```{r}
 post <- 
@@ -870,7 +1086,7 @@ post <-
 glimpse(post)
 ```
 
-Use our handy `compare_thresholds()` function to make an expanded version of the lower-left plot of Figure 23.4.
+Now, let's use our handy `compare_thresholds()` function to make an expanded version of the lower-left plot of Figure 23.4.
 
 ```{r, fig.width = 4, fig.height = 3.5}
 post %>% 
@@ -878,20 +1094,71 @@ post %>%
   compare_thresholds(lb = 1.5, ub = 4.5)
 ```
 
-Now take a look at the marginal distribution for `b_XB`.
+It will no longer be straightforward to use the formulas from earlier to convert the output from our **brms** parameterization to match the way Kruschke parameterized his conditional means and standard deviations. I will leave the conversion up to the interested reader. We will focus on the output from our **brms** parameterization.
 
-```{r, fig.width = 3.5, fig.height = 2.25}
+```{r, fig.width = 8, fig.height = 6, eval = F, echo = F}
+# this does not work. I believe it's because the formulat do not apply to the non-reference group
+
 post %>% 
-  ggplot(aes(x = b_XB)) +
+  select(iter, b_disc_XB, `Intercept[1]`, `Intercept[4]`) %>% 
+  mutate(`y[1]` = 1.5,
+         `y[4]` = 4.5) %>% 
+  mutate(`sigma[A]` = (`y[1]` - `y[4]`) / (`Intercept[1]` - `Intercept[4]`)) %>% 
+  mutate(`mu[A]`    = `y[1]` - (`Intercept[1]` * `sigma[A]`)) %>% 
+  mutate(`sigma[B]` = `sigma[A]` * (1 / exp(b_disc_XB))) %>% 
+  mutate(`mu[B]` = `y[1]` - `Intercept[1]` * `sigma[B]`) %>% 
+  
+  mutate(`mu[B]-mu[A]` = `mu[B]` - `mu[A]`,
+         `sigma[B]-sigma[A]` = `sigma[B]` - `sigma[A]`) %>% 
+  
+  mutate(`(mu[B]-mu[A])/sqrt((sigma[A]^2+sigma[B]^2)/2)` = `mu[B]-mu[A]` / sqrt((`sigma[A]`^2 + `sigma[B]`^2) / 2)) %>% 
+
+  pivot_longer(`sigma[A]`:`(mu[B]-mu[A])/sqrt((sigma[A]^2+sigma[B]^2)/2)`) %>% 
+  mutate(name = factor(name,
+                       levels = c("mu[A]",    "mu[B]",    "mu[B]-mu[A]",
+                                  "sigma[A]", "sigma[B]", "sigma[B]-sigma[A]",
+                                  "(mu[B]-mu[A])/sqrt((sigma[A]^2+sigma[B]^2)/2)"))) %>%
+  
+  ggplot(aes(x = value)) +
   geom_histogram(color = "grey92", fill = "grey67",
                  size = .05, bins = 40) +
   geom_halfeyeh(aes(y = 0),
-                .width = .95) +
+                point_interval = mode_hdi, .width = .95) +
   scale_y_continuous(NULL, breaks = NULL) +
-  theme(panel.grid = element_blank())
+  theme(panel.grid = element_blank()) +
+  facet_wrap(~name, scales = "free", labeller = label_parsed)
 ```
 
-Well shucks. If you look closely, that looks a whole lot like the "Effect Size" subplot in the bottom-right panel of Figure 23.4. Again, recall that we've been using the standard normal for these cumulative-normal models. Thus, when we do a group comparison with a 2-level nominal variable like `X`, this is a standardized mean difference. That is, our `b_XB` posterior is in a Cohen's-$d$ metric.
+```{r, fig.width = 8, fig.height = 6}
+post %>% 
+  # simple parameters
+  mutate(`mu[A]`    = 0,
+         `mu[B]`    = b_XB,
+         `sigma[A]` = 1,
+         `sigma[B]` = 1 / exp(b_disc_XB)) %>% 
+  # simple differences
+  mutate(`mu[B]-mu[A]`       = `mu[B]` - `mu[A]`,
+         `sigma[B]-sigma[A]` = `sigma[B]` - `sigma[A]`) %>% 
+  # effect size
+  mutate(`(mu[B]-mu[A])/sqrt((sigma[A]^2+sigma[B]^2)/2)` = (`mu[B]-mu[A]`) / sqrt((`sigma[A]`^2 + `sigma[B]`^2) / 2)) %>% 
+  # wrangle
+  pivot_longer(`mu[A]`:`(mu[B]-mu[A])/sqrt((sigma[A]^2+sigma[B]^2)/2)`) %>% 
+  mutate(name = factor(name,
+                       levels = c("mu[A]", "mu[B]", "mu[B]-mu[A]",
+                                  "sigma[A]", "sigma[B]", "sigma[B]-sigma[A]",
+                                  "(mu[B]-mu[A])/sqrt((sigma[A]^2+sigma[B]^2)/2)"))) %>%
+  
+  ggplot(aes(x = value)) +
+  geom_histogram(color = "grey92", fill = "grey67",
+                 size = .05, bins = 40) +
+  geom_halfeyeh(aes(y = 0),
+                point_interval = mode_hdi, .width = .95) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  theme(panel.grid = element_blank()) +
+  facet_wrap(~name, scales = "free", labeller = label_parsed)
+```
+
+$\mu_A$ and $\sigma_A$ are both constants, which doesn't show up well with our `geom_histogram()` approach with the scales freed across facets. If these plots really mattered for a scientific presentation or something for industry, you could experiment with either using a common scale across all facets, or make the plots individually and then combine them with **patchwork** syntax. Returning to interpretation, because $\mu_A = 0$, it turns out that $\mu_B - \mu_A = \mu_B$, which is on display on the top row. Because $\sigma_A = 1$, it turns out that $\sigma_B - \sigma_A$ is just $\sigma_B$ moved over one to the left, which is hopefully clear in the panels of the second row. Very happily, the effect size formula worked with our **brms** parameters the same way it did for Kruschke's. Both yield an effect size of about 0.5, with 95% intervals ranging about $\mp 0.5$.
 
 Here we use good use of the `type = "bars_grouped"` and `group = "X"` arguments to make the posterior predictive plots at the top right of Figure 23.4 with the `brms::pp_check()` function.
 
@@ -950,7 +1217,7 @@ posterior_samples(fit6) %>%
   geom_histogram(color = "grey92", fill = "grey67",
                  size = .05, bins = 40) +
   geom_halfeyeh(aes(y = 0),
-                .width = .95) +
+                point_interval = mode_hdi, .width = .95) +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(subtitle = "These are based on the conventional Gaussian model, NOT the cumulative-normal\nmodel Kruschke displayed in Figure 23.4",
        x = "Marginal posterior") +
@@ -967,8 +1234,8 @@ As to the data in the analyses Kruschke reported in Figure 23.5 and the prose in
 ```{r}
 d <-
   tibble(x = rep(str_c("joke ", c(1, 6)), each = 177),
-       y = c(rep(1:7, times = c(95, 19, 18, 10, 17, 10, 8)),
-             rep(1:7, times = c(53, 33, 31, 22, 23, 14, 1))))
+         y = c(rep(1:7, times = c(95, 19, 18, 10, 17, 10, 8)),
+               rep(1:7, times = c(53, 33, 31, 22, 23, 14, 1))))
 
 glimpse(d)
 ```
@@ -984,15 +1251,17 @@ d %>%
   facet_wrap(~x, ncol = 1)
 ```
 
-Here we fit the cumulative-normal model based on our version of the data.
+Here we fit the cumulative-normal model based on our version of the data, continuing to allow both $\mu$ and $\sigma$ (i.e., $1 / \exp(\log \alpha)$) to differ across groups.
 
 ```{r fit7, cache = T, warning = F, message = F}
 fit7 <-
   brm(data = d,
       family = cumulative(probit),
-      y ~ 1 + x,
+      bf(y ~ 1 + x) +
+        lf(disc ~ 0 + x, cmc = FALSE),
       prior = c(prior(normal(0, 4), class = Intercept),
-                prior(normal(0, 4), class = b)),
+                prior(normal(0, 4), class = b),
+                prior(normal(0, 1), class = b, dpar = disc)),
       iter = 3000, warmup = 1000, chains = 4, cores = 4,
       seed = 23)
 ```
@@ -1015,17 +1284,31 @@ post %>%
   compare_thresholds(lb = 1.5, ub = 6.5)
 ```
 
-Given our data are only approximations of Kruschke's, I think we did pretty good. Here's the marginal distribution of `b_xjoke6`, our effect size for the number of jokes.
+Given our data are only approximations of Kruschke's, I think we did pretty good. Here are the histograms for our **brms** versions of the $\mu$- and $\sigma$-related parameters.
 
-```{r, fig.width = 3.5, fig.height = 2.25}
+```{r, fig.width = 8, fig.height = 6}
 post %>% 
-  ggplot(aes(x = b_xjoke6)) +
+  transmute(`mu[Joke~1]`    = 0,
+            `mu[Joke~6]`    = b_xjoke6,
+            `sigma[Joke~1]` = 1,
+            `sigma[Joke~6]` = 1 / exp(b_disc_xjoke6)) %>% 
+  mutate(`mu[Joke~6]-mu[Joke~1]`       = `mu[Joke~6]` - `mu[Joke~1]`,
+         `sigma[Joke~6]-sigma[Joke~1]` = `sigma[Joke~6]` - `sigma[Joke~1]`) %>% 
+  mutate(`(mu[Joke~6]-mu[Joke~1])/sqrt((sigma[Joke~1]^2+sigma[Joke~6]^2)/2)` = (`mu[Joke~6]-mu[Joke~1]`) / sqrt((`sigma[Joke~1]`^2 + `sigma[Joke~6]`^2) / 2)) %>% 
+  pivot_longer(everything()) %>% 
+  mutate(name = factor(name,
+                       levels = c("mu[Joke~1]", "mu[Joke~6]", "mu[Joke~6]-mu[Joke~1]",
+                                  "sigma[Joke~1]", "sigma[Joke~6]", "sigma[Joke~6]-sigma[Joke~1]",
+                                  "(mu[Joke~6]-mu[Joke~1])/sqrt((sigma[Joke~1]^2+sigma[Joke~6]^2)/2)"))) %>%
+  
+  ggplot(aes(x = value)) +
   geom_histogram(color = "grey92", fill = "grey67",
                  size = .05, bins = 40) +
   geom_halfeyeh(aes(y = 0),
-                .width = .95) +
+                point_interval = mode_hdi, .width = .95) +
   scale_y_continuous(NULL, breaks = NULL) +
-  theme(panel.grid = element_blank())
+  theme(panel.grid = element_blank()) +
+  facet_wrap(~name, scales = "free", labeller = label_parsed)
 ```
 
 Here are our versions of the two panels in the upper right of Figure 23.5.
@@ -1089,7 +1372,7 @@ posterior_samples(fit8) %>%
   geom_histogram(color = "grey92", fill = "grey67",
                  size = .05, bins = 40) +
   geom_halfeyeh(aes(y = 0),
-                .width = .95) +
+                point_interval = mode_hdi, .width = .95) +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(subtitle = "These are based on the conventional Gaussian model, NOT the cumulative-normal\nmodel Kruschke displayed in Figure 23.5",
        x = "Marginal posterior") +
@@ -1099,15 +1382,15 @@ posterior_samples(fit8) %>%
 
 If you think you have a better approximation of Kruschke's data, [please share](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues).
 
-## 23.4. The Case of metric predictors
+## The Case of metric predictors
 
 "This type of model is often referred to as *ordinal probit regression* or *ordered probit regression* because the probit function is the link function corresponding to the cumulative-normal inverse-link function" (p. 688, *emphasis* in the original).
 
-### 23.4.1 Implementation in JAGS.
+### Implementation in JAGS.
 
 This model is easy to specify in **brms**. Just make sure to think clearly about your priors.
 
-### 23.4.2 Example: Happiness and money.
+### Example: Happiness and money.
 
 Load the data for the next model.
 
@@ -1174,7 +1457,7 @@ post %>%
   geom_histogram(color = "grey92", fill = "grey67",
                  size = .05, bins = 40) +
   geom_halfeyeh(aes(y = 0),
-                .width = .95) +
+                point_interval = mode_hdi, .width = .95) +
   scale_y_continuous(NULL, breaks = NULL) +
   theme(panel.grid = element_blank())
 ```
@@ -1182,30 +1465,31 @@ post %>%
 This differs from Kruschks's $\beta_1$, which is in an unstandardized metric based on the parameters in his version of the model. But unlike the effect sizes from previous models, this one is not in a Cohen's-$d$ metric. Rather, this is a fully-standardized regression coefficient. As to the large subplot at the top of Figure 23.7, we can make something like it by nesting `conditional_effects()` within `plot()`.
 
 ```{r, fig.width = 4, fig.height = 2.75, warning = F, message = F}
-plot(conditional_effects(fit9),
-     theme = theme(panel.grid = element_blank()))
+conditional_effects(fit9) %>% 
+  plot(theme = theme(panel.grid = element_blank()))
 ```
 
 Here's a more elaborated version of the same plot, this time depicting the model with 100 fitted lines randomly drawn from the posterior.
 
-```{r, fig.width = 4, fig.height = 2.75}
+```{r, fig.width = 4, fig.height = 2.75, warning = F, message = F}
 set.seed(23)
 
-plot(conditional_effects(fit9,
-                         spaghetti = TRUE, 
-                         nsamples = 100),
-     points = T,
-     point_args = c(alpha = 1/3),
-     line_args = c(size = 0),
-     theme = theme(panel.grid = element_blank()))
+conditional_effects(fit9,
+                    spaghetti = TRUE, 
+                    nsamples = 100) %>% 
+  plot(points = T,
+       point_args = c(alpha = 1/3),
+       line_args = c(size = 0),
+       theme = theme(panel.grid = element_blank()))
 ```
 
 Note the warning message. There was a similar one in the first plot, which I suppressed for simplicity sake. The message suggests treating the fitted lines as "continuous variables" might lead to a deceptive plot. Here's what happens if we follow the suggestion.
 
 ```{r, fig.width = 4.7, fig.height = 2.75}
-plot(conditional_effects(fit9,
-                         categorical = T),
-     theme = theme(panel.grid = element_blank()))
+set.seed(23)
+
+conditional_effects(fit9, categorical = T) %>% 
+  plot(theme = theme(panel.grid = element_blank()))
 ```
 
 Recall that our thresholds, $\theta_1,...,\theta_{K-1}$, in conjunction with the standard normal density, give us the probability of a given `Y` value, given `X_s` (i.e., $p(y = k | \mu, \sigma, \{ \theta_j \})$, where $\mu$ is conditional on $x$). This plot returned the fitted lines of those conditional probabilities, each depicted by the posterior mean and 95% percentile-based intervals. At lower values of `X_s`, lower values of `Y` are more probable. At higher values of `X_s`, higher values of `Y` are more probable.
@@ -1329,8 +1613,7 @@ p3 <-
   geom_vline(xintercept = posterior_summary(fit9)[1:6, 1], 
              color = "grey92", linetype = 3) +
   # mark the thresholds with the axis breaks
-  scale_x_reverse(NULL, 
-                  breaks = fixef(fit9)[1:6, 1],
+  scale_x_reverse(NULL, breaks = fixef(fit9)[1:6, 1],
                   labels = parse(text = str_c("theta[", 1:6, "]"))) +
   scale_y_continuous(NULL, breaks = NULL) +
   ggtitle(expression(italic(N)(0,1))) +
@@ -1386,9 +1669,7 @@ f <-
   ) %>% 
   # wrangle
   data.frame() %>% 
-  bind_cols(
-    expand(nd, Y = 1:7, X_s)
-  )
+  bind_cols(expand(nd, Y = 1:7, X_s))
 
 head(f)
 ```
@@ -1403,8 +1684,7 @@ f %>%
              ymin = Q2.5, ymax = Q97.5)) +
   geom_col(fill = "grey67") +
   geom_pointrange(fatten = 1.5, size = 1)  +
-  scale_y_reverse(NULL, position = "right", 
-                  limits = c(1, 0), 
+  scale_y_reverse(NULL, position = "right", limits = c(1, 0), 
                   breaks = c(1, .5, 0), labels = c("1", ".5", "0")) +
   scale_x_continuous(breaks = 1:7) +
   coord_flip() +
@@ -1425,12 +1705,12 @@ f %>%
   geom_vline(xintercept = seq(from = r[1], to = r[2], length.out = 5),
              color = "white") +
   # bar marking the Estimate
-  geom_segment(aes(x    = X_s,            y    = Y + 0.1,
-                   xend = X_s - Estimate, yend = Y + 0.1),
+  geom_segment(aes(x = X_s, xend = X_s - Estimate, 
+                   y = Y + 0.1, yend = Y + 0.1),
                size = 8, color = "grey67") +
   # bar marking the 95% interval
-  geom_segment(aes(x    = X_s - Q2.5,  y    = Y + 0.2,
-                   xend = X_s - Q97.5, yend = Y + 0.2),
+  geom_segment(aes(x = X_s - Q2.5, xend = X_s - Q97.5,
+                   y = Y + 0.2, yend = Y + 0.2),
                size = 1, color = "grey33") +
   # data
   geom_point(data = my_data,
@@ -1479,16 +1759,16 @@ posterior_summary(fit10)[1:3, ] %>% round(digits = 3)
 
 These values are very close to those he reported at the bottom of page 690. Here are what the fitted lines from that model look like when superimposed on the data, when presuming both variables are metric.
 
-```{r, fig.width = 4, fig.height = 2.75, message = F, warning = F}
+```{r, fig.width = 4, fig.height = 2.75}
 set.seed(23)
 
-plot(conditional_effects(fit10,
-                         spaghetti = TRUE, 
-                         nsamples = 100),
-     points = T,
-     point_args = c(alpha = 1/3),
-     line_args = c(size = 0),
-     theme = theme(panel.grid = element_blank())) 
+conditional_effects(fit10,
+                    spaghetti = TRUE, 
+                    nsamples = 100) %>% 
+  plot(points = T,
+       point_args = c(alpha = 1/3),
+       line_args = c(size = 0),
+       theme = theme(panel.grid = element_blank()))
 ```
 
 For the next example, we'll load the `HappinessAssetsDebt.csv` data from Shi ([2009](https://www.icpsr.umich.edu/icpsrweb/DSDR/studies/21741)).
@@ -1555,7 +1835,7 @@ post %>%
   geom_histogram(color = "grey92", fill = "grey67",
                  size = .05, bins = 40) +
   geom_halfeyeh(aes(y = 0),
-                .width = .95) +
+                point_interval = mode_hdi, .width = .95) +
   scale_y_continuous(NULL, breaks = NULL) +
   theme(panel.grid = element_blank())
 ```
@@ -1585,9 +1865,7 @@ f <-
   ) %>% 
   # wrangle
   data.frame() %>% 
-  bind_cols(
-    expand(nd, Happiness = 1:5, Assets_s)
-  )
+  bind_cols(expand(nd, Happiness = 1:5, Assets_s))
 
 # examine
 head(f)
@@ -1606,12 +1884,12 @@ f %>%
   geom_vline(xintercept = seq(from = r[1], to = r[2], length.out = 5),
              color = "white") +
   # bar marking the Estimate
-  geom_segment(aes(x    = Assets_s,            y    = Happiness + 0.1,
-                   xend = Assets_s - Estimate, yend = Happiness + 0.1),
+  geom_segment(aes(x = Assets_s, xend = Assets_s - Estimate, 
+                   y = Happiness + 0.1, yend = Happiness + 0.1),
                size = 8, color = "grey67") +
   # bar marking the 95% interval
-  geom_segment(aes(x    = Assets_s - Q2.5,  y    = Happiness + 0.2,
-                   xend = Assets_s - Q97.5, yend = Happiness + 0.2),
+  geom_segment(aes(x = Assets_s - Q2.5, xend = Assets_s - Q97.5,
+                   y = Happiness + 0.2, yend = Happiness + 0.2),
                size = 1, color = "grey33") +
   # data
   geom_point(data = my_data,
@@ -1649,19 +1927,19 @@ posterior_summary(fit12)[1:3, ] %>% round(digits = 6)
 
 They're just a bit different from those produced by OLS. Here are what the fitted lines from that model look like when superimposed on the data, when presuming both variables are metric.
 
-```{r, fig.width = 4, fig.height = 2.75, message = F, warning = F}
+```{r, fig.width = 4, fig.height = 2.75}
 set.seed(23)
 
-plot(conditional_effects(fit12,
-                         spaghetti = TRUE, 
-                         nsamples = 100),
-     points = T,
-     point_args = c(alpha = 1/3),
-     line_args = c(size = 0),
-     theme = theme(panel.grid = element_blank())) 
+conditional_effects(fit12,
+                    spaghetti = TRUE, 
+                    nsamples = 100) %>% 
+  plot(points = T,
+       point_args = c(alpha = 1/3),
+       line_args = c(size = 0),
+       theme = theme(panel.grid = element_blank()))
 ```
 
-### 23.4.3 Example: Movies--They don't make 'em like they used to.
+### Example: Movies--They don't make 'em like they used to.
 
 For this section, we'll load the [Moore (2006)](https://amstat.tandfonline.com/doi/pdf/10.1080/10691898.2006.11910579?needAccess=true) `Movies.csv` data.
 
@@ -1676,14 +1954,14 @@ In footnote #5 at the bottom of page 693, Kruschke explained that whereas the or
 ```{r}
 my_data <-
   my_data %>% 
-  mutate(Rating = recode(Rating,
-                         `1.0` = 1,
-                         `1.5` = 2,
-                         `2.0` = 3,
-                         `2.5` = 4,
-                         `3.0` = 5,
-                         `3.5` = 6,
-                         `4.0` = 7),
+  mutate(Rating   = recode(Rating,
+                           `1.0` = 1,
+                           `1.5` = 2,
+                           `2.0` = 3,
+                           `2.5` = 4,
+                           `3.0` = 5,
+                           `3.5` = 6,
+                           `4.0` = 7),
          Year_s   = (Year   - mean(Year))   / sd(Year),
          Length_s = (Length - mean(Length)) / sd(Length))
 ```
@@ -1752,7 +2030,7 @@ post %>%
   geom_histogram(color = "grey92", fill = "grey67",
                  size = .05, bins = 40) +
   geom_halfeyeh(aes(y = 0),
-                .width = .95) +
+                point_interval = mode_hdi, .width = .95) +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab("effect size") +
   theme(panel.grid = element_blank()) +
@@ -1967,7 +2245,7 @@ fitted(fit13,
 
 As with many of our previous approaches with `geom_raster()`, this plot is based on the posterior means in each cell and, therefore, does a poor job depicting the uncertainty in the posterior distribution.
 
-### 23.4.4 Why are some thresholds outside the data?
+### Why are some thresholds outside the data?
 
 Now load Kruschke's simulated data.
 
@@ -2036,14 +2314,13 @@ Make the marginal distribution of our two effect-size parameters.
 ```{r, fig.width = 6, fig.height = 2.25}
 post %>% 
   pivot_longer(ends_with("_s")) %>% 
-  mutate(name = factor(name,
-                       levels = c("b_Year_s", "b_Length_s"))) %>% 
+  mutate(name = factor(name, levels = c("b_Year_s", "b_Length_s"))) %>% 
   
   ggplot(aes(x = value)) +
   geom_histogram(color = "grey92", fill = "grey67",
                  size = .05, bins = 40) +
   geom_halfeyeh(aes(y = 0),
-                .width = .95) +
+                point_interval = mode_hdi, .width = .95) +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab("effect size") +
   theme(panel.grid = element_blank()) +
@@ -2084,18 +2361,17 @@ Those are some tight thresholds. They "very clearly cleave parallel regions of d
 With our various bonus plots, we've been anticipating Figure 23.11 for some time, now. The thresholds from `fit14` result in beautifully nonlinear probability curves for the `Rating` levels. Take a quick look with `conditional_effects()`.
 
 ```{r, fig.width = 8, fig.height = 2.5}
-plot(conditional_effects(fit14,
-                         categorical = T),
-     theme = theme(panel.grid = element_blank()))
+conditional_effects(fit14, categorical = T) %>% 
+  plot(theme = theme(panel.grid = element_blank()))
 ```
 
 Because the model had two predictors, we got two plots. What `brms::conditional_effects()` called `Probability` on the y-axis is the same as what Kruschke called $p(y)$ on his. Rather than generic predictors $x$ on the x-axis, our plots had either `Year_s` or `Length_s`. Whereas Kruschke marked off his different outcomes by line styles, ours were marked by color. Since we don't have the data Kruschke used to make Figure 23.11, we won't be able to reproduce it exactly. However, you'll note that our plot for `Length_s` corresponded nicely with his subplot on the top (i.e., the one for which $\sigma = 0.1$). If we set `effects = "Length_s"`, we can use `conditional_effects()` to make a similar plot to Kruschke's subplot for which $\sigma = 1$.
 
 ```{r, fig.width = 8, fig.height = 2.5}
-plot(conditional_effects(fit13,
-                         categorical = T,
-                         effects = "Length_s"),
-     theme = theme(panel.grid = element_blank()))
+conditional_effects(fit13, 
+                    categorical = T, 
+                    effects = "Length_s") %>% 
+  plot(theme = theme(panel.grid = element_blank()))
 ```
 
 "You can see that each outcome has maximum probability within its corresponding interval, but there is considerable smearing of outcomes into adjacent intervals" (p. 695).
@@ -2106,7 +2382,7 @@ Finishing off, Kruschke's discussion in the text
 
 Through this lens, noisy-looking data are a symptom of weak theory and/or poor data-collection methods.
 
-## 23.5. Posterior prediction
+## Posterior prediction
 
 The cumulative-normal model makes posterior predictions for the probabilities of the $K$ categories in the criterion variable by computing $p (y | \mu (x), \sigma, \{ \theta_k \ })$ in each step in the HMC chain. In this equation, $\mu (x) = \beta_0 + \sum_j \beta_j x_j$. Though recall that with our **brms** parameterization, we have $\beta_0$ fixed at 0. Kruschke framed part of his discussion in this chapter in terms of a single-predictor model, such as was entertained in Figure 23.8. Recall that corresponds to our `fit11`. Here's that `formula`.
 
@@ -2144,7 +2420,7 @@ cbind(
   mutate_if(is.double, round, digits = 4)
 ```
 
-## 23.6. Generalizations and extensions
+## Generalizations and extensions
 
 In this section, Kruschke mentioned extensions of this class of models might include using the cumulative $t$ function to handle outliers or adding a guessing parameter. Full disclosure: I have not fit models like these. Based on my knowledge of **brms**, I suspect they're possible. For insights how, you might review Bürkner's [*Define Custom Response Distributions with brms*](https://cran.r-project.org/web/packages/brms/vignettes/brms_customfamilies.html) and [*Estimating Non-Linear Models with brms*](https://cran.r-project.org/web/packages/brms/vignettes/brms_nonlinear.html) vignettes.
 
