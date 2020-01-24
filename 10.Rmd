@@ -635,13 +635,13 @@ I don't know that I'd call these weights probabilities, but they do sum to one. 
 mw[1] / mw[2]
 ```
 
-With `brms::model_weights()`, we have a variety of weighting schemes avaliable to us. Since we didn't specify any in the `weights` argument, we used the default `"loo2"`, which is--perhaps confusingly given the name--the stacking method according to the [paper by Yao, Vehtari, Simpson, and Gelman](https://projecteuclid.org/download/pdfview_1/euclid.ba/1516093227). Vehtari has [written about the paper](https://statmodeling.stat.columbia.edu/2017/04/11/stacking-pseudo-bma-and-aic-weights/) on Gelman's blog, too. But anyway, the point is that different weighting schemes might not produce the same results. For example, here's the result from weighting using the WAIC.
+With `brms::model_weights()`, we have a variety of weighting schemes avaliable to us. Since we didn't specify any in the `weights` argument, we used the default `"stacking"`, which is--perhaps confusingly given the name--the stacking method according to the [paper by Yao, Vehtari, Simpson, and Gelman](https://projecteuclid.org/download/pdfview_1/euclid.ba/1516093227). Vehtari has [written about the paper](https://statmodeling.stat.columbia.edu/2017/04/11/stacking-pseudo-bma-and-aic-weights/) on Gelman's blog, too. But anyway, the point is that different weighting schemes might not produce the same results. For example, here's the result from weighting using the WAIC.
 
 ```{r}
 model_weights(fit1, fit2, weights = "waic")
 ```
 
-The results are similar, for sure. But they're not the same. The stacking method via the **brms** default `weights = "loo2"` is the current preferred method by the folks on the Stan team (e.g., the authors of the above linked paper).
+The results are similar, for sure. But they're not the same. The stacking method via the **brms** default `weights = "stacking"` is the current preferred method by the folks on the Stan team (e.g., the authors of the above linked paper).
 
 For more on stacking and other weighting schemes, see Vehtari and Gabry's vignette [*Bayesian Stacking and Pseudo-BMA weights using the loo package*](https://cran.r-project.org/web/packages/loo/vignettes/loo2-weights.html) or Vehtari's [modelselection_tutorial GitHub repository](https://github.com/avehtari/modelselection_tutorial). But don't worry. We will have more opportunities to practice with information criteria, model weights, and such later in this project.
 
@@ -855,7 +855,7 @@ pp_a <-
   pp_average(fit1, fit2, 
              newdata = nd,
              # this line is not necessary, but you should see how to choose weighing methods
-             weights = "loo2",
+             weights = "stacking",
              method = "fitted",
              summary = F) %>% 
   as_tibble() %>% 
@@ -1248,12 +1248,16 @@ loo_compare(fit7, fit8, fit9)
 
 Based on the LOO comparisons, none of the three models was a clear favorite. Although both versions of the anything’s-possible model (i.e., `fit8` and `fit9`) had lower numeric estimates than the must-be-fair model (i.e., `fit7`), the standard errors on the difference scores were the same magnitude as the difference estimates themselves. As for comparing the two variants of the anything’s-possible model directly, their LOO estimates were almost indistinguishable.
 
-Now let's see what happens when we compute their model weights. Here we'll contrast the LOO weights wiht the stackign weights
+Now let's see what happens when we compute their model weights. Here we'll contrast the LOO weights with the stacking weights.
 
 ```{r mw_fit7_through_fit9, cache = T}
-model_weights(fit7, fit8, fit9, weights = "loo") %>% 
+mw <-
+  model_weights(fit7, fit8, fit9, weights = "stacking")
+
+mw %>% 
   round(digits = 2)
-model_weights(fit7, fit8, fit9) %>% 
+
+model_weights(fit7, fit8, fit9, weights = "loo") %>% 
   round(digits = 2)
 ```
 
