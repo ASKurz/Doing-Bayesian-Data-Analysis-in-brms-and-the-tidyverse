@@ -92,7 +92,6 @@ We can work with that expression directly in base **R**. Here we use $\lambda = 
 lambda <- 5.5
 y <- 2
 
-
 lambda^y * exp(-lambda) / factorial(y)
 ```
 
@@ -158,11 +157,14 @@ Before we show how to fit the model, we need the old `gamma_a_b_from_omega_sigma
 
 ```{r}
 gamma_a_b_from_omega_sigma <- function(mode, sd) {
+  
   if (mode <= 0) stop("mode must be > 0")
   if (sd   <= 0) stop("sd must be > 0")
   rate <- (mode + sqrt(mode^2 + 4 * sd^2)) / (2 * sd^2)
   shape <- 1 + mode * rate
+  
   return(list(shape = shape, rate = rate))
+  
 }
 ```
 
@@ -231,8 +233,8 @@ my_data %>%
   scale_x_discrete(expand = c(0, 0), position = "top") +
   scale_y_discrete(expand = c(0, 0)) +
   theme(legend.position = "none",
-        axis.ticks      = element_blank(),
-        axis.text.y     = element_text(hjust = 0))
+        axis.ticks = element_blank(),
+        axis.text.y = element_text(hjust = 0))
 ```
 
 Load the **brms** and **tidybayes** packages.
@@ -277,15 +279,13 @@ As a quick detour, it might be interesting to see what the kind of gamma distrib
 
 ```{r, fig.width = 4, fig.height = 2}
 tibble(x = seq(from = 0, to = 70, length.out = 1e3)) %>% 
-  mutate(density = dgamma(x,
-                          s_r$shape,
-                          s_r$rate)) %>% 
+  mutate(density = dgamma(x, s_r$shape, s_r$rate)) %>% 
   
   ggplot(aes(x = x, ymin = 0, ymax = density)) +
   geom_ribbon(fill = "grey67") +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(title = expression(paste("Kruschke's wide prior for ", sigma[beta*x])),
-       x     = NULL) +
+       x = NULL) +
   coord_cartesian(xlim = 0:60) +
   theme(panel.grid = element_blank())
 ```
@@ -409,7 +409,7 @@ f %>%
   geom_histogram(color = "grey92", fill = "grey67",
                  size = .05, bins = 50) +
   geom_halfeyeh(aes(y = 0),
-                .width = .95, size = 1/2) +
+                point_interval = mode_hdi, .width = .95, size = 1/2) +
   scale_x_continuous(breaks = c(0, .1, .2)) +
   scale_y_continuous(NULL, breaks = NULL) +
   coord_cartesian(xlim = c(0, .25)) +
@@ -475,8 +475,8 @@ If you're curious, here are the precise summary values.
 
 ```{r, warning = F}
 deflections %>% 
-  mutate(`Blue − Brown @ Black`             = `E:Blue H:Black` - `E:Brown H:Black`,
-         `Blue − Brown @ Blond`             = `E:Blue H:Blond` - `E:Brown H:Blond`) %>% 
+  mutate(`Blue − Brown @ Black` = `E:Blue H:Black` - `E:Brown H:Black`,
+         `Blue − Brown @ Blond` = `E:Blue H:Blond` - `E:Brown H:Blond`) %>% 
   mutate(`Blue.v.Brown\n(x)\nBlack.v.Blond` = `Blue − Brown @ Black` - `Blue − Brown @ Blond`) %>% 
   pivot_longer(`Blue − Brown @ Black`:`Blue.v.Brown\n(x)\nBlack.v.Blond`) %>% 
   group_by(name) %>% 
@@ -538,7 +538,7 @@ bind_rows(
   geom_ribbon(fill = "grey67") +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(title = "Priors",
-       x     = NULL) +
+       x = NULL) +
   theme(panel.grid = element_blank()) +
   facet_wrap(~prior, scales = "free", labeller = label_parsed)
 ```
@@ -588,8 +588,8 @@ posterior_samples(fit2) %>%
                        guide = guide_legend(label.hjust = 0)) +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(NULL) +
-  theme(panel.grid        = element_blank(),
-        legend.position   = c(.95, .8),
+  theme(panel.grid = element_blank(),
+        legend.position = c(.95, .8),
         legend.background = element_rect(fill = "transparent"))
 ```
 
@@ -613,7 +613,7 @@ fitted(fit2,
   geom_histogram(color = "grey92", fill = "grey67",
                  size = .05, bins = 40) +
   geom_halfeyeh(aes(y = 0),
-                .width = .95, size = 1/2) +
+                point_interval = mode_hdi, .width = .95, size = 1/2) +
   scale_x_continuous(breaks = c(.05, .1, .15)) +
   scale_y_continuous(NULL, breaks = NULL) +
   coord_cartesian(xlim = c(0, .15)) +
@@ -776,7 +776,7 @@ fitted(fit4,
   geom_histogram(color = "grey92", fill = "grey67",
                  size = .05, bins = 40) +
   geom_halfeyeh(aes(y = 0),
-                .width = .95, size = 1/2) +
+                point_interval = mode_hdi, .width = .95, size = 1/2) +
   scale_x_continuous(breaks = c(.05, .1, .15)) +
   scale_y_continuous(NULL, breaks = NULL) +
   coord_cartesian(xlim = c(0, .15)) +
