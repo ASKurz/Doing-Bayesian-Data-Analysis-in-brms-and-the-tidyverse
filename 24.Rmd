@@ -8,6 +8,8 @@ output:
 
 # Count Predicted Variable
 
+> Consider a situation in which we observe two nominal values for every item measured... Across the whole sample, the result is a table of counts for each combination of values of the nominal variables. The counts are what we are trying to predict and the nominal variables are the predictors. This is the type of situation addressed in this chapter...
+>
 > In the context of the generalized linear model (GLM) introduced in Chapter 15, this chapter's situation involves a predicted value that is a count, for which we will use an inverse-link function that is exponential along with a Poisson distribution for describing noise in the data (pp. 703--704)
 
 ## Poisson exponential model
@@ -82,7 +84,7 @@ with the following constraints:
 
 [Simon-Denis Poisson](https://upload.wikimedia.org/wikipedia/commons/e/e8/E._Marcellot_Siméon-Denis_Poisson_1804.jpg)'s distribution follows the form
 
-$$p(y | \lambda) = \frac{\lambda^y \exp (-\lambda)}{y!}.$$
+$$p(y | \lambda) = \frac{\lambda^y \exp (-\lambda)}{y!},$$
 
 > where $y$ is a non-negative integer and $\lambda$ is a non-negative real number. The mean of the Poisson distribution is $\lambda$. Importantly, the variance of the Poisson distribution is also $\lambda$ (i.e., the standard deviation is $\sqrt \lambda$). Thus, in the Poisson distribution, the variance is completely yoked to the mean. (p. 707)
 
@@ -149,7 +151,7 @@ dpois(2, lambda = 5.5)
 
 ### The complete model and implementation in ~~JAGS~~ brms.
 
-We should quote from Kruschke, a bit. Using his method,
+Using Kruschke's method,
 
 > the prior is supposed to be broad on the scale of the data, but we must be careful about what scale is being modeled by the baseline and deflections. *The counts are being directly described by* $\lambda$*, but it is* $\log (\lambda)$ *being described by the baseline and deflections*. Thus, the prior on the baseline and deflections should be broad on the scale of the logarithm of the data. To establish a generic baseline, consider that if the data points were distributed equally among the cells, the mean count would be the total count divided by the number of cells. The biggest possible standard deviation across cells would occur when all the counts were loaded into a single cell and all the other cells were zero. (pp. 709--710, *emphasis* added)
 
@@ -208,7 +210,7 @@ fit <-
       stanvars = stanvars)
 ```
 
-By **brms** default, `family = poisson` uses the log link. Thus `family = poisson(link = "log")` should return the same results.
+By **brms** default, `family = poisson` uses the log link. Thus `family = poisson(link = "log")` should return the same results. Notice the right-hand side of the model `formula`. We have three hierarchical variance parameters. This hierarchical-shrinkage approach to frequency-table data has its origins in Gelman's (2005) [*Analysis of variance—why it is more important than ever*](https://projecteuclid.org/download/pdfview_1/euclid.aos/1112967698). 
 
 ## Example: Hair eye go again
 
@@ -316,7 +318,7 @@ fit1 <-
 
 As it turns out, if you try to fit Kruschke's model with **brms** as is, you'll run into difficulties with divergent transitions and the like. One approach is to try tuning the `adapt_delta` and `max_treedepth` parameters. I had no luck with that approach. E.g., cranking `adapt_delta` up past `0.9999` still returned a divergent transition or two.
 
-Another approach is to step back and assess the model. We're trying to fit a multilevel model with two grouping variables and their interaction with a total of 16 data points. That's not a lot of data to fit such a model with. If you take a close look at our priors, you'll notice they're really quite weak. If you're willing to tighten them up just a bit, the model can fit more smoothly. That will be our approach.
+Another approach is to step back and assess the model. We're trying to fit a multilevel model with two grouping variables and their interaction with a total of 16 data points. That's not a lot of data for fitting such a model. If you take a close look at our priors, you'll notice they're really quite weak. If you're willing to tighten them up just a bit, the model can fit more smoothly. That will be our approach.
 
 For the $\sigma$ hyperparameter of the overall intercept's Gaussian prior, Kruschke would have us multiply `y_log_sd` by 2. Here we'll tighten up that $\sigma$ hyperparameter by simply setting it to `y_log_sd`. The gamma priors for the upper-level variance parameters were based on a mode of `y_log_sd` and a standard deviation of the same but multiplied by 2 (i.e., `2 * y_log_sd`). We'll tighten that up a bit by simply defining those gammas by a standard deviation of `y_log_sd`. When you make those adjustments, the model fits with less fuss. In case you're curious, here is what those priors look like for our data.
 
@@ -345,7 +347,7 @@ bind_rows(
   facet_wrap(~prior, scales = "free", labeller = label_parsed)
 ```
 
-Now let's update our `stanvars`.
+Update the `stanvars`.
 
 ```{r}
 stanvars <- 
@@ -699,9 +701,7 @@ deflections %>%
 
 > The model presented here has no way to conduct an "ominbus" test of interaction. However, like the ANOVA-style models presented in Chapters 19 and 20, it is easy to extend the model so it has an inclusion coefficient on the interaction deflections. The inclusion coefficient can have values of 0 or 1, and is given a Bernoulli prior. (p. 716)
 
-Like we discussed in earlier chapters, this isn't a feasible approach for **brms**. However, we can compare this model with a simpler one that omits the interaction.
-
-First, fit the model.
+Like we discussed in earlier chapters, this isn't a feasible approach for **brms**. However, we can compare this model with a simpler one that omits the interaction. First, fit the model.
 
 ```{r fit3, cache = T, warning = F, message = F}
 fit3 <-
@@ -743,7 +743,7 @@ fit4 <-
       seed = 24)
 ```
 
-A few things about the syntax. The aggregated binomial model uses the logit link, just like with typical logistic regression. So when you specify `family = binomial`, you're requesting the logit link. The left side of the `formula` argument, `count | trials(264)` indicates a few things. First, our criterion is `count`. The bar `|` that follows on its right indicates we'd like add additional information about the criterion. In the case of binomial regression, **brms** requires we indicate how many trials the value in each cell of the data is referring to. When we specified `trials(264)`, we indicated each cell was a total count of 264 trials. In case it isn't clear, here is where the value 264 came from.
+A few things about the syntax: The aggregated binomial model uses the logit link, just like with typical logistic regression. So when you specify `family = binomial`, you're requesting the logit link. The left side of the `formula` argument, `count | trials(264)` indicates a few things. First, our criterion is `count`. The bar `|` that follows on its right indicates we'd like add additional information about the criterion. In the case of binomial regression, **brms** requires we specify how many trials the value in each cell of the data is referring to. When we coded `trials(264)`, we indicated each cell was a total count of 264 trials. In case it isn't clear, here is where the value 264 came from.
 
 ```{r}
 my_data %>% 
@@ -810,7 +810,7 @@ rbind(fitted(fit2),
         legend.position = "top")
 ```
 
-The black points are the raw data points. The colored point-ranges to the left and right of each data point are the posterior means and percentile-based 95% intervals for each of the cells. The results are virtually the same between the two models. Also note how both models partially pooled towards the grand mean. That's one of the distinctive features of using the hierarchical approach.
+The black points are the raw data. The colored point-ranges to the left and right of each data point are the posterior means and percentile-based 95% intervals for each of the cells. The results are virtually the same between the two models. Also note how both models partially pooled towards the grand mean. That's one of the distinctive features of using the hierarchical approach.
 
 Wrapping up, this chapter focused on how one might use the Poisson likelihood to model contingency-table data from a multilevel modeling framework. The Poisson likelihood is also handy for count data within a single-level structure, with metric predictors, and with various combinations of metric and nominal predictors. For more practice along those lines, check out [Chapter 10.2](https://bookdown.org/content/1850/counting-and-classification.html#poisson-regression) in my project recoding McElreath's [*Statistical Rethinking*](https://xcelab.net/rm/statistical-rethinking/).
 
