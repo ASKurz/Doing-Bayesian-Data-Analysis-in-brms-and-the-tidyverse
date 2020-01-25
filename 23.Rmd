@@ -67,15 +67,15 @@ p1 / p2 &
   theme(panel.grid = element_blank()) 
 ```
 
-For both plots, `z` is in a standardized metric (i.e., $z$-score). With the cumulative normal function, the cumulative probability, $\Phi(z)$, increases nonlinearly with the $z$-scores such that, much like with the logistic curve, the greatest change occurs around $z = 0$ and it tapers off in the tails.
+For both plots, `z` is in a standardized metric (i.e., $z$-score). With the cumulative normal function, the cumulative probability, $\Phi(z)$, increases nonlinearly with the $z$-scores such that, much like with the logistic curve, the greatest change occurs around $z = 0$ and tapers off in the tails.
 
-The inverse of $\Phi(x)$ is the *probit* function. As indicated in the above block quote, we'll be making extensive use of the probit function in this chapter to model our ordinal data.
+The inverse of $\Phi(x)$ is the *probit* function. As indicated in the above block quote, we'll be making extensive use of the probit function in this chapter for our Bayesian models.
 
 ## Modeling ordinal data with an underlying metric variable
 
 > You can imagine that the distribution of ordinal values might not resemble a normal distribution, even though the underlying metric values are normally distributed. Figure 23.1 shows some examples of ordinal outcome probabilities generated from an underlying normal distribution. The horizontal axis is the underlying continuous metric value. Thresholds are plotted as vertical dashed lines, labeled $\theta$. In all examples, the ordinal scale has 7 levels, and hence, there are 6 thresholds. The lowest threshold is set at $\theta_1 = 1.5$ (to separate outcomes 1 and 2), and the highest threshold is set at $\theta_1 = 6.5$ (to separate outcomes 6 and 7). The normal curve in each panel shows the distribution of underlying continuous values. What differs across panels are the settings of means, standard deviations, and remaining thresholds. (p. 672)
 
-There are a lot of ins and outs to make the subplots in Figure 23.1. We'll start with the top panel and build from there. Here is how we might make the values necessary for the density curve.
+The various Figure 23.1 subplots require a lot of ins and outs. We'll start with the top panel and build from there. Here is how we might make the values necessary for the density curve.
 
 ```{r}
 den <-
@@ -96,7 +96,7 @@ den <-
 head(den)
 ```
 
-Before we make the data for the bar portion of the plot, we'll need to define the $\theta$ values they'll be placed between. We'll also need to define the exact points on the x-axis we'd like those bars to originate from. Those points, which we'll call `label_1`, will double as names for the individual bars.
+Before making the data for the bar portion of the plot, we'll need to define the $\theta$-values they'll be placed between. We'll also need to define the exact points on the x-axis from which we'd like those bars to originate. Those points, which we'll call `label_1`, will double as names for the individual bars.
 
 ```{r}
 (theta_1 <- seq(from = 1.5, to = 6.5, by = 1))
@@ -127,7 +127,7 @@ bar <-
   )) %>% 
   # summarize
   count(y) %>% 
-  mutate(percent       = (100 * n / sum(n)) %>% round(0))   %>% 
+  mutate(percent = (100 * n / sum(n)) %>% round(0))   %>% 
   mutate(percent_label = str_c(percent, "%"),
          percent_max   = max(percent))
 
@@ -161,7 +161,7 @@ bar %>%
   facet_wrap(~strip, labeller = label_parsed)
 ```
 
-This method works okay for plotting one panel or two. It has a whole lot of lines of code and moving parts if we're going to plot four. It'd be convenient if we could save the density informaiton for all four panels in one data object. Here's one way how.
+This method works okay for plotting one or two panels. The sheer number of code lines and moving parts seem unwieldy for plotting four. It'd be convenient if we could save the density information for all four panels in one data object. Here's one way how.
 
 ```{r}
 den <-
@@ -260,7 +260,7 @@ bar <-
 head(bar)
 ```
 
-Like before, we added a `panel` index. Our last step will be to make something of a super function to plug in the desired information into **ggplot2** to make each subplot. Much of the plotting and data wrangling code will be the same across subplots. As far as I can tell, we only need to vary four parameters. First, we'll want to be able to subset the data by `panel` index. We'll do that with the `panel_n` argument. Second, we'll want to select which of the `theta_[i]` values we'd like to use in `geom_vline()`, `annotate()`, and `scale_x_continuous()`. We'll do that with the `theta` argument. We'll make a `y_second_x` to pin down exactly where below the x-axis we'd like to put those secondary axis values defined by the `theta_[i]` values. Finally, we'll want an `ylim_ub` parameter to set the upper limit of the y-axis with. The name of the super function will be `plot_bar_den()`.
+Like before, we added a `panel` index. As our final preparatory step, we will make something of a super function with which we'll plug the desired information into **ggplot2**, which will then make each subplot. Much of the plotting and data wrangling code will be the same across subplots. As far as I can tell, we only need to vary four parameters. First, we'll want to be able to subset the data by `panel` index. We'll do that with the `panel_n` argument. Second, we'll want to select which of the `theta_[i]` values we'd like to use in `geom_vline()`, `annotate()`, and `scale_x_continuous()`. We'll do that with the `theta` argument. We'll make a `y_second_x` to pin down exactly where below the x-axis we'd like to put those secondary axis values defined by the `theta_[i]` values. Finally, we'll want an `ylim_ub` parameter to set the upper limit of the y-axis with. The name of the super function will be `plot_bar_den()`.
 
 ```{r}
 plot_bar_den <- function(panel_n, theta, y_second_x, ylim_ub) {
@@ -285,7 +285,8 @@ plot_bar_den <- function(panel_n, theta, y_second_x, ylim_ub) {
                        breaks = theta,
                        labels = parse(text = str_c("theta[", 1:6, "]"))) +
     scale_y_continuous(NULL, breaks = NULL) +
-    coord_cartesian(clip = F, ylim = c(0, ylim_ub)) +
+    coord_cartesian(ylim = c(0, ylim_ub), 
+                    clip = F) +
     theme(panel.grid = element_blank(),
           plot.margin = margin(5.5, 5.5, 11, 5.5)) +
     facet_wrap(~strip, labeller = label_parsed)
@@ -357,11 +358,11 @@ fit <-
       prior(normal(0, 4), class = Intercept))
 ```
 
-The `family = cumulative(probit)` tells **brms** you'd like to use the probit link for the ordered categorical data. It's important to specify `probit` because the **brms** default is actually to use the `logit` link, instead. We'll talk more about that approach at the end of this chapter. 
+The `family = cumulative(probit)` tells **brms** you'd like to use the probit link for the ordered-categorical data. It's important to specify `probit` because the **brms** default is to use the `logit` link, instead. We'll talk more about that approach at the end of this chapter. 
 
-Remember how, at the end of the last section, we said there are other ways to parameterize the ordered probit model? As it turns out, **brms** does not follow Kruschke's approach for fixing the thresholds on the ends. Rather, **brms** freely estimates all thresholds, $\theta_1,...,\theta_{K - 1}$, by fixing $\mu = 0$ and $\sigma = 1$. That is, instead of estimating $\mu$ and $\sigma$ from the normal cumulative density function $\Phi(x)$, `brms::brm()` used the standard normal cumulative density function $\Phi(z)$.
+Remember how, at the end of the last section, we said there are other ways to parameterize the ordered probit model? As it turns out, **brms** does not follow Kruschke's approach for fixing the thresholds on the ends. Rather, **brms** freely estimates all thresholds, $\theta_1,...,\theta_{K - 1}$, by fixing $\mu = 0$ and $\sigma = 1$. That is, instead of estimating $\mu$ and $\sigma$ from the normal cumulative density function $\Phi(x)$, `brms::brm()` uses the standard normal cumulative density function $\Phi(z)$.
 
-At this point, this all probably seems abstract. We'll get a lot of practice comparing the two approaches as we go along. Each has its strengths and weaknesses. At this point, the thing to get is that when fitting a single-group ordered probit model with the `brm()` function, there will be no priors for $\mu$ and $\sigma$. We only have to worry about setting the priors for all $K - 1$ thresholds. And because those thresholds are conditional on $\Phi(z)$, we should think about their priors with respect to the standard normal distribution. Thus, to continue on with Kruschke's minimally-informative prior approach, something like `prior(normal(0, 4), class = Intercept)` might be a good starting place. Do feel free to experiment with different settings.
+This all probably seems abstract. We'll get a lot of practice comparing the two approaches as we go along. Each has its strengths and weaknesses. At this point, the thing to get is that when fitting a single-group ordered-probit model with the `brm()` function, there will be no priors for $\mu$ and $\sigma$. We only have to worry about setting the priors for all $K - 1$ thresholds. And because those thresholds are conditional on $\Phi(z)$, we should think about their priors with respect to the standard normal distribution. Thus, to continue on with Kruschke's minimally-informative prior approach, something like `prior(normal(0, 4), class = Intercept)` might be a good starting place. Do feel free to experiment with different settings.
 
 ### Examples: Bayesian estimation recovers true parameter values.
 
@@ -390,7 +391,7 @@ It looks a lot like the distribution of the data from one of the panels from Fig
 library(brms)
 ```
 
-Fit the first cumulative probit model.
+Fit the first cumulative-probit model.
 
 ```{r fit1, cache = T, warning = F, message = F}
 fit1 <-
@@ -408,7 +409,9 @@ Examine the model summary.
 print(fit1)
 ```
 
-The **brms** output for these kinds of models names the thresholds $\theta_{[i]}$ as `Intercept[i]`. Again, whereas Kruschke identified his model by fixing $\theta_1 = 1.5$ (i.e., $1 + 0.5$) and $\theta_6 = 5.5$ (i.e., $6 - 0.5$), we freely estimated all out thresholds by using the cumulative density function for the standard normal. As a result, our thresholds are in a different metric from Kruschke's. Let's extract the posterior draws.
+The **brms** output for these kinds of models names the thresholds $\theta_{[i]}$ as `Intercept[i]`. Again, whereas Kruschke identified his model by fixing $\theta_1 = 1.5$ (i.e., $1 + 0.5$) and $\theta_6 = 5.5$ (i.e., $6 - 0.5$), we freely estimated all six thresholds by using the cumulative density function for the standard normal. As a result, our thresholds are in a different metric from Kruschke's. 
+
+Let's extract the posterior draws.
 
 ```{r}
 post <- posterior_samples(fit1)
@@ -416,7 +419,7 @@ post <- posterior_samples(fit1)
 glimpse(post)
 ```
 
-Wrangle `post`.
+Wrangle `post` a bit.
 
 ```{r}
 post <-
@@ -450,9 +453,9 @@ post %>%
         legend.position = "none") 
 ```
 
-The initial `means` data at the top contains the $\theta_i$-specific means, which we used to make the dashed vertical lines within `geom_vline()`. Did you see what we did there with those `group_by()` and `mutate()` lines? That's how we computed the mean threshold within each step of the HMC chain, what Kruschke (p. 680) denoted as $\bar \theta (s) = \sum_k^{K-1} \theta_k (s) / (K - 1)$, where $s$ refers to particular steps in the HMC chain. 
+The initial `means` data at the top contains the $\theta_i$-specific means, which we used to make the dashed vertical lines with `geom_vline()`. Did you see what we did there with those `group_by()` and `mutate()` lines? That's how we computed the mean threshold within each step of the HMC chain, what Kruschke (p. 680) denoted as $\bar \theta (s) = \sum_k^{K-1} \theta_k (s) / (K - 1)$, where $s$ refers to particular steps in the HMC chain. 
 
-Perhaps of greater interest, you might have noticed how different out plot is from the one in the text. We might should compare the plot of our **brms** parameterization of $\theta_{[i]}$ with one based on the parameterization in the text in an expanded version of the bottom plot of Figure 23.2. To convert our **brms** output to match Kruschke's, we'll rescale our $\theta_{[i]}$ draws with help from the `scales::rescale()` function, which you might learn more about [here](https://www.rdocumentation.org/packages/scales/versions/0.4.1/topics/rescale).
+Perhaps of greater interest, you might have noticed how different our plot is from the one in the text. We might should compare the results of our **brms** parameterization of $\theta_{[i]}$ with one based on the parameterization in the text in an expanded version of the bottom plot of Figure 23.2. To convert our **brms** output to match Kruschke's, we'll rescale our $\theta_{[i]}$ draws with help from the `scales::rescale()` function, which you might learn more about [here](https://www.rdocumentation.org/packages/scales/versions/0.4.1/topics/rescale).
 
 ```{r, fig.width = 5, fig.height = 3.5}
 # primary data wrangling
@@ -499,9 +502,9 @@ We can take our rescaling approach further to convert the posterior distribution
 
 \begin{align*}
 z_1 - z_2 & = \frac{(y_1 - \mu)}{\sigma} - \frac{(y_2 - \mu)}{\sigma} \\
-z_1 - z_2 & = \frac{(y_1 - \mu) - (y_2 - \mu)}{\sigma} \\
-z_1 - z_2 & = \frac{y_1 - \mu - y_2 + \mu}{\sigma} \\
-z_1 - z_2 & = \frac{y_1 - y_2}{\sigma}, \;\; \text{therefore} \\
+          & = \frac{(y_1 - \mu) - (y_2 - \mu)}{\sigma} \\
+          & = \frac{y_1 - \mu - y_2 + \mu}{\sigma} \\
+          & = \frac{y_1 - y_2}{\sigma}, \;\; \text{therefore} \\
 \sigma    & = \frac{y_1 - y_2}{z_1 – z_2}.
 \end{align*}
 
@@ -523,8 +526,8 @@ post %>%
   select(iter, `Intercept[1]`, `Intercept[6]`) %>% 
   mutate(`y[1]` = 1.5,
          `y[6]` = 6.5) %>% 
-  mutate(mu     = `y[1]` - `Intercept[1]` * 1,
-         sigma  = (`y[1]` - `y[6]`) / (`Intercept[1]` - `Intercept[6]`)) %>% 
+  mutate(mu    = `y[1]` - `Intercept[1]` * 1,
+         sigma = (`y[1]` - `y[6]`) / (`Intercept[1]` - `Intercept[6]`)) %>% 
   mutate(`(mu-2)/sigma` = (mu - 2) / sigma) %>% 
   pivot_longer(mu:`(mu-2)/sigma`) %>% 
   mutate(name = factor(name,
@@ -542,9 +545,9 @@ post %>%
 
 Our results are similar to Kruschke's. Given we used a different algorithm, a different parameterization, and different priors, I'm not terribly surprised. If you have more insight on the matter or have spotted a flaw in this method, [please share with the rest of us](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues).
 
-It's unclear, to me, how we'd interpret the effect size. The difficulty isn't that Kruschke's comparison of $C = 2.0$ is arbitrary, but that the only way we can interpret the comparison given the model assumption of $\theta_1 = 1.5$ and $\theta_6 = 6.5$. If your theory doesn't allow you to understand the meaning of those constants and why you'd prefer them to slightly different ones, you'd be fooling yourself if you attempted to interpret any effect sizes conditional on their values. Proceed with caution.
+It's unclear, to me, how we'd interpret the effect size. The difficulty isn't that Kruschke's comparison of $C = 2.0$ is arbitrary, but that we can only interpret the comparison given the model assumption of $\theta_1 = 1.5$ and $\theta_6 = 6.5$. If your theory doesn't allow you to understand the meaning of those constants and why you'd prefer them to slightly different ones, you'd be fooling yourself if you attempted to interpret any effect sizes conditional on those values. Proceed with caution.
 
-In the large paragraph on the lower part of page 679, Kruschke discussed why the thresholds tend to have nontrivial covariances. This is what he was trying to convey with the bottom subplot in Figure 23.2. Here is the correlation matrix among the thresholds.
+In the large paragraph on the lower part of page 679, Kruschke discussed why the thresholds tend to have nontrivial covariances. This is what he was trying to convey with the bottom subplot in Figure 23.2. If you're curious, here is the correlation matrix among the thresholds.
 
 ```{r}
 vcov(fit1, correlation = T) %>% round(digits = 2)
@@ -580,7 +583,7 @@ post %>%
   theme(panel.grid = element_blank())
 ```
 
-Happily, the model produces data that look a lot like those used to generate it.
+Happily, the model produces data that look a lot like those from which it was generated.
 
 ```{r, fig.width = 4, fig.height = 2.5}
 post %>% 
@@ -600,7 +603,7 @@ post %>%
   theme(panel.grid = element_blank())
 ```
 
-Along similar lines, we can use the `pp_check()` function to make a version of the upper right panel of Figure 23.2. The `type = "bars"` argument allowed us to summarize the posterior predictions as a dot (mean) and standard error bars superimposed on a bar plot of the original data. Note how this differs a little from Kruschke's use of the posterior median and 95% HDIs. The `nsamples = 1000` argument controlled how many posterior predictions we wanted to summarize over. The rest is just formatting.
+Along similar lines, we can use the `pp_check()` function to make a version of the upper right panel of Figure 23.2. The `type = "bars"` argument will allow us to summarize the posterior predictions as a dot (mean) and standard error bars superimposed on a bar plot of the original data. Note how this differs a little from Kruschke's use of the posterior median and 95% HDIs. The `nsamples = 1000` argument controls how many posterior predictions we wanted to summarize over. The rest is just formatting.
 
 ```{r, fig.width = 4, fig.height = 2.5, message = F, warning = F}
 set.seed(23)
@@ -633,7 +636,7 @@ fit2 <-
 print(fit2)
 ```
 
-Save and wrangle the posterior draws.
+Extract and wrangle the posterior draws.
 
 ```{r}
 post <- 
@@ -642,10 +645,14 @@ post <-
   mutate(iter = 1:n())
 ```
 
-Now we might compare the **brms** parameterization of $\theta_{[i]}$ with the parameterization in the text in an expanded version of the bottom plot of Figure 23.3. As it turns out, we'll be making a lot of these plots throughout this chapter. It might be worth it to just make a custom function. We'll call it `compare_thresholds()`.
+Now we might compare the **brms** parameterization of $\theta_{[i]}$ with Kruschke's parameterization in an expanded version of the bottom plot of Figure 23.3. As we'll be making a lot of these plots throughout this chapter, it might be worthwhile to just make a custom function. We'll call it `compare_thresholds()`.
 
 ```{r}
 compare_thresholds <- function(data, lb = 1.5, ub = 6.5) {
+  
+  # we have two parameters:
+  # lb = lower bound
+  # ub = upper bound
   
   # primary data wrangling
   p <-
@@ -700,8 +707,8 @@ post %>%
   select(iter, `Intercept[1]`, `Intercept[6]`) %>% 
   mutate(`y[1]` = 1.5,
          `y[6]` = 6.5) %>% 
-  mutate(mu     = `y[1]` - `Intercept[1]` * 1,
-         sigma  = (`y[1]` - `y[6]`) / (`Intercept[1]` - `Intercept[6]`)) %>% 
+  mutate(mu    = `y[1]` - `Intercept[1]` * 1,
+         sigma = (`y[1]` - `y[6]`) / (`Intercept[1]` - `Intercept[6]`)) %>% 
   mutate(`(mu-4)/sigma` = (mu - 4) / sigma) %>% 
   pivot_longer(mu:`(mu-4)/sigma`) %>% 
   mutate(name = factor(name,
@@ -717,7 +724,7 @@ post %>%
   facet_wrap(~name, scales = "free", labeller = label_parsed)
 ```
 
-Now use `pp_check()` to make our version of the upper-right panel of Figure 23.3.
+Use `pp_check()` to make our version of the upper-right panel of Figure 23.3.
 
 ```{r, fig.width = 4, fig.height = 2.5, message = F, warning = F}
 set.seed(23)
@@ -831,7 +838,7 @@ posterior_samples(fit3) %>%
   facet_wrap(~name, scales = "free")
 ```
 
-Yes indeed, 2 is a credible value for the intercept. And as reported in the text, it yields a very small $d$ effect size. Now we repeat the process for the second data set.
+Yes indeed, 2 is a credible value for the intercept. And as reported in the text, we got a very small $d$ effect size. Now we repeat the process for the second data set.
 
 ```{r fit4, cache = T, warning = F, message = F}
 mean_y <- mean(my_data_2$Y)
@@ -898,9 +905,9 @@ p2 <-
 
 Just for fun,
 
-> rate how much you agree with the statement, "Bayesian estimation is more informative than null-hypothesis significance testing," by selecting one option from the following: 1 = strongly disagree; 2 = disagree; 3 = undecided; 4 = agree; 5 = strongly agree. This sort of ordinal response interface is often called a Likert-type response ([Likert, 1932](https://legacy.voteview.com/pdf/Likert_1932.pdf), pronounced LICK-ert not LIKE-ert). Sometimes, it is called a Likert "scale" but the term "scale" in this context is more properly reserved for referring to an underlying metric variable that is indicated by the arithmetic mean of several meaningfully related Likert-type responses (e.g., Carifio & Perla, [2007](https://thescipub.com/pdf/10.3844/jssp.2007.106.116), [2008](https://pdfs.semanticscholar.org/795d/7d9c30bb0ba54d078215f9239a865960eea6.pdf); [Norman, 2010](https://www.researchgate.net/publication/41420484_LIkert_scales_levels_of_measurement_adn_the_laws_of_statistics)).(p. 681)
+> rate how much you agree with the statement, "Bayesian estimation is more informative than null-hypothesis significance testing," by selecting one option from the following: 1 = strongly disagree; 2 = disagree; 3 = undecided; 4 = agree; 5 = strongly agree. This sort of ordinal response interface is often called a Likert-type response ([Likert, 1932](https://legacy.voteview.com/pdf/Likert_1932.pdf), pronounced LICK-ert not LIKE-ert). Sometimes, it is called a Likert "scale" but the term "scale" in this context is more properly reserved for referring to an underlying metric variable that is indicated by the arithmetic mean of several meaningfully related Likert-type responses (e.g., Carifio & Perla, [2007](https://thescipub.com/pdf/10.3844/jssp.2007.106.116), [2008](https://pdfs.semanticscholar.org/795d/7d9c30bb0ba54d078215f9239a865960eea6.pdf); [Norman, 2010](https://www.researchgate.net/publication/41420484_LIkert_scales_levels_of_measurement_adn_the_laws_of_statistics)). (p. 681)
 
-Kruschke then went on to briefly introduce how one might combine several such meaningfully-related Likert-type responses with latent variable methods. He then clarified this text will not explore that approach, further. The current version of **brms** (i.e., [2.11.0](https://CRAN.R-project.org/package=brms/news/news.html)) has very limited latent variable capacities. However, they are in the works. Interested models can follow Bürkner's progress in [GitHub issue #304](https://github.com/paul-buerkner/brms/issues/304). In the meantime, one can fit Bayesian latent variable models with the [**blavaan** package](https://faculty.missouri.edu/~merklee/blavaan/).
+Kruschke then briefly introduced how one might combine several such meaningfully-related Likert-type responses with latent variable methods. He then clarified this text will not explore that approach, further. The current version of **brms** (i.e., [2.11.0](https://CRAN.R-project.org/package=brms/news/news.html)) has very limited latent variable capacities. However, they are in the works. Interested modelers can follow Bürkner's progress in [GitHub issue #304](https://github.com/paul-buerkner/brms/issues/304). He also has [a paper](https://arxiv.org/pdf/1905.09501.pdf) in how one might use **brms** to fit item response theory models, which can be viewed as a special family of latent variable models. One can also fit Bayesian latent variable models with the [**blavaan** package](https://faculty.missouri.edu/~merklee/blavaan/).
 
 ## The case of two groups
 
@@ -908,7 +915,7 @@ Kruschke then went on to briefly introduce how one might combine several such me
 
 ### Implementation in ~~JAGS~~ **brms**.
 
-The `brms::brm()` syntax for adding a single categorical predictor to an ordered probit model is much like with any other likelihood. We just add it to the right side of the `~` in the `formula` argument. If you're like me and like to use the verbose `1` syntax for your model intercepts--thresholds in these models--just use the `+` operator between them. For example, this is what it'd look like for an ordered categorical criterion `y` and a single categorical predictor `x`.
+The `brm()` syntax for adding a single categorical predictor to an ordered-probit model is much like that for any other likelihood. We just add the variable name to the right side of the `~` in the `formula` argument. If you're like me and like to use the verbose `1` syntax for your model intercepts--thresholds in these models--just use the `+` operator between them. For example, this is what it'd look like for an ordered-categorical criterion `y` and a single categorical predictor `x`.
 
 ```{r, eval = F}
 fit <-
@@ -919,17 +926,17 @@ fit <-
                 prior(normal(0, 4), class = b)))
 ```
 
-Also of note, we've expanded the `prior` section to include a line for `class = b`. As with the thresholds, interpret this prior through the context of the underlying standard normal cumulative distribution, $\Phi(z)$. Note the interpretation, though. By **brms** defaults, the underlying Gaussian for the reference category for `x` will be $\operatorname{Normal} (0, 1)$. Thus whatever parameter value you get for the other categories in `x`, those will be standardized mean differences.
+Also of note, we've expanded the `prior` section to include a line for `class = b`. As with the thresholds, interpret this prior through the context of the underlying standard normal cumulative distribution, $\Phi(z)$. Note the interpretation, though. By **brms** defaults, the underlying Gaussian for the reference category of `x` will be $\operatorname{Normal} (0, 1)$. Thus whatever parameter value you get for the other categories in `x`, those will be standardized mean differences.
 
-The above all presumes you're only interested in comparing means between groups. Things get more complicated if you want groups to vary by $\sigma$, too. 
+Note, the above all presumes you're only interested in comparing means between groups. Things get more complicated if you want groups to vary by $\sigma$, too. Hold on tight. 
 
-Hold on tight, friends. First, look back at the output from `print(fit1)` or `print(fit2)`. The second line for both reads: `Links: mu = probit; disc = identity`. Hopefully the `mu = probit` part is no surprise. Probit regression is the primary focus of this chapter. But check out the `disc = identity` part and notice that nowhere in there is there any mention of `sigma = identity` like we get when treating the criterion as metric as in conventional Gaussian models (i.e., execute `print(fit3)` or `print(fit4)`). 
+First, look back at the output from `print(fit1)` or `print(fit2)`. The second line for both reads: `Links: mu = probit; disc = identity`. Hopefully the `mu = probit` part is no surprise. Probit regression is the primary focus of this chapter. But check out the `disc = identity` part and notice that nowhere in there is there any mention of `sigma = identity` like we get when treating the criterion as metric as in conventional Gaussian models (i.e., execute `print(fit3)` or `print(fit4)`). 
 
-Yes, there is a relationship between `disc` and `sigma`. `disc` is shorthand for *discrimination*. The term comes from the item response theory (IRT) literature and discrimination is the inverse of $\sigma$ (see Bürkner's [*Bayesian Item Response Modelling in R with brms and Stan*](https://arxiv.org/pdf/1905.09501.pdf)). In IRT, discrimination is often denoted by $a$ or $\alpha$. Here I'll adopt the latter, making $\sigma = 1 / \alpha$. But focusing back on **brms** summary output, notice how both `disc` and `sigma` are modeled using the identity link. If you recall from earlier chapters, we switched to the log link to constrain the values to zero and above when we allowed $\sigma$ to vary across groups. It's the same thing for our discrimination parameter, $\alpha$. Because $\alpha$ should always be zero or above, **brms** defaults to the log link when modeling it with predictors.
+Yes, there is a relationship between `disc` and `sigma`. `disc` is shorthand for *discrimination*. The term comes from the item response theory (IRT) literature and discrimination is the inverse of $\sigma$ (see Bürkner's [*Bayesian Item Response Modelling in R with brms and Stan*](https://arxiv.org/pdf/1905.09501.pdf)). In IRT, discrimination is often denoted $a$ or $\alpha$. Here I'll adopt the latter, making $\sigma = 1 / \alpha$. But focusing back on **brms** summary output, notice how both `disc` and `sigma` are modeled using the identity link. If you recall from earlier chapters, we switched to the log link to constrain the values to zero and above when we allowed $\sigma$ to vary across groups. It's the same thing for our discrimination parameter, $\alpha$. Because $\alpha$ should always be zero or above, **brms** defaults to the log link when modeling it with predictors.
 
-As with $\sigma$ in conventional Gaussian models, we'll be using some version of the `bf()` syntax when modeling the discrimination parameter in **brms**. For a general introduction to what Bürkner calls distributional modeling, see his vignette, [*Estimating Distributional Models with brms*](https://cran.r-project.org/web/packages/brms/vignettes/brms_distreg.html). In the case of the discrimination parameter for the cumulative model, we'll want more focused instructions. From Bürkner and Vouree [(2019)](https://journals.sagepub.com/doi/abs/10.1177/2515245918823199), we read:
+As with $\sigma$ in conventional Gaussian models, we'll be using some version of the `bf()` syntax when modeling the discrimination parameter in **brms**. For a general introduction to what Bürkner calls distributional modeling, see his vignette, [*Estimating Distributional Models with brms*](https://cran.r-project.org/web/packages/brms/vignettes/brms_distreg.html). In the case of the discrimination parameter for the cumulative model, we'll want more focused instructions. Bürkner and Vouree [(2019)](https://journals.sagepub.com/doi/abs/10.1177/2515245918823199) have our backs. We read:
 
-> Conceptually, unequal variances are incorporated in the model by specifying an additional regression formula for the variance component of the latent variable $\tilde Y$. In brms, the parameter related to latent variances is called *disc* (short for "discrimination"), following conventions in item response theory. Note that disc is not the variance itself, but the inverse of the standard deviation, $s$. That is, $s = 1/ \text{disc}$. Further, because disc must be strictly positive, it is by default modeled on the log scale.
+> Conceptually, unequal variances are incorporated in the model by specifying an additional regression formula for the variance component of the latent variable $\tilde Y$. In brms, the parameter related to latent variances is called *disc* (short for "discrimination"), following conventions in item response theory. Note that disc is not the variance itself, but the inverse of the standard deviation, $s.$ That is, $s = 1/ \text{disc}$. Further, because disc must be strictly positive, it is by default modeled on the log scale.
 >
 > Predicting auxiliary parameters (parameters of the distribution other than the mean/location) in brms is accomplished by passing multiple regression formulas to the `brm()` function. Each formula must first be wrapped in another function, `bf()` or `lf()` (for "linear formula")--depending on whether it is a main or an auxiliary formula, respectively. The formulas are then combined and passed to the `formula` argument of `brm()`. Because the standard deviation of the latent variable is fixed to 1 for the baseline [group, disc cannot be estimated for the baseline group]. We must therefore ensure that disc is estimated only for [non-baseline groups]. To do so, we omit the intercept from the model of disc by writing `0 + ...` on the right-hand side of the regression formula. By default, R applies cell-mean coding to factors in formulas without an intercept. That would lead to disc being estimated for [all groups], so we must deactivate it via the `cmc` argument of `lf()`. (pp. 11--12)
 
@@ -948,7 +955,7 @@ fit <-
 
 Note how when using the `0 + ...` syntax, the `disc` parameters are of `class = b` within the `prior()` function. If you'd like to assign them priors differing from the other `b` parameters, you'll need to specify `dpar = dics`. Again, though the mean structure for this model is on the probit scale, the discrimination structure is on the log scale. Recalling that $\sigma = 1/\alpha$, which means $\alpha = 1/\sigma$, and also that we're modeling $\log (\alpha)$, the priors for the standard deviations of the non-reference category groups are on the scale of $\log (1 / \sigma)$. 
 
-To get a better sense of how one might set a prior on such a scale, we might compare $\sigma$, $\alpha$, and $\log (\alpha)$. Here are the density and cumulative density functions for $\operatorname{Normal} (0, 0.5)$, $\operatorname{Normal} (0, 1)$, and $\operatorname{Normal} (0, 1.5)$.
+To get a better sense of how one might set a prior on such a scale, we might compare $\sigma$, $\alpha$, and $\log (\alpha)$. Here are the density and cumulative density functions for $\operatorname{Normal} (0, 0.5)$, $\operatorname{Normal} (0, 1)$, and $\operatorname{Normal} (0, 2)$.
 
 ```{r, fig.width = 6.5, fig.height = 4}
 tibble(mu    = 0,
@@ -1086,7 +1093,7 @@ post %>%
   compare_thresholds(lb = 1.5, ub = 4.5)
 ```
 
-It will no longer be straightforward to use the formulas from earlier to convert the output from our **brms** parameterization to match the way Kruschke parameterized his conditional means and standard deviations. I will leave the conversion up to the interested reader. We will focus on the output from our **brms** parameterization.
+It will no longer be straightforward to use the formulas from 23.2.2 to convert the output from our **brms** parameterization to match the way Kruschke parameterized his conditional means and standard deviations. I will leave the conversion up to the interested reader. Going forward, we will focus on the output from our **brms** parameterization.
 
 ```{r, fig.width = 8, fig.height = 6, eval = F, echo = F}
 # this does not work. I believe it's because the formulat do not apply to the non-reference group
@@ -1111,6 +1118,7 @@ post %>%
                                   "sigma[A]", "sigma[B]", "sigma[B]-sigma[A]",
                                   "(mu[B]-mu[A])/sqrt((sigma[A]^2+sigma[B]^2)/2)"))) %>%
   
+  # plot 
   ggplot(aes(x = value)) +
   geom_histogram(color = "grey92", fill = "grey67",
                  size = .05, bins = 40) +
@@ -1140,19 +1148,21 @@ post %>%
                                   "sigma[A]", "sigma[B]", "sigma[B]-sigma[A]",
                                   "(mu[B]-mu[A])/sqrt((sigma[A]^2+sigma[B]^2)/2)"))) %>%
   
+  # plot
   ggplot(aes(x = value)) +
   geom_histogram(color = "grey92", fill = "grey67",
                  size = .05, bins = 40) +
   geom_halfeyeh(aes(y = 0),
                 point_interval = mode_hdi, .width = .95) +
   scale_y_continuous(NULL, breaks = NULL) +
+  xlab(NULL) +
   theme(panel.grid = element_blank()) +
   facet_wrap(~name, scales = "free", labeller = label_parsed)
 ```
 
-$\mu_A$ and $\sigma_A$ are both constants, which doesn't show up well with our `geom_histogram()` approach with the scales freed across facets. If these plots really mattered for a scientific presentation or something for industry, you could experiment with either using a common scale across all facets, or make the plots individually and then combine them with **patchwork** syntax. Returning to interpretation, because $\mu_A = 0$, it turns out that $\mu_B - \mu_A = \mu_B$, which is on display on the top row. Because $\sigma_A = 1$, it turns out that $\sigma_B - \sigma_A$ is just $\sigma_B$ moved over one to the left, which is hopefully clear in the panels of the second row. Very happily, the effect size formula worked with our **brms** parameters the same way it did for Kruschke's. Both yield an effect size of about 0.5, with 95% intervals ranging about $\mp 0.5$.
+$\mu_A$ and $\sigma_A$ are both constants, which doesn't show up well with our `geom_histogram()` approach when the scales freed across facets. If these plots really mattered for a scientific presentation or something for industry, you could experiment using either a common scale across all facets, or making the plots individually and then combining them with **patchwork** syntax. Returning to interpretation, because $\mu_A = 0$, it turns out that $\mu_B - \mu_A = \mu_B$, which is on display on the top row. Because $\sigma_A = 1$, it turns out that $\sigma_B - \sigma_A$ is just $\sigma_B$ moved over one unit to the left, which is hopefully clear in the panels of the second row. Very happily, the effect size formula worked with our **brms** parameters the same way it did for Kruschke's. Both yield an effect size of about 0.5, with 95% intervals extending about $\mp 0.5$.
 
-Here we use good use of the `type = "bars_grouped"` and `group = "X"` arguments to make the posterior predictive plots at the top right of Figure 23.4 with the `brms::pp_check()` function.
+Here we make good use of the `type = "bars_grouped"` and `group = "X"` arguments to make the posterior predictive plots at the top right of Figure 23.4 with the `brms::pp_check()` function.
 
 ```{r, fig.width = 8, fig.height = 2.5, message = F, warning = F}
 set.seed(23)
@@ -1299,6 +1309,7 @@ post %>%
   geom_halfeyeh(aes(y = 0),
                 point_interval = mode_hdi, .width = .95) +
   scale_y_continuous(NULL, breaks = NULL) +
+  xlab(NULL) +
   theme(panel.grid = element_blank()) +
   facet_wrap(~name, scales = "free", labeller = label_parsed)
 ```
@@ -1318,7 +1329,7 @@ pp_check(fit7, type = "bars_grouped", nsamples = 100, group = "x") +
         legend.position = "none")
 ```
 
-Now here's the corresponding model is we treat the `y` data as metric.
+Now here's the corresponding model where we treat the `y` data as metric.
 
 ```{r fit8, cache = T, warning = F, message = F}
 mean_y <- mean(d$y)
@@ -1345,7 +1356,7 @@ Check the summary.
 print(fit8)
 ```
 
-Here are the marginal posteriors, including the effect size.
+Make the marginal posteriors, including the effect size.
 
 ```{r, fig.width = 6, fig.height = 7}
 posterior_samples(fit8) %>% 
@@ -1484,7 +1495,7 @@ conditional_effects(fit9, categorical = T) %>%
   plot(theme = theme(panel.grid = element_blank()))
 ```
 
-Recall that our thresholds, $\theta_1,...,\theta_{K-1}$, in conjunction with the standard normal density, give us the probability of a given `Y` value, given `X_s` (i.e., $p(y = k | \mu, \sigma, \{ \theta_j \})$, where $\mu$ is conditional on $x$). This plot returned the fitted lines of those conditional probabilities, each depicted by the posterior mean and 95% percentile-based intervals. At lower values of `X_s`, lower values of `Y` are more probable. At higher values of `X_s`, higher values of `Y` are more probable.
+Recall that our thresholds, $\theta_1,...,\theta_{K-1}$, in conjunction with the standard normal density, give us the probability of a given `Y` value, given `X_s` (i.e., $p(y = k | \mu, \sigma, \{ \theta_j \})$, where $\mu$ is conditional on $x$). This plot returned the fitted lines of those conditional probabilities, each depicted by the posterior mean and percentile-based 95% intervals. At lower values of `X_s`, lower values of `Y` are more probable. At higher values of `X_s`, higher values of `Y` are more probable.
 
 It might be useful to get more practice in with this model. Here we'll use `fitted()` to make a similar plot, depicting the model with may fitted lines instead of summary statistics.
 
@@ -1591,7 +1602,7 @@ p1 + p2 &
   theme(panel.grid = element_blank())
 ```
 
-Both methods returned the fitted lines in the metric of the underlying standard normal distribution. The fitted lines are nonlinear in the metric of the raw data `Y` but they're linear in the metric of the presumed underlying distribution. If it helps, we'll make a marginal plot of the standard normal distribution and tack it onto the right.
+Both methods returned the fitted lines in the metric of the underlying standard normal distribution. The fitted lines are nonlinear in the metric of the raw data `Y`, but they're linear in the metric of the presumed underlying distribution. If it helps, we'll make a marginal plot of the standard normal distribution and tack it onto the right.
 
 ```{r, fig.width = 8, fig.height = 3.25}
 # make Phi
@@ -1863,7 +1874,7 @@ f <-
 head(f)
 ```
 
-Like with the same variant from Figure 23.7, we will not be superimposing linear fitted lines. The model is nonlinear on the scale of the data and I don't want to confuse readers.
+Like with the same variant from Figure 23.7, we will not be superimposing linear fitted lines. The model is nonlinear on the scale of the data and I don't want to confuse readers by pretending otherwise.
 
 ```{r, fig.width = 6, fig.height = 3.5}
 f %>% 
@@ -2004,7 +2015,7 @@ post %>%
   compare_thresholds(lb = 1.5, ub = 6.5)
 ```
 
-Here are the Pearson's correlation coefficients for the parameters.
+To sate any curiosity, here are the Pearson's correlation coefficients for the parameters.
 
 ```{r}
 vcov(fit13, correlation = T) %>% round(digits = 2)
@@ -2264,7 +2275,7 @@ my_data %>%
   theme(panel.grid = element_blank())
 ```
 
-Unlike in last section, there appears to be a clear trend in Kruschke's simulated data. Krhuschke's simulated critic liked his movies old and long. Time to standardize the predictors.
+Unlike in last section, there appears to be a clear trend in Kruschke's simulated data. Kruschke's simulated critic liked his movies old and long. Time to standardize the predictors.
 
 ```{r}
 my_data <-
@@ -2376,7 +2387,12 @@ Through this lens, noisy-looking data are a symptom of weak theory and/or poor d
 
 ## Posterior prediction
 
-The cumulative-normal model makes posterior predictions for the probabilities of the $K$ categories in the criterion variable by computing $p (y | \mu (x), \sigma, \{ \theta_k \ })$ in each step in the HMC chain. In this equation, $\mu (x) = \beta_0 + \sum_j \beta_j x_j$. Though recall that with our **brms** parameterization, we have $\beta_0$ fixed at 0. Kruschke framed part of his discussion in this chapter in terms of a single-predictor model, such as was entertained in Figure 23.8. Recall that corresponds to our `fit11`. Here's that `formula`.
+The cumulative-normal model makes posterior predictions for the probabilities of the $K$ categories in the criterion variable by computing $p (y | \mu (x), \sigma, \{ \theta_k \} )$ in each step in the HMC chain. In this equation, $\mu (x) = \beta_0 + \sum_j \beta_j x_j$. Though recall that with our **brms** parameterization, we have $\beta_0$ fixed at 0. Kruschke framed part of his discussion in this chapter in terms of a single-predictor model, such as was entertained in Figure 23.8. Recall that corresponds to our `fit11`. Here's that `formula`.
+
+
+
+$p (y | \mu (x), \sigma, \{ \theta_k \} )$
+
 
 ```{r}
 fit11$formula
@@ -2416,7 +2432,7 @@ cbind(
 
 In this section, Kruschke mentioned extensions of this class of models might include using the cumulative $t$ function to handle outliers or adding a guessing parameter. Full disclosure: I have not fit models like these. Based on my knowledge of **brms**, I suspect they're possible. For insights how, you might review Bürkner's [*Define Custom Response Distributions with brms*](https://cran.r-project.org/web/packages/brms/vignettes/brms_customfamilies.html) and [*Estimating Non-Linear Models with brms*](https://cran.r-project.org/web/packages/brms/vignettes/brms_nonlinear.html) vignettes.
 
-In addition, there are other likelihoods one might use to model ordinal data using **brms**. Your first stop should be Bürkner and Vourre's preprint, [*Ordinal Regression Models in Psychology: A Tutorial*](https://psyarxiv.com/x8swp/), where, in addition to the cumulative normal model, they cover the sequential and adjacent category models. You might also check out [Chapter 11](https://bookdown.org/connect/#/apps/1850/access) of my project recoding McElreath's [*Statistical Rethinking*](https://xcelab.net/rm/statistical-rethinking/) text, wherein I show how to fit ordered categorical models with **brms** using the logit link (i.e., `family = cumulative(logit)`).
+In addition, there are other likelihoods one might use to model ordinal data using **brms**. Your first stop should be Bürkner and Vourre's [*Ordinal Regression Models in Psychology: A Tutorial*](https://psyarxiv.com/x8swp/), where, in addition to the cumulative normal model, they cover the sequential and adjacent category models. You might also check out [Chapter 11](https://bookdown.org/connect/#/apps/1850/access) of my project recoding McElreath's [*Statistical Rethinking*](https://xcelab.net/rm/statistical-rethinking/) text, wherein I show how one might use the logit link (i.e., `family = cumulative(logit)`) to fit ordered-categorical models with **brms**.
 
 ## Reference {-}
 
