@@ -157,9 +157,7 @@ Kruschke suggested using a gamma on $\sigma_\beta$, which is a sensible alternat
 ```{r, fig.width = 6, fig.height = 2}
 tibble(x = seq(from = 0, to = 110, by = .1)) %>% 
   
-  ggplot(aes(x    = x,
-             ymin = 0,
-             ymax = dgamma(x, 2, .1))) +
+  ggplot(aes(x = x, ymin = 0, ymax = dgamma(x, 2, .1))) +
   geom_ribbon(size = 0, fill = "grey67") +
   scale_y_continuous(NULL, breaks = NULL) +
   coord_cartesian(xlim = 0:100) +
@@ -170,11 +168,13 @@ And if you'd like that prior be even less informative, just reduce it to like ga
 
 ```{r}
 gamma_a_b_from_omega_sigma <- function(mode, sd) {
+  
   if (mode <= 0) stop("mode must be > 0")
   if (sd   <= 0) stop("sd must be > 0")
   rate <- (mode + sqrt(mode^2 + 4 * sd^2)) / (2 * sd^2)
   shape <- 1 + mode * rate
   return(list(shape = shape, rate = rate))
+  
 }
 ```
 
@@ -194,9 +194,7 @@ And that produces the following gamma distribution.
 ```{r, fig.width = 6, fig.height = 2}
 tibble(x = seq(from = 0, to = 50, by = .01)) %>% 
   
-  ggplot(aes(x    = x,
-             ymin = 0,
-             ymax = dgamma(x, s_r$shape, s_r$rate))) +
+  ggplot(aes(x = x, ymin = 0, ymax = dgamma(x, s_r$shape, s_r$rate))) +
   geom_ribbon(size = 0, fill = "grey67") +
   scale_x_continuous(breaks = c(0, 1, 5, 10, 20)) +
   scale_y_continuous(NULL, breaks = NULL) +
@@ -265,7 +263,7 @@ stanvars <-
 
 Now fit the model, our hierarchical Bayesian alternative to an ANOVA.
 
-```{r fit1, cache = T, message = F, warning = F}
+```{r 19_fit1, cache = T, message = F, warning = F}
 fit1 <-
   brm(data = my_data,
       family = gaussian,
@@ -292,7 +290,7 @@ post <- posterior_samples(fit1, add_chain = T)
 
 library(bayesplot)
 
-theme_set(theme_grey() +
+theme_set(theme_gray() +
             theme(panel.grid = element_blank()))
 
 mcmc_acf(post, pars = c("b_Intercept", "sd_CompanionNumber__Intercept", "sigma"), lags = 10)
@@ -552,7 +550,7 @@ fit1 %>%
 
 But back to that omnibus test notion. If you really wanted to, I suppose one rough analogue would be to use information criteria to compare the hierarchical model to one that includes a single intercept with no group-level deflections. Here’s what the simpler model would look like.
 
-```{r fit1_without_deflections, cache = T, message = F, warning = F}
+```{r fit1_wo_deflections, cache = T, message = F, warning = F}
 fit1_without_deflections <-
   brm(data = my_data,
       family = gaussian,
@@ -573,8 +571,8 @@ print(fit1_without_deflections)
 Here are their LOO values and their difference score.
 
 ```{r}
-fit1 <- add_criterion(fit1, "loo")
-fit1_without_deflections <- add_criterion(fit1_without_deflections, "loo")
+fit1 <- add_criterion(fit1, criterion = "loo")
+fit1_without_deflections <- add_criterion(fit1_without_deflections, criterion = "loo")
 
 loo_compare(fit1, fit1_without_deflections) %>% 
   print(simplify = F)
@@ -878,11 +876,20 @@ posterior_samples(fit4) %>%
 
 Yep, sure did! Now our between-group comparisons should be more precise. Heck, if we wanted to we could even make a difference plot.
 
+```{r}
+bind_cols(posterior_samples(fit1) %>% select(sigma),
+          posterior_samples(fit4) %>% select(sigma)) %>% 
+  transmute(dif = sigma - sigma1)
+```
+
+
+
 ```{r, fig.width = 4, fig.height = 2.25}
-dif <- posterior_samples(fit1) %>% select(sigma) - posterior_samples(fit4) %>% select(sigma)
+bind_cols(posterior_samples(fit1) %>% select(sigma),
+          posterior_samples(fit4) %>% select(sigma)) %>% 
+  transmute(dif = sigma - sigma1) %>% 
   
-dif %>% 
-  ggplot(aes(x = sigma, y = 0)) +
+  ggplot(aes(x = dif, y = 0)) +
   geom_halfeyeh(point_range = mode_hdi, .width = c(.5, .95)) +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(title = "This is a difference distribution",
@@ -1798,7 +1805,7 @@ sessionInfo()
 
 ```{r, echo = F}
 # remove our objects
-rm(generate_data, n, grand_mean, d, densities, arrow, text, gamma_a_b_from_omega_sigma, sd_y, omega, sigma, s_r, my_data, mean_y, stanvars, fit1, post, n_draws, post_draws, fit1_without_deflections, mw, fit2, fit3, my_small_data, sd_thorax_c, fit4, dif, r, f, differences, fit5, fit6, y_bar_a, y_bar_b, s_y, fit7, lines, fit8, fit9)
+rm(generate_data, n, grand_mean, d, densities, arrow, text, gamma_a_b_from_omega_sigma, sd_y, omega, sigma, s_r, my_data, mean_y, stanvars, fit1, post, n_draws, post_draws, fit1_without_deflections, mw, fit2, fit3, my_small_data, sd_thorax_c, fit4, r, f, differences, fit5, fit6, y_bar_a, y_bar_b, s_y, fit7, lines, fit8, fit9)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
