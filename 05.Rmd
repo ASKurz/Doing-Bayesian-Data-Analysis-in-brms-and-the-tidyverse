@@ -82,7 +82,7 @@ tibble(prior = c(seq(from = 0,   to = .2, length.out = 6),
 If we follow Kruschke's equation 5.10 (i.e., the Bernoulli function) closely, we can express it as a function in **R**.
 
 ```{r}
-bernoulli <- function(theta, y){
+bernoulli <- function(theta, y) {
   return(theta^y * (1 - theta)^(1 - y))
 }
 ```
@@ -116,9 +116,9 @@ In order to compute $p(D)$ (i.e., the *evidence* or the *marginal likelihood*), 
 tibble(theta = theta_sequence,
        prior = c(seq(from = 0,   to = .2, length.out = 6),
                  seq(from = .16, to = 0,  length.out = 5))) %>%
-  mutate(likelihood          = bernoulli(theta = theta_sequence, y = 1)) %>% 
+  mutate(likelihood = bernoulli(theta = theta_sequence, y = 1)) %>% 
   mutate(marginal_likelihood = sum(prior * likelihood)) %>% 
-  mutate(posterior           = (prior * likelihood) / marginal_likelihood) %>%
+  mutate(posterior = (prior * likelihood) / marginal_likelihood) %>%
   
   ggplot(aes(x = theta, y = posterior)) +
   geom_col(width = .025, color = "grey50", fill = "grey50") +
@@ -135,11 +135,14 @@ In order to follow along with this section, we're going to have to update our Be
 
 ```{r}
 bernoulli_likelihood <- function(theta, data) {
+  
   # `theta` = success probability parameter ranging from 0 to 1
   # `data` = the vector of data (i.e., a series of 0s and 1s)
   n   <- length(data)
+  
   return(theta^sum(data) * (1 - theta)^(n - sum(data)))
-  }
+  
+}
 ```
 
 Here's the work required to make our version of the left portion of Figure 5.2.
@@ -154,7 +157,7 @@ tibble(theta =   seq(from = 0,     to = 1, by = .001),
          Likelihood = bernoulli_likelihood(theta = theta,
                                            data  = small_data)) %>% 
   mutate(marginal_likelihood = sum(Prior * Likelihood)) %>% 
-  mutate(Posterior           = (Prior * Likelihood) / marginal_likelihood) %>% 
+  mutate(Posterior = (Prior * Likelihood) / marginal_likelihood) %>% 
   select(theta, Prior, Likelihood, Posterior) %>% 
   gather(key, value, -theta) %>% 
   mutate(key = factor(key, levels = c("Prior", "Likelihood", "Posterior"))) %>% 
@@ -180,7 +183,7 @@ tibble(theta =   seq(from = 0,     to = 1, by = .001),
          Likelihood = bernoulli_likelihood(theta = theta,
                                            data  = large_data)) %>% 
   mutate(marginal_likelihood = sum(Prior * Likelihood)) %>% 
-  mutate(Posterior           = (Prior * Likelihood) / marginal_likelihood) %>% 
+  mutate(Posterior = (Prior * Likelihood) / marginal_likelihood) %>% 
   select(theta, Prior, Likelihood, Posterior) %>% 
   gather(key, value, -theta) %>% 
   mutate(key = factor(key, levels = c("Prior", "Likelihood", "Posterior"))) %>% 
@@ -207,12 +210,11 @@ tibble(theta =   seq(from = 0,     to = 1, by = .001),
        Prior = c(seq(from = 0,     to = 1, length.out = 501),
                  seq(from = 0.998, to = 0, length.out = 500))) %>% 
   # here's the important line of code
-  mutate(Prior = Prior^0.1) %>% 
-  mutate(Prior = Prior / sum(Prior),
-         Likelihood = bernoulli_likelihood(theta = theta,
+  mutate(Prior = Prior^0.1 / sum(Prior^0.1)) %>% 
+  mutate(Likelihood = bernoulli_likelihood(theta = theta,
                                            data  = small_data)) %>% 
   mutate(marginal_likelihood = sum(Prior * Likelihood)) %>% 
-  mutate(Posterior           = (Prior * Likelihood) / marginal_likelihood) %>% 
+  mutate(Posterior = (Prior * Likelihood) / marginal_likelihood) %>% 
   select(theta, Prior, Likelihood, Posterior) %>% 
   gather(key, value, -theta) %>% 
   mutate(key = factor(key, levels = c("Prior", "Likelihood", "Posterior"))) %>% 
@@ -238,9 +240,9 @@ tibble(theta =   seq(from = 0,     to = 1, by = .001),
          Likelihood = bernoulli_likelihood(theta = theta,
                                            data  = large_data)) %>% 
   # here's the important line of code
-  mutate(Prior               = Prior^10) %>% 
+  mutate(Prior = Prior^10) %>% 
   mutate(marginal_likelihood = sum(Prior * Likelihood)) %>% 
-  mutate(Posterior           = (Prior * Likelihood) / marginal_likelihood) %>% 
+  mutate(Posterior = (Prior * Likelihood) / marginal_likelihood) %>% 
   select(theta, Prior, Likelihood, Posterior) %>% 
   gather(key, value, -theta) %>% 
   mutate(key = factor(key, levels = c("Prior", "Likelihood", "Posterior"))) %>% 
@@ -266,7 +268,7 @@ However, the simple model + conjugate prior approach has its limitations. As we'
 
 ## Reference {-}
 
-[Kruschke, J. K. (2014). *Doing Bayesian data analysis, Second Edition: A tutorial with R, JAGS, and Stan.* Burlington, MA: Academic Press/Elsevier.](https://sites.google.com/site/doingbayesiandataanalysis/)
+[Kruschke, J. K. (2015). *Doing Bayesian data analysis, Second Edition: A tutorial with R, JAGS, and Stan.* Burlington, MA: Academic Press/Elsevier.](https://sites.google.com/site/doingbayesiandataanalysis/)
 
 ## Session info {-}
 
