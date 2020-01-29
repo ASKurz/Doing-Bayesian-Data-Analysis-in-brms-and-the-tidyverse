@@ -31,9 +31,10 @@ bernoulli_likelihood <- function(theta, data) {
   # `data`  = the vector of data (i.e., a series of 0s and 1s)
   n <- length(data)
   z <- sum(data)
+  
   return(theta^z * (1 - theta)^(n - sum(data)))
   
-  }
+}
 ```
 
 This will come in handy in just a bit.
@@ -127,13 +128,13 @@ Figure 6.2 helped contrast the mean and mode for beta. We'll use the same proces
 
 ```{r}
 d <-
-tibble(shape1   = c(5.6, 17.6, 5, 17),
-       shape2   = c(1.4, 4.4, 2, 5)) %>% 
+  tibble(shape1 = c(5.6, 17.6, 5, 17),
+         shape2 = c(1.4, 4.4, 2, 5)) %>% 
   mutate(a        = str_c("a =", shape1),
          b        = str_c("b =", shape2),
          kappa    = rep(c("kappa = 7", "kappa = 22"), times = 2),
          mu_omega = rep(c("mu = 0.8", "omega = 0.8"), each = 2)) %>% 
-  mutate(kappa    = factor(kappa, levels = c("kappa = 7", "kappa = 22"))) %>% 
+  mutate(kappa = factor(kappa, levels = c("kappa = 7", "kappa = 22"))) %>% 
   expand(nesting(shape1, shape2, a, b, kappa, mu_omega), 
          x = seq(from = 0, to = 1, length.out = length))
 
@@ -149,9 +150,9 @@ d %>%
   geom_line(aes(y = dbeta(x, shape1 = shape1, shape2 = shape2)),
             color = "grey50", size = 1.25) +
   scale_x_continuous(breaks = c(0, .8, 1)) +
-  coord_cartesian(ylim = 0:5) +
   labs(x = expression(theta),
        y = expression(paste("p(", theta, "|a, b)"))) +
+  coord_cartesian(ylim = 0:5) +
   theme(panel.grid = element_blank()) +
   facet_grid(mu_omega~kappa)
 ```
@@ -233,9 +234,9 @@ hdi_of_icdf <- function(name, width = .95, tol = 1e-8, ... ) {
     name(width + low_tail_prob, ...) - name(low_tail_prob, ...)
   }
   
-  opt_info            <- optimize(interval_width, c(0, incredible_mass), 
-                                  name = name, width = width, 
-                                  tol = tol, ...)
+  opt_info <- optimize(interval_width, c(0, incredible_mass), 
+                       name = name, width = width, 
+                       tol = tol, ...)
   
   hdi_lower_tail_prob <- opt_info$minimum
   
@@ -300,7 +301,7 @@ To make things easier on ourselves, we'll also make two additional data objects 
 
 ```{r}
 # the data for the in-plot lines
-d_line <-
+line <-
   tibble(theta      = c(.212 + .008, .788 - .008, .114 + .004, .497 - .005),
          value      = rep(c(.51, .66), each = 2),
          xintercept = c(.212, .788, .114, .497),
@@ -308,7 +309,7 @@ d_line <-
   mutate(key = factor(key, levels = c("Prior (beta)", "Likelihood (Bernoulli)", "Posterior (beta)")))
   
 # the data for the annotation
-d_text <-
+text <-
   tibble(theta = c(.5, .3),
          value = c(.8, 1.125),
          label = "95% HDI",
@@ -328,18 +329,18 @@ d %>%
   geom_ribbon(aes(ymin = 0, ymax = value),
               fill = "grey67") +
   # dashed vertical lines
-  geom_vline(data = d_line,
+  geom_vline(data = line,
              aes(xintercept = xintercept), 
              linetype = 2, color = "grey92") +
   # arrows
-  geom_line(data = d_line,
+  geom_line(data = line,
             aes(y = value),
             arrow = arrow(length = unit(.15,"cm"), 
                           ends = "both", 
                           type = "closed"),
             color = "grey92") +
   # text
-  geom_text(data = d_text,
+  geom_text(data = text,
             aes(y = value, label = label),
             color = "grey92") +
   labs(x = expression(theta),
@@ -389,7 +390,7 @@ ggplot(data = tibble(x = seq(from = 0, to = 1, by = .001)),
                           ends = "both", 
                           type = "closed"),
             color = "grey92") +
-  annotate("text", x = .5, y = 3.5, 
+  annotate(geom = "text", x = .5, y = 3.5, 
            label = "95% HDI", color = "grey0") +
   coord_cartesian(ylim = 0:12) +
   labs(title = "Prior (beta)",
@@ -401,10 +402,10 @@ ggplot(data = tibble(x = seq(from = 0, to = 1, by = .001)),
 Here are those HDI values.
 
 ```{r}
-hdi_of_icdf(name   = qbeta,
+hdi_of_icdf(name = qbeta,
             shape1 = 100,
             shape2 = 100,
-            width  = .95)
+            width = .95)
 ```
 
 Here are our $a$ and $b$ parameters for Kruschke's free throw example
@@ -439,7 +440,7 @@ ggplot(data = tibble(x = seq(from = 0, to = 1, by = .001)),
                           ends = "both", 
                           type = "closed"),
             color = "grey92") +
-  annotate("text", x = .73, y = 1.5, 
+  annotate(geom = "text", x = .73, y = 1.5, 
            label = "95% HDI", color = "grey92") +
   coord_cartesian(ylim = 0:6) +
   labs(title = "Prior (beta)",
@@ -451,17 +452,17 @@ ggplot(data = tibble(x = seq(from = 0, to = 1, by = .001)),
 Here are those HDI values.
 
 ```{r}
-hdi_of_icdf(name   = qbeta,
+hdi_of_icdf(name = qbeta,
             shape1 = beta_param$a,
             shape2 = beta_param$b,
-            width  = .95)
+            width = .95)
 ```
 
 But we can be a little more organized and plot the top row of Figure 6.4 all at once. 
 
 ```{r, fig.width = 10, fig.height = 2}
 # the data for the in-plot lines
-d_line <-
+line <-
   tibble(theta      = c(.431 + .005, .569 - .005, .558 + .005, .892 - .005),
          value      = rep(c(1.9, .8), each = 2),
          xintercept = c(.431, .569, .558, .892),
@@ -469,7 +470,7 @@ d_line <-
   mutate(exemplar = factor(exemplar, levels = c("dbeta(theta, 100, 100)", "dbeta(theta, 18.25, 6.75)", "dbeta(theta, 1, 1)")))
   
 # the data for the annotation
-d_text <-
+text <-
   tibble(theta    = c(.5, .735),
          value    = c(3.6, 1.45),
          label    = "95% HDI",
@@ -489,16 +490,16 @@ tibble(theta = seq(from = 0, to = 1, length.out = 100) %>% rep(., times = 3),
   ggplot(aes(x = theta)) +
   geom_ribbon(aes(ymin = 0, ymax = density),
               size = 0, fill = "grey67") +
-  geom_vline(data = d_line,
+  geom_vline(data = line,
              aes(xintercept = xintercept), 
              linetype = 2, color = "grey92") +
-  geom_line(data = d_line,
+  geom_line(data = line,
             aes(y = value),
             arrow = arrow(length = unit(.15,"cm"), 
                           ends = "both", 
                           type = "closed"),
             color = "grey92") +
-  geom_text(data = d_text,
+  geom_text(data = text,
             aes(y = value, label = label),
             color = "grey0") +
   labs(title = "Prior (beta)", 
@@ -534,7 +535,7 @@ The bottom row:
 
 ```{r, fig.width = 10, fig.height = 2}
 # the data for the in-plot lines
-d_line <-
+line <-
   tibble(theta = c(.466 + .005, .597 - .005, 
                    .663 + .004, .897 - .005,
                    .660 + .005, .959 - .003),
@@ -546,7 +547,7 @@ d_line <-
   mutate(exemplar = factor(exemplar, levels = c("dbeta(theta, 117, 103)", "dbeta(theta, 35.25, 9.75)", "dbeta(theta, 18, 4)")))
   
 # the data for the annotation
-d_text <-
+text <-
   tibble(theta    = c(.532, .78, .82),
          value    = c(3.5, 2, 1.6),
          label    = "95% HDI",
@@ -566,16 +567,16 @@ tibble(theta = seq(from = 0, to = 1, length.out = 100) %>% rep(., times = 3),
   ggplot(aes(x = theta)) +
   geom_ribbon(aes(ymin = 0, ymax = density),
               size = 0, fill = "grey67") +
-  geom_vline(data = d_line,
+  geom_vline(data = line,
              aes(xintercept = xintercept), 
              linetype = 2, color = "grey92") +
-  geom_line(data = d_line,
+  geom_line(data = line,
             aes(y = value),
             arrow = arrow(length = unit(.15,"cm"), 
                           ends = "both", 
                           type = "closed"),
             color = "grey92") +
-  geom_text(data = d_text,
+  geom_text(data = text,
             aes(y = value, label = label),
             color = "grey0") +
   labs(title = "Posterior (beta)", 
@@ -590,21 +591,23 @@ And if you wanted those HDI values in bulk, you might wrap the `hdi_of_icdf()` i
 ```{r, warning = F, message = F}
 # new function
 get_hdi <- function(a, b) {
-  hdi_of_icdf(name   = qbeta,
+  
+  hdi_of_icdf(name = qbeta,
               shape1 = a,
               shape2 = b,
-              width  = .95) %>% 
+              width = .95) %>% 
     as_tibble() %>% 
     mutate(key = c("lower level", "upper level")) %>% 
     spread(key = key, value = value)
+  
 }
 
 # put it to work
 tibble(`figure position` = c("left", "middle", "right"),
        a                 = c(117, 35.25, 18),
        b                 = c(103, 9.75, 4)) %>% 
-  mutate(hdi             = purrr::map2(a, b, get_hdi)) %>% 
-  unnest()
+  mutate(hdi = purrr::map2(a, b, get_hdi)) %>% 
+  unnest(hdi)
 ```
 
 ### Prior knowledge that cannot be expressed as a beta distribution.
@@ -943,7 +946,7 @@ library(patchwork)
 p1 / p2 / p3
 ```
 
-You can learn more about how to use **patchwork** [here](https://cran.r-project.org/web/packages/patchwork/vignettes/patchwork.html). Plus we’ll have many more opportunities to practice as we progress through the chapters.
+You can learn more about how to use **patchwork** [here](https://cran.r-project.org/web/packages/patchwork/vignettes/patchwork.html). Plus we'll have many more opportunities to practice as we progress through the chapters.
 
 ## Summary
 
@@ -955,7 +958,7 @@ And if you're looking at this project, I imagine that's exactly what you're look
 
 ## Reference {-}
 
-[Kruschke, J. K. (2014). *Doing Bayesian data analysis, Second Edition: A tutorial with R, JAGS, and Stan.* Burlington, MA: Academic Press/Elsevier.](https://sites.google.com/site/doingbayesiandataanalysis/)
+[Kruschke, J. K. (2015). *Doing Bayesian data analysis, Second Edition: A tutorial with R, JAGS, and Stan.* Burlington, MA: Academic Press/Elsevier.](https://sites.google.com/site/doingbayesiandataanalysis/)
 
 ## Session info {-}
 
@@ -964,7 +967,7 @@ sessionInfo()
 ```
 
 ```{r, echo = F, eval = F}
-rm(bernoulli_likelihood, betaABfromMeanKappa, betaABfromModeKappa, betaABfromMeanSD, beta_param, hdi_of_icdf, n, z, a, b, proportion_heads, prior_mean, posterior_mean, trial_data, d, d_line, d_text, get_hdi, theta, p_theta, BernGrid, p1, p2, p3)
+rm(bernoulli_likelihood, betaABfromMeanKappa, betaABfromModeKappa, betaABfromMeanSD, beta_param, hdi_of_icdf, n, z, a, b, proportion_heads, prior_mean, posterior_mean, trial_data, d, line, text, get_hdi, theta, p_theta, BernGrid, p1, p2, p3)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
