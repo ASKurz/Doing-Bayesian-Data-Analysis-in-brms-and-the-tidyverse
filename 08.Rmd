@@ -8,7 +8,7 @@ output:
 
 # ~~JAGS~~ brms
 
-```{r set-options, echo = FALSE, cachse = FALSE}
+```{r, echo = FALSE, cachse = FALSE}
 options(width = 100)
 ```
 
@@ -122,15 +122,15 @@ In Stan, and in **brms** by extension, the initial values have default settings.
 
 > If there are no user-supplied initial values, the default initialization strategy is to initialize the unconstrained parameters directly with values drawn uniformly from the interval $(−2, 2)$. The bounds of this initialization can be changed but it is always symmetric around 0. The value of 0 is special in that it represents the median of the initialization. An unconstrained value of 0 corresponds to different parameter values depending on the constraints declared on the parameters." 
 
-In general, I don't recommend setting custom initial values in **brms** or Stan. Under the hood, Stan will transform the parameters to the unconstrained space in models where they are bounded. In our Bernoulli model, $\theta$ is bounded at 0 and 1. A little further down in the same section, we read
+In general, I do not recommend setting custom initial values in **brms** or Stan. Under the hood, Stan will transform the parameters to the unconstrained space in models where they are bounded. In our Bernoulli model, $\theta$ is bounded at 0 and 1. A little further down in the same section, we read
 
 > For parameters bounded above and below, the initial value of 0 on the unconstrained scale corresponds to a value at the midpoint of the constraint interval. For probability parameters, bounded below by 0 and above by 1, the transform is the inverse logit, so that an initial unconstrained value of 0 corresponds to a constrained value of 0.5, -2 corresponds to 0.12 and 2 to 0.88. Bounds other than 0 and 1 are just scaled and translated.
 
-If you want to play around with this, have at it. In my experience, the only time it helps to set these manually is when you want to fix them to zero. You can do that by specifying `inits = "0"` within `brm()`.
+If you want to play around with this, have at it. In my experience, the only time it helps to set these manually is when you want to fix them to zero. You can do that by specifying `inits = 0` within `brm()`.
 
 ### Generate chains.
 
-By default, **brms** will use 4 chains of 2000 iterations each. The type of MCMC **brms** uses is Hamiltonian Monte Carlo (HMC). You can learn more about HMC at the [Stan website](https://mc-stan.org), which includes the [*Stan User's Guide*](https://mc-stan.org/docs/2_21/stan-users-guide/index.html), the [*Stan Reference Manual*](https://mc-stan.org/docs/2_21/reference-manual/index.html#overview), and a list of [tutorials](https://mc-stan.org/users/documentation/tutorials.html). McElreath also has a [nice intro lecture](https://www.youtube.com/watch?v=BWEtS3HuU5A&t=163s&frags=pl%2Cwn) on MCMC in general and HMC in particular. Michael Bentacourt has some good lectures on Stan and HMC, such as [here](https://www.youtube.com/watch?v=pHsuIaPbNbY&t=2638s&frags=pl%2Cwn) and [here](https://www.youtube.com/watch?v=jUSZboSq1zg&t=1325s&frags=pl%2Cwn). And, of course, we will cover HMC with Kruschke in Chapter 14.
+By default, **brms** will use 4 chains of 2000 iterations each. The type of MCMC **brms** uses is Hamiltonian Monte Carlo (HMC). You can learn more about HMC at the [Stan website](https://mc-stan.org), which includes the [*Stan User's Guide*](https://mc-stan.org/docs/2_21/stan-users-guide/index.html), the [*Stan Reference Manual*](https://mc-stan.org/docs/2_21/reference-manual/index.html#overview), and a list of [tutorials](https://mc-stan.org/users/documentation/tutorials.html). McElreath has a [nice intro lecture](https://www.youtube.com/watch?v=BWEtS3HuU5A&t=163s&frags=pl%2Cwn) on MCMC in general and HMC in particular. Michael Bentacourt has some good lectures on Stan and HMC, such as [here](https://www.youtube.com/watch?v=pHsuIaPbNbY&t=2638s&frags=pl%2Cwn) and [here](https://www.youtube.com/watch?v=jUSZboSq1zg&t=1325s&frags=pl%2Cwn). And, of course, we will cover HMC with Kruschke in Chapter 14.
 
 Within each HMC chain, the first $n$ iterations are warmups. Within the Stan-HMC paradigm, [warmups are somewhat analogous to but not synonymous with burn-in iterations](https://andrewgelman.com/2017/12/15/burn-vs-warm-iterative-simulation-algorithms/) as done by the Gibbs sampling in JAGS. But HMC warmups are like Gibbs burn-ins in that both are discarded and not used to describe the posterior. As such, the **brms** default settings yield 1000 post-warmup iterations for each of the 4 HMC chains. However, we specified `iter = 500 + 3334, warmup = 500, chains = 3`. Thus instead of defaults, we have 3 HMC chains. Each chain has 500 + 3334 = 3834 total iterations, of which 500 were discarded `warmup` iterations.
 
@@ -226,7 +226,7 @@ post %>%
                  size = .2) +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(title = "Theta",
-       x     = expression(theta)) +
+       x = expression(theta)) +
   theme(panel.grid = element_blank())
 ```
 
@@ -235,18 +235,18 @@ The `bayesplot::mcmc_areas()` function offers a nice way to depict the posterior
 ```{r, fig.width = 4, fig.height = 2.5, message = F}
 mcmc_areas(
   post, 
-  pars       = c("b_Intercept"),
-  prob       = 0.5,
+  pars = c("b_Intercept"),
+  prob = 0.5,
   prob_outer = 0.95,
-  point_est  = "mean"
+  point_est = "mean"
 ) +
   scale_y_discrete(NULL, breaks = NULL) +
   labs(title = "Theta",
-       x     = expression(theta)) +
+       x = expression(theta)) +
   theme(panel.grid = element_blank())
 ```
 
-**brms** doesn't have a convenient way to compute the posterior mode or HDIs. Base **R** is no help, either. But Matthew Kay's [**tidybayes** package](https://github.com/mjskay/tidybayes) makes it easy to compute posterior modes and HDIs. The **tidybayes** package gives us access to the handy `geom_halfeyeh()` function.
+**brms** doesn't have a convenient way to compute the posterior mode or HDIs. Base **R** is no help, either. But Matthew Kay's [**tidybayes** package](https://mjskay.github.io/tidybayes/index.html) makes it easy to compute posterior modes and HDIs. The **tidybayes** package gives us access to the handy `geom_halfeyeh()` function.
 
 ```{r, fig.width = 4, fig.height = 2.5, warning = F, message = F}
 library(tidybayes)
@@ -256,13 +256,13 @@ post %>%
   geom_halfeyeh(point_interval = mode_hdi, .width = c(.95, .5)) +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(title = "Theta",
-       x     = expression(theta)) +
+       x = expression(theta)) +
   theme(panel.grid = element_blank())
 ```
 
-The `tidybayes::geom_halfeyeh()` function returns a density with a measure of the posterior's central tendency in a dot and one or multiple interval bands as horizontal lines at the base of the density. Since we used the `point_interval = mode_hdi` argument, we asked for the mode to be our measure of central tendency and the highest posterior density intervals to be our intervals. With `.width = c(.95, .5)`, we requested our HDIs be at both the 95% and 50% levels.
+The `tidybayes::geom_halfeyeh()` function returns a density with a measure of the posterior's central tendency in a dot and one or multiple interval bands as horizontal lines at the base of the density. By using the `point_interval = mode_hdi` argument, we asked for the mode to be our measure of central tendency and the highest posterior density intervals to be our type intervals. With `.width = c(.95, .5)`, we requested our HDIs be at both the 95% and 50% levels.
 
-To be more congruent with Kruschke's plotting sensibilities, we can combine `geom_histogram()` with `tidybayes::stat_pointintervalh()`. 
+To be more congruent with Kruschke's plotting sensibilities, we can use `tidybayes::stat_histintervalh()`. 
 
 ```{r, fig.width = 4, fig.height = 2.5, warning = F, message = F}
 # this is unnecessary, but makes for nicer x-axis breaks
@@ -273,20 +273,19 @@ my_breaks <-
 
 # here's the main plot code
 post %>% 
-  ggplot(aes(x = b_Intercept)) +
-  geom_histogram(color = "grey92", fill = "grey67",
-                 size = .2, bins = 40) +
-  stat_pointintervalh(aes(y = 0), 
-                      point_interval = mode_hdi, .width = .95) +
+  ggplot(aes(x = b_Intercept, y = 0)) +
+  stat_histintervalh(point_interval = mode_hdi, .width = .95,
+                     fill = "grey67", slab_color = "grey92",
+                     breaks = 40, slab_size = .4, outline_bars = T) +
   scale_x_continuous(breaks = my_breaks$breaks,
                      labels = my_breaks$labels) +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(title = "Theta",
-       x     = expression(theta)) +
+       x = expression(theta)) +
   theme(panel.grid = element_blank())
 ```
 
-With the `point_interval` argument within the `stat_pointintervalh()` function, we can request different combinations of measures of central tendency (i.e., mean, median, mode) and interval types (i.e., percentile-based and HDIs). Although all of these are legitimate ways to summarize a posterior, they can yield somewhat different results. For example, here we'll contrast our mode + HDI summary with a median + percentile-based interval summary.
+With the `point_interval` argument within the `stat_histintervalh()` function, we can request different combinations of measures of central tendency (i.e., mean, median, mode) and interval types (i.e., percentile-based and HDIs). Although all of these are legitimate ways to summarize a posterior, they can yield somewhat different results. For example, here we'll contrast our mode + HDI summary with a median + percentile-based interval summary using `tidybayes::stat_pointintervalh().
 
 ```{r, fig.width = 4, fig.height = 1.5}
 post %>% 
@@ -297,10 +296,10 @@ post %>%
                      labels = c("median_qi", "mode_hdi")) +
   coord_cartesian(ylim = 0:3) +
   labs(title = "Theta",
-       x     = expression(theta)) +
-  theme(panel.grid   = element_blank(),
+       x = expression(theta)) +
+  theme(panel.grid = element_blank(),
         axis.ticks.y = element_blank(),
-        axis.text.y  = element_text(hjust = 0))
+        axis.text.y = element_text(hjust = 0))
 ```
 
 Similar, yet distinct.
@@ -403,14 +402,13 @@ gathered_post <-
   mutate(key = factor(key, levels = c("theta_Reginald", "theta_Tony", "theta_Reginald - theta_Tony"))) 
   
 gathered_post %>% 
-  ggplot(aes(x = value, group = key)) +
-  geom_histogram(color = "grey92", fill = "grey67",
-                 size = .2) +
-  stat_pointintervalh(aes(y = 0), 
-                      point_interval = mode_hdi, .width = c(.95, .50)) +
+  ggplot(aes(x = value, y = 0)) +
+  stat_histintervalh(point_interval = mode_hdi, .width = .95,
+                     fill = "grey67", slab_color = "grey92",
+                     breaks = 30, slab_size = .4, outline_bars = T) +
   scale_y_continuous(NULL, breaks = NULL) +
   theme(panel.grid = element_blank()) +
-  facet_wrap(~key, scales = "free_x")
+  facet_wrap(~key, scales = "free")
 ```
 
 Here's a way to get the numeric summaries out of `post`.
@@ -466,17 +464,16 @@ prior %>%
   gather() %>% 
   mutate(key = factor(key, levels = c("theta_Reginald", "theta_Tony", "theta_Reginald - theta_Tony"))) %>%
   
-  ggplot(aes(x = value, group = key)) +
+  ggplot(aes(x = value, y = 0)) +
   geom_vline(data = d_line, aes(xintercept = value), 
              color = "white", size = 1) +
-  geom_histogram(color = "grey92", fill = "grey67",
-                 size = .2) +
-  stat_pointintervalh(aes(y = 0), 
-                      point_interval = mode_hdi, .width = c(.95, .50)) +
+  stat_histintervalh(point_interval = mode_hdi, .width = .95,
+                     fill = "grey67", slab_color = "grey92",
+                     breaks = 35, slab_size = .4, outline_bars = T) +
   scale_y_continuous(NULL, breaks = NULL) +
   theme_grey() +
   theme(panel.grid = element_blank()) +
-  facet_wrap(~key, scales = "free_x")
+  facet_wrap(~key, scales = "free")
 ```
 
 Here's how to make the scatter plot.
@@ -506,7 +503,7 @@ prior %>%
   labs(x = expression(theta[1]),
        y = expression(theta[2])) +
   coord_equal() +
-  theme(panel.grid      = element_blank(),
+  theme(panel.grid = element_blank(),
         legend.position = "none")
 ```
 
@@ -545,7 +542,7 @@ I'm in complete agreement with Kruschke, here:
 
 ## Reference {-}
 
-[Kruschke, J. K. (2014). *Doing Bayesian data analysis, Second Edition: A tutorial with R, JAGS, and Stan.* Burlington, MA: Academic Press/Elsevier.](https://sites.google.com/site/doingbayesiandataanalysis/)
+[Kruschke, J. K. (2015). *Doing Bayesian data analysis, Second Edition: A tutorial with R, JAGS, and Stan.* Burlington, MA: Academic Press/Elsevier.](https://sites.google.com/site/doingbayesiandataanalysis/)
 
 ## Session info {-}
 
