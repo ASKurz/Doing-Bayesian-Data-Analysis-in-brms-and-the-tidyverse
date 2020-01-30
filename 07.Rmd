@@ -42,11 +42,12 @@ hdi_of_icdf <- function(name, width = .95, tol = 1e-8, ... ) {
 Our `hdi_of_icdf()` function will compute the analytic 95% HDIs for the distribution under consideration in Figure 7.1, $\text{beta} (\theta | 15, 7)$.
 
 ```{r}
-(h <-
-  hdi_of_icdf(name   = qbeta,
-              shape1 = 15,
-              shape2 = 7)
- )
+(
+  h <-
+    hdi_of_icdf(name = qbeta,
+                shape1 = 15,
+                shape2 = 7)
+)
 ```
 
 Using an equation from Chapter 6, $\omega = (a − 1) / (a + b − 2)$, we can compute the corresponding mode.
@@ -73,14 +74,14 @@ tibble(theta = seq(from = 0, to = 1, length.out = 100)) %>%
                size = .75) +
   geom_point(aes(x = omega, y = 0),
              size = 1.5, shape = 19) +
-  annotate(x = .675, y = .4, label = "95% HDI", 
-           geom = "text", color = "grey92") +
+  annotate(geom = "text", x = .675, y = .4, 
+           label = "95% HDI", color = "grey92") +
   scale_x_continuous(breaks = c(0, h, omega, 1),
                      labels = c("0", h %>% round(2), omega, "1")) +
   coord_cartesian(ylim = c(-.125, 4)) +
   labs(title = "Exact distribution",
        x = expression(theta),
-       y = expression(paste("p(", theta, ")"))) +
+       y = expression(p(theta))) +
   theme(panel.grid = element_blank())
 ```
 
@@ -104,14 +105,12 @@ With the data in hand, we're ready to plot the remaining panels for Figure 7.1. 
 library(tidybayes)
 
 d %>% 
-  ggplot(aes(x = theta)) +
-  geom_histogram(size = .2, color = "grey92", fill = "grey67",
-                 binwidth = .02) +
-  stat_pointintervalh(aes(y = 0), 
-                      point_interval = mode_hdi, .width = .95) +
+  ggplot(aes(x = theta, y = 0)) +
+  stat_histintervalh(point_interval = mode_hdi, .width = .95,
+                     fill = "grey67", slab_color = "grey92",
+                     breaks = 30, slab_size = .4, outline_bars = T) +
+  scale_x_continuous(expression(theta), limits = c(0, 1)) +
   scale_y_continuous(NULL, breaks = NULL) +
-  xlab(expression(theta)) +
-  coord_cartesian(xlim = 0:1) +
   theme(panel.grid = element_blank()) +
   facet_wrap(~key, ncol = 3, scales = "free")
 ```
@@ -127,7 +126,7 @@ d %>%
 If you wanted a better sense of the phenomena, you could do a simulation. We'll make a custom simulation function to compute the modes from many random draws from our $\text{beta} (\theta | 15, 7)$ distribution, with varying $N$ values.
 
 ```{r}
-my_mode_simulation <- function(seed){
+my_mode_simulation <- function(seed) {
   
   set.seed(seed)
   
@@ -163,9 +162,9 @@ sim %>%
        y = NULL) +
   coord_cartesian(xlim = c(.6, .8),
                   ylim = c(1.25, 3.5)) +
-  theme(panel.grid   = element_blank(),
+  theme(panel.grid = element_blank(),
         axis.ticks.y = element_blank(),
-        axis.text.y  = element_text(hjust = 0))
+        axis.text.y = element_text(hjust = 0))
 ```
 
 ## A simple case of the Metropolis algorithm
@@ -436,7 +435,7 @@ Now we have `my_metropolis()`, we can run the analysis based on the three `propo
 
 ```{r metropolis_sim, cache = T}
 d <-
-  tibble(proposal_sd   = c(0.02, 0.2, 2.0)) %>% 
+  tibble(proposal_sd = c(0.02, 0.2, 2.0)) %>% 
   mutate(accepted_traj = map(proposal_sd, my_metropolis)) %>% 
   unnest(accepted_traj)
 
@@ -452,14 +451,12 @@ d <-
          iter        = rep(1:50000, times = 3))
   
 d %>% 
-  ggplot(aes(x = accepted_traj)) +
-  geom_histogram(boundary = 0, binwidth = .02, size = .2,
-                 color = "grey92", fill = "grey67") +
-  geom_halfeyeh(aes(y = 0), 
-                point.interval = mode_hdi, .width = .95) +
-  scale_x_continuous(breaks = seq(from = 0, to = 1, length.out = 6)) +
+  ggplot(aes(x = accepted_traj, y = 0)) +
+  stat_histintervalh(point_interval = mode_hdi, .width = .95,
+                     fill = "grey67", slab_color = "grey92",
+                     breaks = 40, slab_size = .4, outline_bars = T) +
+  scale_x_continuous(expression(theta), breaks = 0:5 * 0.2) +
   scale_y_continuous(NULL, breaks = NULL) +
-  labs(x = expression(theta)) +
   theme(panel.grid = element_blank()) +
   facet_wrap(~ proposal_sd, ncol = 3)
 ```
@@ -473,11 +470,9 @@ d %>%
   ggplot(aes(x = accepted_traj, y = iter)) +
   geom_path(size = 1/4, color = "grey50") +
   geom_point(size = 1/2, alpha = 1/2) +
-  coord_cartesian(xlim = 0:1,
-                  ylim = 49900:50000) +
-  scale_x_continuous(expression(theta), breaks = seq(from = 0, to = 1, length.out = 6)) +
-  labs(title = "End of Chain",
-       y     = "Step in Chain") +
+  scale_x_continuous(expression(theta), breaks = 0:5 * 0.2, limits = c(0, 1)) +
+  scale_y_continuous("Step in Chain", limits = c(49900, 50000)) +
+  ggtitle("End of Chain") +
   theme(panel.grid = element_blank()) +
   facet_wrap(~proposal_sd, ncol = 3)
 ```
@@ -489,11 +484,9 @@ d %>%
   ggplot(aes(x = accepted_traj, y = iter)) +
   geom_path(size = 1/4, color = "grey50") +
   geom_point(size = 1/2, alpha = 1/2) +
-  coord_cartesian(xlim = 0:1,
-                 ylim = 1:100) +
-  scale_x_continuous(expression(theta), breaks = seq(from = 0, to = 1, length.out = 6)) +
-  labs(title = "End of Chain",
-       y = "Step in Chain") +
+  scale_x_continuous(expression(theta), breaks = 0:5 * 0.2, limits = c(0, 1)) +
+  scale_y_continuous("Step in Chain", limits = c(1, 100)) +
+  ggtitle("End of Chain") +
   theme(panel.grid = element_blank()) +
   facet_wrap(~proposal_sd, ncol = 3)
 ```
@@ -574,12 +567,15 @@ We'll need the `bernoulli_likelihood()` function from back in Chapter 6 for the 
 
 ```{r}
 bernoulli_likelihood <- function(theta, data) {
+  
   # theta = success probability parameter ranging from 0 to 1
   # data = the vector of data (i.e., a series of 0s and 1s)
   n <- length(data)
   z <- sum(data)
+  
   return(theta^z * (1 - theta)^(n - sum(data)))
-  }
+  
+}
 ```
 
 With our trusty `bernoulli_likelihood()` function in hand, we can now make a version of the middle right panel of Figure 7.5.
@@ -686,24 +682,25 @@ model_1 <- bf(z1 | trials(n1) ~ 1)
 model_2 <- bf(z2 | trials(n2) ~ 1)
 ```
 
-Before we fit, we’ll have to address a technicality. The **brms** package does allow for multivariate Bernoulli models. However, it does not support such models with different numbers of trials across the variables. Since our first variable is of 8 trials and the second is of 7, **brms** will not support this model using the Bernoulli likelihood. However, we can fit the model in **brms** as an aggregated binomial model. The main difficulty is that the regularizing `beta(2, 2)` prior won't make sense, here. So we'll opt for the regularizing `normal(0, 1)`, instead.
+Before we fit, we'll have to address a technicality. The **brms** package does allow for multivariate Bernoulli models. However, it does not support such models with different numbers of trials across the variables. Since our first variable is of 8 trials and the second is of 7, **brms** will not support this model using the Bernoulli likelihood. However, we can fit the model in **brms** as an aggregated binomial model. The main difficulty is that the regularizing `beta(2, 2)` prior won't make sense, here. So we'll opt for the regularizing `normal(0, 1)`, instead.
 
 ```{r 07_fit1, cache = T, warning = F, message = F, results = 'hide'}
 fit1 <-
-  brm(data = d, family = binomial(),
+  brm(data = d, 
+      family = binomial(),
       model_1 + model_2,
       prior(normal(0, 1), class = Intercept),
       iter = 25500, warmup = 500, cores = 1, chains = 1,
       seed = 7)
 ```
 
-Here are the results.
+Here is a summary of the results.
 
 ```{r}
 print(fit1)
 ```
 
-As we'll learn in later chapters, the parameters of a typical aggregated binomial model are in the log-odds scale. Over time, you will learn how to interpret them. But for now, just be happy that **brms** offers the `inv_logit_scaled()` function, which can convert our results back to the probability scale.
+As we'll learn in later chapters, the parameters of a typical aggregated binomial model are in the log-odds scale. Over time, you will learn how to interpret them. But for now, just be happy that **brms** offers the `inv_logit_scaled()` function, with which we might convert our results back to the probability scale.
 
 ```{r}
 fixef(fit1)[, 1] %>% inv_logit_scaled()
@@ -726,10 +723,10 @@ post %>%
   ggplot(aes(x = theta_1, y = theta_2)) +
   geom_point(alpha = 1/4) +
   geom_path(size = 1/10, alpha = 1/2) +
-  coord_equal(xlim = 0:1,
-              ylim = 0:1) +
   labs(x = expression(theta[1]),
        y = expression(theta[2])) +
+  coord_equal(xlim = 0:1,
+              ylim = 0:1) +
   theme(panel.grid = element_blank())
 ```
 
@@ -737,11 +734,11 @@ Just for kicks and giggles, we'll plot the marginal posterior densities. You'll 
 
 ```{r, fig.height = 2, fig.width = 4}
 post %>% 
-  transmute(`theta[1]` = b_z1_Intercept %>% inv_logit_scaled(), 
-            `theta[2]` = b_z2_Intercept %>% inv_logit_scaled()) %>% 
-  gather() %>% 
+  mutate(`theta[1]` = b_z1_Intercept %>% inv_logit_scaled(), 
+         `theta[2]` = b_z2_Intercept %>% inv_logit_scaled()) %>% 
+  pivot_longer(`theta[1]`:`theta[2]`) %>% 
   
-  ggplot(aes(x = value, y = key)) +
+  ggplot(aes(x = value, y = name)) +
   geom_halfeyeh(point_interval = mode_hdi, .width = c(.5, .95)) +
   scale_y_discrete(NULL, labels = ggplot2:::parse_safe) +
   xlab("posterior") +
@@ -758,14 +755,12 @@ post %>%
          theta_2 = b_z2_Intercept %>% inv_logit_scaled()) %>% 
   transmute(`theta_1 - theta_2` = theta_1 - theta_2) %>% 
   
-  ggplot(aes(x = `theta_1 - theta_2`)) +
-  geom_histogram(color = "grey92", fill = "grey67",
-                 size = .2, bins = 40) +
-  stat_pointintervalh(aes(y = 0),
-                      point_interval = mode_hdi, .width = .95) +
+  ggplot(aes(x = `theta_1 - theta_2`, y = 0)) +
+  stat_histintervalh(point_interval = mode_hdi, .width = .95,
+                     fill = "grey67", slab_color = "grey92",
+                     breaks = 40, slab_size = .4, outline_bars = T) +
+  scale_x_continuous(expression(theta[1]-theta[2]), limits = c(-.5, .9)) +
   scale_y_continuous(NULL, breaks = NULL) +
-  coord_cartesian(xlim = c(-.5, .8)) +
-  xlab(expression(paste(theta[1], " - ", theta[2]))) +
   theme(panel.grid = element_blank())
 ```
 
@@ -842,7 +837,7 @@ It appears that the upshot of all this is that many of the packages in the Stan 
 plot(fit2)
 ```
 
-Notice how the x-axis on the trace plot ranges from 0 to 9,500. Now recall that our model code included `iter = 10000, warmup = 500`. Those 9,500 iterations in the trace plot are excluding the first 500 warmup iterations. This code is a little janky, but if you really want those warmup iterations, you can extract them from the `fit2` object like this:
+Notice how the x-axis on the trace plot ranges from 0 to 9,500. Now recall that our model code included `iter = 10000, warmup = 500`. Those 9,500 iterations in the trace plot are excluding the first 500 warmup iterations. This code is a little janky, but if you really want those warmup iterations, you can extract them from the `fit2` object like this.
 
 ```{r}
 warmups <-
@@ -878,9 +873,30 @@ mcmc_trace(warmups, pars = "b_Intercept") +
   theme(panel.grid = element_blank())
 ```
 
-It appears our HMC warmup iterations found the posterior quite quickly. 
+As an alternative, we can also extract the warmup draws from a `brm()` fit with the [**ggmcmc** package](https://cran.rstudio.com/package=ggmcmc). 
 
-Here's the autocorrelation plot.
+```{r, message = F, warning = F}
+# install.packages("ggmcmc", dependencies = T)
+library(ggmcmc)
+```
+
+The **ggmcmc** package has a variety of convenience functions for working with MCMC chains. The `ggs()` function extracts the posterior draws, including `warmup`, and arranges them in a tidy tibble. With those in hand, we can now make a trace plot with warmup draws.
+
+```{r, fig.width = 6, fig.height = 2, warning = F}
+ggs(fit2) %>%
+  filter(Iteration < 501 &
+           Parameter == "b_Intercept") %>% 
+  mutate(chain = factor(Chain)) %>% 
+  
+  ggplot(aes(x = Iteration, y = value, color = chain)) +
+  geom_line() +
+  scale_color_viridis_d(end = .8) +
+  labs(title = "My custom trace plots with warmups via ggmcmc::ggs()",
+       x = NULL, y = NULL) +
+  theme(panel.grid = element_blank())
+```
+
+It appears our HMC warmup iterations found the posterior quite quickly. Here's the autocorrelation plot.
 
 ```{r, fig.width = 4, fig.height = 4, message = F, warning = F}
 mcmc_acf(warmups, pars = "b_Intercept", lags = 25) +
@@ -969,10 +985,10 @@ On page 181, Kruschke discussed how his overlaid density plots include the HDIs,
 post %>% 
 
   ggplot(aes(x = b_Intercept, y = chain, fill = chain)) +
-  geom_halfeyeh(point.interval = mode_hdi,
+  geom_halfeyeh(point_interval = mode_hdi,
                 .width = .95) +
   scale_fill_viridis_d(begin = .35, end = .95) +
-  theme(panel.grid      = element_blank(),
+  theme(panel.grid = element_blank(),
         legend.position = "none")
 ```
 
@@ -985,11 +1001,12 @@ lagged_post <-
   post %>% 
   filter(chain == 1) %>% 
   select(b_Intercept, iter) %>% 
-  rename(lag_0  = b_Intercept) %>% 
+  rename(lag_0 = b_Intercept) %>% 
   mutate(lag_1  = lag(lag_0, 1),
          lag_5  = lag(lag_0, 5),
          lag_10 = lag(lag_0, 10)) %>% 
-  gather(key, value, -iter) 
+  pivot_longer(-iter,
+               names_to = "key") 
 
 head(lagged_post)
 ```
@@ -1112,7 +1129,13 @@ If you're curious of the effective sample sizes for the parameters in your **brm
 print(fit2)
 ```
 
-I'm not quite sure how to reproduce Kruschke's MCMC ESS simulation studies. If you've got it figured out, [please share your code](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues).
+Look at the last two columns in the `Intercept` summary. Earlier versions of **brms** had one column named `Eff.Sample`, which reported the effect sample size as discussed by Kruschke. Starting with version 2.10.0, **brms** now returns `Bulk_ESS` and `Tail_ESS`, instead. These originate from a [(2019) paper](https://arxiv.org/abs/1903.08008?) by Stan-team all-stars Vehtari, Gelman, Simpson, Carpenter, and Bürkner. From their paper, we read:
+
+> If you plan to report quantile estimates or posterior intervals, we strongly suggest assessing the convergence of the chains for these quantiles. In Section 4.3 we show that convergence of Markov chains is not uniform across the parameter space and propose diagnostics and effective sample sizes specifically for extreme quantiles. This is *different* from the standard ESS estimate (which we refer to as the "bulk-ESS"), which mainly assesses how well the centre of the distribution is resolved. Instead, these "tail-ESS" measures allow the user to estimate the MCSE for interval estimates. (p. 5, *emphasis* in the original)
+
+For more technical details, see the paper. The `Bulk_ESS` column in current versions of **brms** is what was previously referred to as `Eff.Sample`. This is what corresponds to what Kruschke meant when referring to effective sample size. Now rather than focusing solely on 'the center of the' posterior distribution' as indexed by `Bulk_ESS`, we also gauge the effective sample size in the posterior intervals using `Tail_ESS`.
+
+Anyway, I'm not quite sure how to reproduce Kruschke's MCMC ESS simulation studies. If you've got it figured out, [please share your code](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues).
 
 If you're interested in the Monte Carlo standard error (MCSE) for your **brms** parameters, the easiest way is to tack `$fit` onto your fit object.
 
@@ -1128,7 +1151,7 @@ Kruschke wrote: "It is often the case in realistic applications that there is st
 
 ## Reference {-}
 
-[Kruschke, J. K. (2014). *Doing Bayesian data analysis, Second Edition: A tutorial with R, JAGS, and Stan.* Burlington, MA: Academic Press/Elsevier.](https://sites.google.com/site/doingbayesiandataanalysis/)
+[Kruschke, J. K. (2015). *Doing Bayesian data analysis, Second Edition: A tutorial with R, JAGS, and Stan.* Burlington, MA: Academic Press/Elsevier.](https://sites.google.com/site/doingbayesiandataanalysis/)
 
 ## Session info {-}
 
