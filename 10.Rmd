@@ -79,13 +79,13 @@ We might recreate the top panel with `geom_col()`.
 
 ```{r, fig.width = 3, fig.height = 2}
 tibble(Model = c("1", "2"),
-       y = 1) %>% 
+       y     = 1) %>% 
   
   ggplot(aes(x = Model, y = y)) +
   geom_col(width = .75, fill = "grey50") +
   scale_y_continuous(NULL, breaks = NULL) +
   ggtitle(expression(paste(italic(P)[italic(m)]))) +
-  theme(panel.grid   = element_blank(),
+  theme(panel.grid = element_blank(),
         axis.ticks.x = element_blank())
 ```
 
@@ -247,7 +247,7 @@ p1 <-
   ggplot(aes(x = theta, ymin = 0, ymax = prior)) +
   geom_ribbon(fill = "grey67") +
   labs(x = expression(theta),
-       y = expression(paste("p(", theta, "|", omega, " = .75)"))) +
+       y = expression(p(theta*"|"*omega==.75))) +
    theme(panel.grid = element_blank())
 
 p2 <-
@@ -257,7 +257,7 @@ p2 <-
   ggplot(aes(x = theta, ymin = 0, ymax = prior)) +
   geom_ribbon(fill = "grey67") +
   labs(x = expression(theta),
-       y = expression(paste("p(", theta, "|", omega, " = .25)"))) +
+       y = expression(p(theta*"|"*omega==.25))) +
   theme(panel.grid = element_blank())
 
 # we'll put them together with help from patchwork
@@ -278,7 +278,7 @@ tibble(theta = seq(from = 0, to = 1, length.out = length)) %>%
   geom_ribbon(fill = "grey67") +
   coord_cartesian(ylim = 0:3) +
   labs(x = expression(theta),
-       y = expression(paste("Marginal p(", theta, ")"))) +
+       y = expression(Marginal~p(theta))) +
   theme(panel.grid = element_blank())
 ```
 
@@ -348,7 +348,7 @@ d %>%
   coord_flip(ylim = 0:25) +
   labs(subtitle = "Remember, the scale on the x is arbitrary.",
        x = expression(omega),
-       y = expression(paste("Marginal p(", omega, "|D)"))) +
+       y = expression(Marginal~p(omega*"|"*D))) +
   theme(panel.grid = element_blank())
 ```
 
@@ -362,7 +362,7 @@ To make the middle bottom panel of Figure 10.3, we have to average the posterior
   ggplot(aes(x = theta, ymin = 0, ymax = marginal_theta)) +
   geom_ribbon(fill = "grey67") + 
   labs(x = expression(theta),
-       y = expression(paste("Marginal p(", theta, "|D)"))) +
+       y = expression(Marginal~p(theta*"|"*D))) +
   theme(panel.grid = element_blank())
 ```
 
@@ -376,7 +376,7 @@ d %>%
   ggplot(aes(x = theta, ymin = 0, ymax = posterior)) +
   geom_ribbon(fill = "grey67") + 
   labs(x = expression(theta),
-       y = expression(paste("Marginal p(", theta, "|", omega, ")"))) +
+       y = expression(Marginal~p(theta*"|"*omega))) +
   theme(panel.grid = element_blank()) +
   facet_wrap(~omega, ncol = 1, scales = "free", labeller = label_parsed)
 ```
@@ -391,7 +391,7 @@ d %>%
   ggplot(aes(x = theta, ymin = 0, ymax = posterior)) +
   geom_ribbon(fill = "grey67") + 
   labs(x = expression(theta),
-       y = expression(paste("Marginal p(", theta, "|", omega, ")"))) +
+       y = expression(Marginal~p(theta*"|"*omega))) +
   theme(panel.grid = element_blank()) +
   facet_wrap(~omega, ncol = 1, labeller = label_parsed)
 ```
@@ -406,8 +406,9 @@ d %>%
   group_by(omega) %>% 
   summarise(sum_posterior = sum(posterior)) %>% 
   mutate(model = c("model_2", "model_1")) %>% 
-  select(-omega) %>% 
-  spread(key = model, value = sum_posterior) %>% 
+  pivot_wider(-omega, 
+              names_from = model,
+              values_from = sum_posterior) %>%
   summarise(BF = model_1 / model_2)
 ```
 
@@ -751,7 +752,7 @@ tibble(x = seq(from = 0, to = 110, by = 1)) %>%
              ymax = dgamma(x, 2, 0.1))) +
   geom_ribbon(size = 0, fill = "grey67") +
   scale_y_continuous(NULL, breaks = NULL) +
-  xlab(expression(paste(italic(p), (nu)))) +
+  xlab(expression(italic(p)(nu))) +
   coord_cartesian(xlim = 0:100) +
   theme(panel.grid = element_blank())
 ```
@@ -792,7 +793,7 @@ posterior_samples(fit4) %>%
   scale_y_continuous(NULL, breaks = NULL) +
   coord_cartesian(xlim = 0:20) +
   labs(subtitle = expression(paste("Recall that for the Gaussian, ", nu, " = infinity.")),
-       x = expression(paste(italic(p), "(", nu, "|", italic(D), ")"))) +
+       x = expression(italic(p)(nu*"|"*italic(D)))) +
   theme(panel.grid = element_blank())
 ```
 
@@ -832,15 +833,14 @@ That is, the posterior for `fit1`.
 library(tidybayes)
 
 posterior_samples(fit1) %>% 
-  ggplot(aes(x = b_Intercept)) +
-  geom_histogram(color = "grey92", fill = "grey67",
-                 size = .2, bins = 30) +
-  stat_pointintervalh(aes(y = 0), 
-                      point_interval = mode_hdi, .width = c(.95, .5)) +
+  ggplot(aes(x = b_Intercept, y = 0)) +
+  stat_histintervalh(point_interval = mode_hdi, .width = c(.95, .5),
+                     fill = "grey67", slab_color = "grey92",
+                     breaks = 40, slab_size = .4, outline_bars = T) +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(subtitle = "The posterior for the probability, given fit1",
-       x = expression(paste(italic(p), "(", theta, "|", italic(D), ", ", omega, " = .75)"))) +
-  coord_cartesian(xlim = 0:1) +
+       x = expression(italic(p)(theta*"|"*italic(D)*", "*omega==.75))) +
+  xlim(0, 1) +
   theme(panel.grid = element_blank())
 ```
 
@@ -869,14 +869,13 @@ We can plot our model-averaged $\theta$ with a little help from good old `tidyba
 
 ```{r, fig.width = 3.5, fig.height = 3}
 pp_a %>% 
-  ggplot(aes(x = theta)) +
-  geom_histogram(color = "grey92", fill = "grey67",
-                 size = .2, bins = 30) +
-  stat_pointintervalh(aes(y = 0), 
-                      point_interval = mode_hdi, .width = c(.95, .5)) +
+  ggplot(aes(x = theta, y = 0)) +
+  stat_histintervalh(point_interval = mode_hdi, .width = c(.95, .5),
+                     fill = "grey67", slab_color = "grey92",
+                     breaks = 30, slab_size = .4, outline_bars = T) +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(subtitle = "The posterior for the probability, given the\nweighted combination of fit1 and fit2",
-       x = expression(paste(italic(p), "(", theta, "|", italic(D), ")"))) +
+       x = expression(italic(p)(theta*"|"*italic(D)))) +
   coord_cartesian(xlim = 0:1) +
   theme(panel.grid = element_blank())
 ```
@@ -1080,9 +1079,9 @@ tibble(alpha = c(1, .01),
   ggplot(aes(x = theta, ymin = 0, ymax = density)) +
   geom_ribbon(fill = "grey67") + 
   scale_y_continuous(NULL, breaks = NULL) +
-  labs(title    = "We have two anything’s-possible models.",
+  labs(title = "We have two anything’s-possible models.",
        subtitle = "These y-axes are on the same scale.",
-       x        = expression(theta)) +
+       x = expression(theta)) +
   theme(panel.grid = element_blank()) +
   facet_wrap(~model)
 ```
@@ -1153,13 +1152,13 @@ d %>%
   ggplot(aes(x = ll,    xend = ul,
              y = model, yend = model)) +
   geom_segment(size = .75) +
-  coord_cartesian(xlim = 0:1) +
+  xlim(0, 1) +
   labs(subtitle = "Those two sets of HDIs are quite similar.\nIt almost seems silly their respective BFs\nare so different.",
        x = expression(theta),
        y = NULL) +
-  theme(panel.grid   = element_blank(),
+  theme(panel.grid = element_blank(),
         axis.ticks.y = element_blank(),
-        axis.text.y  = element_text(hjust = 0))
+        axis.text.y = element_text(hjust = 0))
 ```
 
 "The HDIs are virtually identical. In particular, for either prior, the posterior distribution rules out $\theta = 0.5$, which is to say that the must-be-fair hypothesis is not among the credible values" (p. 294).
@@ -1273,11 +1272,10 @@ pp_average(fit7, fit8, fit9,
            summary = F) %>% 
   as_tibble() %>%
   
-  ggplot(aes(x = V1)) +
-  geom_histogram(color = "grey92", fill = "grey67",
-                 size = .2, bins = 30) +
-  stat_pointintervalh(aes(y = 0), 
-                      point_interval = mode_hdi, .width = c(.95, .5)) +
+  ggplot(aes(x = V1, y = 0)) +
+  stat_histintervalh(point_interval = mode_hdi, .width = c(.95, .5),
+                     fill = "grey67", slab_color = "grey92",
+                     breaks = 30, slab_size = .4, outline_bars = T) +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(subtitle = "The posterior for the probability, given the\nweighted combination of fit7, fit8, and fit9",
        x = expression(paste(italic(p), "(", theta, "|", italic(D), ")"))) +
@@ -1316,7 +1314,7 @@ And if you love those hot scholarly twitter discussions, these topics seem to sp
 
 ## Reference {-}
 
-[Kruschke, J. K. (2014). *Doing Bayesian data analysis, Second Edition: A tutorial with R, JAGS, and Stan.* Burlington, MA: Academic Press/Elsevier.](https://sites.google.com/site/doingbayesiandataanalysis/)
+[Kruschke, J. K. (2015). *Doing Bayesian data analysis, Second Edition: A tutorial with R, JAGS, and Stan.* Burlington, MA: Academic Press/Elsevier.](https://sites.google.com/site/doingbayesiandataanalysis/)
 
 ## Session info {-}
 
