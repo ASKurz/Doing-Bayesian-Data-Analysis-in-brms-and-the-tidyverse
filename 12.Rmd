@@ -33,11 +33,11 @@ ggplot() +
   geom_rect(aes(xmin = xmin, xmax = xmax,
                 ymin = -Inf, ymax = Inf),
             color = "transparent", fill = "white") +
-  annotate("text", x = .5, y = .5, label = "ROPE",
-           color = "grey67") +
+  annotate(geom = "text", x = .5, y = .5, 
+           label = "ROPE", color = "grey67") +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(title = "Kruschke's coin flip ROPE",
-       x     = expression(theta)) +
+       x = expression(theta)) +
   coord_cartesian(0:1) +
   theme(panel.grid.minor = element_blank())
 ```
@@ -46,10 +46,13 @@ In the first example (p. 336), we have $z = 325$ heads out of $N = 500$ coin fli
 
 ```{r}
 bernoulli_likelihood <- function(theta, data) {
+  
   n <- length(data)
   z <- sum(data)
+  
   return(theta^z * (1 - theta)^(n - sum(data)))
-  }
+  
+}
 ```
 
 Now we'll follow the typical steps to combine the prior, which is flat in this case, and the likelihood to get the posterior.
@@ -64,10 +67,10 @@ trial_data <- c(rep(0, times = n - z), rep(1, times = z))            # (i.e., da
 d <-
   tibble(theta = seq(from = 0, to = 1, length.out = 1e3)) %>%        # (i.e., theta)
   # recall Beta(1, 1) is flat
-  mutate(prior      = dbeta(theta, shape1 = 1, shape2 = 1)) %>%      # (i.e., p(theta))
-  mutate(likelihood = bernoulli_likelihood(theta = theta,            # (i.e., p(D | theta))
+  mutate(prior      = dbeta(theta, shape1 = 1, shape2 = 1),          # (i.e., p(theta))
+         likelihood = bernoulli_likelihood(theta = theta,            # (i.e., p(D | theta))
                                            data = trial_data)) %>%
-  mutate(evidence  = sum(prior * likelihood)) %>%                    # (i.e., p(D))
+  mutate(evidence = sum(prior * likelihood)) %>%                     # (i.e., p(D))
   mutate(posterior = likelihood * prior / evidence)                  # (i.e., p(theta | D))
   
 glimpse(d)
@@ -82,11 +85,11 @@ ggplot(data = d) +
             color = "transparent", fill = "white") +
   geom_ribbon(aes(x = theta, ymin = 0, ymax = posterior),
               fill = "grey67") +
-  annotate("text", x = .5, y = .01, label = "ROPE",
-           color = "grey67") +
+  annotate(geom = "text", x = .5, y = .01, 
+           label = "ROPE", color = "grey67") +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(title = "Nope, that density ain't in that ROPE.",
-       x     = expression(theta)) +
+       x = expression(theta)) +
   theme(panel.grid = element_blank())
 ```
 
@@ -120,10 +123,11 @@ hdi_of_icdf <- function(name, width = .95, tol = 1e-8, ... ) {
 Compute those HDIs and save them as `h`.
 
 ```{r}
-(h <-
-  hdi_of_icdf(name   = qbeta,
-              shape1 = alpha,
-              shape2 = beta)
+(
+  h <-
+    hdi_of_icdf(name = qbeta,
+                shape1 = alpha,
+                shape2 = beta)
 )
 ```
 
@@ -142,12 +146,12 @@ tibble(theta = seq(from = 0, to = 1, length.out = 1e3)) %>%
   geom_segment(x = h[1], xend = h[2],
                y = 0, yend = 0,
                size = 3/4) +
-  annotate("text", x = .5, y = 17.5, label = "ROPE",
-           color = "grey67") +
-  annotate("text", x = .65, y = 4, label = "95%\nHDI") +
+  annotate(geom = "text", x = .5, y = 17.5, 
+           label = "ROPE", color = "grey67") +
+  annotate(geom = "text", x = .65, y = 4, label = "95%\nHDI") +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(title = "That `hdi_of_icdf()` function really came through, for us.",
-       x     = expression(theta)) +
+       x = expression(theta)) +
   theme(panel.grid = element_blank())
 ```
 
@@ -160,11 +164,11 @@ z <- 490
 
 trial_data <- c(rep(0, times = n - z), rep(1, times = z))
 
-tibble(theta        = seq(from = 0, to = 1, length.out = 1e3)) %>%         # (i.e., theta)
-  mutate(prior      = dbeta(theta, shape1 = 1, shape2 = 1)) %>%            # (i.e., p(theta))
-  mutate(likelihood = bernoulli_likelihood(theta = theta,                  # (i.e., p(D | theta))
+tibble(theta = seq(from = 0, to = 1, length.out = 1e3)) %>%               # (i.e., theta)
+  mutate(prior      = dbeta(theta, shape1 = 1, shape2 = 1),               # (i.e., p(theta))
+         likelihood = bernoulli_likelihood(theta = theta,                 # (i.e., p(D | theta))
                                            data  = trial_data)) %>%
-  mutate(posterior  = (likelihood * prior) / sum(likelihood * prior)) %>%  # (i.e., p(theta | D))
+  mutate(posterior = (likelihood * prior) / sum(likelihood * prior)) %>%  # (i.e., p(theta | D))
   
   ggplot() +
   geom_rect(xmin = .45,  xmax = .55,
@@ -174,14 +178,14 @@ tibble(theta        = seq(from = 0, to = 1, length.out = 1e3)) %>%         # (i.
               fill = "grey67") +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(title = "This posterior sits right within the ROPE.",
-       x     = expression(theta)) +
+       x = expression(theta)) +
   theme(panel.grid = element_blank())
 ```
 
 Here are the new HDIs.
 
 ```{r}
-hdi_of_icdf(name   = qbeta,
+hdi_of_icdf(name = qbeta,
             shape1 =     z + 1,
             shape2 = n - z + 1)
 ```
@@ -261,24 +265,24 @@ After a little wrangling, we'll be ready to re-plot the relevant parts of Figure
 
 ```{r, fig.width = 8, fig.height = 2.5}
 c_small %>% 
-  gather() %>% 
-  mutate(key = factor(key, levels = c("Pitcher - Catcher", "Catcher - 1st Base"))) %>% 
+  pivot_longer(everything()) %>%  
+  mutate(name = factor(name, levels = c("Pitcher - Catcher", "Catcher - 1st Base"))) %>% 
   
   ggplot(aes(x = value)) +
   geom_rect(xmin = -0.05, xmax = 0.05,
             ymin = -Inf,  ymax = Inf,
             color = "transparent", fill = "white") +
-  geom_histogram(fill = "grey67", color = "grey92", 
-                 size = .2, binwidth = .003) +
-  stat_pointintervalh(aes(y = 0), 
-                      point_interval = mode_hdi, .width = .95) +
+  stat_histintervalh(aes(y = 0),
+                     point_interval = mode_hdi, .width = .95,
+                     fill = "grey67", slab_color = "grey92",
+                     breaks = 20, slab_size = .3, outline_bars = T) +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(title = "The ROPE ranges from −0.05 to +0.05",
-       x     = expression(theta)) +
+       x = expression(theta)) +
   coord_cartesian(c(-.125, .125)) +
   theme(panel.grid = element_blank(),
         legend.position = "none") +
-  facet_wrap(~key, scales = "free")
+  facet_wrap(~name, scales = "free")
 ```
 
 In order to re-plot part of Figure 9.15, we'll need to employ `fitted()` to snatch the player-specific posteriors.
@@ -318,14 +322,13 @@ f %>%
   geom_rect(xmin = -0.05, xmax = 0.05,
             ymin = -Inf,  ymax = Inf,
             color = "transparent", fill = "white") +
-  geom_histogram(aes(x = `ShinSoo Choo - Ichiro Suzuki`),
-                 fill = "grey67", color = "grey92", 
-                 size = .2, binwidth = .003) +
-  stat_pointintervalh(aes(x = `ShinSoo Choo - Ichiro Suzuki`, y = 0), 
-                      point_interval = mode_hdi, .width = .95) +
+  stat_histintervalh(aes(x = `ShinSoo Choo - Ichiro Suzuki`, y = 0),
+                     point_interval = mode_hdi, .width = .95,
+                     fill = "grey67", slab_color = "grey92",
+                     breaks = 40, slab_size = .4, outline_bars = T) +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(title = "ShinSoo Choo - Ichiro Suzuki",
-       x     = expression(theta)) +
+       x = expression(theta)) +
   coord_cartesian(c(-.125, .125)) +
   theme(panel.grid = element_blank())
 ```
@@ -353,7 +356,7 @@ covariance_matrix <-
 # after setting our seed, we're ready to simulate
 set.seed(12)
 d <- 
-  MASS::mvrnorm(n  = 1000, 
+  MASS::mvrnorm(n = 1000, 
                 mu = mu, 
                 Sigma = covariance_matrix) %>%
   as_tibble() %>%
@@ -367,11 +370,10 @@ d %>%
   mutate(`theta[1]-theta[2]` = `theta[1]` - `theta[2]`) %>% 
   gather() %>% 
   
-  ggplot(aes(x = value)) +
-  geom_histogram(fill = "grey67", color = "grey92", 
-                 size = .2, bins = 30) +
-  stat_pointintervalh(aes(y = 0), 
-                      point_interval = mode_hdi, .width = .95) +
+  ggplot(aes(x = value, y = 0)) +
+  stat_histintervalh(point_interval = mode_hdi, .width = .95,
+                     fill = "grey67", slab_color = "grey92",
+                     breaks = 30, slab_size = .4, outline_bars = T) +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(expression(theta)) +
   theme(panel.grid = element_blank()) +
@@ -421,11 +423,10 @@ d %>%
   mutate(`theta[1]-theta[2]` = `theta[1]` - `theta[2]`) %>% 
   gather() %>% 
   
-  ggplot(aes(x = value)) +
-  geom_histogram(fill = "grey67", color = "grey92", 
-                 size = .2, bins = 30) +
-  stat_pointintervalh(aes(y = 0), 
-                      point_interval = mode_hdi, .width = .95) +
+  ggplot(aes(x = value, y = 0)) +
+  stat_histintervalh(point_interval = mode_hdi, .width = .95,
+                     fill = "grey67", slab_color = "grey92",
+                     breaks = 20, slab_size = .4, outline_bars = T) +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(expression(theta)) +
   theme(panel.grid = element_blank()) +
@@ -474,10 +475,11 @@ If you want to get the quantile-based intervals (i.e., the ETIs), you can plug i
 To analytically derive the gamma HDIs, we just use the good old `hdi_of_icdf()` function.
 
 ```{r}
-(hx <-
-  hdi_of_icdf(name  = qgamma,
-              shape = 2,
-              rate  = .2)
+(
+  hx <-
+    hdi_of_icdf(name = qgamma,
+                shape = 2,
+                rate = .2)
 )
 ```
 
@@ -486,8 +488,8 @@ Next you need to determine how high up to go on the y-axis. For the quantile-bas
 ```{r}
 (
   ey <-
-  qgamma(c(.025, .975), shape = 2, rate = .2) %>% 
-  dgamma(shape = 2, rate = .2)
+    qgamma(c(.025, .975), shape = 2, rate = .2) %>% 
+    dgamma(shape = 2, rate = .2)
 )
 ```
 
@@ -496,8 +498,8 @@ We follow the same basic principle to get the y-axis values for the HDIs.
 ```{r}
 (
   hy <-
-  hdi_of_icdf(name = qgamma, shape = 2, rate = .2) %>% 
-  dgamma(shape = 2, rate = .2)
+    hdi_of_icdf(name = qgamma, shape = 2, rate = .2) %>% 
+    dgamma(shape = 2, rate = .2)
 )
 ```
 
@@ -506,9 +508,9 @@ Now we've computed all those values, we can collect them into a tibble with the 
 ```{r}
 (
   lines <-
-  tibble(interval = rep(c("eti", "hdi"), each = 4),
-         x        = c(ex, hx) %>% rep(., each = 2),
-         y        = c(ey[1], 0, 0, ey[2], 0, hy, 0))
+    tibble(interval = rep(c("eti", "hdi"), each = 4),
+           x        = c(ex, hx) %>% rep(., each = 2),
+           y        = c(ey[1], 0, 0, ey[2], 0, hy, 0))
 )
 ```
 
@@ -554,7 +556,7 @@ fitted(fit1,
 
 But as we just did, above, you can always use the convenience functions from the **tidybayes** package (e.g., `mean_hdi()`) to get HDIs from a **brms** fit.
 
-```{r, warning = F, message = F}
+```{r}
 fitted(fit1, 
        newdata = nd,
        scale = "linear",
@@ -586,14 +588,14 @@ epsilon <- .01
 trial_data <- c(rep(0, times = n - z), rep(1, times = z))
 
 d <-
-  tibble(theta      = seq(from = 0, to = 1, length.out = 1000)) %>%
-  mutate(prior      = dbeta(x = theta, shape1 = epsilon, shape2 = epsilon)) %>%
-  mutate(likelihood = bernoulli_likelihood(theta = theta,
+  tibble(theta = seq(from = 0, to = 1, length.out = 1000)) %>%
+  mutate(prior      = dbeta(x = theta, shape1 = epsilon, shape2 = epsilon),
+         likelihood = bernoulli_likelihood(theta = theta,
                                            data = trial_data)) %>%
   # we have to slice off the first and last values because they go to infinity on the prior, 
   # which creats problems when computing the denominator `sum(likelihood * prior)` (i.e., p(D))
   slice(2:999) %>% 
-  mutate(posterior  = likelihood * prior / sum(likelihood * prior))
+  mutate(posterior = likelihood * prior / sum(likelihood * prior))
 
 head(d)
 ```
@@ -606,12 +608,12 @@ p1 <-
   ggplot(aes(x = theta)) +
   geom_ribbon(aes(ymin = 0, ymax = prior),
               fill = "grey50") +
-  annotate(geom = "text", x = .1, y = 4, size = 3.5, label = expression(epsilon == 0.01)) +
+  annotate(geom = "text", x = .1, y = 4, 
+           label = expression(epsilon == 0.01), size = 3.5) +
   scale_y_continuous(breaks = NULL) +
   labs(title = "Prior (beta)",
-       x     = expression(theta),
-       y     = expression(paste("Beta(", theta, "|", epsilon, ", ", epsilon, ")"))) +
-  theme(panel.grid = element_blank())
+       x = expression(theta),
+       y = expression("Beta"*(theta*"|"*epsilon*", "*epsilon)))
 
 p2 <-
   d %>% 
@@ -620,10 +622,8 @@ p2 <-
               fill = "grey50") +
   scale_y_continuous(breaks = NULL) +
   labs(title = "Likelihood (Bernoulli)",
-       x     = expression(theta),
-       y     = expression(paste("p(D|", theta, ")"))) +
-  theme(panel.grid  = element_blank(),
-        axis.text.y = element_text())
+       x = expression(theta),
+       y = expression(p(D*"|"*theta)))
 
 p3 <-
   d %>% 
@@ -632,13 +632,12 @@ p3 <-
               fill = "grey50") +
   scale_y_continuous(breaks = NULL) +
   labs(title = "Posterior (beta)",
-       x     = expression(theta),
-       y     = expression(paste("Beta(", theta, "|7.01, 17.01)"))) +
-  theme(panel.grid = element_blank())
+       x = expression(theta),
+       y = expression("Beta"*(theta*"|"*7.01*", "*17.01)))
 
 library(patchwork)
 
-p1 / p2 / p3
+(p1 / p2 / p3) & theme(panel.grid = element_blank())
 ```
 
 We can calculate the Beta parameters for the posterior using the formula $\operatorname{Beta} (\theta | z + \alpha, N - z + \beta)$.
@@ -659,8 +658,8 @@ beta  <- 4
 
 d <-
   tibble(theta = seq(from = 0, to = 1, length.out = 1000)) %>%
-  mutate(prior = dbeta(x = theta, shape1 = alpha, shape2 = beta)) %>%
-  mutate(likelihood = bernoulli_likelihood(theta = theta,
+  mutate(prior      = dbeta(x = theta, shape1 = alpha, shape2 = beta),
+         likelihood = bernoulli_likelihood(theta = theta,
                                            data = trial_data)) %>%
   # no need to `slice(2:999)` this time
   mutate(posterior = likelihood * prior / sum(likelihood * prior))
@@ -678,9 +677,8 @@ p1 <-
               fill = "grey50") +
   scale_y_continuous(breaks = NULL) +
   labs(title = "Prior (beta)",
-       x     = expression(theta),
-       y     = expression(paste("Beta(", theta, "|2, 4)"))) +
-  theme(panel.grid = element_blank())
+       x = expression(theta),
+       y = expression("Beta"*(theta*"|"*2*", "*4)))
 
 p2 <-
   d %>% 
@@ -689,10 +687,8 @@ p2 <-
               fill = "grey50") +
   scale_y_continuous(breaks = NULL) +
   labs(title = "Likelihood (Bernoulli)",
-       x     = expression(theta),
-       y     = expression(paste("p(D|", theta, ")"))) +
-  theme(panel.grid  = element_blank(),
-        axis.text.y = element_text())
+       x = expression(theta),
+       y = expression(p(D*"|"*theta)))
 
 p3 <-
   d %>% 
@@ -701,11 +697,10 @@ p3 <-
               fill = "grey50") +
   scale_y_continuous(breaks = NULL) +
   labs(title = "Posterior (beta)",
-       x     = expression(theta),
-       y     = expression(paste("Beta(", theta, "|9, 21)"))) +
-  theme(panel.grid = element_blank())
+       x = expression(theta),
+       y = expression("Beta"*(theta*"|"*9*", "*21)))
 
-p1 / p2 / p3
+(p1 / p2 / p3) & theme(panel.grid = element_blank())
 ```
 
 Here are those Beta parameters for that posterior.
@@ -739,7 +734,7 @@ We can make our own `p_d()` function to compute the probability of the data give
 ```{r}
 p_d <- function(a, b) { 
   beta(z + a, n - z + b) / beta(a, b) 
-  }
+}
 ```
 
 With `p_d_null` and our `p_d()` function in hand, we can reproduce and extend the results in Kruschke's Equation 12.4.
@@ -749,9 +744,9 @@ options(scipen = 999)
 
 tibble(shape1 = c(2, 1, .1, .01, .001, .0001, .00001),
        shape2 = c(4, 1, .1, .01, .001, .0001, .00001)) %>% 
-  mutate(p_d  = p_d(a = shape1, b = shape2)) %>% 
-  mutate(p_d_null = p_d_null) %>% 
-  mutate(bf       = p_d / p_d_null) %>% 
+  mutate(p_d      = p_d(a = shape1, b = shape2),
+         p_d_null = p_d_null) %>% 
+  mutate(bf = p_d / p_d_null) %>% 
   # this just reduces the amount of significant digits in the output
   mutate_all(round, digits = 6)
 
@@ -780,7 +775,7 @@ Compute the HDIs.
 ```{r}
 tibble(shape1 =     z + c(2, 1, .1, .01, .001, .0001, .00001),
        shape2 = n - z + c(4, 1, .1, .01, .001, .0001, .00001)) %>% 
-  mutate(h    = map2(shape1, shape2, hdi_of_qbeta)) %>% 
+  mutate(h = map2(shape1, shape2, hdi_of_qbeta)) %>% 
   unnest(h) %>% 
   mutate_at(vars(ends_with("l")), .funs = ~round(., digits = 4))
 ```
@@ -805,26 +800,26 @@ z <- 1
 trial_data <- c(rep(0, times = n - z), rep(1, times = z))
 
 d <-
-  tibble(theta      = seq(from = 0, to = 1, length.out = 1000)) %>%
-  mutate(prior      = dbeta(x = theta, shape1 = epsilon, shape2 = epsilon)) %>%
-  mutate(likelihood = bernoulli_likelihood(theta = theta,
+  tibble(theta = seq(from = 0, to = 1, length.out = 1000)) %>%
+  mutate(prior      = dbeta(x = theta, shape1 = epsilon, shape2 = epsilon),
+         likelihood = bernoulli_likelihood(theta = theta,
                                            data = trial_data)) %>%
   # like before, we have to slice off the first and last values because they go to infinity on the
   # prior, which creats problems when computing the denominator `sum(likelihood * prior)` (i.e., p(D))
   slice(2:999) %>% 
-  mutate(posterior  = likelihood * prior / sum(likelihood * prior))
+  mutate(posterior = likelihood * prior / sum(likelihood * prior))
 
 p1 <-
   d %>% 
   ggplot(aes(x = theta)) +
   geom_ribbon(aes(ymin = 0, ymax = prior),
               fill = "grey50") +
-  annotate(geom = "text", x = .1, y = 4, size = 3.5, label = expression(epsilon == 0.01)) +
+  annotate(geom = "text", x = .1, y = 4, 
+           label = expression(epsilon == 0.01), size = 3.5) +
   scale_y_continuous(breaks = NULL) +
   labs(title = "Prior (beta)",
-       x     = expression(theta),
-       y     = expression(paste("Beta(", theta, "|", epsilon, ", ", epsilon, ")"))) +
-  theme(panel.grid = element_blank())
+       x = expression(theta),
+       y = expression("Beta"*(theta*"|"*epsilon*", "*epsilon)))
 
 p2 <-
   d %>% 
@@ -833,10 +828,8 @@ p2 <-
               fill = "grey50") +
   scale_y_continuous(breaks = NULL) +
   labs(title = "Likelihood (Bernoulli)",
-       x     = expression(theta),
-       y     = expression(paste("p(D|", theta, ")"))) +
-  theme(panel.grid  = element_blank(),
-        axis.text.y = element_text())
+       x = expression(theta),
+       y = expression(p(D*"|"*theta)))
 
 p3 <-
   d %>% 
@@ -845,11 +838,10 @@ p3 <-
               fill = "grey50") +
   scale_y_continuous(breaks = NULL) +
   labs(title = "Posterior (beta)",
-       x     = expression(theta),
-       y     = expression(paste("Beta(", theta, "|7.01, 17.01)"))) +
-  theme(panel.grid = element_blank())
+       x = expression(theta),
+       y = expression("Beta"*(theta*"|"*7.01*", "*17.01)))
 
-p1 / p2 / p3
+(p1 / p2 / p3) & theme(panel.grid = element_blank())
 ```
 
 That is one flat posterior! Here are the shape parameters and the HDIs.
@@ -858,7 +850,7 @@ That is one flat posterior! Here are the shape parameters and the HDIs.
 (alpha <- z + epsilon)
 (beta <- n - z + epsilon)
 
-hdi_of_icdf(name   = qbeta,
+hdi_of_icdf(name = qbeta,
             shape1 = alpha,
             shape2 = beta) %>% 
   round(digits = 3)
@@ -887,12 +879,12 @@ z <- 7
 trial_data <- c(rep(0, times = n - z), rep(1, times = z))
 
 d <-
-  tibble(theta      = seq(from = 0, to = 1, length.out = 1e3)) %>%
-  mutate(prior      = dbeta(x = theta, shape1 = alpha, shape2 = beta)) %>%
-  mutate(likelihood = bernoulli_likelihood(theta = theta,
+  tibble(theta = seq(from = 0, to = 1, length.out = 1e3)) %>%
+  mutate(prior      = dbeta(x = theta, shape1 = alpha, shape2 = beta),
+         likelihood = bernoulli_likelihood(theta = theta,
                                            data = trial_data)) %>%
   # no need to `slice(2:999)` this time
-  mutate(posterior  = likelihood * prior / sum(likelihood * prior))
+  mutate(posterior = likelihood * prior / sum(likelihood * prior))
 
 p1 <-
   d %>% 
@@ -901,9 +893,8 @@ p1 <-
               fill = "grey50") +
   scale_y_continuous(breaks = NULL) +
   labs(title = "Prior (beta)",
-       x     = expression(theta),
-       y     = expression(paste("Beta(", theta, "|1, 1)"))) +
-  theme(panel.grid = element_blank())
+       x = expression(theta),
+       y = expression("Beta"*(theta*"|"*1*", "*1)))
 
 p2 <-
   d %>% 
@@ -912,10 +903,8 @@ p2 <-
               fill = "grey50") +
   scale_y_continuous(breaks = NULL) +
   labs(title = "Likelihood (Bernoulli)",
-       x     = expression(theta),
-       y     = expression(paste("p(D|", theta, ")"))) +
-  theme(panel.grid  = element_blank(),
-        axis.text.y = element_text())
+       x = expression(theta),
+       y = expression(p(D*"|"*theta)))
 
 p3 <-
   d %>% 
@@ -924,11 +913,10 @@ p3 <-
               fill = "grey50") +
   scale_y_continuous(breaks = NULL) +
   labs(title = "Posterior (beta)",
-       x     = expression(theta),
-       y     = expression(paste("Beta(", theta, "|8, 8)"))) +
-  theme(panel.grid = element_blank())
+       x = expression(theta),
+       y = expression("Beta"*(theta*"|"*8*", "*8)))
 
-p1 / p2 / p3
+(p1 / p2 / p3) & theme(panel.grid = element_blank())
 ```
 
 Here are the updated shape parameters and the HDIs.
@@ -937,7 +925,7 @@ Here are the updated shape parameters and the HDIs.
 (alpha <- z + epsilon)
 (beta <- n - z + epsilon)
 
-hdi_of_icdf(name   = qbeta,
+hdi_of_icdf(name = qbeta,
             shape1 = alpha,
             shape2 = beta) %>% 
   round(digits = 3)
@@ -974,11 +962,11 @@ p1 <-
             color = "transparent", fill = "white") +
   geom_ribbon(aes(ymin = 0, ymax = dbeta(theta, shape1 = alpha, shape2 = beta)),
               fill = "grey67", size = 0) +
-  annotate(geom = "text", x = .01, y = 35, size = 3.5, label = expression(epsilon == 0.01)) +
+  annotate(geom = "text", x = .01, y = 35, 
+           label = expression(epsilon == 0.01), size = 3.5) +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(title = "This posterior used the Haldane prior.",
-       x     = expression(theta)) +
-  theme(panel.grid = element_blank())
+       x = expression(theta))
 
 # redefine the Beta parameters
 alpha <-     z + 1
@@ -995,10 +983,9 @@ p2 <-
               fill = "grey67", size = 0) +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(title = "This time we used the flat Beta (1, 1).",
-       x     = expression(theta)) +
-  theme(panel.grid = element_blank())
+       x = expression(theta))
 
-p1 / p2 
+(p1 / p2) & theme(panel.grid = element_blank())
 ```
 
 > There is no way around this inconvenient statistical reality: high precision demands a large sample size (and a measurement device with minimal possible noise). But when we are trying to accept a specific value of $\theta$, is seems logically appropriate that we should have a reasonably precise estimate indicating that specific value. (p. 348)
@@ -1019,12 +1006,15 @@ n_t <- 20  # number of trials per subject
 
 set.seed(12)
 my_data <-
-  tibble(condition = rep(c("Das Kruschke", "Mozart", "Bach", "Beethoven"), each = 20),
-         id  = 1:80,
+  tibble(condition   = factor(c("Das Kruschke", "Mozart", "Bach", "Beethoven"),
+                              levels = c("Das Kruschke", "Mozart", "Bach", "Beethoven")),
+         group_means = c(.40, .50, .51, .52)) %>% 
+  expand(nesting(condition, group_means),
+         row = 1:20) %>% 
+  mutate(id  = 1:80,
          n_g = n_g,
-         n_t = n_t,
-         group_means = rep(c(.40, .50, .51, .52), each = 20)) %>% 
-  mutate(n_recalled  = rbinom(n_g, n_t, group_means))
+         n_t = n_t) %>% 
+  mutate(n_recalled = rbinom(n_g, n_t, group_means))
 
 head(my_data)
 ```
@@ -1048,7 +1038,7 @@ Recall that although **brms** does accommodate models based on the Bernoulli lik
 
 In our equation, $\beta_{0_j}$ is the group-specific intercept within the logistic regression model. We'll use the $N(0, 1.5)$ prior for the intercept. Though it appears strongly regularizing in the log-odds space, it's quite flat on the $\theta$ space. If we wanted to be more conservative in the $\theta$ space, we might use something more like $N(0, 1)$.
 
-```{r 12_fit2, cache = T, warning = F, message = F}
+```{r fit_12.02, cache = T, warning = F, message = F}
 fit2 <-
   brm(data = my_data, 
       family = binomial,
@@ -1093,12 +1083,11 @@ Now we have the wrangled data, we're ready to `gather()` them and plot the top o
 post %>% 
   gather() %>% 
   
-  ggplot(aes(x = value)) +
+  ggplot(aes(x = value, y = 0)) +
   geom_vline(xintercept = 0, color = "white") +
-  geom_histogram(color = "grey92", fill = "grey67",
-                 binwidth = .01, size = .2) +
-  stat_pointintervalh(aes(y = 0),
-                      point_interval = mode_hdi, .width = .95) +
+  stat_histintervalh(point_interval = mode_hdi, .width = .95,
+                     fill = "grey67", slab_color = "grey92",
+                     breaks = 30, slab_size = .4, outline_bars = T) +
   scale_y_continuous(NULL, breaks = NULL) +
   coord_cartesian(xlim = c(-.25, .25)) +
   theme(panel.grid = element_blank()) +
@@ -1109,7 +1098,7 @@ Also, do note we're working with the $\theta$ parameters in our aggregated binom
 
 Here's how you'd get the eact mode and HDI summaries.
 
-```{r, warning = F, message = F}
+```{r}
 post %>% 
   gather() %>% 
   group_by(key) %>% 
@@ -1131,7 +1120,7 @@ I got this idea from the great [Tristan Mahr](https://twitter.com/tjmahr), who [
 
 With our Stan/**brms** method, we don't have an analogue to the lower portion of Figure 12.5 because we are not fitting the full and restricted models within a single run. Thus, there's no plot to show the chains traversing from $M_\text{full}$ to $M_\text{restricted}$. Rather, our `fit2` was just of $M_\text{full}$. Now we'll fit $M_\text{restricted}$, which we'll save as `fit3`.
 
-```{r 12_fit3, cache = T, warning = F, message = F}
+```{r fit_12.03, cache = T, warning = F, message = F}
 fit3 <-
   brm(data = my_data, 
       family = binomial,
@@ -1143,7 +1132,7 @@ fit3 <-
 
 Here we'll compare the two models with the LOO.
 
-```{r l_fit2_fit3}
+```{r loo_fit2_fit3}
 fit2 <- add_criterion(fit2, criterion = "loo")
 fit3 <- add_criterion(fit3, criterion = "loo")
 
@@ -1161,7 +1150,7 @@ Recall that within a given comparison, the weights sum to 1, with better fitting
 
 #### Bonus: Hypothesis testing in brms.
 
-Disclaimer: I'm not a fan of hypothesis texting within the Bayesian framework. So I generally don't use these methods. However, it'd seem negligent not to at least mention the convenience function designed for that purpose in **brms**: the `hypothesis()` function. From the `hypothesis` section in the [**brms** reference manual (version 2.10.0)](https://cran.r-project.org/web/packages/brms/brms.pdf) we read:
+Disclaimer: I am not a fan of hypothesis texting within the Bayesian framework. Outside of pedagogical material, I do not use these methods. However, it'd seem negligent not to at least mention the convenience function designed for that purpose in **brms**: the `hypothesis()` function. From the `hypothesis` section in the [**brms** reference manual (version 2.10.0)](https://cran.r-project.org/web/packages/brms/brms.pdf) we read:
 
 > Among others, `hypothesis` computes an evidence ratio (`Evid.Ratio`) for each hypothesis. For a one-sided hypothesis, this is just the posterior probability (`Post.Prob`) under the hypothesis against its alternative. That is, when the hypothesis is of the form `a > b`, the evidence ratio is the ratio of the posterior probability of `a > b` and the posterior probability of `a < b`. In this example, values greater than one indicate that the evidence in favor of `a > b` is larger than evidence in favor of `a < b`. For an two-sided (point) hypothesis, the evidence ratio is a Bayes factor between the hypothesis and its alternative computed via the Savage-Dickey density ratio method. That is the posterior density at the point of interest divided by the prior density at that point. Values greater than one indicate that evidence in favor of the point hypothesis has increased after seeing the data. In order to calculate this Bayes factor, all parameters related to the hypothesis must have proper priors and argument `sample_prior` of function brm must be set to `"yes"`. Otherwise Evid.Ratio (and Post.Prob) will be `NA`. Please note that, for technical reasons, we cannot sample from priors of certain parameters classes. Most notably, these include overall intercept parameters (prior class `"Intercept"`) as well as group-level coefficients. When interpreting Bayes factors, make sure that your priors are reasonable and carefully chosen, as the result will depend heavily on the priors. In particular, avoid using default priors.
 
