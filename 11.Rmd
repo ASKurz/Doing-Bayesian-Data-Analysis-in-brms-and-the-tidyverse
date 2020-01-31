@@ -19,7 +19,7 @@ It's worth repeating a couple paragraphs from page 298 (*emphasis* in the origin
 This is a little silly, but I wanted to challenge myself to randomly generate a series of 24 `H` and `T` characters for which there were 7 `H`s. The base **R** `sample()` function gets us part of the way there.
 
 ```{r}
-sample(c("H", "T"), size = 24, replace = T)
+sample(c("H", "T"), size = 24, replace= T)
 ```
 
 I wanted the solution to be reproducible, which required I find the appropriate seed for `set.seed()`. To do that, I made a custom `h_counter()` function into which I could input an arbitrary seed value and retrieve the count of `H`. I then fed a sequence of integers into `h_counter()` and filtered the output to find which seed produces the desirable outcome.
@@ -102,9 +102,9 @@ Now we can employ our `n_choose_z()` function to help make the data we'll use fo
 
 ```{r}
 flips <-
-  tibble(z          = 0:24) %>% 
+  tibble(z = 0:24) %>% 
   mutate(n_choose_z = n_choose_z(n, z)) %>% 
-  mutate(`p(z/N)`   = n_choose_z / sum(n_choose_z),
+  mutate(`p(z/N)`                = n_choose_z / sum(n_choose_z),
          `Sample Proportion z/N` = z / n)
 
 head(flips, n = 10)
@@ -114,7 +114,6 @@ Now here's the histogram of that sampling distribution.
 
 ```{r, fig.width = 5, fig.height = 3.25}
 flips %>% 
-  
   ggplot(aes(x = `Sample Proportion z/N`, y = `p(z/N)`,
              fill = z <= 7, color = z <= 7)) +
   geom_col(width = .025) +
@@ -142,9 +141,9 @@ tibble(y = factor(c("tail", "head"), levels = c("tail", "head")),
   ggplot(aes(x = y, y = `p(y)`)) +
   geom_col() +
   coord_cartesian(ylim = 0:1) +
-  labs(title    = "Hypothetical Population",
-       subtitle = expression(paste(theta, " = .5"))) +
-  theme(panel.grid   = element_blank(),
+  labs(title = "Hypothetical Population",
+       subtitle = expression(theta==".5")) +
+  theme(panel.grid = element_blank(),
         axis.ticks.x = element_blank())
 ```
 
@@ -186,11 +185,11 @@ theta <- .5
 highest_n <- 100
 
 flips <-
-  tibble(n              = 7:highest_n) %>% 
-  mutate(n_choose_z     = n_choose_z(n, z)) %>% 
-  mutate(`p(z/N)`       = n_choose_z / sum(n_choose_z),
+  tibble(n = 7:highest_n) %>% 
+  mutate(n_choose_z = n_choose_z(n, z)) %>% 
+  mutate(`p(z/N)`                = n_choose_z / sum(n_choose_z),
          `Sample Proportion z/N` = z / n,
-         `p(N|z,theta)` = (z / n) * n_choose_z * (theta^z) * (1 - theta)^(n - z))
+         `p(N|z,theta)`          = (z / n) * n_choose_z * (theta^z) * (1 - theta)^(n - z))
 ```
 
 To keep things simple, we just went up to $N = 100$.
@@ -264,10 +263,10 @@ n_iter <- 1
 flips <-
   tibble(iter = 1:n_iter,
          n    = rpois(n_iter, lambda = 24)) %>% 
-  mutate(z    = map(n, ~seq(from = 0, to = ., by = 1))) %>% 
+  mutate(z = map(n, ~seq(from = 0, to = ., by = 1))) %>% 
   unnest(z) %>% 
   mutate(n_choose_z = n_choose_z(n, z)) %>% 
-  mutate(`p(z/N)`   = n_choose_z / sum(n_choose_z),
+  mutate(`p(z/N)`                = n_choose_z / sum(n_choose_z),
          `Sample Proportion z/N` = z / n) 
 
 flips
@@ -296,10 +295,10 @@ set.seed(11)
 flips <-
   tibble(iter = 1:n_iter,
          n    = rpois(n_iter, lambda = 24)) %>% 
-  mutate(z    = map(n, ~seq(from = 0, to = ., by = 1))) %>% 
+  mutate(z = map(n, ~seq(from = 0, to = ., by = 1))) %>% 
   unnest(z) %>% 
   mutate(n_choose_z = n_choose_z(n, z)) %>% 
-  mutate(`p(z/N)`   = n_choose_z / sum(n_choose_z),
+  mutate(`p(z/N)`                = n_choose_z / sum(n_choose_z),
          `Sample Proportion z/N` = z / n) 
 
 flips %>%
@@ -335,7 +334,7 @@ flips <-
            coin = letters[1:2]) %>% 
   group_by(coin) %>% 
   mutate(n_choose_z = n_choose_z(n, z)) %>% 
-  mutate(`p(z/N)`   = n_choose_z / sum(n_choose_z),
+  mutate(`p(z/N)`                = n_choose_z / sum(n_choose_z),
          `Sample Proportion z/N` = z / n)
 
 head(flips, n = 10)
@@ -345,7 +344,6 @@ The result is a failed attempt at Figure 11.6:
 
 ```{r, fig.width = 5, fig.height = 3.25}
 flips %>% 
-  
   ggplot(aes(x = `Sample Proportion z/N`, y = `p(z/N)`,
              fill = z <= 7, color = z <= 7)) +
   geom_col(width = .01) +
@@ -380,10 +378,13 @@ If you recall from Chapter 6, we need a function to compute the Bernoulli likeli
 
 ```{r}
 bernoulli_likelihood <- function(theta, data) {
+  
   n   <- length(data)
   z   <- sum(data)
+  
   return(theta^z * (1 - theta)^(n - sum(data)))
-  }
+  
+}
 ```
 
 There are a handful of steps before we can use our `bernoulli_likelihood()` function to make the plot data. All these are repeats from Chapter 6.
@@ -396,12 +397,12 @@ z <- 7
 trial_data <- c(rep(0, times = n - z), rep(1, times = z))            # (i.e., data)
 
 d_nail <-
-  tibble(theta      = seq(from = 0, to = 1, length.out = 1000)) %>%  # (i.e., theta)
-  mutate(Prior      = dbeta(x = theta, shape1 = 2, shape2 = 20)) %>% 
+  tibble(theta = seq(from = 0, to = 1, length.out = 1000)) %>%       # (i.e., theta)
+  mutate(Prior = dbeta(x = theta, shape1 = 2, shape2 = 20)) %>% 
   mutate(Likelihood = bernoulli_likelihood(theta = theta,            # (i.e., p(D | theta))
                                            data = trial_data)) %>%
-  mutate(evidence   = sum(Likelihood * Prior)) %>%                   # (i.e., p(D))
-  mutate(Posterior  = Likelihood * Prior / evidence)                 # (i.e., p(theta | D))
+  mutate(evidence = sum(Likelihood * Prior)) %>%                     # (i.e., p(D))
+  mutate(Posterior = Likelihood * Prior / evidence)                  # (i.e., p(theta | D))
   
 glimpse(d_nail)
 ```
@@ -416,9 +417,8 @@ p1 <-
               fill = "grey50") +
   scale_y_continuous(breaks = NULL) +
   labs(title = "Prior (beta)",
-       x     = expression(theta),
-       y     = expression(paste("dbeta(", theta, "|2, 20)"))) +
-  theme(panel.grid = element_blank())
+       x = expression(theta),
+       y = expression(dbeta(theta*"|"*2*", "*20)))
 
 p2 <-
   d_nail %>% 
@@ -427,10 +427,8 @@ p2 <-
               fill = "grey50") +
   scale_y_continuous(breaks = NULL) +
   labs(title = "Likelihood (Bernoulli)",
-       x     = expression(theta),
-       y     = expression(paste("p(D|", theta, ")"))) +
-  theme(panel.grid  = element_blank(),
-        axis.text.y = element_text())
+       x = expression(theta),
+       y = expression(p(D*"|"*theta)))
 
 p3 <-
   d_nail %>% 
@@ -439,13 +437,12 @@ p3 <-
               fill = "grey50") +
   scale_y_continuous(breaks = NULL) +
   labs(title = "Posterior (beta)",
-       x     = expression(theta),
-       y     = expression(paste("dbeta(", theta, "|9, 37)"))) +
-  theme(panel.grid = element_blank())
+       x = expression(theta),
+       y = expression(dbeta(theta*"|"*9*", "*37)))
 
 library(patchwork)
 
-p1 / p2 / p3
+(p1 / p2 / p3) & theme(panel.grid = element_blank())
 ```
 
 If we'd like the 95% HDIs, we'll need to redifine the `hdi_of_icdf()` function.
@@ -485,11 +482,11 @@ To get the left column of Figure 11.7, we have to update the data with our new p
 ```{r, fig.width = 4, fig.height = 6, warning = F, message = F}
 # here are the data based on our updated beta(11, 11) prior
 d_coin <-
-  tibble(theta      = seq(from = 0, to = 1, length.out = 1000)) %>%
-  mutate(Prior      = dbeta(x = theta, shape1 = 11, shape2 = 11)) %>% 
+  tibble(theta = seq(from = 0, to = 1, length.out = 1000)) %>%
+  mutate(Prior = dbeta(x = theta, shape1 = 11, shape2 = 11)) %>% 
   mutate(Likelihood = bernoulli_likelihood(theta = theta,
                                            data = trial_data)) %>%
-  mutate(Posterior  = Likelihood * Prior / sum(Likelihood * Prior))
+  mutate(Posterior = Likelihood * Prior / sum(Likelihood * Prior))
 
 # The updated plots:
 p1 <-
@@ -499,9 +496,8 @@ p1 <-
               fill = "grey50") +
   scale_y_continuous(breaks = NULL) +
   labs(title = "Prior (beta)",
-       x     = expression(theta),
-       y     = expression(paste("dbeta(", theta, "|11, 11)"))) +
-  theme(panel.grid = element_blank())
+       x = expression(theta),
+       y = expression(dbeta(theta*"|"*11*", "*11)))
 
 p2 <-
   d_coin %>% 
@@ -510,10 +506,8 @@ p2 <-
               fill = "grey50") +
   scale_y_continuous(breaks = NULL) +
   labs(title = "Likelihood (Bernoulli)",
-       x     = expression(theta),
-       y     = expression(paste("p(D|", theta, ")"))) +
-  theme(panel.grid  = element_blank(),
-        axis.text.y = element_text())
+       x = expression(theta),
+       y = expression(p(D*"|"*theta)))
 
 p3 <-
   d_coin %>% 
@@ -522,11 +516,10 @@ p3 <-
               fill = "grey50") +
   scale_y_continuous(breaks = NULL) +
   labs(title = "Posterior (beta)",
-       x     = expression(theta),
-       y     = expression(paste("dbeta(", theta, "|18, 28)"))) +
-  theme(panel.grid = element_blank())
+       x = expression(theta),
+       y = expression(dbeta(theta*"|"*18*", "*28)))
 
-p1 / p2 / p3
+(p1 / p2 / p3) & theme(panel.grid = element_blank())
 ```
 
 Here are the corresponding HDIs for $\operatorname{beta} (11, 11)$ and $\operatorname{beta} (11 + 7, 11 + 24 - 7)$.
@@ -562,9 +555,9 @@ tibble(y      = factor(c("tail", "head"), levels = c("tail", "head")),
   ggplot(aes(x = y, y = `p(y)`)) +
   geom_col() +
   coord_cartesian(ylim = 0:1) +
-  labs(title    = "Hypothetical Population",
-       subtitle = expression(paste(theta, " = .126"))) +
-  theme(panel.grid   = element_blank(),
+  labs(title = "Hypothetical Population",
+       subtitle = expression(theta==".126")) +
+  theme(panel.grid = element_blank(),
         axis.ticks.x = element_blank())
 ```
 
@@ -577,9 +570,9 @@ tibble(y      = factor(c("tail", "head"), levels = c("tail", "head")),
   ggplot(aes(x = y, y = `p(y)`)) +
   geom_col() +
   coord_cartesian(ylim = 0:1) +
-  labs(title    = "Hypothetical Population",
-       subtitle = expression(paste(theta, " = .511"))) +
-  theme(panel.grid   = element_blank(),
+  labs(title = "Hypothetical Population",
+       subtitle = expression(theta==".511")) +
+  theme(panel.grid = element_blank(),
         axis.ticks.x = element_blank())
 ```
 
@@ -594,8 +587,8 @@ tibble(z = 0:24,
   geom_col(width = .025) +
   scale_fill_viridis_d(option = "B", end = .6) +
   labs(title = "Implied Sampling Distribution",
-       x     = "Sample Proportion z/N",
-       y     = "p(z/N)") +
+       x = "Sample Proportion z/N",
+       y = "p(z/N)") +
   theme(panel.grid = element_blank(),
         legend.position = "none")
 ```
@@ -611,8 +604,8 @@ tibble(z = 0:24,
   geom_col(width = .025) +
   scale_fill_viridis_d(option = "B", end = .6) +
   labs(title = "Implied Sampling Distribution",
-       x     = "Sample Proportion z/N",
-       y     = "p(z/N)") +
+       x = "Sample Proportion z/N",
+       y = "p(z/N)") +
   theme(panel.grid = element_blank(),
         legend.position = "none")
 ```
@@ -626,9 +619,9 @@ tibble(y      = factor(c("tail", "head"), levels = c("tail", "head")),
   ggplot(aes(x = y, y = `p(y)`)) +
   geom_col() +
   coord_cartesian(ylim = 0:1) +
-  labs(title    = "Hypothetical Population",
-       subtitle = expression(paste(theta, " = .484"))) +
-  theme(panel.grid   = element_blank(),
+  labs(title = "Hypothetical Population",
+       subtitle = expression(theta==".484")) +
+  theme(panel.grid = element_blank(),
         axis.ticks.x = element_blank())
 ```
 
@@ -638,11 +631,11 @@ We'll need fresh data for the upper right panel of Figure 11.9.
 theta <- .126
 
 flips <-
-  tibble(n           = 7:100) %>% 
-  mutate(n_choose_z  = n_choose_z(n, z)) %>% 
-  mutate(`p(z/N)`    = n_choose_z / sum(n_choose_z),
+  tibble(n = 7:100) %>% 
+  mutate(n_choose_z = n_choose_z(n, z)) %>% 
+  mutate(`p(z/N)`                = n_choose_z / sum(n_choose_z),
          `Sample Proportion z/N` = z / n,
-         `p(N|z,theta)` = (z / n) * n_choose_z * (theta^z) * (1 - theta)^(n - z))
+         `p(N|z,theta)`          = (z / n) * n_choose_z * (theta^z) * (1 - theta)^(n - z))
 
 flips %>%
   ggplot(aes(x = `Sample Proportion z/N`, y = `p(N|z,theta)`,
@@ -661,11 +654,11 @@ And once again, we'll renew `theta` and the data for the lower right panel.
 theta <- .484
 
 flips <-
-  tibble(n           = 7:100) %>% 
-  mutate(n_choose_z  = n_choose_z(n, z)) %>% 
-  mutate(`p(z/N)`    = n_choose_z / sum(n_choose_z),
+  tibble(n = 7:100) %>% 
+  mutate(n_choose_z = n_choose_z(n, z)) %>% 
+  mutate(`p(z/N)`                = n_choose_z / sum(n_choose_z),
          `Sample Proportion z/N` = z / n,
-         `p(N|z,theta)` = (z / n) * n_choose_z * (theta^z) * (1 - theta)^(n - z))
+         `p(N|z,theta)`          = (z / n) * n_choose_z * (theta^z) * (1 - theta)^(n - z))
 
 flips %>%
   ggplot(aes(x = `Sample Proportion z/N`, y = `p(N|z,theta)`,
@@ -687,9 +680,9 @@ tibble(y      = factor(c("tail", "head"), levels = c("tail", "head")),
   ggplot(aes(x = y, y = `p(y)`)) +
   geom_col() +
   coord_cartesian(ylim = 0:1) +
-  labs(title    = "Hypothetical Population",
-       subtitle = expression(paste(theta, " = .135"))) +
-  theme(panel.grid   = element_blank(),
+  labs(title = "Hypothetical Population",
+       subtitle = expression(theta==".135")) +
+  theme(panel.grid = element_blank(),
         axis.ticks.x = element_blank())
 ```
 
@@ -702,9 +695,9 @@ tibble(y      = factor(c("tail", "head"), levels = c("tail", "head")),
   ggplot(aes(x = y, y = `p(y)`)) +
   geom_col() +
   coord_cartesian(ylim = 0:1) +
-  labs(title    = "Hypothetical Population",
-       subtitle = expression(paste(theta, " = .497"))) +
-  theme(panel.grid   = element_blank(),
+  labs(title = "Hypothetical Population",
+       subtitle = expression(theta==".497")) +
+  theme(panel.grid = element_blank(),
         axis.ticks.x = element_blank())
 ```
 
@@ -724,10 +717,10 @@ tibble(seed = 1:100) %>%
   unnest(z) %>% 
   group_by(seed) %>% 
   mutate(n = n()) %>% 
-  mutate(n_choose_z  = n_choose_z(n, z)) %>% 
-  mutate(`p(z/N)`    = n_choose_z / sum(n_choose_z),
+  mutate(n_choose_z = n_choose_z(n, z)) %>% 
+  mutate(`p(z/N)`                = n_choose_z / sum(n_choose_z),
          `Sample Proportion z/N` = z / n,
-         `p(N|z,theta)` = (z / n) * n_choose_z * (theta^z) * (1 - theta)^(n - z)) %>% 
+         `p(N|z,theta)`          = (z / n) * n_choose_z * (theta^z) * (1 - theta)^(n - z)) %>% 
   
   ggplot(aes(x = `Sample Proportion z/N`, y = `p(N|z,theta)`,
              fill = `Sample Proportion z/N` >= 7 / 24)) +
@@ -745,10 +738,10 @@ tibble(seed = 1:100) %>%
   unnest(z) %>% 
   group_by(seed) %>% 
   mutate(n = n()) %>% 
-  mutate(n_choose_z  = n_choose_z(n, z)) %>% 
-  mutate(`p(z/N)`    = n_choose_z / sum(n_choose_z),
+  mutate(n_choose_z = n_choose_z(n, z)) %>% 
+  mutate(`p(z/N)`                = n_choose_z / sum(n_choose_z),
          `Sample Proportion z/N` = z / n,
-         `p(N|z,theta)` = (z / n) * n_choose_z * (theta^z) * (1 - theta)^(n - z)) %>% 
+         `p(N|z,theta)`          = (z / n) * n_choose_z * (theta^z) * (1 - theta)^(n - z)) %>% 
   
   ggplot(aes(x = `Sample Proportion z/N`, y = `p(N|z,theta)`,
              fill = `Sample Proportion z/N` <= 7 / 24)) +
@@ -767,9 +760,9 @@ tibble(y      = factor(c("tail", "head"), levels = c("tail", "head")),
   ggplot(aes(x = y, y = `p(y)`)) +
   geom_col() +
   coord_cartesian(ylim = 0:1) +
-  labs(title    = "Hypothetical Population",
-       subtitle = expression(paste(theta[1], " = .11; ", theta[2], " = .11"))) +
-  theme(panel.grid   = element_blank(),
+  labs(title = "Hypothetical Population",
+       subtitle = expression(theta[1]==".11;"*~theta[2]==".11")) +
+  theme(panel.grid = element_blank(),
         axis.ticks.x = element_blank())
 ```
 
@@ -782,9 +775,9 @@ tibble(y      = factor(c("tail", "head"), levels = c("tail", "head")),
   ggplot(aes(x = y, y = `p(y)`)) +
   geom_col() +
   coord_cartesian(ylim = 0:1) +
-  labs(title    = "Hypothetical Population",
-       subtitle = expression(paste(theta[1], " = .539; ", theta[2], " = .539"))) +
-  theme(panel.grid   = element_blank(),
+  labs(title = "Hypothetical Population",
+       subtitle = expression(theta[1]==".539;"*~theta[2]==".539")) +
+  theme(panel.grid = element_blank(),
         axis.ticks.x = element_blank())
 ```
 
@@ -841,12 +834,12 @@ tibble(c = 1:100) %>%
   ggplot(aes(x = c, y = probability, color = key)) +
   geom_line(size = 1.1) +
   geom_text(data = tibble(
-    c = c(85, 75, 70),
+    c           = c(85, 75, 70),
     probability = c(.08, .9, .82),
-    label = c("no false alarms",
-              "at least one false alarm",
-              "(i.e., experimentwise false alarm rate)"),
-    key = c("p1", "p2", "p2")
+    label       = c("no false alarms",
+                    "at least one false alarm",
+                    "(i.e., experimentwise false alarm rate)"),
+    key         = c("p1", "p2", "p2")
   ),
   aes(label = label)) +
   scale_color_viridis_d(option = "D", end = .4) +
@@ -885,7 +878,7 @@ tibble(c = 1:100) %>%
 A little shocking, isn't it? If you put it on a log scale, you'll see the relationship is linear.
 
 ```{r, fig.width = 5, fig.height = 3.5}
-tibble(c      = 1:100) %>% 
+tibble(c = 1:100) %>% 
   mutate(a_ew = alpha_pc^c) %>% 
   
   ggplot(aes(x = c, y = a_ew)) +
