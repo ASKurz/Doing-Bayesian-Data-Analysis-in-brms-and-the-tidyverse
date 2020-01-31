@@ -79,7 +79,7 @@ tibble(theta = seq(from = 0, to = 1, by = .001)) %>%
   geom_ribbon(size = 0, fill = "grey67") +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(title = "Behold our prior. It's rather peaked.",
-       x     = expression(theta)) +
+       x = expression(theta)) +
   theme(panel.grid = element_blank())
 ```
 
@@ -117,7 +117,7 @@ Do note that whereas Kruschke  based his discussion on a bias of 0.638, we're mo
 n <- 1e3
 
 set.seed(13)
-tibble(flips  = rbernoulli(n = n, p = bias)) %>% 
+tibble(flips = rbernoulli(n = n, p = bias)) %>% 
   summarise(n = n(),
             z = sum(flips)) %>% 
   mutate(`proportion of heads` = z / n)
@@ -142,6 +142,7 @@ hdi_of_icdf <- function(name, width = .95, tol = 1e-8, ... ) {
                        name = name, width = width, 
                        tol = tol, ...)
   hdi_lower_tail_prob <- opt_info$minimum
+  
   return(c(name(hdi_lower_tail_prob, ...),
            name(width + hdi_lower_tail_prob, ...)))
   
@@ -153,7 +154,7 @@ Just to warm up, consider a beta distribution for which $\omega = .5$ and $\kapp
 ```{r}
 omega <- .5
 
-hdi_of_icdf(name   = qbeta,
+hdi_of_icdf(name = qbeta,
             shape1 =      omega  * (kappa - 2) + 1,
             shape2 = (1 - omega) * (kappa - 2) + 1)
 ```
@@ -167,61 +168,61 @@ min_n_for_hdi_power <-
            rope = c(max(0, null_value - 0.02), min(1, null_value + 0.02)),
            desired_power = 0.8, aud_prior_mode = 0.5, aud_prior_n = 2,
            hdi_mass = 0.95, init_samp_size = 20, verbose = TRUE) {
-  # Check for argument consistency:
-  if (!xor(is.null(hdi_max_width), is.null(null_value))) {
-    stop("One and only one of `hdi_max_width` and `null_value` must be specified.")
-  }
-  # Convert prior mode and N to a, b parameters of beta distribution:
-  gen_prior_a <-        gen_prior_mode  * (gen_prior_n - 2) + 1
-  gen_prior_b <- (1.0 - gen_prior_mode) * (gen_prior_n - 2) + 1
-  aud_prior_a <-        aud_prior_mode  * (aud_prior_n - 2) + 1
-  aud_prior_b <- (1.0 - aud_prior_mode) * (aud_prior_n - 2) + 1
-  # Initialize loop for incrementing `sample_size`:
-  sample_size <- init_samp_size
-  not_powerful_enough = TRUE
-  # Increment `sample_size` until desired power is achieved:
-  while(not_powerful_enough) {
-    z_vec <- 0:sample_size # vector of all possible z values for N flips.
-    # Compute probability of each z value for data-generating prior:
-    p_z_vec <- exp(lchoose(sample_size, z_vec)
-                 + lbeta(z_vec + gen_prior_a, sample_size - z_vec + gen_prior_b)
-                 - lbeta(gen_prior_a, gen_prior_b))
-    # For each z value, compute posterior HDI:
-    # `hdi_matrix` will hold HDI limits for each z:
-    hdi_matrix <- matrix(0, nrow = length(z_vec), ncol = 2)
-    for (z_id_x in 1:length(z_vec)) {
-      z <- z_vec[z_id_x]
-      hdi_matrix[z_id_x, ] <- hdi_of_icdf(qbeta,
-                                          shape1 = z + aud_prior_a,
-                                          shape2 = sample_size - z + aud_prior_b,
-                                          width  = hdi_mass)
-}
-# Compute HDI widths:
-hdi_width <- hdi_matrix[, 2] - hdi_matrix[, 1]
-# Sum the probabilities of outcomes with satisfactory HDI widths:
-if (!is.null(hdi_max_width)) {
-  power_hdi <- sum(p_z_vec[hdi_width < hdi_max_width])
-}
-# Sum the probabilities of outcomes with HDI excluding `rope`:
-if (!is.null(null_value)) {
-  power_hdi <- sum(p_z_vec[hdi_matrix[, 1] > rope[2] | hdi_matrix[, 2] < rope[1]])
-}
-if (verbose) {
-  cat(" For sample size = ", sample_size, ", power = ", power_hdi,
-       "\n", sep = ""); flush.console() 
-  }
-if (power_hdi > desired_power) {  # If desired power is attained,
-  not_powerful_enough = FALSE
-} else {
-  sample_size <- sample_size + 1
-# set flag to stop,
-# otherwise
-# increment the sample size.
+    # Check for argument consistency:
+    if (!xor(is.null(hdi_max_width), is.null(null_value))) {
+      stop("One and only one of `hdi_max_width` and `null_value` must be specified.")
     }
-  } # End while( not_powerful_enough ).
-  # Return the sample size that achieved the desired power:
-  return(sample_size)
-}
+    # Convert prior mode and N to a, b parameters of beta distribution:
+    gen_prior_a <-        gen_prior_mode  * (gen_prior_n - 2) + 1
+    gen_prior_b <- (1.0 - gen_prior_mode) * (gen_prior_n - 2) + 1
+    aud_prior_a <-        aud_prior_mode  * (aud_prior_n - 2) + 1
+    aud_prior_b <- (1.0 - aud_prior_mode) * (aud_prior_n - 2) + 1
+    # Initialize loop for incrementing `sample_size`:
+    sample_size <- init_samp_size
+    not_powerful_enough = TRUE
+    # Increment `sample_size` until desired power is achieved:
+    while(not_powerful_enough) {
+      z_vec <- 0:sample_size # vector of all possible z values for N flips.
+      # Compute probability of each z value for data-generating prior:
+      p_z_vec <- exp(lchoose(sample_size, z_vec)
+                     + lbeta(z_vec + gen_prior_a, sample_size - z_vec + gen_prior_b)
+                     - lbeta(gen_prior_a, gen_prior_b))
+      # For each z value, compute posterior HDI:
+      # `hdi_matrix` will hold HDI limits for each z:
+      hdi_matrix <- matrix(0, nrow = length(z_vec), ncol = 2)
+      for (z_id_x in 1:length(z_vec)) {
+        z <- z_vec[z_id_x]
+        hdi_matrix[z_id_x, ] <- hdi_of_icdf(qbeta,
+                                            shape1 = z + aud_prior_a,
+                                            shape2 = sample_size - z + aud_prior_b,
+                                            width  = hdi_mass)
+      }
+      # Compute HDI widths:
+      hdi_width <- hdi_matrix[, 2] - hdi_matrix[, 1]
+      # Sum the probabilities of outcomes with satisfactory HDI widths:
+      if (!is.null(hdi_max_width)) {
+        power_hdi <- sum(p_z_vec[hdi_width < hdi_max_width])
+      }
+      # Sum the probabilities of outcomes with HDI excluding `rope`:
+      if (!is.null(null_value)) {
+        power_hdi <- sum(p_z_vec[hdi_matrix[, 1] > rope[2] | hdi_matrix[, 2] < rope[1]])
+      }
+      if (verbose) {
+        cat(" For sample size = ", sample_size, ", power = ", power_hdi,
+            "\n", sep = ""); flush.console() 
+      }
+      if (power_hdi > desired_power) {  # If desired power is attained,
+        not_powerful_enough = FALSE
+      } else {
+        sample_size <- sample_size + 1
+        # set flag to stop,
+        # otherwise
+        # increment the sample size.
+      }
+    } # End while( not_powerful_enough ).
+    # Return the sample size that achieved the desired power:
+    return(sample_size)
+  }
 ```
 
 Other than altering Kruschke's formatting a little bit, the only meaningful change I made to the code was removing the line that checked for the `HDIofICD()` function and then `source()`ed it, if necessary. Following along with Kruschke on page 370, here's an example for which $\omega_\text{data generating} = .75$, $\kappa = 2000$, the ROPE is $[.48, .52]$, and the desired power is the conventional .8.
@@ -262,7 +263,7 @@ tibble(theta = seq(from = 0, to = 1, by = .01)) %>%
   scale_y_continuous(NULL, breaks = NULL) +
   coord_cartesian(ylim = c(0, 1.25)) +
   labs(title = "Behold the uniform audience prior.",
-       x     = expression(theta)) +
+       x = expression(theta)) +
   theme(panel.grid = element_blank())
 ```
 
@@ -330,10 +331,11 @@ n - z + 1
 Here's how we compute the 95% HDIs.
 
 ```{r}
-(h <-
-  hdi_of_icdf(name   = qbeta,
-              shape1 = 7,
-              shape2 = 5)
+(
+  h <-
+    hdi_of_icdf(name = qbeta,
+                shape1 = 7,
+                shape2 = 5)
 )
 ```
 
@@ -350,11 +352,10 @@ tibble(theta = seq(from = 0, to = 1, by = .01)) %>%
   geom_segment(x = h[1], xend = h[2],
                y = 0,    yend = 0,
                size = 1) +
-  annotate(geom = "text",
-           x = .6, y = 1/3, label = "95% HDI") +
+  annotate(geom = "text", x = .6, y = 1/3, label = "95% HDI") +
   scale_x_continuous(NULL, breaks = c(0, h[1], z / n, h[2], 1) %>% round(2)) +
   scale_y_continuous(NULL, breaks = NULL) +
-  ggtitle("beta (7, 5)") +
+  ggtitle(expression("beta"*(7*", "*5))) +
   theme(panel.grid = element_blank())
 ```
 
@@ -425,10 +426,9 @@ tibble(theta = seq(from = 0, to = 1, by = .1)) %>%
   
   ggplot(aes(x = theta, ymin = 0, ymax = density)) +
   geom_ribbon(size = 0, fill = "grey67") +
-  scale_y_continuous(NULL, breaks = NULL) +
-  coord_cartesian(ylim = c(0, 1.25)) +
+  scale_y_continuous(NULL, breaks = NULL, limits = c(0, 1.25)) +
   labs(title = "Behold the uniform audience prior.",
-       x     = expression(theta)) +
+       x = expression(theta)) +
   theme(panel.grid = element_blank())
 ```
 
@@ -554,7 +554,7 @@ sim1 <-
   # simulate the data
   mutate(data = pmap(list(n, size, theta), rbinom)) %>% 
   # fit the models on the simulated data
-  mutate(fit  = map(data, ~update(fit1, newdata = list(y = .))))
+  mutate(fit = map(data, ~update(fit1, newdata = list(y = .))))
 ```
 
 ```{r, echo = F}
@@ -617,13 +617,13 @@ Those are our power estimates. To compute their HDIS, just increase them by a fa
 
 ```{r}
 # HDIs for the ROPE power estimate
-hdi_of_icdf(name   = qbeta,
+hdi_of_icdf(name = qbeta,
             shape1 = 1 + 92,
             shape2 = 1 + n_sim - 92) %>% 
   round(digits = 2)
 
 # HDIs for the width power estimate
-hdi_of_icdf(name   = qbeta,
+hdi_of_icdf(name = qbeta,
             shape1 = 1 + 35,
             shape2 = 1 + n_sim - 35) %>% 
   round(digits = 2)
@@ -676,13 +676,13 @@ Compute the corresponding HDIs.
 
 ```{r}
 # HDIs for the ROPE power estimate
-hdi_of_icdf(name   = qbeta,
+hdi_of_icdf(name = qbeta,
             shape1 = 1 + 71,
             shape2 = 1 + n_sim - 71) %>% 
   round(digits = 2)
 
 # HDIs for the width power estimate
-hdi_of_icdf(name   = qbeta,
+hdi_of_icdf(name = qbeta,
             shape1 = 1 + 91,
             shape2 = 1 + n_sim - 91) %>% 
   round(digits = 2)
@@ -775,11 +775,10 @@ Here's a look at our two main parameters, our version of the top panels of Figur
 posterior_samples(fit2) %>% 
   pivot_longer(b_Intercept:sd_s__Intercept) %>% 
   
-  ggplot(aes(x = value)) +
-  geom_histogram(color = "grey92", fill = "grey67",
-                 size = .2, bins = 40) +
-  stat_pointintervalh(aes(y = 0),
-                      point_interval = mode_hdi, .width = c(.95, .5)) +
+  ggplot(aes(x = value, y = 0)) +
+  stat_histintervalh(point_interval = mode_hdi, .width = .95,
+                     fill = "grey67", slab_color = "grey92",
+                     breaks = 40, slab_size = .4, outline_bars = T) +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(subtitle = "Remember, these are in the log-odds metric.",
        x = NULL) +
@@ -809,15 +808,14 @@ Here's what that looks like.
 
 ```{r, fig.width = 4, fig.height = 3}
 f %>% 
-  ggplot(aes(x = theta)) +
-  geom_histogram(color = "grey92", fill = "grey67",
-                 size = .2, bins = 30) +
-  stat_pointintervalh(aes(y = 0),
-                      point_interval = mode_hdi, .width = c(.95, .5)) +
+  ggplot(aes(x = theta, y = 0)) +
+  stat_histintervalh(point_interval = mode_hdi, .width = .95,
+                     fill = "grey67", slab_color = "grey92",
+                     breaks = 30, slab_size = .2, outline_bars = T) +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(subtitle = "Behold our \"distribution of parameter values consistent\nwith our idealized hypothesis.\"",
        x = expression(theta)) +
-  coord_cartesian(xlim = 0:1) +
+  xlim(0, 1) +
   theme(panel.grid = element_blank())
 ```
 
@@ -1025,12 +1023,12 @@ sim3 %>%
 The power estimates for `power_rope_theta`, `power_width_theta`, and `power_rope_theta_s` were all the same, 1. Only the estimate for `power_width_theta_s` was unique. Here are the two sets of HDIs for the power estimate values.
 
 ```{r}
-hdi_of_icdf(name   = qbeta,
+hdi_of_icdf(name = qbeta,
             shape1 = 1 + 100,
             shape2 = 1 + n_sim - 100) %>% 
   round(digits = 2)
 
-hdi_of_icdf(name   = qbeta,
+hdi_of_icdf(name = qbeta,
             shape1 = 1 + 47,
             shape2 = 1 + n_sim - 47) %>% 
   round(digits = 2)
@@ -1086,12 +1084,12 @@ sim4 %>%
 Now compute the HDIs for `power_rope_theta` and `power_width_theta`.
 
 ```{r}
-hdi_of_icdf(name   = qbeta,
+hdi_of_icdf(name = qbeta,
             shape1 = 1 + 99,
             shape2 = 1 + n_sim - 99) %>% 
   round(digits = 2)
 
-hdi_of_icdf(name   = qbeta,
+hdi_of_icdf(name = qbeta,
             shape1 = 1 + 94,
             shape2 = 1 + n_sim - 94) %>% 
   round(digits = 2)
@@ -1100,12 +1098,12 @@ hdi_of_icdf(name   = qbeta,
 Second, we now compute the HDIs for `power_rope_theta_s` and `power_width_theta_s`.
 
 ```{r}
-hdi_of_icdf(name   = qbeta,
+hdi_of_icdf(name = qbeta,
             shape1 = 1 + 1,
             shape2 = 1 + n_sim - 1) %>% 
   round(digits = 2)
 
-hdi_of_icdf(name   = qbeta,
+hdi_of_icdf(name = qbeta,
             shape1 = 1 + 93,
             shape2 = 1 + n_sim - 93) %>% 
   round(digits = 2)
@@ -1162,11 +1160,10 @@ Here's a look at our two main parameters, our version of the bottom panels of Fi
 posterior_samples(fit4) %>% 
   pivot_longer(b_Intercept:sd_s__Intercept) %>% 
 
-  ggplot(aes(x = value)) +
-  geom_histogram(color = "grey92", fill = "grey67",
-                 size = .2, bins = 40) +
-  stat_pointintervalh(aes(y = 0),
-                      point_interval = mode_hdi, .width = c(.95, .5)) +
+  ggplot(aes(x = value, y = 0)) +
+  stat_histintervalh(point_interval = mode_hdi, .width = .95,
+                     fill = "grey67", slab_color = "grey92",
+                     breaks = 50, slab_size = .4, outline_bars = T) +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(subtitle = "Remember, these are in the log-odds metric.",
        x = NULL) +
@@ -1192,11 +1189,10 @@ Here's what our updated distribution of $theta$ values looks like.
 
 ```{r, fig.width = 4, fig.height = 3}
 f %>% 
-  ggplot(aes(x = theta)) +
-  geom_histogram(color = "grey92", fill = "grey67",
-                 size = .2, bins = 30) +
-  stat_pointintervalh(aes(y = 0),
-                      point_interval = mode_hdi, .width = c(.95, .5)) +
+  ggplot(aes(x = theta, y = 0)) +
+  stat_histintervalh(point_interval = mode_hdi, .width = c(.95, .5),
+                     fill = "grey67", slab_color = "grey92",
+                     breaks = 40, slab_size = .4, outline_bars = T) +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(subtitle = "Behold our \"distribution of parameter values consistent\nwith our idealized hypothesis.\"",
        x = expression(theta)) +
@@ -1254,12 +1250,12 @@ sim5 %>%
 Here are the two interval types.
 
 ```{r}
-hdi_of_icdf(name   = qbeta,
+hdi_of_icdf(name = qbeta,
             shape1 = 1 + 100,
             shape2 = 1 + n_sim - 100) %>% 
   round(digits = 2)
 
-hdi_of_icdf(name   = qbeta,
+hdi_of_icdf(name = qbeta,
             shape1 = 1 + 27,
             shape2 = 1 + n_sim - 27) %>% 
   round(digits = 2)
@@ -1288,7 +1284,7 @@ set.seed(13)
 coin.5 <-
   tibble(n    = 1:n_trial,
          flip = rbinom(n = n_trial, size = 1, prob = bias)) %>% 
-  mutate(z    = cumsum(flip))
+  mutate(z = cumsum(flip))
 
 head(coin.5)
 ```
@@ -1350,6 +1346,7 @@ log_bf <- function(n, z, theta) {
   
   # take the log
   log(bf)
+  
 }
 ```
 
@@ -1412,8 +1409,7 @@ p1 <-
   geom_line() +
   geom_point(size = 2/3) +
   scale_x_continuous(NULL, breaks = 0:7 * 100) +
-  coord_cartesian(ylim = 0:1) +
-  theme(panel.grid = element_blank())
+  coord_cartesian(ylim = 0:1)
 
 p2 <-
   coin.5 %>% 
@@ -1422,8 +1418,7 @@ p2 <-
   geom_line() +
   geom_point(size = 2/3) +
   scale_x_continuous(NULL, breaks = 0:7 * 100) +
-  scale_y_continuous(expression(paste(italic(p), "-value")), limits = c(0, 1)) +
-  theme(panel.grid = element_blank())
+  scale_y_continuous(expression(italic(p)*"-value"), limits = c(0, 1))
   
 p3 <-
   coin.5 %>% 
@@ -1432,12 +1427,11 @@ p3 <-
   geom_line() +
   geom_point(aes(color = log_bf < -1.1 | log_bf > 1.1),
              alpha = 1/2, size = 2/3, show.legend = F) +
-  annotate(geom = "text",
-           x = 60, y = -1.5, label = "accept the null", color = "grey50") +
-  scale_x_continuous(NULL, breaks = 0:7 * 100) +
+  annotate(geom = "text", x = 60, y = -1.5, 
+           label = "accept the null", color = "grey50") +
   scale_color_viridis_d(option = "D", end = .75) +
-  ylab("log(BF)") +
-  theme(panel.grid = element_blank())
+  scale_x_continuous(NULL, breaks = 0:7 * 100) +
+  ylab("log(BF)")
 
 p4 <-
   coin.5 %>% 
@@ -1446,11 +1440,10 @@ p4 <-
   geom_linerange(aes(ymin = ll, ymax = ul,
                      color = ll > .45 & ul < .55),
                  alpha = 1/2, show.legend = F) +
-  scale_x_continuous(NULL, breaks = 0:7 * 100) +
   scale_color_viridis_d(option = "D", end = .75) +
+  scale_x_continuous(NULL, breaks = 0:7 * 100) +
   ylab("95% HDI") +
-  coord_cartesian(ylim = 0:1) +
-  theme(panel.grid = element_blank())
+  coord_cartesian(ylim = 0:1)
 
 p5 <-
   coin.5 %>% 
@@ -1459,11 +1452,10 @@ p5 <-
   geom_line() +
   geom_point(aes(color = width < .08),
              alpha = 1/2, size = 2/3, show.legend = F) +
-  scale_x_continuous(NULL, breaks = 0:7 * 100) +
   scale_color_viridis_d(option = "D", end = .75) +
+  scale_x_continuous(NULL, breaks = 0:7 * 100) +
   ylab("HDI width") +
-  coord_cartesian(ylim = 0:1) +
-  theme(panel.grid = element_blank())
+  coord_cartesian(ylim = 0:1)
 ```
 
 With syntax from the **patchwork** package, we'll arrange them one atop another.
@@ -1471,14 +1463,14 @@ With syntax from the **patchwork** package, we'll arrange them one atop another.
 ```{r, fig.width = 8, fig.height = 8, warning = F, message = F}
 library(patchwork)
 
-p1 / p2 / p3 / p4 / p5
+(p1 / p2 / p3 / p4 / p5) & theme(panel.grid = element_blank())
 ```
 
 Now let's compute data of the same form, but based on $\theta = .65$. This time we'll do all the data wrangling steps in one code block.
 
 ```{r}
 n_trial <- 700
-bias <- .65
+bias    <- .65
 
 set.seed(13)
 
@@ -1486,7 +1478,7 @@ coin.65 <-
   # n, flip, and z
   tibble(n    = 1:n_trial,
          flip = rbinom(n = n_trial, size = 1, prob = bias)) %>% 
-  mutate(z    = cumsum(flip)) %>%
+  mutate(z = cumsum(flip)) %>%
   # p-values
   mutate(p = map2_dbl(n, z, fit_glm)) %>% 
   # log(BF)
@@ -1510,8 +1502,7 @@ p1 <-
   geom_line() +
   geom_point(size = 2/3) +
   scale_x_continuous(NULL, breaks = 0:7 * 100) +
-  coord_cartesian(ylim = 0:1) +
-  theme(panel.grid = element_blank())
+  coord_cartesian(ylim = 0:1)
 
 p2 <-
   coin.65 %>% 
@@ -1520,10 +1511,9 @@ p2 <-
   geom_line() +
   geom_point(aes(color = p < .05),
              alpha = 1/2, size = 2/3, show.legend = F) +
-  scale_x_continuous(NULL, breaks = 0:7 * 100) +
-  scale_y_continuous(expression(paste(italic(p), "-value")), limits = c(0, 1)) +
   scale_color_viridis_d(option = "D", end = .75) +
-  theme(panel.grid = element_blank())
+  scale_x_continuous(NULL, breaks = 0:7 * 100) +
+  scale_y_continuous(expression(italic(p)*"-value"), limits = c(0, 1)) 
 
 p3 <-
   coin.65 %>% 
@@ -1532,12 +1522,11 @@ p3 <-
   geom_line() +
   geom_point(aes(color = log_bf < -1.1 | log_bf > 1.1),
              alpha = 1/2, size = 2/3, show.legend = F) +
-  annotate(geom = "text",
-           x = 60, y = c(-8, 28), label = c("accept the null", "reject the null"), color = "grey50") +
-  scale_x_continuous(NULL, breaks = 0:7 * 100) +
-  scale_y_continuous("log(BF)", limits = c(-10, 30)) +
+  annotate(geom = "text", x = 60, y = c(-8, 28), 
+           label = c("accept the null", "reject the null"), color = "grey50") +
   scale_color_viridis_d(option = "D", end = .75) +
-  theme(panel.grid = element_blank())
+  scale_x_continuous(NULL, breaks = 0:7 * 100) +
+  scale_y_continuous("log(BF)", limits = c(-10, 30))
 
 p4 <-
   coin.65 %>% 
@@ -1546,11 +1535,9 @@ p4 <-
   geom_linerange(aes(ymin = ll, ymax = ul,
                      color = ll > .55 | ul < .45),
                  alpha = 1/2, show.legend = F) +
-  scale_x_continuous(NULL, breaks = 0:7 * 100) +
   scale_color_viridis_d(option = "D", end = .75) +
-  ylab("95% HDI") +
-  coord_cartesian(ylim = 0:1) +
-  theme(panel.grid = element_blank())
+  scale_x_continuous(NULL, breaks = 0:7 * 100) +
+  scale_y_continuous("95% HDI", limits = c(0, 1))
 
 p5 <-
   coin.65 %>% 
@@ -1559,13 +1546,11 @@ p5 <-
   geom_line() +
   geom_point(aes(color = width < .08),
              alpha = 1/2, size = 2/3, show.legend = F) +
-  scale_x_continuous(NULL, breaks = 0:7 * 100) +
   scale_color_viridis_d(option = "D", end = .75) +
-  ylab("HDI width") +
-  coord_cartesian(ylim = 0:1) +
-  theme(panel.grid = element_blank())
+  scale_x_continuous(NULL, breaks = 0:7 * 100) +
+  scale_y_continuous("HDI width", limits = c(0, 1))
 
-p1 / p2 / p3 / p4 / p5
+(p1 / p2 / p3 / p4 / p5) & theme(panel.grid = element_blank())
 ```
 
 ### Average behavior of sequential tests.
