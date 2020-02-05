@@ -93,25 +93,15 @@ The primary function in **brms** is `brm()`. Into this one function we will spec
 
 Here's how to fit the model.
 
-```{r, echo = F, warning = F, message = F}
-# I don't know why, but bookdown kept throwing errors from the chunk below when
-# I tried executing `bookdown::publish_book()`.
-# this was a quick solution
-
-# save("fit1", file = "fits/08_fit1.rda")
-# rm(fit1)
-
-load("fits/08_fit1.rda")
-```
-
-```{r, eval = F}
-fit1 <-
+```{r}
+fit8.1 <-
   brm(data = my_data, 
       family = bernoulli(link = identity),
       formula = y ~ 1,
       prior(beta(2, 2), class = Intercept),
       iter = 500 + 3334, warmup = 500, chains = 3,
-      seed = 8)
+      seed = 8,
+      file = "fits/fit08.01")
 ```
 
 For a more detailed explanation of the `brms::brm()` function, spend some time with the `brm` section of the [**brms** reference manual](https://cran.r-project.org/web/packages/brms/brms.pdf).
@@ -141,7 +131,7 @@ To learn more about the warmup stage in Stan, check out the [HMC Algorithm Param
 The `brms::plot()` function returns a density and trace plot for each model parameter.
 
 ```{r, fig.width = 10, fig.height = 1.5}
-plot(fit1)
+plot(fit8.1)
 ```
 
 If you want to display each chain as its own density, you can use the handy `mcmc_dens_overlay()` function from the [**bayesplot** package](https://cran.r-project.org/web/packages/bayesplot/index.html). 
@@ -153,7 +143,7 @@ library(bayesplot)
 But before we do so, we'll need to export the posterior samples into a data frame, for which we'll employ `posterior_samples()`.
 
 ```{r}
-post <- posterior_samples(fit1, add_chain = T)
+post <- posterior_samples(fit8.1, add_chain = T)
 ```
 
 Note the `add_chain = T` argument, which will allow us to differentiate the draws by their chain of origin. But anyway, here are the overlaid densities. 
@@ -172,15 +162,15 @@ mcmc_acf(post, pars = "b_Intercept", lags = 35)
 With **brms** functions, we get a sole $\hat R$ value for each parameter rather than a running vector.
 
 ```{r}
-rhat(fit1)["b_Intercept"]
+rhat(fit8.1)["b_Intercept"]
 ```
 
 We'll have to employ `brms::as.mcmc()` and `coda::gelman.plot()` to make our running $\hat R$ plot.
 
 ```{r, fig.width = 4, fig.height = 3}
-fit1_c <- as.mcmc(fit1)
+fit8.1_c <- as.mcmc(fit8.1)
 
-coda::gelman.plot(fit1_c[, "b_Intercept", ])
+coda::gelman.plot(fit8.1_c[, "b_Intercept", ])
 ```
 
 #### ~~The `plotPost` function~~ How to plot your brms posterior distributions.
@@ -188,25 +178,25 @@ coda::gelman.plot(fit1_c[, "b_Intercept", ])
 We'll get into plotting in just a moment. But before we do, here's a summary of the model.
 
 ```{r}
-print(fit1)
+print(fit8.1)
 ```
 
 To summarize a posterior in terms of central tendency, **brms** defaults to the mean value (i.e., the value in the 'Estimate' column of the `print()` output). In many of the other convenience functions, you can also request the median instead. For example, we can use the `robust = T` argument to get the 'Estimate' in terms of the median. 
 
 ```{r}
-posterior_summary(fit1, robust = T)
+posterior_summary(fit8.1, robust = T)
 ```
 
 Across functions, the intervals default to 95%. With `print()` and `summary()` you can adjust the level with a `prob` argument. For example, here we'll use 50% intervals.
 
 ```{r}
-print(fit1, prob = .5)
+print(fit8.1, prob = .5)
 ```
 
 But in many other **brms** convenience functions, you can use the `probs` argument to request specific percentile summaries.
 
 ```{r}
-posterior_summary(fit1, probs = c(.025, .25, .75, .975))
+posterior_summary(fit8.1, probs = c(.025, .25, .75, .975))
 ```
 
 Regardless of what `prob` or `probs` levels you use, **brms** functions always return percentile-based estimates. All this central tendency and interval talk will be important in a moment...
@@ -225,7 +215,7 @@ post %>%
   geom_histogram(color = "grey92", fill = "grey67",
                  size = .2) +
   scale_y_continuous(NULL, breaks = NULL) +
-  labs(title = "Theta",
+  labs(title = "Theta via ggplot2::geom_histogram()",
        x = expression(theta)) +
   theme(panel.grid = element_blank())
 ```
@@ -241,7 +231,7 @@ mcmc_areas(
   point_est = "mean"
 ) +
   scale_y_discrete(NULL, breaks = NULL) +
-  labs(title = "Theta",
+  labs(title = "Theta via bayesplot::mcmc_areas()",
        x = expression(theta)) +
   theme(panel.grid = element_blank())
 ```
@@ -255,12 +245,12 @@ post %>%
   ggplot(aes(x = b_Intercept, y = 0)) +
   geom_halfeyeh(point_interval = mode_hdi, .width = c(.95, .5)) +
   scale_y_continuous(NULL, breaks = NULL) +
-  labs(title = "Theta",
+  labs(title = "Theta via tidybayes::geom_halfeyeh()",
        x = expression(theta)) +
   theme(panel.grid = element_blank())
 ```
 
-The `tidybayes::geom_halfeyeh()` function returns a density with a measure of the posterior's central tendency in a dot and one or multiple interval bands as horizontal lines at the base of the density. By using the `point_interval = mode_hdi` argument, we asked for the mode to be our measure of central tendency and the highest posterior density intervals to be our type intervals. With `.width = c(.95, .5)`, we requested our HDIs be at both the 95% and 50% levels.
+The `tidybayes::geom_halfeyeh()` function returns a density with a measure of the posterior's central tendency in a dot and one or multiple interval bands as horizontal lines at the base of the density. Using the `point_interval = mode_hdi` argument, we asked for the mode to be our measure of central tendency and the highest posterior density intervals to be our type intervals. With `.width = c(.95, .5)`, we requested our HDIs be at both the 95% and 50% levels.
 
 To be more congruent with Kruschke's plotting sensibilities, we can use `tidybayes::stat_histintervalh()`. 
 
@@ -276,11 +266,11 @@ post %>%
   ggplot(aes(x = b_Intercept, y = 0)) +
   stat_histintervalh(point_interval = mode_hdi, .width = .95,
                      fill = "grey67", slab_color = "grey92",
-                     breaks = 40, slab_size = .4, outline_bars = T) +
+                     breaks = 40, slab_size = .25, outline_bars = T) +
   scale_x_continuous(breaks = my_breaks$breaks,
                      labels = my_breaks$labels) +
   scale_y_continuous(NULL, breaks = NULL) +
-  labs(title = "Theta",
+  labs(title = "Theta via tidybayes::stat_histintervalh()",
        x = expression(theta)) +
   theme(panel.grid = element_blank())
 ```
@@ -295,11 +285,12 @@ post %>%
   scale_y_continuous(NULL, breaks = 1:2,
                      labels = c("median_qi", "mode_hdi")) +
   coord_cartesian(ylim = 0:3) +
-  labs(title = "Theta",
+  labs(title = "Theta via tidybayes::stat_pointintervalh()",
        x = expression(theta)) +
-  theme(panel.grid = element_blank(),
+  theme(axis.text.y = element_text(hjust = 0),
         axis.ticks.y = element_blank(),
-        axis.text.y = element_text(hjust = 0))
+        panel.grid = element_blank(),
+        title = element_text(size = 10.5))
 ```
 
 Similar, yet distinct.
@@ -332,19 +323,8 @@ my_data %>%
 
 Here we fit the model with `brms::brm()`.
 
-```{r, echo = F, warning = F, message = F}
-# I don't know why, but bookdown kept throwing errors from the chunk below when
-# I tried executing `bookdown::publish_book()`.
-# this was a quick solution
-
-# save("fit2", file = "fits/08_fit2.rda")
-# rm(fit2)
-
-load("fits/08_fit2.rda")
-```
-
-```{r, eval = F}
-fit2 <-
+```{r}
+fit8.2 <-
   brm(data = my_data, 
       family = bernoulli(identity),
       y ~ 0 + s,
@@ -354,7 +334,8 @@ fit2 <-
       # this line isn't always necessary, but it will let us use `prior_samples()` later
       sample_prior = T,
       control = list(adapt_delta = .999),
-      seed = 8)
+      seed = 8,
+      file = "fits/fit08.02")
 ```
 
 More typically, we'd parameterize the model as `y ~ 1 + s`. This form would yield an intercept and a slope. Behind the scenes, **brms** would treat the nominal `s` variable as an 0-1 coded dummy variable. One of the nominal levels would become the reverence category, depicted by the `Intercept`, and the difference between that and the other category would be the `s` slope. However, with our `y ~ 0 + s` syntax, we've suppressed the typical model intercept. The consequence is that each level of the nominal variable `s` gets its own intercept or [i] index, if you will. This is analogous to Kruschke's `y[i] ∼ dbern(theta[s[i]])` code.
@@ -364,26 +345,26 @@ Also, notice our use of the `control = list(adapt_delta = .999)` argument. By de
 All that aside, here are the chains.
 
 ```{r, fig.width = 10, fig.height = 3}
-plot(fit2)
+plot(fit8.2)
 ```
 
 The model `summary()` is as follows:
 
 ```{r}
-summary(fit2)
+summary(fit8.2)
 ```
 
 The `brms::pairs()` function gets us the bulk of Figure 8.6.
 
 ```{r, fig.width = 4.5, fig.height = 4}
-pairs(fit2,
+pairs(fit8.2,
       off_diag_args = list(size = 1/3, alpha = 1/3))
 ```
 
 But to get at that difference-score distribution, we'll have extract the posterior iterations with `posterior_samples()`, make difference score with `mutate()`, and manually plot with **ggplot2**.
 
 ```{r}
-post <- posterior_samples(fit2)
+post <- posterior_samples(fit8.2)
 
 post <-
   post %>% 
@@ -405,7 +386,7 @@ gathered_post %>%
   ggplot(aes(x = value, y = 0)) +
   stat_histintervalh(point_interval = mode_hdi, .width = .95,
                      fill = "grey67", slab_color = "grey92",
-                     breaks = 30, slab_size = .4, outline_bars = T) +
+                     breaks = 30, slab_size = .25, outline_bars = T) +
   scale_y_continuous(NULL, breaks = NULL) +
   theme(panel.grid = element_blank()) +
   facet_wrap(~key, scales = "free")
@@ -413,7 +394,7 @@ gathered_post %>%
 
 Here's a way to get the numeric summaries out of `post`.
 
-```{r, warning = F, message = F}
+```{r}
 gathered_post %>% 
   group_by(key) %>% 
   mode_hdi()
@@ -434,7 +415,7 @@ In this context, the `mode_hdi()` summary yields:
 The `sample_prior = T` argument in our `brm()` code allowed us to extract prior samples with the well-named `prior_samples()` function.
 
 ```{r}
-prior <- prior_samples(fit2)
+prior <- prior_samples(fit8.2)
 
 head(prior)
 ```
@@ -469,7 +450,7 @@ prior %>%
              color = "white", size = 1) +
   stat_histintervalh(point_interval = mode_hdi, .width = .95,
                      fill = "grey67", slab_color = "grey92",
-                     breaks = 35, slab_size = .4, outline_bars = T) +
+                     breaks = 35, slab_size = .25, outline_bars = T) +
   scale_y_continuous(NULL, breaks = NULL) +
   theme_grey() +
   theme(panel.grid = element_blank()) +
@@ -517,10 +498,10 @@ In addition to all the likelihood functions listed in above mentioned vignette, 
 
 ## Faster sampling with parallel processing in ~~runjags~~ `brms::brm()`
 
-We don't need to open another package to sample in parallel in **brms**. In fact, we've already been doing that. Take another look at the code use used for the last model, `fit2`.
+We don't need to open another package to sample in parallel in **brms**. In fact, we've already been doing that. Take another look at the code use used for the last model, `fit8.2`.
 
 ```{r, eval = F}
-fit2 <-
+fit8.2 <-
   brm(data = my_data, 
       family = bernoulli(identity),
       y ~ 0 + s,
@@ -529,7 +510,8 @@ fit2 <-
       iter = 6000, warmup = 5000, cores = 4, chains = 4,
       sample_prior = T,
       control = list(adapt_delta = .999),
-      seed = 8)
+      seed = 8,
+      file = "fits/fit08.02")
 ```
 
 See the `cores = 4, chains = 4` arguments? With that bit of code, we told `brms::brm()` we wanted 4 chains, which we ran in parallel across 4 cores.
@@ -552,7 +534,7 @@ sessionInfo()
 
 ```{r, message = F, warning = F, echo = F}
 # Here we'll remove our objects
-rm(my_data, fit1, post, estimate_mode, my_breaks, fit2, gathered_post, prior, d_line)
+rm(my_data, fit8.1, post, estimate_mode, my_breaks, fit8.2, gathered_post, prior, d_line)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
