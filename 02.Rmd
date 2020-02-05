@@ -75,18 +75,18 @@ d %>%
             arrow = arrow(length = unit(0.30, "cm"), 
                           ends = "first", type = "closed")) +
   facet_grid(stage ~ iteration) +
-  theme(panel.grid = element_blank(),
-        strip.text.x = element_blank(),
-        axis.ticks.x = element_blank())
+  theme(axis.ticks.x = element_blank(),
+        panel.grid = element_blank(),
+        strip.text.x = element_blank())
 ```
 
 We will take a similar approach to make our version of Figure 2.2. But this time, we'll define our supplemental data sets directly in `geom_text()` and `geom_line()`. It's good to have both methods up your sleeve. Also notice how we simply fed our primary data set directly into `ggplot()` without saving it, either.
 
 ```{r, fig.width = 2.25, fig.height = 4}
 # primary data
-crossing(stage         = factor(c("Prior", "Posterior"),
-                              levels = c("Prior", "Posterior")),
-         Possibilities = LETTERS[1:4]) %>% 
+crossing(Possibilities = LETTERS[1:4],
+         stage         = factor(c("Prior", "Posterior"),
+                              levels = c("Prior", "Posterior"))) %>% 
   mutate(Credibility = c(rep(0.25, times = 4),
                          rep(0,    times = 3), 
                          1)) %>%
@@ -112,8 +112,8 @@ crossing(stage         = factor(c("Prior", "Posterior"),
                 ends = "last", type = "closed"),
   color = "grey92") +
   facet_wrap(~stage, ncol = 1) +
-  theme(panel.grid = element_blank(),
-        axis.ticks.x = element_blank())
+  theme(axis.ticks.x = element_blank(),
+        panel.grid = element_blank())
 ```
 
 ### Data are noisy and inferences are probabilistic.
@@ -144,8 +144,8 @@ tibble(mu = 1:4,
   labs(title = "Prior",
        x = "Possibilities", 
        y = "Credibility") +
-  theme(panel.grid = element_blank(),
-        axis.ticks.x = element_blank())
+  theme(axis.ticks.x = element_blank(),
+        panel.grid = element_blank())
 ```
 
 We can use the same basic method to make the bottom panel. The new consideration is choosing the relative probabilities for the different `mu` values--keeping in mind they have to sum to 1. I just eyeballed them. The only other notable change from the previous plot is our addition of a `geom_point()` section, in which we defined the data on the fly.
@@ -176,8 +176,8 @@ tibble(mu = 1:4,
   labs(title = "Posterior",
        x = "Possibilities", 
        y = "Credibility") +
-  theme(panel.grid = element_blank(),
-        axis.ticks.x = element_blank())
+  theme(axis.ticks.x = element_blank(),
+        panel.grid = element_blank())
 ```
 
 > In summary, the essence of Bayesian inference is reallocation of credibility across possibilities. The distribution of credibility initially reflects prior knowledge about the possibilities, which can be quite vague. Then new data are observed, and the credibility is re-allocated. Possibilities that are consistent with the data garner more credibility, while possibilities that are not consistent with the data lose credibility. Bayesian analysis is the mathematics of re-allocating credibility in a logically coherent and precise way. (p. 22)
@@ -330,7 +330,7 @@ library(brms)
 The traditional use of [diffuse and noninformative priors is discouraged with HMC, as is the uniform distribution for sigma](https://github.com/stan-dev/stan/wiki/Prior-Choice-Recommendations). Instead, we'll use weakly-regularizing priors for the intercept and slope and a half Cauchy with a fairly large scale parameter for $\sigma$.
 
 ```{r 02_fit1, cache = T, message = F, warning = F}
-fit1 <- 
+fit2.1 <- 
   brm(data = d, 
       family = gaussian,
       weight ~ 1 + height,
@@ -338,14 +338,15 @@ fit1 <-
                 prior(normal(0, 100), class = b),
                 prior(cauchy(0, 10),  class = sigma)),
       chains = 4, cores = 4, iter = 2000, warmup = 1000,
-      seed = 2)
+      seed = 2,
+      file = "fits/fit02.01")
 ```
 
 If you wanted a quick model summary, you could execute `print(fit1)`. We'll walk through that and other diagnostics in greater detail starting in Chapter 8. But for now, here's how we might make Figure 2.5.a.
 
 ```{r, fig.width = 3.25, fig.height = 3}
 # extract the posterior draws
-post <- posterior_samples(fit1)
+post <- posterior_samples(fit2.1)
 
 # this will streamline some of the code, below
 n_lines <- 150
@@ -357,28 +358,27 @@ d %>%
               slope     = post[1:n_lines, 2],
               color = "grey50", size = 1/4, alpha = .3) +
   geom_point(alpha = 2/3) +
-  coord_cartesian(xlim = 55:80,
-                  ylim = 50:250) +
   # the `eval(substitute(paste()))` trick came from: https://www.r-bloggers.com/value-of-an-r-object-in-an-expression/
   labs(subtitle = eval(substitute(paste("Data with", 
                                         n_lines, 
                                         "credible regression lines"))),
        x = "Height in inches",
        y = "Weight in pounds") +
+  coord_cartesian(xlim = 55:80,
+                  ylim = 50:250) +
   theme(panel.grid = element_blank())
 ```
 
-For Figure 2.5.b., we'll use the handy `stat_pointintervalh()` function from the [**tidybayes** package](https://github.com/mjskay/tidybayes) to mark off the mode and 95% HDIs.
+For Figure 2.5.b., we'll use the handy `stat_histintervalh()` function from the [**tidybayes** package](https://github.com/mjskay/tidybayes) to mark off the mode and 95% HDIs underneath a histogram.
 
 ```{r, warning = F, message = F, fig.width = 3, fig.height = 3}
 library(tidybayes)
 
 post %>% 
-  ggplot(aes(x = b_height)) +
-  geom_histogram(color = "grey92", fill = "grey67",
-                 binwidth = .2, size = .2) +
-  stat_pointintervalh(aes(y = 0), 
-                      point_interval = mode_hdi, .width = .95) +
+  ggplot(aes(x = b_height, y = 0)) +
+  stat_histintervalh(point_interval = mode_hdi, .width = .95,
+                     fill = "grey67", slab_color = "grey92",
+                     breaks = 40, slab_size = .2, outline_bars = T) +
   scale_y_continuous(NULL, breaks = NULL) +
   coord_cartesian(xlim = 0:8) +
   labs(title = "The posterior distribution",
@@ -392,16 +392,13 @@ Here's Figure 2.6. We'll go over the `brms::predict()` function later.
 ```{r, fig.width = 4, fig.height = 4}
 nd <- tibble(height = seq(from = 53, to = 81, length.out = 20))
 
-predict(fit1, newdata = nd) %>%
+predict(fit2.1, newdata = nd) %>%
   data.frame() %>%
   bind_cols(nd) %>% 
 
   ggplot(aes(x = height)) +
-  geom_pointrange(aes(y = Estimate, 
-                      ymin = Q2.5, 
-                      ymax = Q97.5),
-                  color = "grey67",
-                  shape = 20) +
+  geom_pointrange(aes(y = Estimate, ymin = Q2.5, ymax = Q97.5),
+                  color = "grey67", shape = 20) +
   geom_point(data =  d, 
              aes(y = weight),
              alpha = 2/3) +
@@ -416,14 +413,12 @@ The posterior predictions might be easier to depict with a ribbon and line, inst
 ```{r, fig.width = 4, fig.height = 4}
 nd <- tibble(height = seq(from = 53, to = 81, length.out = 30))
 
-predict(fit1, newdata = nd) %>%
+predict(fit2.1, newdata = nd) %>%
   data.frame() %>%
   bind_cols(nd) %>% 
 
   ggplot(aes(x = height)) +
-  geom_ribbon(aes(ymin = Q2.5, 
-                  ymax = Q97.5),
-                  fill = "grey75") +
+  geom_ribbon(aes(ymin = Q2.5, ymax = Q97.5), fill = "grey75") +
   geom_line(aes(y = Estimate),
             color = "grey92") +
   geom_point(data =  d, 
@@ -447,7 +442,7 @@ sessionInfo()
 
 ```{r, eval = F, echo = F}
 # remove our objects
-rm(d, text, arrow, HtWtDataGenerator, fit, post, n_lines, nd)
+rm(d, text, arrow, HtWtDataGenerator, fit2.1, post, n_lines, nd)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
