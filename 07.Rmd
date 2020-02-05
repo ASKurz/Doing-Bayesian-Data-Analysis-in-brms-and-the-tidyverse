@@ -26,7 +26,7 @@ Like in Chapters 4 and 6, we need to define our `hdi_of_icdf()` function.
 hdi_of_icdf <- function(name, width = .95, tol = 1e-8, ... ) {
   
   incredible_mass <-  1.0 - width
-  interval_width  <- function(low_tail_prob, name, width, ...) {
+  interval_width <- function(low_tail_prob, name, width, ...) {
     name(width + low_tail_prob, ...) - name(low_tail_prob, ...)
   }
   opt_info <- optimize(interval_width, c(0, incredible_mass), 
@@ -78,10 +78,10 @@ tibble(theta = seq(from = 0, to = 1, length.out = 100)) %>%
            label = "95% HDI", color = "grey92") +
   scale_x_continuous(breaks = c(0, h, omega, 1),
                      labels = c("0", h %>% round(2), omega, "1")) +
-  coord_cartesian(ylim = c(-.125, 4)) +
   labs(title = "Exact distribution",
        x = expression(theta),
        y = expression(p(theta))) +
+  coord_cartesian(ylim = c(-.125, 4)) +
   theme(panel.grid = element_blank())
 ```
 
@@ -108,7 +108,7 @@ d %>%
   ggplot(aes(x = theta, y = 0)) +
   stat_histintervalh(point_interval = mode_hdi, .width = .95,
                      fill = "grey67", slab_color = "grey92",
-                     breaks = 30, slab_size = .4, outline_bars = T) +
+                     breaks = 30, slab_size = .25, outline_bars = T) +
   scale_x_continuous(expression(theta), limits = c(0, 1)) +
   scale_y_continuous(NULL, breaks = NULL) +
   theme(panel.grid = element_blank()) +
@@ -162,9 +162,9 @@ sim %>%
        y = NULL) +
   coord_cartesian(xlim = c(.6, .8),
                   ylim = c(1.25, 3.5)) +
-  theme(panel.grid = element_blank(),
+  theme(axis.text.y = element_text(hjust = 0),
         axis.ticks.y = element_blank(),
-        axis.text.y = element_text(hjust = 0))
+        panel.grid = element_blank())
 ```
 
 ## A simple case of the Metropolis algorithm
@@ -240,7 +240,7 @@ tibble(x = 1:7,
   ggplot(aes(x = x, y = y)) +
   geom_col(width = .2) +
   scale_x_continuous(expression(theta), breaks = 1:7) +
-  ylab(expression(paste("p(", theta, ")"))) +
+  ylab(expression(p(theta))) +
   theme(panel.grid = element_blank())
 ```
 
@@ -454,7 +454,7 @@ d %>%
   ggplot(aes(x = accepted_traj, y = 0)) +
   stat_histintervalh(point_interval = mode_hdi, .width = .95,
                      fill = "grey67", slab_color = "grey92",
-                     breaks = 40, slab_size = .4, outline_bars = T) +
+                     breaks = 40, slab_size = .25, outline_bars = T) +
   scale_x_continuous(expression(theta), breaks = 0:5 * 0.2) +
   scale_y_continuous(NULL, breaks = NULL) +
   theme(panel.grid = element_blank()) +
@@ -465,7 +465,7 @@ The modes are the points and the lines depict the 95% HDIs.
 
 Here's the middle of Figure 7.4.
 
-```{r, fig.width = 10, fig.height = 2.75}
+```{r, fig.width = 10, fig.height = 2.75, warning = F}
 d %>% 
   ggplot(aes(x = accepted_traj, y = iter)) +
   geom_path(size = 1/4, color = "grey50") +
@@ -479,7 +479,7 @@ d %>%
 
 The bottom:
 
-```{r, fig.width = 10, fig.height = 2.75}
+```{r, fig.width = 10, fig.height = 2.75, warning = F}
 d %>% 
   ggplot(aes(x = accepted_traj, y = iter)) +
   geom_path(size = 1/4, color = "grey50") +
@@ -521,9 +521,9 @@ betas <-
 betas %>% 
   ggplot(aes(x = theta_1, y = theta_2)) +
   stat_density_2d() +
-  coord_equal() +
   labs(x = expression(theta[1]),
        y = expression(theta[2])) +
+  coord_equal() +
   theme(panel.grid = element_blank())
 ```
 
@@ -531,13 +531,12 @@ Instead of the contour lines, one might use color to depict the density variable
 
 ```{r, fig.height = 3}
 betas %>% 
-  ggplot(aes(x = theta_1, y = theta_2)) +
-  stat_density_2d(aes(fill = stat(density)), 
-                  geom = "raster", contour = F) +
+  ggplot(aes(x = theta_1, y = theta_2, fill = stat(density))) +
+  stat_density_2d(geom = "raster", contour = F) +
   scale_fill_viridis_c(option = "A") +
-  coord_equal() +
   labs(x = expression(theta[1]),
        y = expression(theta[2])) +
+  coord_equal() +
   theme(panel.grid = element_blank())
 ```
 
@@ -557,9 +556,9 @@ tibble(theta_1 = theta_sequence,
   ggplot(aes(x = theta_1, y = theta_2, fill = prior_1 * prior_2)) +
   geom_tile() +
   scale_fill_viridis_c(option = "A") +
-  coord_equal() +
   labs(x = expression(theta[1]),
        y = expression(theta[2])) +
+  coord_equal() +
   theme(panel.grid = element_blank())
 ```
 
@@ -595,9 +594,9 @@ tibble(theta_1 = theta_sequence,
   ggplot(aes(x = theta_1, y = theta_2, fill = likelihood_1 * likelihood_2)) +
   geom_tile() +
   scale_fill_viridis_c(option = "A") +
-  coord_equal() +
   labs(x = expression(theta[1]),
        y = expression(theta[2])) +
+  coord_equal() +
   theme(panel.grid = element_blank())
 ```
 
@@ -639,9 +638,9 @@ d_prior %>%
   ggplot(aes(x = theta_1, y = theta_2, fill = posterior)) +
   geom_tile() +
   scale_fill_viridis_c(option = "A") +
-  coord_equal() +
   labs(x = expression(theta[1]),
        y = expression(theta[2])) +
+  coord_equal() +
   theme(panel.grid = element_blank())
 ```
 
@@ -685,31 +684,32 @@ model_2 <- bf(z2 | trials(n2) ~ 1)
 Before we fit, we'll have to address a technicality. The **brms** package does allow for multivariate Bernoulli models. However, it does not support such models with different numbers of trials across the variables. Since our first variable is of 8 trials and the second is of 7, **brms** will not support this model using the Bernoulli likelihood. However, we can fit the model in **brms** as an aggregated binomial model. The main difficulty is that the regularizing `beta(2, 2)` prior won't make sense, here. So we'll opt for the regularizing `normal(0, 1)`, instead.
 
 ```{r 07_fit1, cache = T, warning = F, message = F, results = 'hide'}
-fit1 <-
+fit7.1 <-
   brm(data = d, 
       family = binomial(),
       model_1 + model_2,
       prior(normal(0, 1), class = Intercept),
       iter = 25500, warmup = 500, cores = 1, chains = 1,
-      seed = 7)
+      seed = 7,
+      file = "fits/fit07.01")
 ```
 
 Here is a summary of the results.
 
 ```{r}
-print(fit1)
+print(fit7.1)
 ```
 
 As we'll learn in later chapters, the parameters of a typical aggregated binomial model are in the log-odds scale. Over time, you will learn how to interpret them. But for now, just be happy that **brms** offers the `inv_logit_scaled()` function, with which we might convert our results back to the probability scale.
 
 ```{r}
-fixef(fit1)[, 1] %>% inv_logit_scaled()
+fixef(fit7.1)[, 1] %>% inv_logit_scaled()
 ```
 
 Here we'll use `posterior_samples()` to collect out posterior draws and save them as a data frame, which we'll name `post`.
 
 ```{r}
-post <- posterior_samples(fit1, add_chain = T)
+post <- posterior_samples(fit7.1, add_chain = T)
 ```
 
 With `post` in hand, we're ready to make our version of Figure 7.8. To reduce the overplotting, we're only looking at the first 500 post-warmup iterations.
@@ -758,7 +758,7 @@ post %>%
   ggplot(aes(x = `theta_1 - theta_2`, y = 0)) +
   stat_histintervalh(point_interval = mode_hdi, .width = .95,
                      fill = "grey67", slab_color = "grey92",
-                     breaks = 40, slab_size = .4, outline_bars = T) +
+                     breaks = 40, slab_size = .25, outline_bars = T) +
   scale_x_continuous(expression(theta[1]-theta[2]), limits = c(-.5, .9)) +
   scale_y_continuous(NULL, breaks = NULL) +
   theme(panel.grid = element_blank())
@@ -815,14 +815,15 @@ load("fits/fit2.rda")
 ```
 
 ```{r, eval = F}
-fit2 <-
+fit7.2 <-
   brm(data = d, 
       family = bernoulli(link = identity),
       y ~ 1,
       prior(beta(2, 2), class = Intercept),
       iter = 10000, warmup = 500, cores = 3, chains = 3,
       control = list(adapt_delta = 0.9),
-      seed = 7)
+      seed = 7,
+      file = "fits/fit07.02")
 ```
 
 On page 179, Kruschke discussed *burn-in* steps within the Gibbs framework:
@@ -834,23 +835,23 @@ For each HMC chain, the first $n$ iterations are warmups. In this example, $n = 
 It appears that the upshot of all this is that many of the packages in the Stan ecosystem don't make it easy to extract the warmup values. For example, the `brms::plot()` function excludes them from the trace plot without the option to include them.
 
 ```{r, fig.width = 8, fig.height = 1.25}
-plot(fit2)
+plot(fit7.2)
 ```
 
 Notice how the x-axis on the trace plot ranges from 0 to 9,500. Now recall that our model code included `iter = 10000, warmup = 500`. Those 9,500 iterations in the trace plot are excluding the first 500 warmup iterations. This code is a little janky, but if you really want those warmup iterations, you can extract them from the `fit2` object like this.
 
 ```{r}
 warmups <-
-  c(fit2$fit@sim$samples[[1]]$b_Intercept[1:500], 
-    fit2$fit@sim$samples[[2]]$b_Intercept[1:500], 
-    fit2$fit@sim$samples[[3]]$b_Intercept[1:500]) %>% 
+  c(fit7.2$fit@sim$samples[[1]]$b_Intercept[1:500], 
+    fit7.2$fit@sim$samples[[2]]$b_Intercept[1:500], 
+    fit7.2$fit@sim$samples[[3]]$b_Intercept[1:500]) %>% 
   # since these come from lists, here we'll convert them to a data frame
   as.data.frame() %>% 
   rename(b_Intercept = ".") %>% 
   # we'll need to recapture the iteration and chain information
   mutate(iter  = rep(1:500, times = 3),
-         chain = rep(1:3, each = 500)) %>% 
-  mutate(chain = factor(chain, levels = c("1", "2", "3")))
+         chain = factor(rep(1:3, each = 500), 
+                        levels = c("1", "2", "3")))
 
 warmups %>% 
   head()
@@ -883,7 +884,7 @@ library(ggmcmc)
 The **ggmcmc** package has a variety of convenience functions for working with MCMC chains. The `ggs()` function extracts the posterior draws, including `warmup`, and arranges them in a tidy tibble. With those in hand, we can now make a trace plot with warmup draws.
 
 ```{r, fig.width = 6, fig.height = 2, warning = F}
-ggs(fit2) %>%
+ggs(fit7.2) %>%
   filter(Iteration < 501 &
            Parameter == "b_Intercept") %>% 
   mutate(chain = factor(Chain)) %>% 
@@ -935,7 +936,7 @@ The densities aren't great, but they still appear nicer than those in for the bu
 Figure 7.11 examined the post-burn-in iterations. We'll follow suit with our post-warmup iterations.
 
 ```{r, fig.width = 6, fig.height = 2, message = F, warning = F}
-post <- posterior_samples(fit2, add_chain = T)
+post <- posterior_samples(fit7.2, add_chain = T)
 
 mcmc_trace(post, pars = "b_Intercept") +
   theme(panel.grid = element_blank())
@@ -960,21 +961,21 @@ mcmc_dens_overlay(post, pars = c("b_Intercept")) +
 And now that we're focusing on the post-warmup iterations, we can make a shrink factor plot. We'll do so with the `coda::gelman.plot()` function. But you can’t just dump your `brm()` fit object into `coda::gelman.plot()`. It's the wrong object type. However, **brms** offers the `as.mcmc()` function which will convert `brm()` objects for use in coda package functions.
 
 ```{r, message = F, warning = F}
-fit2_c <- as.mcmc(fit2)
+fit7.2_c <- as.mcmc(fit7.2)
 
-fit2_c %>% glimpse()
+fit7.2_c %>% glimpse()
 ```
 
 With our freshly-converted `fit2_c` object in hand, we’re ready to plot.
 
 ```{r, fig.width = 4, fig.height = 3.25, message = F, warning = F}
-coda::gelman.plot(fit2_c[, "b_Intercept", ])
+coda::gelman.plot(fit7.2_c[, "b_Intercept", ])
 ```
 
 Looks great. As Kruschke explained on page 181, that plot is based on the potential scale reduction factor, or $\hat R$ as it's typically referred to in the Stan ecosystem. Happily, **brms** reports the $\hat R$ values for the major model parameters using `print()` or `summary()`.
 
 ```{r, warning = F}
-print(fit2)
+print(fit7.2)
 ```
 
 Instead of a running value, you get a single statistic in the 'Rhat' column.
@@ -983,7 +984,6 @@ On page 181, Kruschke discussed how his overlaid density plots include the HDIs,
 
 ```{r, fig.width = 5, fig.height = 2.75, message = F}
 post %>% 
-
   ggplot(aes(x = b_Intercept, y = chain, fill = chain)) +
   geom_halfeyeh(point_interval = mode_hdi,
                 .width = .95) +
@@ -1024,9 +1024,7 @@ p1 <-
   geom_line() +
   scale_color_manual(values = c("black", "grey67")) +
   labs(x = "Index 1001:1071",
-       title = "Lag 1") +
-  theme(legend.position = "none",
-        panel.grid      = element_blank())
+       title = "Lag 1")
 
 p2 <-
   lagged_post %>% 
@@ -1038,9 +1036,7 @@ p2 <-
   geom_line() +
   scale_color_manual(values = c("black", "grey67")) +
   labs(x = "Index 1001:1071",
-       title = "Lag 5") +
-  theme(legend.position = "none",
-        panel.grid      = element_blank())
+       title = "Lag 5")
 
 p3 <-
   lagged_post %>% 
@@ -1052,13 +1048,13 @@ p3 <-
   geom_line() +
   scale_color_manual(values = c("black", "grey67")) +
   labs(x = "Index 1001:1071",
-       title = "Lag 10") +
-  theme(legend.position = "none",
-        panel.grid      = element_blank())
+       title = "Lag 10")
 
 library(patchwork)
 
-p1 + p2 + p3
+(p1 + p2 + p3) &
+  theme(legend.position = "none",
+        panel.grid = element_blank())
 ```
 
 Here's the middle row for Figure 7.12.
@@ -1074,8 +1070,7 @@ p1 <-
   
   ggplot(aes(x = lag_1, y = lag_0)) +
   stat_smooth(method = "lm") +
-  geom_point() +
-  theme(panel.grid = element_blank())
+  geom_point()
 
 p2 <-
   lagged_post_wide %>% 
@@ -1083,8 +1078,7 @@ p2 <-
   
   ggplot(aes(x = lag_5, y = lag_0)) +
   stat_smooth(method = "lm") +
-  geom_point() +
-  theme(panel.grid = element_blank())
+  geom_point()
 
 p3 <-
   lagged_post_wide %>% 
@@ -1092,10 +1086,10 @@ p3 <-
   
   ggplot(aes(x = lag_10, y = lag_0)) +
   stat_smooth(method = "lm") +
-  geom_point() +
-  theme(panel.grid = element_blank())
+  geom_point()
 
-p1 + p2 + p3
+(p1 + p2 + p3) & 
+  theme(panel.grid = element_blank())
 ```
 
 For kicks and giggles, we used `stat_smooth()` to add an OLS regression line with its 95% confidence intervals to each plot.
@@ -1126,7 +1120,7 @@ All three rows of our versions for Figure 7.12 indicate in their own way how muc
 If you're curious of the effective sample sizes for the parameters in your **brms** models, just look at the model summary using either `summary()` or `print()`.
 
 ```{r}
-print(fit2)
+print(fit7.2)
 ```
 
 Look at the last two columns in the `Intercept` summary. Earlier versions of **brms** had one column named `Eff.Sample`, which reported the effect sample size as discussed by Kruschke. Starting with version 2.10.0, **brms** now returns `Bulk_ESS` and `Tail_ESS`, instead. These originate from a [(2019) paper](https://arxiv.org/abs/1903.08008?) by Stan-team all-stars Vehtari, Gelman, Simpson, Carpenter, and Bürkner. From their paper, we read:
@@ -1140,7 +1134,7 @@ Anyway, I'm not quite sure how to reproduce Kruschke's MCMC ESS simulation studi
 If you're interested in the Monte Carlo standard error (MCSE) for your **brms** parameters, the easiest way is to tack `$fit` onto your fit object.
 
 ```{r}
-fit2$fit
+fit7.2$fit
 ```
 
 This returns an [rstan-like summary](https://cran.r-project.org/web/packages/rstan/vignettes/stanfit-objects.html). The 'se_mean' column is the MCSE.
@@ -1161,7 +1155,7 @@ sessionInfo()
 
 ```{r, message = F, warning = F, echo = F}
 # Here we'll remove our objects
-rm(hdi_of_icdf, h, omega, d, my_mode_simulation, sim, num_days, positions, current, proposed_jump, my_data, likelihood, prior_d, target_rel_prob, traj_length, trajectory, burn_in, n_accepted, n_rejected, my_metropolis, betas, theta_sequence, bernoulli_likelihood, theta_1_data, theta_2_data, d_prior, d_likelihood, model_1, model_2, fit1, post, z, n, fit2, warmups, fit2_c, lagged_post, p1, p2, p3)
+rm(hdi_of_icdf, h, omega, d, my_mode_simulation, sim, num_days, positions, current, mu, sigma, proposed_jump, my_data, likelihood, prior_d, target_rel_prob, traj_length, trajectory, burn_in, n_accepted, n_rejected, my_metropolis, betas, theta_sequence, bernoulli_likelihood, theta_1_data, theta_2_data, d_prior, d_likelihood, model_1, model_2, fit7.1, post, z, n, fit7.2, warmups, fit7.2_c, lagged_post, lagged_post_wide, p1, p2, p3)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
