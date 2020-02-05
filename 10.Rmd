@@ -539,18 +539,7 @@ stanvars <-
 
 Fit the model.
 
-```{r, echo = F, warning = F, message = F}
-# I don't know why, but bookdown kept throwing errors from the chunk below when
-# I tried executing `bookdown::publish_book()`.
-# this was a quick solution
-
-# save("fit2", file = "fits/10_fit2.rda")
-# rm(fit2)
-
-load("fits/10_fit2.rda")
-```
-
-```{r, eval = F}
+```{r}
 fit10.2 <-
   brm(data = trial_data, 
       family = bernoulli(link = identity),
@@ -592,18 +581,18 @@ waic(fit10.1)
 
 We'll explain that output in a bit. Before we do, you should know the current recommended workflow for information criteria with **brms** models is to use the `add_criterion()` function, which will allow us to compute information-criterion-related output and save it to our **brms** fit objects. Here's how to do that with both our fits.
 
-```{r ic_fit10.1_fit10.2}
+```{r ic_fit10.1_fit10.2, message = F}
 fit10.1 <- add_criterion(fit10.1, criterion = c("loo", "waic"))
 fit10.2 <- add_criterion(fit10.2, criterion = c("loo", "waic"))
 ```
 
-You can extract the same WAIC output for `fit10.1` we saw above by executing `fit10.1$criteria$waic`. Here we look at the LOO summary for fit1, instead.
+You can extract the same WAIC output for `fit10.1` we saw above by executing `fit10.1$criteria$waic`. Here we look at the LOO summary for `fit10.2`, instead.
 
 ```{r}
 fit10.2$criteria$loo
 ```
 
-You get a wealth of output, more of which can be seen by executing `str(fit10,1$loo)`. First, notice the message "All Pareto k estimates are good (k < 0.5)." Pareto $k$ values can be [used for diagnostics](https://cran.r-project.org/web/packages/loo/vignettes/loo2-example.html#plotting-pareto-k-diagnostics). Each case in the data gets its own $k$ value and we like it when those $k$s are low. The makers of the [**loo** package](https://github.com/stan-dev/loo) get worried when $k$ values exceed 0.7 and, as a result, we will get warning messages when they do. Happily, we have no such warning messages in this example.
+You get a wealth of output, more of which can be seen by executing `str(fit10.1$criteria$loo)`. First, notice the message "All Pareto k estimates are good (k < 0.5)." Pareto $k$ values can be [used for diagnostics](https://cran.r-project.org/web/packages/loo/vignettes/loo2-example.html#plotting-pareto-k-diagnostics). Each case in the data gets its own $k$ value and we like it when those $k$s are low. The makers of the [**loo** package](https://github.com/stan-dev/loo) get worried when $k$ values exceed 0.7 and, as a result, we will get warning messages when they do. Happily, we have no such warning messages in this example.
 
 In the main section, we get estimates for the expected log predictive density (`elpd_loo`), the estimated effective number of parameters (`p_loo`), and the Pareto smoothed importance-sampling leave-one-out cross-validation (PSIS-LOO; `looic`). Each estimate comes with a standard error (i.e., `SE`). Like other information criteria, the LOO values aren't of interest in and of themselves. However, the estimate of one model's LOO relative to that of another is of great interest. We generally prefer models with lower information criteria. With the `loo_compare()` function, we can compute a formal difference score between two models.
 
@@ -621,7 +610,7 @@ In addition to difference-score comparisons, you can also use the LOO or WAIC fo
 (mw <- model_weights(fit10.1, fit10.2))
 ```
 
-I don't know that I'd call these weights probabilities, but they do sum to one. In this case, the analysis suggests we put about five times more weight to `fit1` relative to `fit2`. 
+I don't know that I'd call these weights probabilities, but they do sum to one. In this case, the analysis suggests we put about five times more weight to `fit10.1` relative to `fit10.2`. 
 
 ```{r}
 mw[1] / mw[2]
@@ -639,7 +628,7 @@ For more on stacking and other weighting schemes, see Vehtari and Gabry's vignet
 
 #### ~~Using~~ [No need to use] pseudo-priors to reduce autocorrelation.
 
-Since we didn't use Kruschke's method from the last subsection, we don't have the same worry about autocorrelation. For example, here are the autocorrelation plots for `fit1`.
+Since we didn't use Kruschke's method from the last subsection, we don't have the same worry about autocorrelation. For example, here are the autocorrelation plots for `fit10.1`.
 
 ```{r, fig.width = 4, fig.height = 4, message = F, warning = F}
 library(bayesplot)
@@ -649,7 +638,7 @@ mcmc_acf(posterior_samples(fit10.1, add_chain = T),
          lags = 35)
 ```
 
-Our autocorrelations were a little high for HMC, but nowhere near pathological. The results for `fit2` were similar. As you might imagine from the moderate autocorrelations, the $N_{eff}/N$ ratio for `b_Intercept` wasn't great.
+Our autocorrelations were a little high for HMC, but nowhere near pathological. The results for `fit10.2` were similar. As you might imagine from the moderate autocorrelations, the $N_{eff}/N$ ratio for `b_Intercept` wasn't great.
 
 ```{r, fig.width = 6, fig.height = 1.25}
 neff_ratio(fit10.1)[1] %>% 
@@ -799,7 +788,7 @@ pp_check(fit10.3)
 pp_check(fit10.4)
 ```
 
-The default `pp_check()` setting allows us to compare the density of the data $y$ (i.e., the dark blue) with 10 density’s simulated from the posterior $y_\text{rep}$ (i.e., the light blue). We prefer model that produce $y_\text{rep}$ distributions that resemble $y$. Though the results from both models were similar, the simulated distributions from `fit4` mimicked the original data a little more convincingly. To learn more about this approach, check out Gabry's vignette [*Graphical posterior predictive checks using the bayesplot package*](https://cran.r-project.org/web/packages/bayesplot/vignettes/graphical-ppcs.html).
+The default `pp_check()` setting allows us to compare the density of the data $y$ (i.e., the dark blue) with 10 density’s simulated from the posterior $y_\text{rep}$ (i.e., the light blue). We prefer model that produce $y_\text{rep}$ distributions that resemble $y$. Though the results from both models were similar, the simulated distributions from `fit10.4` mimicked the original data a little more convincingly. To learn more about this approach, check out Gabry's vignette [*Graphical posterior predictive checks using the bayesplot package*](https://cran.r-project.org/web/packages/bayesplot/vignettes/graphical-ppcs.html).
 
 ## Prediction: Model averaging
 
@@ -820,7 +809,7 @@ Okay, while the concept of model averaging is of great interest, we aren't going
 
 > recall that there were two models of mints that created the coin, with one mint being tail-biased with mode $\omega = 0.25$ and one mint being head-biased with mode $\omega = 0.75$ The two subpanels in the lower-right illustrate the posterior distributions on $\omega$ within each model, $p(\theta | D, \omega = 0.25)$ and $p(\theta | D, \omega = 0.75)$ The winning model was $\omega = 0.75$, and therefore the predicted value of future data, based on the winning model alone, would use $p(\theta | D, \omega = 0.75)$. (p. 289)
 
-That is, the posterior for `fit1`. 
+That is, the posterior for `fit10.1`. 
 
 ```{r, fig.width = 3.5, fig.height = 3, warning = F, message = F}
 library(tidybayes)
@@ -831,7 +820,7 @@ posterior_samples(fit10.1) %>%
                      fill = "grey67", slab_color = "grey92",
                      breaks = 40, slab_size = .25, outline_bars = T) +
   scale_y_continuous(NULL, breaks = NULL) +
-  labs(subtitle = "The posterior for the probability, given fit1",
+  labs(subtitle = "The posterior for the probability, given fit10.1",
        x = expression(italic(p)(theta*"|"*italic(D)*", "*omega==.75))) +
   xlim(0, 1) +
   theme(panel.grid = element_blank())
@@ -841,7 +830,7 @@ posterior_samples(fit10.1) %>%
 
 The cool thing about the model weighting stuff we learned about earlier is that you can use those model weights to average across models. Again, we're not weighting the models by posterior probabilities the way Kruschke discussed in text. However, the spirit is similar. We can use the `brms::pp_average()` function to make posterior predictive prediction with mixtures of the models, weighted by our chosen weighting scheme. Here, we’ll go with the default stacking weights.
 
-```{r pp_averaged_fit1_fit2, warning = F, message = F}
+```{r pp_averaged_fit10.1_fit10.2, warning = F, message = F}
 nd <- tibble(y = 1)
 
 pp_a <-
@@ -969,7 +958,7 @@ fit9.2 <-
       file = "fits/fit09.02")
 ```
 
-Next we'll consider a restricted version of `fit5` "in which all infielders (first base, second base, etc.) are grouped together versus all outfielders (right field, center field, and left field). In this restricted model, we are forcing the modal batting abilities of all the outfielders to be the same, that is, $\omega_\text{left field} = \omega_\text{center field} = \omega_\text{right field}$" (p. 291). To fit that model, we'll need to make a new variable `PriPos_small` which is identical to its parent variable `PriPos` except that it collapses those three positions into our new category `Outfield`.
+Next we'll consider a restricted version of `fit9.2` "in which all infielders (first base, second base, etc.) are grouped together versus all outfielders (right field, center field, and left field). In this restricted model, we are forcing the modal batting abilities of all the outfielders to be the same, that is, $\omega_\text{left field} = \omega_\text{center field} = \omega_\text{right field}$" (p. 291). To fit that model, we'll need to make a new variable `PriPos_small` which is identical to its parent variable `PriPos` except that it collapses those three positions into our new category `Outfield`.
 
 ```{r}
  my_data <-
@@ -1167,19 +1156,7 @@ glimpse(trial_data)
 
 Next, fit the three models with `brms::brm()`.
 
-```{r, echo = F, warning = F, message = F}
-# I don't know why, but bookdown kept throwing errors from the chunk below when
-# I tried executing `bookdown::publish_book()`.
-# this was a quick solution
-
-# save(list = c("fit7", "fit8", "fit9"),
-#      file = "fits/10_fit7_to_fit9.rda")
-# rm(fit7, fit8, fit9)
-
-load("fits/10_fit7_to_fit9.rda")
-```
-
-```{r, eval = F}
+```{r}
 fit10.6 <-
   brm(data = trial_data, 
       family = bernoulli(link = identity),
@@ -1224,7 +1201,7 @@ Based on the LOO comparisons, none of the three models was a clear favorite. Alt
 
 Now let's see what happens when we compute their model weights. Here we'll contrast the LOO weights with the stacking weights.
 
-```{r mw_fit7_through_fit9, cache = T}
+```{r mw_fit10.6_through_fit10.8, cache = T}
 mw <-
   model_weights(fit10.6, fit10.7, fit10.8, weights = "stacking")
 
