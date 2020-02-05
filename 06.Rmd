@@ -83,8 +83,8 @@ d <-
            shape2 = c(.1, 1:4)) %>%
   expand(nesting(shape1, shape2),
          x = seq(from = 0, to = 1, length.out = length)) %>% 
-  mutate(a     = str_c("a =", shape1),
-         b     = str_c("b =", shape2),
+  mutate(a     = str_c("a = ", shape1),
+         b     = str_c("b = ", shape2),
          group = rep(1:length, each = 25))
 
 head(d)
@@ -98,10 +98,9 @@ d %>%
   
   geom_line(aes(y = dbeta(x, shape1 = shape1, shape2 = shape2)),
             color = "grey50", size = 1.25) +
-  scale_x_continuous(breaks = c(0, .5, 1)) +
+  scale_x_continuous(expression(theta), breaks = c(0, .5, 1)) +
   coord_cartesian(ylim = 0:3) +
-  labs(x = expression(theta),
-       y = expression(paste("p(", theta, "|a, b)"))) +
+  ylab(expression(p(theta*"|"*a*", "*b))) +
   theme(panel.grid = element_blank()) +
   facet_grid(b~a)
 ```
@@ -130,8 +129,8 @@ Figure 6.2 helped contrast the mean and mode for beta. We'll use the same proces
 d <-
   tibble(shape1 = c(5.6, 17.6, 5, 17),
          shape2 = c(1.4, 4.4, 2, 5)) %>% 
-  mutate(a        = str_c("a =", shape1),
-         b        = str_c("b =", shape2),
+  mutate(a        = str_c("a = ", shape1),
+         b        = str_c("b = ", shape2),
          kappa    = rep(c("kappa = 7", "kappa = 22"), times = 2),
          mu_omega = rep(c("mu = 0.8", "omega = 0.8"), each = 2)) %>% 
   mutate(kappa = factor(kappa, levels = c("kappa = 7", "kappa = 22"))) %>% 
@@ -149,9 +148,8 @@ d %>%
   geom_vline(xintercept = .8, color = "white") +
   geom_line(aes(y = dbeta(x, shape1 = shape1, shape2 = shape2)),
             color = "grey50", size = 1.25) +
-  scale_x_continuous(breaks = c(0, .8, 1)) +
-  labs(x = expression(theta),
-       y = expression(paste("p(", theta, "|a, b)"))) +
+  scale_x_continuous(expression(theta), breaks = c(0, .8, 1)) +
+  ylab(expression(p(theta*"|"*a*", "*b))) +
   coord_cartesian(ylim = 0:5) +
   theme(panel.grid = element_blank()) +
   facet_grid(mu_omega~kappa)
@@ -217,6 +215,7 @@ You might wonder how Kruschke computed the HDI values for Figure 6.3. Remember o
 
 ```{r}
 hdi_of_icdf <- function(name, width = .95, tol = 1e-8, ... ) {
+  
   # Arguments:
   #   `name` is R's name for the inverse cumulative density function
   #   of the distribution.
@@ -230,7 +229,7 @@ hdi_of_icdf <- function(name, width = .95, tol = 1e-8, ... ) {
   #   e.g., `hdi_of_icdf(qbeta, 30, 12)` does not work.
   # Adapted and corrected from Greg Snow's TeachingDemos package.
   incredible_mass <-  1.0 - width
-  interval_width  <- function(low_tail_prob, name, width, ...) {
+  interval_width <- function(low_tail_prob, name, width, ...) {
     name(width + low_tail_prob, ...) - name(low_tail_prob, ...)
   }
   
@@ -249,7 +248,7 @@ hdi_of_icdf <- function(name, width = .95, tol = 1e-8, ... ) {
 Recall it's based off of the `HDIofICDF()` function from Kruschke's `DBDA2E-utilities.R` file. I've altered Kruschke's formatting a little bit, but the guts of the code are unchanged. Our `hdi_of_icdf()` function will take the `name` of an "inverse cumulative density function" and its parameters and then return an HDI range, as defined by the `width` parameter. Since the prior at the top of Figure 6.3 is $\text{beta} (5, 5)$, we can use `hdi_of_icdf()` to calculate the HDI like so.
 
 ```{r}
-hdi_of_icdf(name   = qbeta,
+hdi_of_icdf(name = qbeta,
             shape1 = 5,
             shape2 = 5,
             width  = .95)
@@ -258,7 +257,7 @@ hdi_of_icdf(name   = qbeta,
 Here they are for the posterior distribution at the bottom of the figure.
 
 ```{r}
-hdi_of_icdf(name   = qbeta,
+hdi_of_icdf(name = qbeta,
             shape1 = 6,
             shape2 = 14)
 ```
@@ -324,7 +323,7 @@ d %>%
   gather(key, value, -theta) %>% 
   mutate(key = factor(key, levels = c("Prior (beta)", "Likelihood (Bernoulli)", "Posterior (beta)"))) %>% 
   
-  ggplot(aes(x = theta)) +
+  ggplot(aes(x = theta, y = value, )) +
   # densities
   geom_ribbon(aes(ymin = 0, ymax = value),
               fill = "grey67") +
@@ -334,14 +333,13 @@ d %>%
              linetype = 2, color = "grey92") +
   # arrows
   geom_line(data = line,
-            aes(y = value),
             arrow = arrow(length = unit(.15,"cm"), 
                           ends = "both", 
                           type = "closed"),
             color = "grey92") +
   # text
   geom_text(data = text,
-            aes(y = value, label = label),
+            aes(label = label),
             color = "grey92") +
   labs(x = expression(theta),
        y = NULL) +
@@ -371,17 +369,11 @@ beta_param$a
 beta_param$b
 
 ggplot(data = tibble(x = seq(from = 0, to = 1, by = .001)),
-       aes(x = x)) +
-  geom_ribbon(aes(ymin = 0,
-                  ymax = dbeta(x, 
-                               shape1 = beta_param$a, 
-                               shape2 = beta_param$b)),
-              fill = "grey75") +
+       aes(x = x, ymin = 0, ymax = dbeta(x, 
+                                         shape1 = beta_param$a, 
+                                         shape2 = beta_param$b))) +
+  geom_ribbon(fill = "grey75") +
   geom_ribbon(data = tibble(x = seq(from = .5 - .069, to = .5 + .069, by = .001)),
-              aes(ymin = 0,
-                  ymax = dbeta(x, 
-                               shape1 = beta_param$a, 
-                               shape2 = beta_param$b)),
               fill = "grey67") +
   geom_line(data = tibble(x = c(.5 - .069 + .005, .5 + .069 - .005),
                           y = 1.7),
@@ -392,10 +384,10 @@ ggplot(data = tibble(x = seq(from = 0, to = 1, by = .001)),
             color = "grey92") +
   annotate(geom = "text", x = .5, y = 3.5, 
            label = "95% HDI", color = "grey0") +
-  coord_cartesian(ylim = 0:12) +
   labs(title = "Prior (beta)",
        x = expression(theta),
-       y = expression(paste("dbeta(", theta, "|100, 100)"))) +
+       y = expression(dbeta(theta*"|"*100*", "*100))) +
+  coord_cartesian(ylim = 0:12) +
   theme(panel.grid = element_blank())
 ```
 
@@ -421,17 +413,11 @@ Behold Figure 6.4.b.
 
 ```{r, fig.width = 4.5, fig.height = 2}
 ggplot(data = tibble(x = seq(from = 0, to = 1, by = .001)),
-       aes(x = x)) +
-  geom_ribbon(aes(ymin = 0,
-                  ymax = dbeta(x, 
-                               shape1 = beta_param$a, 
-                               shape2 = beta_param$b)),
-              fill = "grey75") +
+       aes(x = x, ymin = 0, ymax = dbeta(x, 
+                                         shape1 = beta_param$a, 
+                                         shape2 = beta_param$b))) +
+  geom_ribbon(fill = "grey75") +
   geom_ribbon(data = tibble(x = seq(from = .558, to = .892, by = .001)),
-              aes(ymin = 0,
-                  ymax = dbeta(x, 
-                               shape1 = beta_param$a, 
-                               shape2 = beta_param$b)),
               fill = "grey67") +
   geom_line(data = tibble(x = c(.558 + .005, .892 - .005),
                           y = .75),
@@ -442,10 +428,10 @@ ggplot(data = tibble(x = seq(from = 0, to = 1, by = .001)),
             color = "grey92") +
   annotate(geom = "text", x = .73, y = 1.5, 
            label = "95% HDI", color = "grey92") +
-  coord_cartesian(ylim = 0:6) +
+  ylim(0, 6) +
   labs(title = "Prior (beta)",
        x = expression(theta),
-       y = expression(paste("dbeta(", theta, "|18.25, 6.75)"))) +
+       y = expression(dbeta(theta*"|"*18.25*", "*6.75))) +
   theme(panel.grid = element_blank())
 ```
 
@@ -504,7 +490,7 @@ tibble(theta = seq(from = 0, to = 1, length.out = 100) %>% rep(., times = 3),
             color = "grey0") +
   labs(title = "Prior (beta)", 
        x = expression(theta), 
-       y = expression(paste("p(", theta, ")"))) +
+       y = expression(p(D*"|"*theta))) +
   theme(panel.grid = element_blank()) +
   facet_wrap(~exemplar, scales = "free_y", ncol = 3)
 ```
@@ -517,16 +503,15 @@ z <- 17
 
 trial_data <- c(rep(0, times = n - z), rep(1, times = z))
 
-tibble(theta        = seq(from = 0, to = 1, length.out = 100)) %>% 
+tibble(theta = seq(from = 0, to = 1, length.out = 100)) %>% 
   mutate(likelihood = bernoulli_likelihood(theta = theta, data = trial_data)) %>% 
   
-  ggplot(aes(x = theta)) +
-  geom_ribbon(aes(ymin = 0, ymax = likelihood),
-              size = 0, fill = "grey67") +
+  ggplot(aes(x = theta, ymin = 0, ymax = likelihood)) +
+  geom_ribbon(size = 0, fill = "grey67") +
   labs(title = "Likelihood (Bernoulli)",
        subtitle = "This is the same for all 3 exemplars, so\nthere's no need to plot this thrice.",
        x = expression(theta),
-       y = expression(paste("p(D|", theta, ")"))) +
+       y = expression(p(D*"|"*theta))) +
   theme(panel.grid = element_blank())
 
 ```
@@ -581,7 +566,7 @@ tibble(theta = seq(from = 0, to = 1, length.out = 100) %>% rep(., times = 3),
             color = "grey0") +
   labs(title = "Posterior (beta)", 
        x = expression(theta), 
-       y = expression(paste("p(", theta, "|D)"))) +
+       y = expression(p(theta*"|"*D))) +
   theme(panel.grid = element_blank()) +
   facet_wrap(~exemplar, scales = "free_y", ncol = 3)
 ```
@@ -892,7 +877,7 @@ d <-
   mutate(Prior      = Prior / sum(Prior),
          Likelihood = bernoulli_likelihood(theta = theta,        # (i.e., pDataGivenTheta)
                                            data  = trial_data)) %>%
-  mutate(evidence  = sum(Likelihood * Prior)) %>%                # (i.e., pData)
+  mutate(evidence = sum(Likelihood * Prior)) %>%                # (i.e., pData)
   mutate(Posterior = Likelihood * Prior / evidence)              # (i.e., pThetaGivenData)
   
 glimpse(d)
@@ -909,7 +894,7 @@ With our nice tibble in hand, we'll plot the prior, likelihood, and posterior on
               fill = "grey50") +
   labs(title = "Prior",
        x = expression(theta),
-       y = expression(paste("p(", theta, ")"))) +
+       y = expression(p(theta))) +
   theme(panel.grid = element_blank())
  )
 
@@ -921,7 +906,7 @@ With our nice tibble in hand, we'll plot the prior, likelihood, and posterior on
               fill = "grey50") +
   labs(title = "Likelihood",
        x = expression(theta),
-       y = expression(paste("p(D|", theta, ")"))) +
+       y = expression(p(D*"|"*theta))) +
   theme(panel.grid = element_blank())
  )
 
@@ -933,7 +918,7 @@ With our nice tibble in hand, we'll plot the prior, likelihood, and posterior on
               fill = "grey50") +
   labs(title = "Posterior",
        x = expression(theta),
-       y = expression(paste("p(", theta, "|D)"))) +
+       y = expression(p(theta*"|"*D))) +
   theme(panel.grid = element_blank())
  )
 ```
@@ -967,7 +952,7 @@ sessionInfo()
 ```
 
 ```{r, echo = F, eval = F}
-rm(bernoulli_likelihood, betaABfromMeanKappa, betaABfromModeKappa, betaABfromMeanSD, beta_param, hdi_of_icdf, n, z, a, b, proportion_heads, prior_mean, posterior_mean, trial_data, d, line, text, get_hdi, theta, p_theta, BernGrid, p1, p2, p3)
+rm(length, bernoulli_likelihood, theta, a, b, betaABfromMeanKappa, betaABfromModeKappa, betaABfromMeanSD, beta_param, hdi_of_icdf, n, z, proportion_heads, prior_mean, posterior_mean, trial_data, d, line, text, get_hdi, p_theta, BernGrid, Data, p1, p2, p3)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
