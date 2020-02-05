@@ -85,8 +85,8 @@ tibble(Model = c("1", "2"),
   geom_col(width = .75, fill = "grey50") +
   scale_y_continuous(NULL, breaks = NULL) +
   ggtitle(expression(paste(italic(P)[italic(m)]))) +
-  theme(panel.grid = element_blank(),
-        axis.ticks.x = element_blank())
+  theme(axis.ticks.x = element_blank(),
+        panel.grid = element_blank())
 ```
 
 Consider the Bernoulli bar plots in the bottom panels of Figure 10.2. The heights of the bars are arbitrary and just intended to give a sense of the Bernoulli distribution. If we wanted the heights to correspond to the Beta distributions above them, we might do so like this.
@@ -100,8 +100,8 @@ crossing(factory = str_c("factory ", 1:2),
   geom_col(width = .75, fill = "grey50") +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(NULL) +
-  theme(panel.grid = element_blank(),
-        axis.ticks.x = element_blank()) +
+  theme(axis.ticks.x = element_blank(),
+        panel.grid = element_blank()) +
   facet_wrap(~factory)
 ```
 
@@ -210,10 +210,10 @@ tibble(omega = seq(from = 0, to = 1, length.out = length)) %>%
   
   ggplot(aes(x = omega, ymin = 0, ymax = m_p)) +
   geom_ribbon(fill = "grey67", color = "grey67") +
-  coord_flip(ylim = 0:25) +
   labs(subtitle = "Remember, the scale on the x is arbitrary.",
        x = expression(omega),
-       y = expression(paste("Marginal p(", omega, ")"))) +
+       y = expression(Marginal~p(omega))) +
+  coord_flip(ylim = 0:25) +
   theme(panel.grid = element_blank())
 ```
 
@@ -448,19 +448,8 @@ stanvars <-
 
 Now we have our `stanvars` object, we are ready to fit the first model (i.e., the model for which $\omega = .75$). 
 
-```{r, echo = F, warning = F, message = F}
-# I don't know why, but bookdown kept throwing errors from the chunk below when
-# I tried executing `bookdown::publish_book()`.
-# this was a quick solution
-
-# save("fit1", file = "fits/10_fit1.rda")
-# rm(fit1)
-
-load("fits/10_fit1.rda")
-```
-
-```{r, eval = F}
-fit1 <-
+```{r}
+fit10.1 <-
   brm(data = trial_data, 
       family = bernoulli(link = identity),
       y ~ 1,
@@ -468,7 +457,8 @@ fit1 <-
       iter = 11000, warmup = 1000, chains = 4, cores = 4,
       seed = 10,
       stanvars = stanvars,
-      control = list(adapt_delta = .999))
+      control = list(adapt_delta = .999),
+      file = "fits/fit10.01")
 ```
 
 Note how we fed our `stanvars` object into the `stanvars` function.
@@ -476,19 +466,19 @@ Note how we fed our `stanvars` object into the `stanvars` function.
 Anyway, let's inspect the chains.
 
 ```{r, fig.width = 8, fig.height = 1.4}
-plot(fit1)
+plot(fit10.1)
 ```
 
 They look great. Now we glance at the model summary.
 
 ```{r}
-print(fit1)
+print(fit10.1)
 ```
 
 Next we'll follow Kruschke and extract the posterior samples, saving them as `theta`.
 
 ```{r}
-theta <- posterior_samples(fit1)
+theta <- posterior_samples(fit10.1)
 
 head(theta)
 ```
@@ -496,10 +486,10 @@ head(theta)
 The `fixef()` function will return the posterior summaries for the model intercept (i.e., $\theta$). We can then index and save the desired summaries.
 
 ```{r}
-fixef(fit1)
+fixef(fit10.1)
 
-(mean_theta <- fixef(fit1)[1])
-(sd_theta <- fixef(fit1)[2])
+(mean_theta <- fixef(fit10.1)[1])
+(sd_theta <- fixef(fit10.1)[2])
 ```
 
 Now we'll convert them to the $\alpha$ and $\beta$ parameters, `a_post` and `b_post`, respectively.
@@ -561,7 +551,7 @@ load("fits/10_fit2.rda")
 ```
 
 ```{r, eval = F}
-fit2 <-
+fit10.2 <-
   brm(data = trial_data, 
       family = bernoulli(link = identity),
       y ~ 1,
@@ -569,16 +559,17 @@ fit2 <-
       iter = 11000, warmup = 1000, chains = 4, cores = 4,
       seed = 10,
       stanvars = stanvars,
-      control = list(adapt_delta = .999))
+      control = list(adapt_delta = .999),
+      file = "fits/fit10.02")
 ```
 
 We'll do the rest in bulk.
 
 ```{r}
-theta <- posterior_samples(fit2)
+theta <- posterior_samples(fit10.2)
 
-mean_theta <- fixef(fit2)[1]
-sd_theta   <- fixef(fit2)[2]
+mean_theta <- fixef(fit10.2)[1]
+sd_theta   <- fixef(fit10.2)[2]
 
 a_post <-      mean_theta  * ( mean_theta * (1 - mean_theta) / sd_theta^2 - 1)
 b_post <- (1 - mean_theta) * ( mean_theta * (1 - mean_theta) / sd_theta^2 - 1)
@@ -596,38 +587,38 @@ I'm not aware of a way to specify a model "in which the top-level parameter is t
 However, we do have options. We can compare and weight models using information criteria, about which you can learn more [here](https://youtu.be/t0pRuy1_190?t=978). In **brms**, the LOO and WAIC are two primary information criteria available. You can compute them for a given model with the `loo()` and `waic()` functions, respectively. Here's a quick example of how to use the `waic()` function.
 
 ```{r}
-waic(fit1)
+waic(fit10.1)
 ```
 
 We'll explain that output in a bit. Before we do, you should know the current recommended workflow for information criteria with **brms** models is to use the `add_criterion()` function, which will allow us to compute information-criterion-related output and save it to our **brms** fit objects. Here's how to do that with both our fits.
 
-```{r ic_fit1_fit2}
-fit1 <- add_criterion(fit1, criterion = c("loo", "waic"))
-fit2 <- add_criterion(fit2, criterion = c("loo", "waic"))
+```{r ic_fit10.1_fit10.2}
+fit10.1 <- add_criterion(fit10.1, criterion = c("loo", "waic"))
+fit10.2 <- add_criterion(fit10.2, criterion = c("loo", "waic"))
 ```
 
-You can extract the same WAIC output for `fit1` we saw above by executing `fit1$criteria$waic`. Here we look at the LOO summary for fit1, instead.
+You can extract the same WAIC output for `fit10.1` we saw above by executing `fit10.1$criteria$waic`. Here we look at the LOO summary for fit1, instead.
 
 ```{r}
-fit2$criteria$loo
+fit10.2$criteria$loo
 ```
 
-You get a wealth of output, more of which can be seen by executing `str(fit1$loo)`. First, notice the message "All Pareto k estimates are good (k < 0.5)." Pareto $k$ values can be [used for diagnostics](https://cran.r-project.org/web/packages/loo/vignettes/loo2-example.html#plotting-pareto-k-diagnostics). Each case in the data gets its own $k$ value and we like it when those $k$s are low. The makers of the [**loo** package](https://github.com/stan-dev/loo) get worried when $k$ values exceed 0.7 and, as a result, we will get warning messages when they do. Happily, we have no such warning messages in this example.
+You get a wealth of output, more of which can be seen by executing `str(fit10,1$loo)`. First, notice the message "All Pareto k estimates are good (k < 0.5)." Pareto $k$ values can be [used for diagnostics](https://cran.r-project.org/web/packages/loo/vignettes/loo2-example.html#plotting-pareto-k-diagnostics). Each case in the data gets its own $k$ value and we like it when those $k$s are low. The makers of the [**loo** package](https://github.com/stan-dev/loo) get worried when $k$ values exceed 0.7 and, as a result, we will get warning messages when they do. Happily, we have no such warning messages in this example.
 
 In the main section, we get estimates for the expected log predictive density (`elpd_loo`), the estimated effective number of parameters (`p_loo`), and the Pareto smoothed importance-sampling leave-one-out cross-validation (PSIS-LOO; `looic`). Each estimate comes with a standard error (i.e., `SE`). Like other information criteria, the LOO values aren't of interest in and of themselves. However, the estimate of one model's LOO relative to that of another is of great interest. We generally prefer models with lower information criteria. With the `loo_compare()` function, we can compute a formal difference score between two models.
 
 ```{r}
-loo_compare(fit1, fit2, criterion = "loo")
+loo_compare(fit10.1, fit10.2, criterion = "loo")
 ```
 
-The `loo_compare()` output rank orders the models such that the best fitting model appears on top. All models receive a difference score relative to the best model. Here the best fitting model is `fit1` and since the LOO for `fit1` minus itself is zero, the values in the top row are all zero.
+The `loo_compare()` output rank orders the models such that the best fitting model appears on top. All models receive a difference score relative to the best model. Here the best fitting model is `fit10.1` and since the LOO for `fit10.1` minus itself is zero, the values in the top row are all zero.
 
-Each difference score also comes with a standard error. In this case, even though `fit1` has the lower estimates, the standard error is twice the magnitude of the difference score. So the LOO difference score puts the two models on similar footing. You can do a similar analysis with the WAIC estimates.
+Each difference score also comes with a standard error. In this case, even though `fit10.1` has the lower estimates, the standard error is twice the magnitude of the difference score. So the LOO difference score puts the two models on similar footing. You can do a similar analysis with the WAIC estimates.
 
 In addition to difference-score comparisons, you can also use the LOO or WAIC for AIC-type model weighting. In **brms**, you do this with the `model_weights()` function.
 
-```{r mw_fit1_and_fit2}
-(mw <- model_weights(fit1, fit2))
+```{r mw_fit10.1_and_fit10.2}
+(mw <- model_weights(fit10.1, fit10.2))
 ```
 
 I don't know that I'd call these weights probabilities, but they do sum to one. In this case, the analysis suggests we put about five times more weight to `fit1` relative to `fit2`. 
@@ -639,7 +630,7 @@ mw[1] / mw[2]
 With `brms::model_weights()`, we have a variety of weighting schemes avaliable to us. Since we didn't specify any in the `weights` argument, we used the default `"stacking"`, which is--perhaps confusingly given the name--the stacking method according to the [paper by Yao, Vehtari, Simpson, and Gelman](https://projecteuclid.org/download/pdfview_1/euclid.ba/1516093227). Vehtari has [written about the paper](https://statmodeling.stat.columbia.edu/2017/04/11/stacking-pseudo-bma-and-aic-weights/) on Gelman's blog, too. But anyway, the point is that different weighting schemes might not produce the same results. For example, here's the result from weighting using the WAIC.
 
 ```{r}
-model_weights(fit1, fit2, weights = "waic")
+model_weights(fit10.1, fit10.2, weights = "waic")
 ```
 
 The results are similar, for sure. But they're not the same. The stacking method via the **brms** default `weights = "stacking"` is the current preferred method by the folks on the Stan team (e.g., the authors of the above linked paper).
@@ -653,7 +644,7 @@ Since we didn't use Kruschke's method from the last subsection, we don't have th
 ```{r, fig.width = 4, fig.height = 4, message = F, warning = F}
 library(bayesplot)
 
-mcmc_acf(posterior_samples(fit1, add_chain = T), 
+mcmc_acf(posterior_samples(fit10.1, add_chain = T), 
          pars = "b_Intercept",
          lags = 35)
 ```
@@ -661,7 +652,7 @@ mcmc_acf(posterior_samples(fit1, add_chain = T),
 Our autocorrelations were a little high for HMC, but nowhere near pathological. The results for `fit2` were similar. As you might imagine from the moderate autocorrelations, the $N_{eff}/N$ ratio for `b_Intercept` wasn't great.
 
 ```{r, fig.width = 6, fig.height = 1.25}
-neff_ratio(fit1)[1] %>% 
+neff_ratio(fit10.1)[1] %>% 
   mcmc_neff() +
   yaxis_text(hjust = 0)
 ```
@@ -669,7 +660,7 @@ neff_ratio(fit1)[1] %>%
 But we specified a lot of post-warmup iterations, so we're still in good shape. Plus, the $\hat R$ was fine.
 
 ```{r}
-rhat(fit1)[1]
+rhat(fit10.1)[1]
 ```
 
 ### Models with different "noise" distributions in ~~JAGS~~ brms.
@@ -723,17 +714,18 @@ As you'd expect with a small-$\nu$ Student's $t$, some of our values are quite d
 
 Let's see how well the Gaussian versus the Student's $t$ likelihoods handle the data. Here we'll use fairly liberal priors.
 
-```{r fit3_and_fit4, cache = T, results = "hide", message = F}
-fit3 <-
+```{r fit10.3_and_fit10.4, cache = T, results = "hide", message = F}
+fit10.3 <-
   brm(data = d,
       family = gaussian,
       y ~ 1,
       prior = c(prior(normal(0, 5), class = Intercept),
                 prior(normal(0, 5), class = sigma)),  # by default, this has a lower bound of 0
       chains = 4, cores = 4,
-      seed = 10)
+      seed = 10,
+      file = "fits/fit10.03")
 
-fit4 <-
+fit10.4 <-
   brm(data = d,
       family = student,
       y ~ 1,
@@ -741,7 +733,8 @@ fit4 <-
                 prior(normal(0, 5), class = sigma),
                 prior(gamma(2, 0.1), class = nu)),  # this is the brms default prior for nu
       chains = 4, cores = 4,
-      seed = 10)
+      seed = 10,
+      file = "fits/fit10.04")
 ```
 
 In case you were curious, here's what that default `gamma(2, 0.1)` prior on `nu` looks like.
@@ -762,37 +755,37 @@ That prior puts most of the probability mass below 50, but the right tail gently
 We can use the `posterior_summary()` function to get a compact look at the model summaries.
 
 ```{r}
-posterior_summary(fit3) %>% round(digits = 2)
-posterior_summary(fit4) %>% round(digits = 2)
+posterior_summary(fit10.3) %>% round(digits = 2)
+posterior_summary(fit10.4) %>% round(digits = 2)
 ```
 
 Now we can compare the two approaches using information criteria. For kicks, we'll use the WAIC.
 
-```{r ic_fit3_and_fit4, cache = T, warning = F}
-fit3 <- add_criterion(fit3, criterion = c("loo", "waic"))
-fit4 <- add_criterion(fit4, criterion = c("loo", "waic"))
+```{r ic_fit10.3_and_fit10.4, warning = F, message = F}
+fit10.3 <- add_criterion(fit10.3, criterion = c("loo", "waic"))
+fit10.4 <- add_criterion(fit10.4, criterion = c("loo", "waic"))
 
-loo_compare(fit3, fit4, criterion = "waic")
+loo_compare(fit10.3, fit10.4, criterion = "waic")
 ```
 
 Based on the WAIC difference, we hace some support for preferring the Student's $t$, but do notice how wide that `SE` was. We can also compare the models using model weights. Here we'll use the default weighting scheme.
 
 ```{r, warning = F, message = F}
-model_weights(fit3, fit4)
+model_weights(fit10.3, fit10.4)
 ```
 
-Virtually all of the stacking weight was placed on the Student's-$t$ model, `fit4`. 
+Virtually all of the stacking weight was placed on the Student's-$t$ model, `fit10.4`. 
 
 Remember what that $p(\nu)$ looked like? Here’s our posterior distribution for $\nu$.
 
 ```{r, fig.width = 3.5, fig.height = 2.5}
-posterior_samples(fit4) %>% 
+posterior_samples(fit10.4) %>% 
   ggplot(aes(x = nu)) +
   geom_histogram(color = "grey92", fill = "grey67",
                  size = .2, bins = 30) +
   scale_y_continuous(NULL, breaks = NULL) +
   coord_cartesian(xlim = 0:20) +
-  labs(subtitle = expression(paste("Recall that for the Gaussian, ", nu, " = infinity.")),
+  labs(subtitle = expression("Recall that for the Gaussian, "*nu==infinity.),
        x = expression(italic(p)(nu*"|"*italic(D)))) +
   theme(panel.grid = element_blank())
 ```
@@ -802,8 +795,8 @@ Even though our prior for $\nu$ was relatively weak, the posterior ended up conc
 We can also compare the models using posterior-predictive checks. There are a variety of ways we might do this, but the most convenient way is with `brms::pp_check()`, which is itself a wrapper for the family of `ppc` functions from the **bayesplot** package.
 
 ```{r, fig.width = 4, fig.height = 2, message = F}
-pp_check(fit3)
-pp_check(fit4)
+pp_check(fit10.3)
+pp_check(fit10.4)
 ```
 
 The default `pp_check()` setting allows us to compare the density of the data $y$ (i.e., the dark blue) with 10 density’s simulated from the posterior $y_\text{rep}$ (i.e., the light blue). We prefer model that produce $y_\text{rep}$ distributions that resemble $y$. Though the results from both models were similar, the simulated distributions from `fit4` mimicked the original data a little more convincingly. To learn more about this approach, check out Gabry's vignette [*Graphical posterior predictive checks using the bayesplot package*](https://cran.r-project.org/web/packages/bayesplot/vignettes/graphical-ppcs.html).
@@ -832,11 +825,11 @@ That is, the posterior for `fit1`.
 ```{r, fig.width = 3.5, fig.height = 3, warning = F, message = F}
 library(tidybayes)
 
-posterior_samples(fit1) %>% 
+posterior_samples(fit10.1) %>% 
   ggplot(aes(x = b_Intercept, y = 0)) +
   stat_histintervalh(point_interval = mode_hdi, .width = c(.95, .5),
                      fill = "grey67", slab_color = "grey92",
-                     breaks = 40, slab_size = .4, outline_bars = T) +
+                     breaks = 40, slab_size = .25, outline_bars = T) +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(subtitle = "The posterior for the probability, given fit1",
        x = expression(italic(p)(theta*"|"*italic(D)*", "*omega==.75))) +
@@ -852,7 +845,7 @@ The cool thing about the model weighting stuff we learned about earlier is that 
 nd <- tibble(y = 1)
 
 pp_a <-
-  pp_average(fit1, fit2, 
+  pp_average(fit10.1, fit10.2, 
              newdata = nd,
              # this line is not necessary, but you should see how to choose weighing methods
              weights = "stacking",
@@ -874,7 +867,7 @@ pp_a %>%
                      fill = "grey67", slab_color = "grey92",
                      breaks = 30, slab_size = .4, outline_bars = T) +
   scale_y_continuous(NULL, breaks = NULL) +
-  labs(subtitle = "The posterior for the probability, given the\nweighted combination of fit1 and fit2",
+  labs(subtitle = "The posterior for the probability, given the\nweighted combination of fit10.1 and fit10.2",
        x = expression(italic(p)(theta*"|"*italic(D)))) +
   coord_cartesian(xlim = 0:1) +
   theme(panel.grid = element_blank())
@@ -963,27 +956,17 @@ glimpse(my_data)
 
 "The full model has a distinct modal batting ability, $\omega_c$ , for each of the nine fielding positions. The full model also has distinct concentration parameters for each of the nine positions" (p. 291). Let's fit that model again.
 
-```{r, echo = F, warning = F, message = F}
-# I don't know why, but bookdown kept throwing errors from the chunk below when
-# I tried executing `bookdown::publish_book()`.
-# this was a quick solution
-
-# save("fit5", file = "fits/10_fit5.rda")
-# rm(fit5)
-
-load("fits/10_fit5.rda")
-```
-
-```{r, eval = F}
-fit5 <-
+```{r}
+fit9.2 <-
   brm(data = my_data,
       family = binomial(link = logit),
-      Hits  | trials(AtBats) ~ 1 + (1 | PriPos) + (1 | PriPos:Player),
+      Hits | trials(AtBats) ~ 1 + (1 | PriPos) + (1 | PriPos:Player),
       prior = c(prior(normal(0, 1.5), class = Intercept),
                 prior(normal(0, 1), class = sd)),
       iter = 3500, warmup = 500, chains = 3, cores = 3,
       control = list(adapt_delta = .99),
-      seed = 10)
+      seed = 9,
+      file = "fits/fit09.02")
 ```
 
 Next we'll consider a restricted version of `fit5` "in which all infielders (first base, second base, etc.) are grouped together versus all outfielders (right field, center field, and left field). In this restricted model, we are forcing the modal batting abilities of all the outfielders to be the same, that is, $\omega_\text{left field} = \omega_\text{center field} = \omega_\text{right field}$" (p. 291). To fit that model, we'll need to make a new variable `PriPos_small` which is identical to its parent variable `PriPos` except that it collapses those three positions into our new category `Outfield`.
@@ -997,43 +980,33 @@ Next we'll consider a restricted version of `fit5` "in which all infielders (fir
 
 Now use `update()` to fit the restricted model.
 
-```{r, echo = F, warning = F, message = F}
-# I don't know why, but bookdown kept throwing errors from the chunk below when
-# I tried executing `bookdown::publish_book()`.
-# this was a quick solution
-
-# save("fit6", file = "fits/10_fit6.rda")
-# rm(fit6)
-
-load("fits/10_fit6.rda")
-```
-
-```{r, eval = F}
-fit6 <-
-  update(fit5,
+```{r}
+fit10.5 <-
+  update(fit9.2,
          newdata = my_data,
          formula = Hits | trials(AtBats) ~ 1 + (1 | PriPos_small) + (1 | PriPos_small:Player),
          iter = 3500, warmup = 500, chains = 3, cores = 3,
          control = list(adapt_delta = .99),
-         seed = 10)
+         seed = 10,
+         file = "fits/fit10.05")
 ```
 
 Unlike with what Kruschke alluded to in the prose, here we'll compare the two models with the WAIC.
 
-```{r waic_fit5_fit6, warning = F, echo = F}
-fit5 <- add_criterion(fit5, criterion = "waic")
-fit6 <- add_criterion(fit6, criterion = "waic")
+```{r waic_fit9.2_fit10.5, warning = F, message = F}
+fit9.2 <- add_criterion(fit9.2, criterion = "waic")
+fit10.5 <- add_criterion(fit10.5, criterion = "waic")
 
-loo_compare(fit5, fit6, criterion = "waic")
+loo_compare(fit9.2, fit10.5, criterion = "waic")
 ```
 
 Based on the WAIC difference score, they're near equivalent. Now let's see how their WAIC weights shake out.
 
 ```{r}
-model_weights(fit5, fit6, weights = "waic") %>% round(2)
+model_weights(fit9.2, fit10.5, weights = "waic") %>% round(2)
 ```
 
-In this case, most of the weight went to the full model, `fit5`. However, the overall pattern between the WAIC difference and the WAIC weights was uncertainty. Make sure to use good substantive reasoning when comparing models.
+In this case, just a little more of the weight went to the full model, `fit9.2`. The overall pattern between the WAIC difference and the WAIC weights was uncertainty. Make sure to use good substantive reasoning when comparing models.
 
 ## Extreme sensitivity to the prior distribution
 
@@ -1092,7 +1065,7 @@ Before we can complete the analyses of this subsection, we'll need to define our
 hdi_of_icdf <- function(name, width = .95, tol = 1e-8, ... ) {
   
   incredible_mass <-  1.0 - width
-  interval_width  <- function(low_tail_prob, name, width, ...) {
+  interval_width <- function(low_tail_prob, name, width, ...) {
     name(width + low_tail_prob, ...) - name(low_tail_prob, ...)
   }
   opt_info <- optimize(interval_width, c(0, incredible_mass), 
@@ -1152,13 +1125,12 @@ d %>%
   ggplot(aes(x = ll,    xend = ul,
              y = model, yend = model)) +
   geom_segment(size = .75) +
-  xlim(0, 1) +
+  scale_x_continuous(expression(theta), limits = c(0, 1)) +
   labs(subtitle = "Those two sets of HDIs are quite similar.\nIt almost seems silly their respective BFs\nare so different.",
-       x = expression(theta),
        y = NULL) +
-  theme(panel.grid = element_blank(),
+  theme(axis.text.y = element_text(hjust = 0),
         axis.ticks.y = element_blank(),
-        axis.text.y = element_text(hjust = 0))
+        panel.grid = element_blank())
 ```
 
 "The HDIs are virtually identical. In particular, for either prior, the posterior distribution rules out $\theta = 0.5$, which is to say that the must-be-fair hypothesis is not among the credible values" (p. 294).
@@ -1208,64 +1180,67 @@ load("fits/10_fit7_to_fit9.rda")
 ```
 
 ```{r, eval = F}
-fit7 <-
+fit10.6 <-
   brm(data = trial_data, 
       family = bernoulli(link = identity),
       y ~ 1,
       prior(beta(500, 500), class = Intercept),
       iter = 11000, warmup = 1000, chains = 4, cores = 4,
-      seed = 10)
+      seed = 10,
+      file = "fits/fit10.06")
 
-fit8 <-
+fit10.7 <-
   brm(data = trial_data, 
       family = bernoulli(link = identity),
       y ~ 1,
       # Uniform
       prior(beta(1, 1), class = Intercept),
       iter = 11000, warmup = 1000, chains = 4, cores = 4,
-      seed = 10)
+      seed = 10,
+      file = "fits/fit10.07")
 
-fit9 <-
+fit10.8 <-
   brm(data = trial_data, 
       family = bernoulli(link = identity),
       y ~ 1,
       # Haldane
       prior(beta(0.01, 0.01), class = Intercept),
       iter = 11000, warmup = 1000, chains = 4, cores = 4,
-      seed = 10)
+      seed = 10,
+      file = "fits/fit10.08")
 ```
 
 Compare the models by the LOO.
 
-```{r loo_fit7_through_fit9}
-fit7 <- add_criterion(fit7, criterion = "loo")
-fit8 <- add_criterion(fit8, criterion = "loo")
-fit9 <- add_criterion(fit9, criterion = "loo")
+```{r loo_fit10.6_through_fit10.6, message = F}
+fit10.6 <- add_criterion(fit10.6, criterion = "loo")
+fit10.7 <- add_criterion(fit10.7, criterion = "loo")
+fit10.8 <- add_criterion(fit10.8, criterion = "loo")
 
-loo_compare(fit7, fit8, fit9)
+loo_compare(fit10.6, fit10.7, fit10.8)
 ```
 
-Based on the LOO comparisons, none of the three models was a clear favorite. Although both versions of the anything’s-possible model (i.e., `fit8` and `fit9`) had lower numeric estimates than the must-be-fair model (i.e., `fit7`), the standard errors on the difference scores were the same magnitude as the difference estimates themselves. As for comparing the two variants of the anything’s-possible model directly, their LOO estimates were almost indistinguishable.
+Based on the LOO comparisons, none of the three models was a clear favorite. Although both versions of the anything's-possible model (i.e., `fit10.7` and `fit10.8`) had lower numeric estimates than the must-be-fair model (i.e., `fit10.6`), the standard errors on the difference scores were the same magnitude as the difference estimates themselves. As for comparing the two variants of the anything’s-possible model directly, their LOO estimates were almost indistinguishable.
 
 Now let's see what happens when we compute their model weights. Here we'll contrast the LOO weights with the stacking weights.
 
 ```{r mw_fit7_through_fit9, cache = T}
 mw <-
-  model_weights(fit7, fit8, fit9, weights = "stacking")
+  model_weights(fit10.6, fit10.7, fit10.8, weights = "stacking")
 
 mw %>% 
   round(digits = 2)
 
-model_weights(fit7, fit8, fit9, weights = "loo") %>% 
+model_weights(fit10.6, fit10.7, fit10.8, weights = "loo") %>% 
   round(digits = 2)
 ```
 
-Here the evidence varied by the specific weight. Across both, the model with the Haldane prior (`fit9`) did arguably the best. But the model with the uniform prior (`fit8`) was clearly in the running. Overall, the evidence for one versus another was weak.
+Here the evidence varied by the specific weight. Across both, the model with the Haldane prior (`fit10.8`) did arguably the best. But the model with the uniform prior (`fit10.9`) was clearly in the running. Overall, the evidence for one versus another was weak.
 
-Like we did earlier with `fit1` and `fit2`, we can use the `pp_average()` function to compute the stacking weighted posterior for $\theta$.
+Like we did earlier with `fit10.1` and `fit10.2`, we can use the `pp_average()` function to compute the stacking weighted posterior for $\theta$.
 
-```{r, fig.width = 3.5, fig.height = 3}
-pp_average(fit7, fit8, fit9, 
+```{r, fig.width = 3.75, fig.height = 3}
+pp_average(fit10.6, fit10.7, fit10.8, 
            newdata = nd,
            weights = mw,
            method = "fitted",
@@ -1275,10 +1250,10 @@ pp_average(fit7, fit8, fit9,
   ggplot(aes(x = V1, y = 0)) +
   stat_histintervalh(point_interval = mode_hdi, .width = c(.95, .5),
                      fill = "grey67", slab_color = "grey92",
-                     breaks = 30, slab_size = .4, outline_bars = T) +
+                     breaks = 30, slab_size = .25, outline_bars = T) +
   scale_y_continuous(NULL, breaks = NULL) +
-  labs(subtitle = "The posterior for the probability, given the\nweighted combination of fit7, fit8, and fit9",
-       x = expression(paste(italic(p), "(", theta, "|", italic(D), ")"))) +
+  labs(subtitle = "The posterior for the probability, given the weighted\ncombination of fit10.6, fit10.7, and fit10.8",
+       x = expression(italic(p)(theta*"|"*italic(D)))) +
   coord_cartesian(xlim = 0:1) +
   theme(panel.grid = element_blank())
 ```
@@ -1287,24 +1262,30 @@ Did you notice the `weights = mw` argument, there? From the `pp_average.brmsfit`
 
 And just for the sake of practice, we can also compare the models with separate posterior predictive checks using `pp_check()`.
 
-```{r, fig.width = 4, fig.height = 6, message = F}
+```{r, fig.width = 8, fig.height = 2.5, message = F}
 p1 <-
-  pp_check(fit7, type = "bars", nsamples = 1e3) +
-  ggtitle("fit7")
+  pp_check(fit10.6, type = "bars", nsamples = 1e3) +
+  ggtitle("fit10.6",
+          subtitle = expression("beta"*(500*", "*500)))
 
 p2 <-
-  pp_check(fit8, type = "bars", nsamples = 1e3) +
-  ggtitle("fit8")
+  pp_check(fit10.7, type = "bars", nsamples = 1e3) +
+  ggtitle("fit10.7",
+          subtitle = expression("beta"*(1*", "*1)))
 
 p3 <-
-  pp_check(fit9, type = "bars", nsamples = 1e3) +
-  ggtitle("fit9")
+  pp_check(fit10.8, type = "bars", nsamples = 1e3) +
+  ggtitle("fit10.8",
+          subtitle = expression("beta"*(0.01*", "*0.01)))
 
-((p1 / p2 / p3) & ylim(0, 80)) + 
+((p1 + p2 + p3) & 
+    scale_x_continuous(breaks = 0:1) &
+    ylim(0, 80) &
+    theme(panel.grid = element_blank())) + 
   plot_layout(guides = 'collect')
 ```
 
-Instead of the default 10, this time we used 1000 posterior simulations from each fit, which we summarized with dot and error bars. This method did a great job showing how little `fit7` learned from the data. Another nice thing about this method is it reveals how similar the results are between `fit8` and `fit9`, the two alternate versions of the anything's-possible model. Also, did you notice how we tacked `ylim(0, 80)` onto the end of each plots' code? Holding the scale of the axes constant makes it easier to compare results across plots.
+Instead of the default 10, this time we used 1,000 posterior simulations from each fit, which we summarized with dot and error bars. This method did a great job showing how little `fit10.6` learned from the data. Another nice thing about this method is it reveals how similar the results are between `fit10.7` and `fit10.8`, the two alternate versions of the anything's-possible model. Also, did you notice how we used `ylim(0, 80)` when combining the plots with **patchwork**? Holding the scale of the axes constant makes it easier to compare results across plots.
 
 ## Bonus: There's danger ahead
 
@@ -1324,7 +1305,7 @@ sessionInfo()
 
 ```{r, echo = F}
 # remove our objects
-rm(length, p_d, p_d_1, p_d_2, d, p1, p2, bernoulli_likelihood, n, z, trial_data, omega, kappa, stanvars, fit1, theta, mean_theta, sd_theta, a_post, b_post, one_over_pd, fit2, mw, nd, pp_a, fit3, fit4, my_data, fit5, fit6, hdi_of_icdf, hdi_of_qbeta, fit7, fit8, fit9, p3)
+rm(length, p_d, p_d_1, p_d_2, odds, d, p1, p2, bernoulli_likelihood, n, z, trial_data, omega, kappa, stanvars, fit10.1, theta, mean_theta, sd_theta, a_post, b_post, one_over_pd, fit10.2, mw, nd, pp_a, fit10.3, fit10.4, my_data, fit9.2, fit10.5, fit10.6, hdi_of_icdf, hdi_of_qbeta, fit10.7, fit10.8, p3)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
