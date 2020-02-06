@@ -70,8 +70,7 @@ d <-
   mutate(prior      = dbeta(theta, shape1 = 1, shape2 = 1),          # (i.e., p(theta))
          likelihood = bernoulli_likelihood(theta = theta,            # (i.e., p(D | theta))
                                            data = trial_data)) %>%
-  mutate(evidence = sum(prior * likelihood)) %>%                     # (i.e., p(D))
-  mutate(posterior = likelihood * prior / evidence)                  # (i.e., p(theta | D))
+  mutate(posterior = likelihood * prior / sum(prior * likelihood))   # (i.e., p(theta | D))
   
 glimpse(d)
 ```
@@ -106,7 +105,7 @@ With the `hdi_of_icdf()` function, we'll compute the HDIs.
 hdi_of_icdf <- function(name, width = .95, tol = 1e-8, ... ) {
  
   incredible_mass <-  1.0 - width
-  interval_width  <- function(low_tail_prob, name, width, ...) {
+  interval_width <- function(low_tail_prob, name, width, ...) {
     name(width + low_tail_prob, ...) - name(low_tail_prob, ...)
   }
   opt_info <- optimize(interval_width, c(0, incredible_mass), 
@@ -217,33 +216,26 @@ library(brms)
 library(tidybayes)
 ```
 
-Fit the model.
-
-```{r, echo = F, warning = F, message = F}
-# this will simplify things
-load("fits/09_fit2.rda")
-
-fit1 <- fit2
-rm(fit2)
-```
+Fit the model and retain its original name, `fit9.2`.
 
 ```{r, eval = F}
-fit1 <-
+fit9.2 <-
   brm(data = my_data,
       family = binomial(link = logit),
       Hits | trials(AtBats) ~ 1 + (1 | PriPos) + (1 | PriPos:Player),
       prior = c(prior(normal(0, 1.5), class = Intercept),
                 prior(normal(0, 1), class = sd)),
       iter = 3500, warmup = 500, chains = 3, cores = 3,
-      control = list(adapt_delta = .9),
-      seed = 12)
+      control = list(adapt_delta = .99),
+      seed = 9,
+      file = "fits/fit09.02")
 ```
 
 Let's use `coef()` to pull the relevant posterior draws.
 
 ```{r, warning = F}
 c <-
-  coef(fit1, summary = F)$PriPos %>% 
+  coef(fit9.2, summary = F)$PriPos %>% 
   as_tibble()
   
 str(c)
@@ -275,7 +267,7 @@ c_small %>%
   stat_histintervalh(aes(y = 0),
                      point_interval = mode_hdi, .width = .95,
                      fill = "grey67", slab_color = "grey92",
-                     breaks = 20, slab_size = .3, outline_bars = T) +
+                     breaks = 20, slab_size = .25, outline_bars = T) +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(title = "The ROPE ranges from −0.05 to +0.05",
        x = expression(theta)) +
@@ -301,7 +293,7 @@ nd <-
   arrange(Player)
 
 f <-
-  fitted(fit1, 
+  fitted(fit9.2, 
          newdata = nd,
          scale = "linear",
          summary = F) %>% 
@@ -373,7 +365,7 @@ d %>%
   ggplot(aes(x = value, y = 0)) +
   stat_histintervalh(point_interval = mode_hdi, .width = .95,
                      fill = "grey67", slab_color = "grey92",
-                     breaks = 30, slab_size = .4, outline_bars = T) +
+                     breaks = 30, slab_size = .25, outline_bars = T) +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(expression(theta)) +
   theme(panel.grid = element_blank()) +
@@ -386,9 +378,7 @@ Here's the scatter plot, showing the correlation. I think we got pretty close!
 d %>%
   ggplot(aes(x = `theta[1]`, y = `theta[2]`)) +
   geom_abline(color = "white") +
-  geom_point(size = 1/2,
-             color = "grey50",
-             alpha = 1/4) +
+  geom_point(size = 1/2, color = "grey50", alpha = 1/4) +
   coord_equal(xlim = 0:1,
               ylim = 0:1) +
   labs(x = expression(theta[1]),
@@ -426,7 +416,7 @@ d %>%
   ggplot(aes(x = value, y = 0)) +
   stat_histintervalh(point_interval = mode_hdi, .width = .95,
                      fill = "grey67", slab_color = "grey92",
-                     breaks = 20, slab_size = .4, outline_bars = T) +
+                     breaks = 20, slab_size = .25, outline_bars = T) +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(expression(theta)) +
   theme(panel.grid = element_blank()) +
@@ -439,9 +429,7 @@ Behold the second scatter plot.
 d %>%
   ggplot(aes(x = `theta[1]`, y = `theta[2]`)) +
   geom_abline(color = "white") +
-  geom_point(size = 1/2,
-             color = "grey50",
-             alpha = 1/4) +
+  geom_point(size = 1/2, color = "grey50", alpha = 1/4) +
   coord_equal(xlim = 0:1,
               ylim = 0:1) +
   labs(x = expression(theta[1]),
@@ -536,20 +524,20 @@ tibble(x = seq(from = 0, to = 40, by = .1)) %>%
   scale_y_continuous(NULL, breaks = NULL) +
   coord_cartesian(xlim = 0:35) +
   xlab("Density Value") +
-  theme(panel.grid = element_blank(),
-        legend.position = "none")
+  theme(legend.position = "none",
+        panel.grid = element_blank())
 ```
 
 To repeat, ETIs are the only types of intervals available directly by the **brms** package. When using the default `print()` or `summary()` output for a `brm()` model, the 95% ETIs are displayed in the 'l-95% CI' and 'u-95% CI' columns.
 
 ```{r}
-print(fit1)
+print(fit9.2)
 ```
 
 In the output of most other **brms** functions, the 95% ETIs appear in the `Q2.5` and `Q97.5` columns. Take `fitted()`, for example.
 
 ```{r}
-fitted(fit1, 
+fitted(fit9.2, 
        newdata = nd,
        scale = "linear")
 ```
@@ -557,7 +545,7 @@ fitted(fit1,
 But as we just did, above, you can always use the convenience functions from the **tidybayes** package (e.g., `mean_hdi()`) to get HDIs from a **brms** fit.
 
 ```{r}
-fitted(fit1, 
+fitted(fit9.2, 
        newdata = nd,
        scale = "linear",
        summary = F) %>% 
@@ -610,7 +598,6 @@ p1 <-
               fill = "grey50") +
   annotate(geom = "text", x = .1, y = 4, 
            label = expression(epsilon == 0.01), size = 3.5) +
-  scale_y_continuous(breaks = NULL) +
   labs(title = "Prior (beta)",
        x = expression(theta),
        y = expression("Beta"*(theta*"|"*epsilon*", "*epsilon)))
@@ -620,7 +607,6 @@ p2 <-
   ggplot(aes(x = theta)) +
   geom_ribbon(aes(ymin = 0, ymax = likelihood),
               fill = "grey50") +
-  scale_y_continuous(breaks = NULL) +
   labs(title = "Likelihood (Bernoulli)",
        x = expression(theta),
        y = expression(p(D*"|"*theta)))
@@ -630,14 +616,15 @@ p3 <-
   ggplot(aes(x = theta)) +
   geom_ribbon(aes(ymin = 0, ymax = posterior),
               fill = "grey50") +
-  scale_y_continuous(breaks = NULL) +
   labs(title = "Posterior (beta)",
        x = expression(theta),
        y = expression("Beta"*(theta*"|"*7.01*", "*17.01)))
 
 library(patchwork)
 
-(p1 / p2 / p3) & theme(panel.grid = element_blank())
+(p1 / p2 / p3) & 
+  scale_y_continuous(breaks = NULL) &
+  theme(panel.grid = element_blank())
 ```
 
 We can calculate the Beta parameters for the posterior using the formula $\operatorname{Beta} (\theta | z + \alpha, N - z + \beta)$.
@@ -675,7 +662,6 @@ p1 <-
   ggplot(aes(x = theta)) +
   geom_ribbon(aes(ymin = 0, ymax = prior),
               fill = "grey50") +
-  scale_y_continuous(breaks = NULL) +
   labs(title = "Prior (beta)",
        x = expression(theta),
        y = expression("Beta"*(theta*"|"*2*", "*4)))
@@ -685,7 +671,6 @@ p2 <-
   ggplot(aes(x = theta)) +
   geom_ribbon(aes(ymin = 0, ymax = likelihood),
               fill = "grey50") +
-  scale_y_continuous(breaks = NULL) +
   labs(title = "Likelihood (Bernoulli)",
        x = expression(theta),
        y = expression(p(D*"|"*theta)))
@@ -695,12 +680,13 @@ p3 <-
   ggplot(aes(x = theta)) +
   geom_ribbon(aes(ymin = 0, ymax = posterior),
               fill = "grey50") +
-  scale_y_continuous(breaks = NULL) +
   labs(title = "Posterior (beta)",
        x = expression(theta),
        y = expression("Beta"*(theta*"|"*9*", "*21)))
 
-(p1 / p2 / p3) & theme(panel.grid = element_blank())
+(p1 / p2 / p3) & 
+  scale_y_continuous(breaks = NULL) &
+  theme(panel.grid = element_blank())
 ```
 
 Here are those Beta parameters for that posterior.
@@ -761,12 +747,14 @@ On page 346, Kruschke showed some of the 95% HDIs for the marginal distributions
 
 ```{r}
 hdi_of_qbeta <- function(shape1, shape2) {
+  
   hdi_of_icdf(name = qbeta,
               shape1 = shape1,
               shape2 = shape2) %>% 
     data.frame() %>% 
     mutate(level = c("ll", "ul")) %>% 
     spread(key = level, value = ".")
+  
 }
 ```
 
@@ -792,7 +780,7 @@ Further,
 
 Here are the steps to make the left column of Figure 12.4 (i.e., the column based on very weak data and the Haldane prior).
 
-```{r, fig.width = 4, fig.height = 6, warning = F, message = F}
+```{r, fig.width = 4, fig.height = 6, warning = F}
 # we need these to compute the likelihood
 n <- 2
 z <- 1
@@ -816,7 +804,6 @@ p1 <-
               fill = "grey50") +
   annotate(geom = "text", x = .1, y = 4, 
            label = expression(epsilon == 0.01), size = 3.5) +
-  scale_y_continuous(breaks = NULL) +
   labs(title = "Prior (beta)",
        x = expression(theta),
        y = expression("Beta"*(theta*"|"*epsilon*", "*epsilon)))
@@ -826,7 +813,6 @@ p2 <-
   ggplot(aes(x = theta)) +
   geom_ribbon(aes(ymin = 0, ymax = likelihood),
               fill = "grey50") +
-  scale_y_continuous(breaks = NULL) +
   labs(title = "Likelihood (Bernoulli)",
        x = expression(theta),
        y = expression(p(D*"|"*theta)))
@@ -836,12 +822,13 @@ p3 <-
   ggplot(aes(x = theta)) +
   geom_ribbon(aes(ymin = 0, ymax = posterior),
               fill = "grey50") +
-  scale_y_continuous(breaks = NULL) +
   labs(title = "Posterior (beta)",
        x = expression(theta),
        y = expression("Beta"*(theta*"|"*7.01*", "*17.01)))
 
-(p1 / p2 / p3) & theme(panel.grid = element_blank())
+(p1 / p2 / p3) & 
+  scale_y_continuous(breaks = NULL) &
+  theme(panel.grid = element_blank())
 ```
 
 That is one flat posterior! Here are the shape parameters and the HDIs.
@@ -871,7 +858,7 @@ Just like in the text, "the Bayes' factor is 51.0 in favor of the null hypothesi
 
 Here are the steps to make the right column of Figure 12.4, which is based on stronger data and a flat $\operatorname{Beta} (1, 1)$ prior.
 
-```{r, fig.width = 4, fig.height = 6, warning = F, message = F}
+```{r, fig.width = 4, fig.height = 6, warning = F}
 # we need these to compute the likelihood
 n <- 14
 z <- 7
@@ -891,7 +878,6 @@ p1 <-
   ggplot(aes(x = theta)) +
   geom_ribbon(aes(ymin = 0, ymax = prior),
               fill = "grey50") +
-  scale_y_continuous(breaks = NULL) +
   labs(title = "Prior (beta)",
        x = expression(theta),
        y = expression("Beta"*(theta*"|"*1*", "*1)))
@@ -901,7 +887,6 @@ p2 <-
   ggplot(aes(x = theta)) +
   geom_ribbon(aes(ymin = 0, ymax = likelihood),
               fill = "grey50") +
-  scale_y_continuous(breaks = NULL) +
   labs(title = "Likelihood (Bernoulli)",
        x = expression(theta),
        y = expression(p(D*"|"*theta)))
@@ -911,12 +896,13 @@ p3 <-
   ggplot(aes(x = theta)) +
   geom_ribbon(aes(ymin = 0, ymax = posterior),
               fill = "grey50") +
-  scale_y_continuous(breaks = NULL) +
   labs(title = "Posterior (beta)",
        x = expression(theta),
        y = expression("Beta"*(theta*"|"*8*", "*8)))
 
-(p1 / p2 / p3) & theme(panel.grid = element_blank())
+(p1 / p2 / p3) & 
+  scale_y_continuous(breaks = NULL) &
+  theme(panel.grid = element_blank())
 ```
 
 Here are the updated shape parameters and the HDIs.
@@ -964,7 +950,6 @@ p1 <-
               fill = "grey67", size = 0) +
   annotate(geom = "text", x = .01, y = 35, 
            label = expression(epsilon == 0.01), size = 3.5) +
-  scale_y_continuous(NULL, breaks = NULL) +
   labs(title = "This posterior used the Haldane prior.",
        x = expression(theta))
 
@@ -981,11 +966,12 @@ p2 <-
             color = "transparent", fill = "white") +
   geom_ribbon(aes(ymin = 0, ymax = dbeta(theta, shape1 = alpha, shape2 = beta)),
               fill = "grey67", size = 0) +
-  scale_y_continuous(NULL, breaks = NULL) +
   labs(title = "This time we used the flat Beta (1, 1).",
        x = expression(theta))
 
-(p1 / p2) & theme(panel.grid = element_blank())
+(p1 / p2) & 
+  scale_y_continuous(NULL, breaks = NULL) &
+  theme(panel.grid = element_blank())
 ```
 
 > There is no way around this inconvenient statistical reality: high precision demands a large sample size (and a measurement device with minimal possible noise). But when we are trying to accept a specific value of $\theta$, is seems logically appropriate that we should have a reasonably precise estimate indicating that specific value. (p. 348)
@@ -1038,20 +1024,21 @@ Recall that although **brms** does accommodate models based on the Bernoulli lik
 
 In our equation, $\beta_{0_j}$ is the group-specific intercept within the logistic regression model. We'll use the $N(0, 1.5)$ prior for the intercept. Though it appears strongly regularizing in the log-odds space, it's quite flat on the $\theta$ space. If we wanted to be more conservative in the $\theta$ space, we might use something more like $N(0, 1)$.
 
-```{r fit_12.02, cache = T, warning = F, message = F}
-fit2 <-
+```{r fit12.1}
+fit12.1 <-
   brm(data = my_data, 
       family = binomial,
       n_recalled | trials(20) ~ 0 + condition,
       prior(normal(0, 1.5), class = b),
       iter = 3000, warmup = 1000, cores = 4, chains = 4,
-      seed = 12) 
+      seed = 12,
+      file = "fits/fit12.01") 
 ```
 
 Here's the summary for the full model.
 
 ```{r}
-print(fit2)
+print(fit12.1)
 ```
 
 Do keep in mind that our results will differ from Kruschke's because of two factors. First, we simulated slightly different data. In the limit, I suspect our data simulation approaches would converge. But we're far from the limit. Second, we used a different likelihood to model the data, which resulted in slightly different priors. Yet even with those substantial limitations, our results are pretty close.
@@ -1060,7 +1047,7 @@ To make the top portion of Figure 12.5, we'll need to extract the `condition`-sp
 
 ```{r}
 post <-
-  fixef(fit2, summary = F) %>% 
+  fixef(fit12.1, summary = F) %>% 
   as_tibble() %>% 
   transmute(theta_1 = conditionDasKruschke, 
             theta_2 = conditionMozart, 
@@ -1087,7 +1074,7 @@ post %>%
   geom_vline(xintercept = 0, color = "white") +
   stat_histintervalh(point_interval = mode_hdi, .width = .95,
                      fill = "grey67", slab_color = "grey92",
-                     breaks = 30, slab_size = .4, outline_bars = T) +
+                     breaks = 30, slab_size = .25, outline_bars = T) +
   scale_y_continuous(NULL, breaks = NULL) +
   coord_cartesian(xlim = c(-.25, .25)) +
   theme(panel.grid = element_blank()) +
@@ -1118,46 +1105,48 @@ post %>%
 
 I got this idea from the great [Tristan Mahr](https://twitter.com/tjmahr), who [pointed out](https://twitter.com/tjmahr/status/1097980989387755521) that conditional tests like `value > 0` compute a vector of `TRUE` and `FALSE` values. By nesting that within `mean()`, you end up with the proportion of those values that are `TRUE`.
 
-With our Stan/**brms** method, we don't have an analogue to the lower portion of Figure 12.5 because we are not fitting the full and restricted models within a single run. Thus, there's no plot to show the chains traversing from $M_\text{full}$ to $M_\text{restricted}$. Rather, our `fit2` was just of $M_\text{full}$. Now we'll fit $M_\text{restricted}$, which we'll save as `fit3`.
+With our Stan/**brms** method, we don't have an analogue to the lower portion of Figure 12.5 because we are not fitting the full and restricted models within a single run. Thus, there's no plot to show the chains traversing from $M_\text{full}$ to $M_\text{restricted}$. Rather, our `fit12.1` was just of $M_\text{full}$. Now we'll fit $M_\text{restricted}$, which we'll save as `fit12.2`.
 
-```{r fit_12.03, cache = T, warning = F, message = F}
-fit3 <-
+```{r fit12.2}
+fit12.2 <-
   brm(data = my_data, 
       family = binomial,
       n_recalled | trials(20) ~ 1,
       prior(normal(0, 1.5), class = Intercept),
       iter = 3000, warmup = 1000, cores = 4, chains = 4,
-      seed = 12) 
+      seed = 12,
+      file = "fits/fit12.02") 
 ```
 
 Here we'll compare the two models with the LOO.
 
-```{r loo_fit2_fit3}
-fit2 <- add_criterion(fit2, criterion = "loo")
-fit3 <- add_criterion(fit3, criterion = "loo")
+```{r loo_fit12.1_fit12.2, message = F}
+fit12.1 <- add_criterion(fit12.1, criterion = "loo")
+fit12.2 <- add_criterion(fit12.2, criterion = "loo")
 
-loo_compare(fit2, fit3) %>% 
+loo_compare(fit12.1, fit12.2) %>% 
   print(simplify = F)
 ```
 
-The LOO comparison suggests `fit2`, the full model with the `condition`-specific intercepts, is an improvement over the restricted one-intercept-only model.  We can also compare the models with their weights via the `model_weights()` function. Here we'll use `weights = "loo"` criterion.
+The LOO comparison suggests `fit12.1`, the full model with the `condition`-specific intercepts, is an improvement over the restricted one-intercept-only model.  We can also compare the models with their weights via the `model_weights()` function. Here we'll use `weights = "loo"` criterion.
 
 ```{r 12_loo_weights, cache = T}
-model_weights(fit2, fit3, weights = "loo")
+model_weights(fit12.1, fit12.2, weights = "loo") %>% 
+  round(digits = 3)
 ```
 
-Recall that within a given comparison, the weights sum to 1, with better fitting models tending closer to 1 than the other(s). In this case, almost all the weight went to the $M_\text{full}$, `fit2`.
+Recall that within a given comparison, the weights sum to 1, with better fitting models tending closer to 1 than the other(s). In this case, almost all the weight went to the $M_\text{full}$, `fit12.1`.
 
 #### Bonus: Hypothesis testing in brms.
 
-Disclaimer: I am not a fan of hypothesis texting within the Bayesian framework. Outside of pedagogical material, I do not use these methods. However, it'd seem negligent not to at least mention the convenience function designed for that purpose in **brms**: the `hypothesis()` function. From the `hypothesis` section in the [**brms** reference manual (version 2.10.0)](https://cran.r-project.org/web/packages/brms/brms.pdf) we read:
+Disclaimer: I am not a fan of hypothesis texting within the Bayesian framework. Outside of pedagogical material, I do not use these methods. However, it'd seem negligent not to at least mention the convenience function designed for that purpose in **brms**: the `hypothesis()` function. From the `hypothesis` section in the [**brms** reference manual (version 2.11.1)](https://cran.r-project.org/web/packages/brms/brms.pdf) we read:
 
 > Among others, `hypothesis` computes an evidence ratio (`Evid.Ratio`) for each hypothesis. For a one-sided hypothesis, this is just the posterior probability (`Post.Prob`) under the hypothesis against its alternative. That is, when the hypothesis is of the form `a > b`, the evidence ratio is the ratio of the posterior probability of `a > b` and the posterior probability of `a < b`. In this example, values greater than one indicate that the evidence in favor of `a > b` is larger than evidence in favor of `a < b`. For an two-sided (point) hypothesis, the evidence ratio is a Bayes factor between the hypothesis and its alternative computed via the Savage-Dickey density ratio method. That is the posterior density at the point of interest divided by the prior density at that point. Values greater than one indicate that evidence in favor of the point hypothesis has increased after seeing the data. In order to calculate this Bayes factor, all parameters related to the hypothesis must have proper priors and argument `sample_prior` of function brm must be set to `"yes"`. Otherwise Evid.Ratio (and Post.Prob) will be `NA`. Please note that, for technical reasons, we cannot sample from priors of certain parameters classes. Most notably, these include overall intercept parameters (prior class `"Intercept"`) as well as group-level coefficients. When interpreting Bayes factors, make sure that your priors are reasonable and carefully chosen, as the result will depend heavily on the priors. In particular, avoid using default priors.
 
-Following the `a < b` format, let's say we wanted to test the hypothesis $\theta_\text{Das Kruschke} < \theta_\text{Bach}$, based on `fit2`. If we convert the relevant parameters from the log-odds metric to the probability scale with `inv_logit_scaled()`, we can specify that hypothesis as a string and place it into the `hypothesis()` function.
+Following the `a < b` format, let's say we wanted to test the hypothesis $\theta_\text{Das Kruschke} < \theta_\text{Bach}$, based on `fit12.1`. If we convert the relevant parameters from the log-odds metric to the probability scale with `inv_logit_scaled()`, we can specify that hypothesis as a string and place it into the `hypothesis()` function.
 
 ```{r}
-hypothesis(fit2, 
+hypothesis(fit12.1, 
            "inv_logit_scaled(conditionDasKruschke) < inv_logit_scaled(conditionBach)")
 ```
 
@@ -1171,7 +1160,7 @@ using arbitrary cutoffs (e.g., `p < .05`) to determine the 'existence' of an eff
 In this case, the entire posterior distribution (i.e., all the iterations of the chains) was below zero and we ended up with an `Evid.Ratio = Inf`. Our Bayes factor blew up. If we'd like to test a point null hypothesis, we might reformat the equation to $\theta_\text{Das Kruschke} = \theta_\text{Bach}$.
 
 ```{r}
-hypothesis(fit2, 
+hypothesis(fit12.1, 
            "inv_logit_scaled(conditionDasKruschke) = inv_logit_scaled(conditionBach)")
 ```
 
@@ -1180,11 +1169,11 @@ Here we no longer get summary information in the `Evid.Ratio` and `Post.Prob` co
 Let's see what happens when we test a different kind of directional hypothesis, $\theta_\text{Motzart} - \theta_\text{Bach} > 0$.
 
 ```{r}
-hypothesis(fit2, 
+hypothesis(fit12.1, 
            "inv_logit_scaled(conditionMozart) - inv_logit_scaled(conditionBach) > 0")
 ```
 
-Here we get an underwhelming BF of 1.47. The posterior probability that hypothesis versus its logical alternative is .6. Notice we no longer have a `*` in the `Star` column.
+Here we get an underwhelming BF of 1.46. The posterior probability that hypothesis versus its logical alternative is .59. Notice we no longer have a `*` in the `Star` column.
 
 ## Relations of parameter estimation and model comparison
 
@@ -1212,7 +1201,7 @@ sessionInfo()
 
 ```{r, echo = F}
 # Here we'll remove our objects
-rm(bernoulli_likelihood, n, z, trial_data, d, alpha, beta, hdi_of_icdf, h, my_data, fit1, c, c_small, name_list, nd, correlation_matrix, mu, sd, covariance_matrix, ex, hx, ey, hy, lines, epsilon, p1, p2, p3, p_d_null, p_d, hdi_of_qbeta, a, b, n_g, n_t, fit2, post, fit3, f, theta)
+rm(bernoulli_likelihood, n, z, trial_data, d, alpha, beta, hdi_of_icdf, h, my_data, fit9.2, c, c_small, name_list, nd, correlation_matrix, mu, sd, covariance_matrix, ex, hx, ey, hy, lines, epsilon, p1, p2, p3, p_d_null, p_d, hdi_of_qbeta, a, b, n_g, n_t, fit12.1, post, fit12.2, f, theta)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
