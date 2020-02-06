@@ -153,8 +153,8 @@ tibble(x   = seq(from = 0, to = 110, by = .1)) %>%
   ggplot(aes(x = x, ymin = 0, ymax = d)) +
   geom_ribbon(fill = "grey67") +
   geom_vline(xintercept = sd_y, linetype = 2) +
-  labs(subtitle = "The gray density in the background is the half-normal prior for sigma.\nThe dashed vertical line is our 'sd_y' value.") +
   scale_y_continuous(breaks = NULL) +
+  labs(subtitle = "The gray density in the background is the half-normal prior for sigma.\nThe dashed vertical line is our 'sd_y' value.") +
   coord_cartesian(xlim = 0:100)
 ```
 
@@ -171,8 +171,8 @@ tibble(x   = 0:(sd_y * 1000)) %>%
   ggplot(aes(x = x, ymin = 0, ymax = d)) +
   geom_ribbon(fill = "grey67") +
   geom_vline(xintercept = sd_y, linetype = 2) +
-  labs(subtitle = "The gray density in the background is Kruschke's uniform prior for sigma.\nThe dashed vertical line is our 'sd_y' value.") +
   scale_y_continuous(breaks = NULL) +
+  labs(subtitle = "The gray density in the background is Kruschke's uniform prior for sigma.\nThe dashed vertical line is our 'sd_y' value.") +
   coord_cartesian()
 ```
 
@@ -189,14 +189,14 @@ tibble(x   = seq(from = -10000, to = 10000, by = 1)) %>%
   ggplot(aes(x = x, ymin = 0, ymax = d)) +
   geom_ribbon(fill = "grey67") +
   geom_vline(xintercept = mean_y, linetype = 2) +
-  labs(subtitle = "The grey density in the background is the normal prior for mu.\nThe dashed vertical line is our 'mean_y' value.") +
-  scale_y_continuous(breaks = NULL)
+  scale_y_continuous(breaks = NULL) +
+  labs(subtitle = "The grey density in the background is the normal prior for mu.\nThe dashed vertical line is our 'mean_y' value.")
 ```
 
 Yep, Kruschke's right. That is one non-committal prior given our data. We could tighten that up by an order of magnitude and still have little influence on the posterior. Anyway, here’s how to put our priors to use with **brms**.
 
-```{r 16_fit1, cache = T, message = F, warning = F}
-fit1 <-
+```{r fit16.1}
+fit16.1 <-
   brm(data = my_data,
       family = gaussian,
       Score ~ 1,
@@ -204,7 +204,8 @@ fit1 <-
                 prior(normal(0, sd_y), class = sigma)),
       chains = 4, cores = 4,
       stanvars = stanvars, 
-      seed = 16)
+      seed = 16,
+      file = "fits/fit16.01")
 ```
 
 To be more explicit, the `stanvars = stanvars` argument at the bottom of our code is what allowed us to define our intercept prior as `normal(mean_y, sd_y * 100)` instead of requiring us to type in the parameters as `normal(107.8413, 25.4452 * 100)`. Same basic point goes for our $\sigma$ prior.
@@ -214,13 +215,13 @@ Also, notice our prior code for $\sigma$, `prior(normal(0, sd_y), class = sigma)
 Let's examine the chains.
 
 ```{r, fig.width = 8, fig.height = 2.25}
-plot(fit1)
+plot(fit16.1)
 ```
 
 They look good! The model summary looks sensible, too.
 
 ```{r}
-print(fit1)
+print(fit16.1)
 ```
 
 Compare those values with `mean_y` and `sd_y`.
@@ -233,7 +234,7 @@ sd_y
 Good times. Let's extract the posterior draws and save them in a data frame `post`.
 
 ```{r}
-post <- posterior_samples(fit1, add_chain = T)
+post <- posterior_samples(fit16.1, add_chain = T)
 ```
 
 Here's the leg work required to make our version of the three histograms in Figure 16.3.
@@ -273,7 +274,7 @@ post %>%
 
 If we wanted those exact 95% HDIs, we'd execute this.
 
-```{r, warning = F, message = F}
+```{r}
 post %>% 
   transmute(Mean                 = b_Intercept, 
             `Standard Deviation` = sigma) %>% 
@@ -345,7 +346,7 @@ Kruschke pointed out this last plot
 We can perform a similar posterior-predictive check with the `brms::pp_check()` function. By default, it will return 10 simulated density lines. Like we did above, we'll increase that by setting the `nsamples` argument to our `n_lines` value.
 
 ```{r, fig.width = 4, fig.height = 2.25, warning = F, message = F}
-pp_check(fit1, nsamples = n_lines)
+pp_check(fit16.1, nsamples = n_lines)
 ```
 
 Before we move on, we should talk a little about effect sizes, which we all but glossed over in our code. 
@@ -370,11 +371,11 @@ crossing(nu = c(Inf, 4, 2, 1),
   ggplot(aes(x = y, y = density, group = nu, color = nu)) +
   geom_line() +
   scale_color_viridis_d(expression(paste(italic(t)[nu])), option = "B", direction = 1, end = .8) +
-  coord_cartesian(xlim = -6:6) +
   labs(y = "p(y)") +
-  theme(legend.position   = c(.92, .75),
-        legend.background = element_rect(fill = "grey92"),
-        legend.key        = element_rect(color = "transparent", fill = "transparent"))
+  coord_cartesian(xlim = -6:6) +
+  theme(legend.background = element_rect(fill = "grey92"),
+        legend.key = element_rect(color = "transparent", fill = "transparent"),
+        legend.position = c(.92, .75))
 ```
 
 > Although the $t$ distribution is usually conceived as a sampling distribution for the NHST $t$ test, we will use it instead as a convenient descriptive model of data with outliers... Outliers are simply data values that fall unusually far from a model's expected value. Real data often contain outliers relative to a normal distribution. Sometimes the anomalous values can be attributed to extraneous influences that can be explicitly identified, in which case the affected data values can be corrected or removed. But usually we have no way of knowing whether a suspected outlying value was caused by an extraneous influence, or is a genuine representation of the target being measured. Instead of deleting suspected outliers from the data according to some arbitrary criterion, we retain all the data but use a noise distribution that is less affected by outliers than is the normal distribution. (p. 459)
@@ -394,9 +395,9 @@ tibble(y = seq(from = -10, to = 20, length.out = 1e3)) %>%
   geom_point(data = tibble(y = c(-2:2, 15)),
              aes(y = 0),
              size = 2) +
-  coord_cartesian(xlim = -5:15) +
   labs(title = "Maximum Likelihood Estimates",
-       y     = "p(y)")
+       y = "p(y)") +
+  coord_cartesian(xlim = -5:15)
 ```
 
 I'm now aware that we have the data for the bottom panel of Figure 16.5. However, we can simulate similar data with the `rt.scaled()` function from the [**metRology** package](https://sourceforge.net/projects/metrology/).
@@ -420,9 +421,9 @@ tibble(y = seq(from = -3, to = 12, length.out = 1e3)) %>%
   geom_line(aes(y = metRology::dt.scaled(y, df = 2.63, mean = 1.11, sd = 0.15)),
               color = "grey33") +
   scale_x_continuous(breaks = seq(from = -2, to = 10, by = 2)) +
-  coord_cartesian(xlim = c(-1.5, 10.25)) +
   labs(title = "Maximum Likelihood Estimates",
-       y     = "p(y)")
+       y = "p(y)") +
+  coord_cartesian(xlim = c(-1.5, 10.25))
 ```
 
 In case you were curious, this is how I selected the seed for the plot. Run the code yourself to get a sense of how it works.
@@ -464,24 +465,22 @@ d <-
 p1 <-
   d %>% 
   ggplot(aes(x = y)) +
-  geom_ribbon(aes(ymin = 0,
-                  ymax = dt(y, df = nu)),
+  geom_ribbon(aes(ymin = 0, ymax = dt(y, df = nu)),
               fill = "grey67") +
   geom_ribbon(data = . %>% 
                 filter(y >= -1 & y <= 1),
-              aes(ymin = 0,
-                  ymax = dt(y, df = nu)),
+              aes(ymin = 0, ymax = dt(y, df = nu)),
               fill = "grey33") +
   # note how this function has its own data
   geom_text(data = tibble(
-    y = 0,
+    y     = 0,
     label = factor(c("nu == Inf", "nu == 5", "nu == 2", "nu == 1")),
-    text = c("68%", "64%", "58%", "50%")),
+    text  = c("68%", "64%", "58%", "50%")),
     aes(y = .175, label = text),
     color = "grey92") +
   scale_y_continuous("p(y)", breaks = c(0, .2, .4)) +
-  coord_cartesian(xlim = -6:6) +
   labs(subtitle = "Shaded from y = - 1 to y = 1") +
+  coord_cartesian(xlim = -6:6) +
   facet_wrap(~label, ncol = 1, labeller = label_parsed)
 ```
 
@@ -502,19 +501,18 @@ d <-
 p2 <-
   d %>% 
   ggplot(aes(x = y)) +
-  geom_ribbon(aes(ymin = 0,
-                  ymax = dt(y, df = nu)),
+  geom_ribbon(aes(ymin = 0, ymax = dt(y, df = nu)),
               fill = "grey67") +
   geom_ribbon(data = . %>% 
                 # notice our `filter()` argument has changed
                 filter(y >= ymin & y <= ymax),
-              aes(ymin = 0,
-                  ymax = dt(y, df = nu)),
+              aes(ymin = 0, ymax = dt(y, df = nu)),
               fill = "grey33") +
-  annotate(geom = "text", x = 0, y = .175, label = "68%", color = "grey92") +
+  annotate(geom = "text", x = 0, y = .175, 
+           label = "68%", color = "grey92") +
   scale_y_continuous("p(y)", breaks = c(0, .2, .4)) +
-  coord_cartesian(xlim = -6:6) +
   labs(subtitle = "Shaded for the middle 68.27%") +
+  coord_cartesian(xlim = -6:6) +
   facet_wrap(~label, ncol = 1, labeller = label_parsed)
 ```
 
@@ -564,8 +562,8 @@ stanvars <-
 
 Here's the `brm()` code. Note that we set the prior for our new $\nu$ parameter by specifying `class = nu` within the last `prior()` line.
 
-```{r 16_fit2, cache = T, message = F, warning = F}
-fit2 <-
+```{r fit16.2}
+fit16.2 <-
   brm(data = my_data,
       family = student,
       Score ~ 1,
@@ -574,7 +572,8 @@ fit2 <-
                 prior(exponential(one_over_twentynine), class = nu)),
       chains = 4, cores = 4,
       stanvars = stanvars,
-      seed = 16)
+      seed = 16,
+      file = "fits/fit16.02")
 ```
 
 We can make the shifted exponential distribution (i.e., Figure 16.7) with simple addition.
@@ -598,8 +597,8 @@ p1 <-
   stat_pointintervalh(aes(y = 0), 
                       point_interval = mode_hdi, .width = c(.95, .5)) +
   scale_y_continuous(NULL, breaks = NULL) +
-  labs(title = expression(paste("exponential(", lambda, " = 29) shifted + 1")),
-       x     = expression(nu)) +
+  labs(title = expression(exponential(lambda==29)~shifted~+1),
+       x = expression(nu)) +
   coord_cartesian(xlim = 1:150)
 
 # the bottom panel plot
@@ -611,8 +610,7 @@ p2 <-
   stat_pointintervalh(aes(y = 0), 
                       point_interval = mode_hdi, .width = c(.95, .5)) +
   scale_y_continuous(NULL, breaks = NULL) +
-  labs(title = " ",
-       x     = expression(paste("log10(", nu, ")"))) +
+  xlab(expression(log10(nu))) +
   coord_cartesian(xlim = c(0, 2.5))
 
 # bind them together
@@ -622,14 +620,14 @@ p1 / p2
 Here are the scatter plots of Figure 16.8.
 
 ```{r, fig.width = 4.5, fig.height = 4}
-pairs(fit2,
+pairs(fit16.2,
       off_diag_args = list(size = 1/3, alpha = 1/3))
 ```
 
 I'm not aware of an easy way to use `log10(nu)` instead of `nu` with `brms::pairs()`. However, you can get those plots with `posterior_samples()` and a little wrangling.
 
 ```{r, fig.width = 2.5, fig.height = 4}
-post <- posterior_samples(fit2)
+post <- posterior_samples(fit16.2)
 
 post %>% 
   mutate(`log10(nu)` = log10(nu)) %>% 
@@ -664,9 +662,9 @@ rope <-
 
 # here are the primary data
 post %>% 
-  transmute(Mean       = b_Intercept, 
-            Scale      = sigma,
-            Normality  = log10(nu)) %>% 
+  transmute(Mean      = b_Intercept, 
+            Scale     = sigma,
+            Normality = log10(nu)) %>% 
   mutate(`Effect Size` = (Mean - 100) / Scale) %>% 
   gather() %>% 
   
@@ -714,9 +712,9 @@ post %>%
   geom_line(aes(y = density, group = draw),
             size  = 1/4, alpha = 1/3, color = "grey25") +
   scale_y_continuous(NULL, breaks = NULL) +
-  coord_cartesian(xlim = 50:210) +
   labs(title = "Data with Post. Pred.",
-       x     = "y")
+       x = "y") +
+  coord_cartesian(xlim = 50:210)
 ```
 
 Much like Kruschke mused in the text, this plot
@@ -726,25 +724,25 @@ Much like Kruschke mused in the text, this plot
 In case you were wondering, here's the model `summary()`.
 
 ```{r}
-summary(fit2)
+summary(fit16.2)
 ```
 
 It's easy to miss how
 
-> $\sigma$ in the robust estimate is much smaller than in the normal estimate. What we had interpreted as increased standard deviation induced by the smart drug might be better described as increased outliers. Both of these differences, that is, $\mu$ more tightly estimated and σ smaller in magnitude, are a result of there being outliers in the data. The only way a normal distribution can accommodate the outliers is to use a large value for $\sigma$. In turn, that leads to "slop" in the estimate of $\mu$ because there is a wider range of $\mu$ values that reasonably fit the data when the standard deviation is large. (p. 464)
+> $\sigma$ in the robust estimate is much smaller than in the normal estimate. What we had interpreted as increased standard deviation induced by the smart drug might be better described as increased outliers. Both of these differences, that is, $\mu$ more tightly estimated and $\sigma$ smaller in magnitude, are a result of there being outliers in the data. The only way a normal distribution can accommodate the outliers is to use a large value for $\sigma$. In turn, that leads to "slop" in the estimate of $\mu$ because there is a wider range of $\mu$ values that reasonably fit the data when the standard deviation is large. (p. 464)
 
 We can use the `brms::VarCorr()` function to pull the summary statistics for $\sigma$ from both models.
 
 ```{r}
-VarCorr(fit1)$residual__$sd
-VarCorr(fit2)$residual__$sd
+VarCorr(fit16.1)$residual__$sd
+VarCorr(fit16.2)$residual__$sd
 ```
 
 It is indeed the case that estimate for $\sigma$ is smaller in the $t$ model. That smaller $\sigma$ resulted in a more precise estimate for $\mu$, as can be seen in the 'Est.Error' columns from the `fixef()` output.
 
 ```{r}
-fixef(fit1)
-fixef(fit2)
+fixef(fit16.1)
+fixef(fit16.2)
 ```
 
 ### Using the $t$ distribution in Stan.
@@ -752,7 +750,7 @@ fixef(fit2)
 Kruschke expressed concern about high autocorrelations in the chains of his JAGS model. Here are the results of our Stan/**brms** attempt.
 
 ```{r, fig.width = 6, fig.height = 4, message = F, warning = F}
-post <- posterior_samples(fit2, add_chain = T)
+post <- posterior_samples(fit16.2, add_chain = T)
 
 library(bayesplot)
 
@@ -762,7 +760,7 @@ mcmc_acf(post, pars = c("b_Intercept", "sigma", "nu"), lags = 35)
 For all three parameters, the autocorrelations were near zero by lag 3 or 4. Not bad. The $N_{eff}/N$ ratios are okay.
 
 ```{r, fig.width = 6, fig.height = 1.25}
-neff_ratio(fit2) %>% 
+neff_ratio(fit16.2) %>% 
   mcmc_neff() +
   yaxis_text(hjust = 0)
 ```
@@ -770,7 +768,7 @@ neff_ratio(fit2) %>%
 The trace plots look fine.
 
 ```{r, fig.width = 8, fig.height = 4}
-plot(fit2)
+plot(fit16.2)
 ```
 
 The values for `nu` are pretty skewed, but hopefully it makes sense to you why that might be the case. Here are the overlaid density plots.
@@ -779,49 +777,49 @@ The values for `nu` are pretty skewed, but hopefully it makes sense to you why t
 mcmc_dens_overlay(post, pars = c("b_Intercept", "sigma", "nu"))
 ```
 
-The $\hat{R}$ values are right where we like them.
+The $\hat R$ values are right where we like them.
 
 ```{r}
-rhat(fit2)
+rhat(fit16.2)
 ```
 
-If you peer into the contents of a `brm()` fit object (e.g., `fit2 %>% str()`), you'll discover it contains the Stan code. Here it is for our `fit2`.
+If you peer into the contents of a `brm()` fit object (e.g., `fit16.2 %>% str()`), you'll discover it contains the Stan code. Here it is for our `fit16.2`.
 
 ```{r}
-fit2$fit@stanmodel
+fit16.2$fit@stanmodel
 ```
 
 Note the last line in the parameters block, "real\<lower=1\> nu;  // degrees of freedom or shape." By default, **brms** set the lower bound for $\nu$ to 1.
 
-Just for kicks and giggles, the `pp_check()` offers us a handy way to compare the performance of our Gaussian `fit2` and our Student's $t$ `fit2`. If we set `type = "ecdf_overlay"` within `pp_check()`, we'll get the criterion `Score` displayed as a cumulative distribution function (CDF) rather than a typical density. Then, `pp_check()` presents CDF's based on draws from the posterior for comparison. Just like with the default `pp_check()` plots, we like it when those simulated distributions mimic the one from the original data.
+Just for kicks and giggles, the `pp_check()` offers us a handy way to compare the performance of our Gaussian `fit16.2` and our Student's $t$ `fit16.2`. If we set `type = "ecdf_overlay"` within `pp_check()`, we'll get the criterion `Score` displayed as a cumulative distribution function (CDF) rather than a typical density. Then, `pp_check()` presents CDF's based on draws from the posterior for comparison. Just like with the default `pp_check()` plots, we like it when those simulated distributions mimic the one from the original data.
 
 ```{r, fig.width = 7, fig.height = 3}
-# fit1 with Gaus
+# fit16.1 with Gaus
 set.seed(16)
 p1 <-
-  pp_check(fit1, nsamples = 63, type = "ecdf_overlay") + 
-  labs(subtitle = "fit1 with `family = gaussian`") +
+  pp_check(fit16.1, nsamples = 63, type = "ecdf_overlay") + 
+  labs(subtitle = "fit16.1 with `family = gaussian`") +
   coord_cartesian(xlim = range(my_data$Score)) +
   theme(legend.position = "none")
 
-# fit2 with Student's t
+# fit16.2 with Student's t
 p2 <-
-  pp_check(fit2, nsamples = 63, type = "ecdf_overlay") + 
-  labs(subtitle = "fit2 with `family = student`") +
+  pp_check(fit16.2, nsamples = 63, type = "ecdf_overlay") + 
+  labs(subtitle = "fit16.2 with `family = student`") +
   coord_cartesian(xlim = range(my_data$Score))
 
 # combine the subplots
 p1 + p2
 ```
 
-It's subtle, but you might notice that the simulated CDFs from `fit1` have steeper slopes in the middle when compared to the original data in the dark blue. However, the `fit2`-based simulated CDFs match up more closely with the original data. This suggests an edge for `fit2`. Revisiting our skills from Chapter 10, we might also compare their model weights.
+It's subtle, but you might notice that the simulated CDFs from `fit16.1` have steeper slopes in the middle when compared to the original data in the dark blue. However, the `fit16.2`-based simulated CDFs match up more closely with the original data. This suggests an edge for `fit16.2`. Revisiting our skills from Chapter 10, we might also compare their model weights.
 
 ```{r, warning = F, message = F}
-model_weights(fit1, fit2) %>% 
+model_weights(fit16.1, fit16.2) %>% 
   round(digits = 6)
 ```
 
-Almost all the [stacking weight](http://www.stat.columbia.edu/~gelman/research/published/stacking_paper_discussion_rejoinder.pdf) went to `fit2`, our robust Student's $t$ model.
+Almost all the [stacking weight](http://www.stat.columbia.edu/~gelman/research/published/stacking_paper_discussion_rejoinder.pdf) went to `fit16.2`, our robust Student's $t$ model.
 
 ## Two groups
 
@@ -847,26 +845,19 @@ stanvars <-
 
 Within the **brms** framework, Bürkner calls it distributional modeling when you model more than the mean. Since we're now modeling both $\mu$ and $\sigma$, we're fitting a distributional model. When doing so with **brms**, you typically wrap your `formula` syntax into the `bf()` function. It's also important to know that when modeling $\sigma$, **brms** defaults to modeling its log. So we'll use `log(sd_y)` in its prior. For more on all this, see Bürkner"s [*Estimating Distributional Models with brms*](https://cran.r-project.org/web/packages/brms/vignettes/brms_distreg.html).
 
-```{r, echo = F, warning = F, message = F}
-# this model is too large to cache. saving the fit this way saves enough memory
-
-# save("fit3", file = "fits/16_fit3.rda")
-# rm(fit3)
-
-load("fits/16_fit3.rda")
-```
-
-```{r, eval = F}
-fit3 <-
+```{r fit16.3}
+fit16.3 <-
   brm(data = my_data,
       family = student,
-      bf(Score ~ 0 + Group, sigma ~ 0 + Group),
+      bf(Score ~ 0 + Group, 
+         sigma ~ 0 + Group),
       prior = c(prior(normal(mean_y, sd_y * 100), class = b),
                 prior(normal(0, log(sd_y)), class = b, dpar = sigma),
                 prior(exponential(one_over_twentynine), class = nu)),
       chains = 4, cores = 4,
       stanvars = stanvars,
-      seed = 16)
+      seed = 16,
+      file = "fits/fit16.03")
 ```
 
 Did you catch our `~ 0 + Group` syntax? That suppressed the usual intercept for our estimates of both $\mu$ and $\log (\sigma)$. Since `Group` is a categorical variable, that results in `brm()` fitting separate intercepts for each category. This is our **brms** analogue to the `x[i]` syntax Kruschke mentioned on page 468. It's what allowed us to estimate $\mu_j$ and $\log (\sigma_j)$.
@@ -874,19 +865,19 @@ Did you catch our `~ 0 + Group` syntax? That suppressed the usual intercept for 
 Let's look at the model summary.
 
 ```{r}
-print(fit3)
+print(fit16.3)
 ```
 
-Remember that the $\sigma$s are now in the log scale. If you want a quick and dirty conversion, you might do something like:
+Remember that the $\sigma$s are now in the log scale. If you want a quick conversion, you might just exponentiate the point estimates from `fixef()`.
 
 ```{r}
-fixef(fit3)[3:4, 1] %>% exp()
+fixef(fit16.3)[3:4, 1] %>% exp()
 ```
 
 But please don't stop there. Get your hands dirty with the full posterior. Speaking of which, if we want to make the histograms in Figure 16.12, we'll need to first extract the posterior samples.
 
 ```{r}
-post <- posterior_samples(fit3)
+post <- posterior_samples(fit16.3)
 
 glimpse(post)
 ```
@@ -896,12 +887,12 @@ Along with transforming the metrics of a few of the parameters, we may as well r
 ```{r}
 post <-
   post %>% 
-  transmute(`Placebo Mean`      = b_GroupPlacebo,
-            `Smart Drug Mean`   = b_GroupSmartDrug,
+  transmute(`Placebo Mean`     = b_GroupPlacebo,
+            `Smart Drug Mean`  = b_GroupSmartDrug,
             # we need to transform the next three parameters
-            `Placebo Scale`     = b_sigma_GroupPlacebo   %>% exp(),
-            `Smart Drug Scale`  = b_sigma_GroupSmartDrug %>% exp(),
-            Normality           = nu                     %>% log10()) %>% 
+            `Placebo Scale`    = b_sigma_GroupPlacebo   %>% exp(),
+            `Smart Drug Scale` = b_sigma_GroupSmartDrug %>% exp(),
+            Normality          = nu                     %>% log10()) %>% 
   mutate(`Difference of Means`  = `Smart Drug Mean` - `Placebo Mean`,
          `Difference of Scales` = `Smart Drug Scale` - `Placebo Scale`,
          `Effect Size` = (`Smart Drug Mean` - `Placebo Mean`) / sqrt((`Smart Drug Scale`^2 + `Placebo Scale`^2) / 2))
@@ -975,10 +966,10 @@ post %>%
   geom_line(aes(y = density, group = draw),
             size  = 1/4, alpha = 1/3, color = "grey25") +
   scale_y_continuous(NULL, breaks = NULL) +
-  coord_cartesian(xlim = 50:210) +
   labs(title = "Data with Post. Pred.",
-       x     = "y") +
-    facet_wrap(~Group)
+       x = "y") +
+  coord_cartesian(xlim = 50:210) +
+  facet_wrap(~Group)
 ```
 
 ### Analysis by NHST.
@@ -993,14 +984,14 @@ t.test(data = my_data,
 To help with the comparison, notice how the 95% CIs from the $t$-test range from -15.7 to 0.1. That indicates that the $t$-test subtracted the `Smart Drug` from `Placebo`. I point this out because the difference scores we computed along with Kruschke for Figure 16.12 did the subtraction in the other direction. But don't fret. The magnitude of the difference stays the same either way. Only the signs changed. For example:
 
 ```{r}
-fixef(fit3)["GroupPlacebo", 1] - fixef(fit3)["GroupSmartDrug", 1]
-fixef(fit3)["GroupSmartDrug", 1] - fixef(fit3)["GroupPlacebo", 1]
+fixef(fit16.3)["GroupPlacebo", 1] - fixef(fit16.3)["GroupSmartDrug", 1]
+fixef(fit16.3)["GroupSmartDrug", 1] - fixef(fit16.3)["GroupPlacebo", 1]
 ```
 
 But anyway, in addition to the difference distributions from Figure 16.12, we might also use the `brms::hypothesis()` function to do something of a Bayesian $t$-test.
 
 ```{r}
-hypothesis(fit3,
+hypothesis(fit16.3,
            "GroupPlacebo - GroupSmartDrug = 0")
 ```
 
@@ -1013,7 +1004,7 @@ See how our 95% ETIs are both negative and how we have that little `*` in the `S
 Don't do all that. Use robust Bayes, instead. Just for kicks, we can compare the $\sigma$s with `hypothesis()`, too.
 
 ```{r}
-hypothesis(fit3,
+hypothesis(fit16.3,
            "exp(sigma_GroupPlacebo) - exp(sigma_GroupSmartDrug) = 0")
 ```
 
@@ -1039,7 +1030,7 @@ sessionInfo()
 
 ```{r, echo = F}
 # Here we'll remove our objects
-rm(sequence_length, d, my_data, mean_y, sd_y, stanvars, fit1, post, rope, n_lines, n_draws, mu, p1, p2, fit3)
+rm(sequence_length, d, my_data, mean_y, sd_y, stanvars, fit16.1, post, rope, n_lines, t_maker, n_draws, mu, p1, p2, fit16.2, fit16.3)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
