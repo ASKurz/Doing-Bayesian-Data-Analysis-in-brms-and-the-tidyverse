@@ -36,7 +36,7 @@ grand_mean <- 101
 d <-
   tibble(group     = 1:5,
          deviation = c(4, -5, -2, 6, -3)) %>% 
-  mutate(d = purrr::map2(group, deviation, generate_data)) %>% 
+  mutate(d = map2(group, deviation, generate_data)) %>% 
   unnest(d) %>% 
   mutate(iteration = rep(1:n, times = 5))
 
@@ -49,8 +49,8 @@ Here we'll make a tibble containing the necessary data for the rotated Gaussians
 densities <-
   d %>% 
   distinct(group, deviation) %>% 
-  mutate(ll      = qnorm(.01, mean = grand_mean + deviation, sd = 2),
-         ul      = qnorm(.99, mean = grand_mean + deviation, sd = 2)) %>% 
+  mutate(ll = qnorm(.01, mean = grand_mean + deviation, sd = 2),
+         ul = qnorm(.99, mean = grand_mean + deviation, sd = 2)) %>% 
   mutate(d       = map2(ll, ul, seq, length.out = 100)) %>% 
   mutate(density = map2(d, grand_mean + deviation, dnorm, sd = 2)) %>% 
   unnest(c(d, density))
@@ -75,7 +75,7 @@ text <-
          deviation = c(0, 4, -5, -2, 6, -3, 10),
          offset    = rep(c(1/4, 0), times = c(6, 1)),
          angle     = rep(c(90, 0), times = c(6, 1)),
-         label     = c("beta[0] == 101", "beta['[1]'] == 4", "beta['[2]'] == -5", "beta['[3]'] == -2", "beta['[4]'] == 6", "beta['[5]'] == 3", "sigma['all'] == 2"))
+         label     = c("beta[0]==101", "beta['[1]']==4","beta['[2]']==-5", "beta['[3]']==-2", "beta['[4]']==6", "beta['[5]']==3", "sigma['all']==2"))
 
 head(text)
 ```
@@ -112,8 +112,8 @@ d %>%
             size = 4, parse = T) +
   scale_y_continuous(NULL, breaks = 1:5,
                      labels = c("<1,0,0,0,0>", "<0,1,0,0,0>", "<0,0,1,0,0>", "<0,0,0,1,0>", "<0,0,0,0,1>")) +
-  coord_flip(ylim = c(-0.2, 5.5), xlim = 90:112) +
   xlab(NULL) +
+  coord_flip(ylim = c(-0.2, 5.5), xlim = 90:112) +
   theme(panel.grid = element_blank())
 ```
 
@@ -127,7 +127,7 @@ d %>%
 
 "Our goal is to estimate its parameters in a Bayesian framework. Therefore, all the parameters need to be given a meaningfully structured prior distribution" (p. 557). However, our approach will depart a little from the one in the text. All our parameters will **not** "have generic noncommittal prior distributions" (p. 557). Most importantly, we will not follow the example in [Gelman (2006)](http://www.stat.columbia.edu/~gelman/research/published/taumain.pdf) of putting a broad uniform prior on $\sigma_y$. Rather, we will continue using the half-Gaussian prior, as [recommended by the Stan team](https://github.com/stan-dev/stan/wiki/Prior-Choice-Recommendations). However, we will follow Kruschke's lead for the overall intercept and use a Gaussian prior "made broad on the scale of the data" (p. 557). And like Kruschke, we will estimate $\sigma_\beta$ from the data.
 
-Later on, Kruschke opined
+Later on, Kruschke opined:
 
 > A crucial pre-requisite for estimating $\sigma_\beta$ from all the groups is an assumption that all the groups are representative and informative for the estimate. It only makes sense to influence the estimate of one group with data from the other groups if the groups can be meaningfully described as representative of a shared higher-level distribution. (p. 559)
 
@@ -152,19 +152,21 @@ The noise standard deviation $\sigma_y$ is depicted in the prior statement inclu
 
 Kruschke set the upper bound for his $\sigma_y$ to 10 times the standard deviation of the criterion variable. The tails of the half-Cauchy are sufficiently fat that, in practice, I've found it doesn't matter much what you set the $SD$ of its prior to. One is often a sensible default for reasonably-scaled data. But if we want to take a more principled approach, we can set it to the size of the criterion's $SD$ or perhaps even 10 times that.
 
-Kruschke suggested using a gamma on $\sigma_\beta$, which is a sensible alternative to half-Cauchy often used within the Stan universe. Especially in situations in which you would like to (a) keep the variance parameter above zero, but (b) still allow it to be arbitrarily close to zero, and also (c) let the likelihood dominate the posterior, the Stan team recommends the gamma(2, 0) prior, based on the [paper by Chung and colleagues](http://www.stat.columbia.edu/~gelman/research/published/chung_etal_Pmetrika2013.pdf). But you should note that I don't mean a literal 0 for the second parameter in the gamma distribution, but rather some small value like 0.1 or so. This is all clarified in [Chung et al](http://www.stat.columbia.edu/~gelman/research/published/chung_etal_Pmetrika2013.pdf). Here's what gamma(2, 0.1) looks like. 
+Kruschke suggested using a gamma on $\sigma_\beta$, which is a sensible alternative to half-Cauchy often used within the Stan universe. Especially in situations in which you would like to (a) keep the variance parameter above zero, but (b) still allow it to be arbitrarily close to zero, and also (c) let the likelihood dominate the posterior, the Stan team recommends the gamma(2, 0) prior, based on the [paper by Chung and colleagues](http://www.stat.columbia.edu/~gelman/research/published/chung_etal_Pmetrika2013.pdf). But you should note that I don't mean a literal 0 for the second parameter in the gamma distribution, but rather some small value like 0.1 or so. This is all clarified in [Chung et al](http://www.stat.columbia.edu/~gelman/research/published/chung_etal_Pmetrika2013.pdf). Here's what $\operatorname{Gamma} (2, 0.1)$ looks like. 
 
 ```{r, fig.width = 6, fig.height = 2}
 tibble(x = seq(from = 0, to = 110, by = .1)) %>% 
   
-  ggplot(aes(x = x, ymin = 0, ymax = dgamma(x, 2, .1))) +
+  ggplot(aes(x = x, ymin = 0, ymax = dgamma(x, 2, 0.1))) +
   geom_ribbon(size = 0, fill = "grey67") +
+  annotate(geom = "text", x = 14.25, y = 0.015, label = "'Gamma'~(2*', '*0.1)", 
+           parse = T, color = "grey92", size = 4.25) +
   scale_y_continuous(NULL, breaks = NULL) +
   coord_cartesian(xlim = 0:100) +
   theme(panel.grid = element_blank())
 ```
 
-And if you'd like that prior be even less informative, just reduce it to like gamma(2, 0.01) or so. Kruschke goes further to recommend "the shape and rate parameters of the gamma distribution are set so its mode is `sd(y)/2` and its standard deviation is `2*sd(y)`, using the function `gammaShRaFromModeSD` explained in Section 9.2.2." (pp. 560--561). Let's make that function.
+If you'd like that prior be even less informative, just reduce it to like $\operatorname{Gamma} (2, 0.01)$ or so. Kruschke goes further to recommend "the shape and rate parameters of the gamma distribution are set so its mode is `sd(y)/2` and its standard deviation is `2*sd(y)`, using the function `gammaShRaFromModeSD` explained in Section 9.2.2." (pp. 560--561). Let's make that function.
 
 ```{r}
 gamma_a_b_from_omega_sigma <- function(mode, sd) {
@@ -227,10 +229,10 @@ my_data %>%
   geom_density_ridges(scale = 3/2, size = .2, color = "grey92") +
   scale_fill_viridis_c(option = "A", end = .92) +
   ylab(NULL) +
-  theme(panel.grid      = element_blank(),
+  theme(axis.text.y = element_text(hjust = 0),
+        axis.ticks.y = element_blank(),
         legend.position = "none",
-        axis.ticks.y    = element_blank(),
-        axis.text.y     = element_text(hjust = 0))
+        panel.grid = element_blank())
 ```
 
 Let's fire up **brms**.
@@ -263,8 +265,8 @@ stanvars <-
 
 Now fit the model, our hierarchical Bayesian alternative to an ANOVA.
 
-```{r 19_fit1, cache = T, message = F, warning = F}
-fit1 <-
+```{r fit19.1}
+fit19.1 <-
   brm(data = my_data,
       family = gaussian,
       Longevity ~ 1 + (1 | CompanionNumber),
@@ -274,19 +276,20 @@ fit1 <-
       iter = 4000, warmup = 1000, chains = 4, cores = 4,
       seed = 19,
       control = list(adapt_delta = 0.99),
-      stanvars = stanvars)
+      stanvars = stanvars,
+      file = "fits/fit19.01")
 ``` 
 
 Much like Kruschke's JAGS chains, our **brms** chains are well behaved.
 
 ```{r, fig.width = 8, fig.height = 4}
-plot(fit1)
+plot(fit19.1)
 ```
 
 Also like Kruschke, our chains appear moderately autocorrelated.
 
-```{r, message = F, warning = F, fig.width = 8, fig.height = 4}
-post <- posterior_samples(fit1, add_chain = T)
+```{r, message = F, warning = F, fig.width = 7, fig.height = 4}
+post <- posterior_samples(fit19.1, add_chain = T)
 
 library(bayesplot)
 
@@ -299,25 +302,25 @@ mcmc_acf(post, pars = c("b_Intercept", "sd_CompanionNumber__Intercept", "sigma")
 Here's the model summary.
 
 ```{r}
-print(fit1)
+print(fit19.1)
 ```
 
 With the `ranef()` function, we can get the summaries of the group-specific deflections.
 
 ```{r}
-ranef(fit1)
+ranef(fit19.1)
 ```
 
 And with the `coef()` function, we can get those same group-level summaries in a non-deflection metric.
 
 ```{r}
-coef(fit1)
+coef(fit19.1)
 ```
 
 Those are all estimates of the group-specific means. Since it wasn't modeled, all have the same parameter estimates for $\sigma_y$.
 
 ```{r}
-posterior_summary(fit1)["sigma", ]
+posterior_summary(fit19.1)["sigma", ]
 ```
 
 To prepare for our version of the top panel of Figure 19.3, we'll use `sample_n()` to randomly sample from the posterior draws.
@@ -356,9 +359,9 @@ tibble(x = c(0, 150)) %>%
               alpha = 1/2) +
   scale_x_continuous("Longevity", breaks = seq(from = 0, to = 100, by = 25)) +
   scale_y_continuous(NULL, breaks = NULL) +
-  coord_cartesian(xlim = 0:110) + 
-  labs(title    = "Posterior Predictive Distribution",
-       subtitle = "The jittered dots are the ungrouped Longevity data. The\nGaussians are posterior draws depicting the overall\ndistribution, the grand mean.")
+  labs(title = "Posterior Predictive Distribution",
+       subtitle = "The jittered dots are the ungrouped Longevity data. The\nGaussians are posterior draws depicting the overall\ndistribution, the grand mean.") +
+  coord_cartesian(xlim = 0:110)
 ```
 
 Unfortunately, we can't extend our `mapply(stat_function())` method to the group-level estimates. To my knowledge, there isn't a way to show the group estimates at different spots along the y-axis. And our `mapply(stat_function())` approach has other limitations, too. Happily, we have some great alternatives. To use them, we'll need a little help from **tidybayes**.
@@ -373,23 +376,23 @@ For the first part, we'll take `tidybayes::add_fitted_draws()` for a whirl.
 densities <-
   my_data %>% 
   distinct(CompanionNumber) %>% 
-  add_fitted_draws(fit1, n = 20, seed = 19, dpar = c("mu", "sigma"))
+  add_fitted_draws(fit19.1, n = 20, seed = 19, dpar = c("mu", "sigma"))
 
 glimpse(densities)
 ```
 
-With the first two lines, we made a $5 \times 1$ tibble containing the five levels of the experimental grouping variable, `CompanionNumber`. The [`add_fitted_draws()`](https://cran.r-project.org/web/packages/tidybayes/tidybayes.pdf) function comes from **tidybayes**. The first argument of the `add_fitted_draws()` is `newdata`, which works much like it does in `brms::fitted()`; it took our $5 \times 1$ tibble. The next argument took our **brms** model fit, `fit1`. With the `n` argument, we indicated we just wanted 20 random draws from the posterior. The `seed` argument makes those random draws reproducible. With `dpar`, we requested distributional regression parameters in the output. In our case, those were the $\mu$ and $\sigma$ values for each level of `CompanionNumber`. Since we took 20 draws across 5 groups, we ended up with a 100-row tibble.
+With the first two lines, we made a $5 \times 1$ tibble containing the five levels of the experimental grouping variable, `CompanionNumber`. The [`add_fitted_draws()`](https://cran.r-project.org/web/packages/tidybayes/tidybayes.pdf) function comes from **tidybayes**. The first argument of the `add_fitted_draws()` is `newdata`, which works much like it does in `brms::fitted()`; it took our $5 \times 1$ tibble. The next argument took our **brms** model fit, `fit19.1`. With the `n` argument, we indicated we just wanted 20 random draws from the posterior. The `seed` argument makes those random draws reproducible. With `dpar`, we requested distributional regression parameters in the output. In our case, those were the $\mu$ and $\sigma$ values for each level of `CompanionNumber`. Since we took 20 draws across 5 groups, we ended up with a 100-row tibble.
 
 The next steps are a direct extension of the method we used to make our Gaussians for our version of Figure 19.1.
 
 ```{r}
 densities <-
   densities %>% 
-  mutate(ll        = qnorm(.025, mean = mu, sd = sigma),
-         ul        = qnorm(.975, mean = mu, sd = sigma)) %>% 
+  mutate(ll = qnorm(.025, mean = mu, sd = sigma),
+         ul = qnorm(.975, mean = mu, sd = sigma)) %>% 
   mutate(Longevity = map2(ll, ul, seq, length.out = 100)) %>% 
   unnest(Longevity) %>% 
-  mutate(density   = dnorm(Longevity, mu, sigma))
+  mutate(density = dnorm(Longevity, mu, sigma))
 
 glimpse(densities)
 ```
@@ -408,12 +411,12 @@ densities %>%
               height = .04, alpha = 1/2) +
   # pretty much everything below this line is aesthetic fluff
   scale_x_continuous(breaks = seq(from = 0, to = 100, by = 25)) +
-  coord_cartesian(xlim = 0:110,
-                  ylim = c(1.25, 5.25)) +
   labs(title = "Data with Posterior Predictive Distrib.", 
        y = NULL) +
-  theme(axis.ticks.y = element_blank(),
-        axis.text.y  = element_text(hjust = 0))
+  coord_cartesian(xlim = 0:110,
+                  ylim = c(1.25, 5.25)) +
+  theme(axis.text.y = element_text(hjust = 0),
+        axis.ticks.y = element_blank())
 ```
 
 Do be aware that when you use this method, you may have to fiddle around with the `geom_ridgeline()` `scale` argument to get the Gaussian's heights on reasonable-looking relative heights. Stick in different numbers to get a sense of what I mean. I also find that I'm often not a fan of the way the spacing on the y axis ends up with default `geom_ridgeline()`. It's easy to overcome this with a little `ylim` fiddling. 
@@ -451,11 +454,10 @@ To warm up, here's how to compute the first contrast shown in the lower portion 
 post %>% 
   transmute(c = (`r_CompanionNumber[Pregnant1,Intercept]` + `r_CompanionNumber[Pregnant1,Intercept]`) / 2 - `r_CompanionNumber[None0,Intercept]`) %>% 
   
-  ggplot(aes(x = c)) +
-  geom_histogram(color = "grey92", fill = "grey67",
-                 size = .2, bins = 40) +
-  stat_pointintervalh(aes(y = 0), 
-                      point_interval = mode_hdi, .width = c(.95, .5)) +
+  ggplot(aes(x = c, y = 0)) +
+  stat_histintervalh(point_interval = mode_hdi, .width = c(.95, .5),
+                     fill = "grey67", slab_color = "grey92",
+                     breaks = 40, slab_size = .25, outline_bars = T) +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(subtitle = "Pregnant1.Pregnant8 vs None0",
        x = "Difference")
@@ -463,7 +465,7 @@ post %>%
 
 In case you were curious, here are the HMC-based posterior mode and 95% HDIs.
 
-```{r, warning = F, message = F}
+```{r}
 post %>% 
   transmute(difference = (`r_CompanionNumber[Pregnant1,Intercept]` + `r_CompanionNumber[Pregnant1,Intercept]`) / 2 - `r_CompanionNumber[None0,Intercept]`) %>% 
   
@@ -476,11 +478,10 @@ Little difference, there. Now let's quantify the same contrast as an effect size
 post %>% 
   transmute(es = ((`r_CompanionNumber[Pregnant1,Intercept]` + `r_CompanionNumber[Pregnant1,Intercept]`) / 2 - `r_CompanionNumber[None0,Intercept]`) / sigma) %>% 
   
-  ggplot(aes(x = es)) +
-  geom_histogram(color = "grey92", fill = "grey67",
-                 size = .2, bins = 40) +
-  stat_pointintervalh(aes(y = 0), 
-                      point_interval = mode_hdi, .width = c(.95, .5)) +
+  ggplot(aes(x = es, y = 0)) +
+  stat_histintervalh(point_interval = mode_hdi, .width = c(.95, .5),
+                     fill = "grey67", slab_color = "grey92",
+                     breaks = 40, slab_size = .25, outline_bars = T) +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(subtitle = "Pregnant1.Pregnant8 vs None0",
        x = "Effect Size")
@@ -502,14 +503,14 @@ differences <-
 differences %>% 
   gather() %>% 
   
-  ggplot(aes(x = value)) +
-  geom_histogram(color = "grey92", fill = "grey67",
-                 size = .2, bins = 40) +
-  stat_pointintervalh(aes(y = 0), 
-                      point_interval = mode_hdi, .width = c(.95, .5)) +
+  ggplot(aes(x = value, y = 0)) +
+  stat_histintervalh(point_interval = mode_hdi, .width = c(.95, .5),
+                     fill = "grey67", slab_color = "grey92",
+                     breaks = 40, slab_size = .25, outline_bars = T,
+                     normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab("Difference") +
-  facet_wrap(~key, scales = "free_x")
+  facet_wrap(~key, scales = "free")
 ```
 
 Because we save our data wrangling labor from above as `differences`, it won't take much more effort to compute and plot the corresponding effect sizes as displayed in the bottom row of Figure 19.3.
@@ -519,11 +520,11 @@ differences %>%
   mutate_all(.funs = ~ . / post$sigma) %>% 
   gather() %>% 
   
-  ggplot(aes(x = value)) +
-  geom_histogram(color = "grey92", fill = "grey67",
-                 size = .2, bins = 40) +
-  stat_pointintervalh(aes(y = 0), 
-                      point_interval = mode_hdi, .width = c(.95, .5)) +
+  ggplot(aes(x = value, y = 0)) +
+  stat_histintervalh(point_interval = mode_hdi, .width = c(.95, .5),
+                     fill = "grey67", slab_color = "grey92",
+                     breaks = 40, slab_size = .25, outline_bars = T,
+                     normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab("Effect Size") +
   facet_wrap(~key, scales = "free_x")
@@ -534,24 +535,24 @@ differences %>%
 Speaking of all meaningful contrasts, if you'd like to make all pairwise comparisons in a hierarchical model of this form, [**tidybayes** offers a convenient way to do so](https://mjskay.github.io/tidybayes/articles/tidy-brms.html). Here we'll demonstrate with `geom_halfeyeh()`.
 
 ```{r, fig.height = 4.5, fig.width = 6}
-fit1 %>%
+fit19.1 %>%
   # these two lines are where the magic is at
   spread_draws(r_CompanionNumber[CompanionNumber,]) %>%
   compare_levels(r_CompanionNumber, by = CompanionNumber) %>%
   
   ggplot(aes(x = r_CompanionNumber, y = CompanionNumber)) +
-  geom_vline(xintercept = 0, color = "white") +
+  geom_vline(xintercept = 0, color  = "white") +
   geom_halfeyeh(point_interval = mode_hdi, .width = c(.95, .5)) +
   labs(x = "Contrast",
        y = NULL) +
-  theme(axis.ticks.y = element_blank(),
-        axis.text.y  = element_text(hjust = 0))
+  theme(axis.text.y = element_text(hjust = 0),
+        axis.ticks.y = element_blank())
 ```
 
 But back to that omnibus test notion. If you really wanted to, I suppose one rough analogue would be to use information criteria to compare the hierarchical model to one that includes a single intercept with no group-level deflections. Here’s what the simpler model would look like.
 
-```{r fit1_wo_deflections, cache = T, message = F, warning = F}
-fit1_without_deflections <-
+```{r fit19.2}
+fit19.2 <-
   brm(data = my_data,
       family = gaussian,
       Longevity ~ 1,
@@ -559,29 +560,30 @@ fit1_without_deflections <-
                 prior(cauchy(0, sd_y), class = sigma)),
       iter = 4000, warmup = 1000, chains = 4, cores = 4,
       seed = 19,
-      stanvars = stanvars)
+      stanvars = stanvars,
+      file = "fits/fit19.02")
 ``` 
 
 Here's the model summary.
 
 ```{r}
-print(fit1_without_deflections)
+print(fit19.2)
 ```
 
 Here are their LOO values and their difference score.
 
-```{r}
-fit1 <- add_criterion(fit1, criterion = "loo")
-fit1_without_deflections <- add_criterion(fit1_without_deflections, criterion = "loo")
+```{r, message = F}
+fit19.1 <- add_criterion(fit19.1, criterion = "loo")
+fit19.2 <- add_criterion(fit19.2, criterion = "loo")
 
-loo_compare(fit1, fit1_without_deflections) %>% 
+loo_compare(fit19.1, fit19.2) %>% 
   print(simplify = F)
 ```
 
 The hierarchical model has a better LOO. Here are the stacking-based model weights.
 
 ```{r}
-(mw <- model_weights(fit1, fit1_without_deflections))
+(mw <- model_weights(fit19.1, fit19.2))
 ```
 
 If you don't like scientific notation, just `round()`.
@@ -595,14 +597,13 @@ Yep, in complimenting the LOO difference, virtually all the stacking weight went
 
 ```{r, fig.width = 4, fig.height = 2.5}
 post %>% 
-  ggplot(aes(x = sd_CompanionNumber__Intercept)) +
-  geom_histogram(color = "grey92", fill = "grey67",
-                 size = .2, binwidth = 1) +
-  stat_pointintervalh(aes(y = 0), 
-                      point_interval = mode_hdi, .width = c(.95, .5)) +
+  ggplot(aes(x = sd_CompanionNumber__Intercept, y = 0)) +
+  stat_histintervalh(point_interval = mode_hdi, .width = c(.95, .5),
+                     fill = "grey67", slab_color = "grey92",
+                     breaks = 100, slab_size = .25, outline_bars = T) +
   scale_y_continuous(NULL, breaks = NULL) +
   coord_cartesian(xlim = 0:50) +
-  labs(title = expression(paste("Behold the fit1 posterior for the ", sigma[beta], " parameter.")),
+  labs(title = expression("Behold the fit19.1 posterior for "*sigma[beta]*"."),
        subtitle = "This parameter's many things, but zero isn't one of them.",
        x = NULL)
 ```
@@ -622,10 +623,10 @@ my_data %>%
   summarise(range = max(mean) - min(mean))
 ```
 
-For our hierarchical model `fit1`, the posterior means are rank ordered in the same way as the empirical data.
+For our hierarchical model `fit19.1`, the posterior means are rank ordered in the same way as the empirical data.
 
 ```{r}
-coef(fit1)$CompanionNumber[, , "Intercept"] %>% 
+coef(fit19.1)$CompanionNumber[, , "Intercept"] %>% 
   data.frame() %>% 
   rownames_to_column(var = "companion_number") %>% 
   arrange(Estimate) %>% 
@@ -635,15 +636,15 @@ coef(fit1)$CompanionNumber[, , "Intercept"] %>%
 If we compute the range by a difference of the point estimates of the highest and lowest posterior means, we can get a quick number.
 
 ```{r}
-coef(fit1)$CompanionNumber[, , "Intercept"] %>% 
+coef(fit19.1)$CompanionNumber[, , "Intercept"] %>% 
   as_tibble() %>% 
   summarise(range = max(Estimate) - min(Estimate))
 ```
 
 Note that wasn't fully Bayesian of us. Those means and their difference carry uncertainty with them and that uncertainty can be fully expressed if we use all the posterior draws (i.e., use `summary = F` and wrangle).
 
-```{r, warning = F, message = F}
-coef(fit1, summary = F)$CompanionNumber[, , "Intercept"] %>% 
+```{r}
+coef(fit19.1, summary = F)$CompanionNumber[, , "Intercept"] %>% 
   as_tibble() %>% 
   transmute(range = Pregnant1 - Virgin8) %>% 
   mode_hdi(range)
@@ -657,33 +658,34 @@ Happily, the central tendency of the range is near equivalent with both methods,
 
 For kicks and giggles, let's practice. Since `Pregnant1` and `Virgin8` had the highest and lowest empirical means—making them the groups best suited to define our range, we'll use them to fit the 2-group hierarchical model. To fit it with haste, just use `update()`.
 
-```{r fit2, cache = T, message = F, warning = F, results = "hide"}
-fit2 <-
-  update(fit1,
+```{r fit19.3}
+fit19.3 <-
+  update(fit19.1,
          newdata = my_data %>% 
            filter(CompanionNumber %in% c("Pregnant1", "Virgin8")),
          control = list(adapt_delta = 0.999,
                         max_treedepth = 12),
-         seed = 19)
+         seed = 19,
+         file = "fits/fit19.03")
 ```
 
 Even with just two groups, there were no gross issues with fitting the model.
 
 ```{r}
-print(fit2)
+print(fit19.3)
 ```
 
-If you compare the posteriors for $\sigma_\beta$ across the two models, you'll see how the one for `fit2` is substantially larger.
+If you compare the posteriors for $\sigma_\beta$ across the two models, you'll see how the one for `fit19.3` is substantially larger.
 
 ```{r}
-posterior_summary(fit1)["sd_CompanionNumber__Intercept", ]
-posterior_summary(fit2)["sd_CompanionNumber__Intercept", ]
+posterior_summary(fit19.1)["sd_CompanionNumber__Intercept", ]
+posterior_summary(fit19.3)["sd_CompanionNumber__Intercept", ]
 ```
 
 This implies less shrinkage and a larger range. 
 
 ```{r, warning = F, message = F}
-coef(fit2, summary = F)$CompanionNumber[, , "Intercept"] %>% 
+coef(fit19.3, summary = F)$CompanionNumber[, , "Intercept"] %>% 
   as_tibble() %>% 
   transmute(range = Pregnant1 - Virgin8) %>% 
   mode_hdi(range)
@@ -696,15 +698,18 @@ And indeed, the range between the two groups is larger. Now the posterior mode f
 As a refresher, here's what the **brms** code for that Chapter 16 model looked like.
 
 ```{r, eval = F}
-fit3 <-
+fit16.3 <-
   brm(data = my_data,
       family = student,
-      bf(Score ~ 0 + Group, sigma ~ 0 + Group),
-      prior = c(prior(normal(mean_y, sd_y * 10), class = b),
+      bf(Score ~ 0 + Group, 
+         sigma ~ 0 + Group),
+      prior = c(prior(normal(mean_y, sd_y * 100), class = b),
                 prior(normal(0, log(sd_y)), class = b, dpar = sigma),
                 prior(exponential(one_over_twentynine), class = nu)),
       chains = 4, cores = 4,
-      stanvars = stanvars)
+      stanvars = stanvars,
+      seed = 16,
+      file = "fits/fit16.03")
 ```
 
 Let's adjust it for our data. Since we have a reduced data set, we'll need to re-compute our `stanvars` values, which were based on the raw data.
@@ -735,31 +740,33 @@ stanvars <-
   stanvar(1/29,      name = "one_over_twentynine")
 ```
 
-Note that our priors, here, are something of a blend of those from Chapter 16 and those from our hierarchical model, `fit1`.
+Note that our priors, here, are something of a blend of those from Chapter 16 and those from our hierarchical model, `fit19.1`.
 
-```{r, fit3, cache = T, message = F, warning = F}
-fit3 <-
+```{r, fit19.4}
+fit19.4 <-
   brm(data = my_small_data,
       family = student,
-      bf(Longevity ~ 0 + CompanionNumber, sigma ~ 0 + CompanionNumber),
+      bf(Longevity ~ 0 + CompanionNumber, 
+         sigma ~ 0 + CompanionNumber),
       prior = c(prior(normal(mean_y, sd_y * 10), class = b),
                 prior(normal(0, log(sd_y)), class = b, dpar = sigma),
                 prior(exponential(one_over_twentynine), class = nu)),
       iter = 4000, warmup = 1000, chains = 4, cores = 4,
       seed = 19,
-      stanvars = stanvars)
+      stanvars = stanvars,
+      file = "fits/fit19.04")
 ```
 
 Here's the model summary.
 
 ```{r}
-print(fit3)
+print(fit19.4)
 ```
 
-Man, look at those effective samples! As it turns out, they can be [greater than the number of post-warmup samples](https://andrewgelman.com/2018/01/18/measuring-speed-stan-incorrectly-faster-thought-cases-due-antithetical-sampling/). And here's the range in posterior means.
+Man, look at those `Bulk_ESS` values! As it turns out, they can be [greater than the number of post-warmup samples](https://andrewgelman.com/2018/01/18/measuring-speed-stan-incorrectly-faster-thought-cases-due-antithetical-sampling/). And here's the range in posterior means.
 
 ```{r, warning = F, message = F}
-fixef(fit3, summary = F) %>% 
+fixef(fit19.4, summary = F) %>% 
   as_tibble() %>% 
   transmute(range = CompanionNumberPregnant1 - CompanionNumberVirgin8) %>% 
   mode_hdi(range)
@@ -800,12 +807,12 @@ And the $j$ subscript, recall, denotes group membership. In this context, it oft
 
 ### Example: Sex, death, and size.
 
-Kruschke recalled `fit1`'s estimate for $\sigma_y$ had a posterior mode around 14.8. Let's confirm with a plot.
+Kruschke recalled `fit19.1`'s estimate for $\sigma_y$ had a posterior mode around 14.8. Let's confirm with a plot.
 
 ```{r, fig.width = 4, fig.height = 2}
-posterior_samples(fit1) %>% 
+posterior_samples(fit19.1) %>% 
   ggplot(aes(x = sigma, y = 0)) +
-  geom_halfeyeh(point_range = mode_hdi, .width = c(.5, .95)) +
+  geom_halfeyeh(point_interval = mode_hdi, .width = c(.5, .95)) +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(expression(sigma[y])) +
   theme(panel.grid = element_blank())
@@ -843,8 +850,8 @@ stanvars <-
 
 Now we're ready to fit the `brm()` model, our hierarchical alternative to ANCOVA.
 
-```{r fit4, cache = T, message = F, warning = F}
-fit4 <-
+```{r fit19.5}
+fit19.5 <-
   brm(data = my_data,
       family = gaussian,
       Longevity ~ 1 + thorax_c + (1 | CompanionNumber),
@@ -855,51 +862,44 @@ fit4 <-
       iter = 4000, warmup = 1000, chains = 4, cores = 4,
       seed = 19,
       control = list(adapt_delta = 0.99),
-      stanvars = stanvars)
+      stanvars = stanvars,
+      file = "fits/fit19.05")
 ``` 
 
 Here's the model summary.
 
 ```{r}
-print(fit4)
+print(fit19.5)
 ```
 
 Let's see if that $\sigma_y$ posterior shrank.
 
 ```{r, fig.width = 4, fig.height = 2}
-posterior_samples(fit4) %>% 
+posterior_samples(fit19.5) %>% 
   ggplot(aes(x = sigma, y = 0)) +
-  geom_halfeyeh(point_range = mode_hdi, .width = c(.5, .95)) +
+  geom_halfeyeh(point_interval = mode_hdi, .width = c(.5, .95)) +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(expression(sigma[y]))
 ```
 
 Yep, sure did! Now our between-group comparisons should be more precise. Heck, if we wanted to we could even make a difference plot.
 
-```{r}
-bind_cols(posterior_samples(fit1) %>% select(sigma),
-          posterior_samples(fit4) %>% select(sigma)) %>% 
-  transmute(dif = sigma - sigma1)
-```
-
-
-
 ```{r, fig.width = 4, fig.height = 2.25}
-bind_cols(posterior_samples(fit1) %>% select(sigma),
-          posterior_samples(fit4) %>% select(sigma)) %>% 
+bind_cols(posterior_samples(fit19.1) %>% select(sigma),
+          posterior_samples(fit19.5) %>% select(sigma)) %>% 
   transmute(dif = sigma - sigma1) %>% 
   
   ggplot(aes(x = dif, y = 0)) +
-  geom_halfeyeh(point_range = mode_hdi, .width = c(.5, .95)) +
+  geom_halfeyeh(point_interval = mode_hdi, .width = c(.5, .95)) +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(title = "This is a difference distribution",
-       x     = expression(sigma[y]))
+       x = expression(sigma[y]))
 ```
 
-If you want a quick and dirty plot of the relation between `thorax_c` and `Longevity`, you can use  `brms::conditional_effects()`.
+If you want a quick and dirty plot of the relation between `thorax_c` and `Longevity`, you might employ `brms::conditional_effects()`.
 
 ```{r, fig.width = 3, fig.height = 3}
-conditional_effects(fit4)
+conditional_effects(fit19.5)
 ```
 
 But to make plots like the ones at the top of Figure 19.5, we'll have to work a little harder. First, we need some intermediary values marking off the three values along the `Thorax`-axis Kruschke singled out in his top panel plots. As far as I can tell, they were the `min()`, the `max()`, and their `mean()`.
@@ -919,12 +919,12 @@ densities <-
   distinct(CompanionNumber) %>% 
   expand(CompanionNumber, Thorax = c(r[1], mean(r), r[2])) %>% 
   mutate(thorax_c  = Thorax - mean(my_data$Thorax)) %>% 
-  add_fitted_draws(fit4, n = n_draws, seed = 19, dpar = c("mu", "sigma")) %>% 
-  mutate(ll        = qnorm(.025, mean = mu, sd = sigma),
-         ul        = qnorm(.975, mean = mu, sd = sigma)) %>% 
+  add_fitted_draws(fit19.5, n = n_draws, seed = 19, dpar = c("mu", "sigma")) %>% 
+  mutate(ll = qnorm(.025, mean = mu, sd = sigma),
+         ul = qnorm(.975, mean = mu, sd = sigma)) %>% 
   mutate(Longevity = map2(ll, ul, seq, length.out = 100)) %>% 
   unnest(Longevity) %>% 
-  mutate(density   = dnorm(Longevity, mu, sigma))
+  mutate(density = dnorm(Longevity, mu, sigma))
 
 glimpse(densities)
 ```
@@ -937,7 +937,7 @@ f <-
   distinct(CompanionNumber) %>% 
   expand(CompanionNumber, Thorax = c(r[1], mean(r), r[2])) %>% 
   mutate(thorax_c = Thorax - mean(my_data$Thorax)) %>% 
-  add_fitted_draws(fit4, n = n_draws, seed = 19, value = "Longevity")
+  add_fitted_draws(fit19.5, n = n_draws, seed = 19, value = "Longevity")
 
 glimpse(f)
 ```
@@ -970,7 +970,7 @@ densities %>%
 Now we have a covariate in the model, we have to decide on which of its values we want to base our group comparisons. Unless there's a substantive reason for another value, the mean is a good standard choice. And since the covariate `thorax_c` is already mean centered, that means we can effectively leave it out of the equation. Here they are in the simple difference metric.
 
 ```{r, fig.width = 8, fig.height = 2.5}
-post <- posterior_samples(fit4)
+post <- posterior_samples(fit19.5)
 
 differences <-
   post %>% 
@@ -985,11 +985,11 @@ differences <-
 differences %>% 
   gather() %>%   
   
-  ggplot(aes(x = value)) +
-  geom_histogram(color = "grey92", fill = "grey67",
-                 size = .2, bins = 40) +
-  stat_pointintervalh(aes(y = 0), 
-                      point_interval = mode_hdi, .width = c(.95, .5)) +
+  ggplot(aes(x = value, y = 0)) +
+  stat_histintervalh(point_interval = mode_hdi, .width = c(.95, .5),
+                     fill = "grey67", slab_color = "grey92",
+                     breaks = 40, slab_size = .25, outline_bars = T,
+                     normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab("Difference") +
   theme(strip.text = element_text(size = 6.4)) +
@@ -1003,11 +1003,11 @@ differences %>%
   mutate_all(.funs = ~. / post$sigma) %>% 
   gather() %>%   
   
-  ggplot(aes(x = value)) +
-  geom_histogram(color = "grey92", fill = "grey67",
-                 size = .2, bins = 40) +
-  stat_pointintervalh(aes(y = 0), 
-                      point_interval = mode_hdi, .width = c(.95, .5)) +
+  ggplot(aes(x = value, y = 0)) +
+  stat_histintervalh(point_interval = mode_hdi, .width = c(.95, .5),
+                     fill = "grey67", slab_color = "grey92",
+                     breaks = 40, slab_size = .25, outline_bars = T,
+                     normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab("Effect Size") +
   theme(strip.text = element_text(size = 6.4)) +
@@ -1027,36 +1027,41 @@ In contrast with ANCOVA,
 Here Kruschke contrasts our last model with the one from way back in Chapter 17, section 3. As a refresher, here's what that code looked like.
 
 ```{r, eval = F}
-fit4 <-
+fit17.4 <-
   brm(data = my_data,
       family = student,
       y_z ~ 1 + x_z + (1 + x_z || Subj),
       prior = c(prior(normal(0, 10), class = Intercept),
                 prior(normal(0, 10), class = b),
-                prior(normal(0, 1),  class = sigma),
-                prior(normal(0, 1),  class = sd),
+                prior(normal(0, 1), class = sigma),
+                # the next line is new
+                prior(normal(0, 1), class = sd),
                 prior(exponential(one_over_twentynine) + 1, class = nu)),
       chains = 4, cores = 4,
-      stanvars = stanvar(1/29, name = "one_over_twentynine"))
+      stanvars = stanvar(1/29, name = "one_over_twentynine"),
+      seed = 17,
+      file = "fits/fit17.04")
 ```
 
 And for convenience, here's the code from the model we just fit.
 
 ```{r eval = F}
-fit5 <-
+fit19.5 <-
   brm(data = my_data,
       family = gaussian,
       Longevity ~ 1 + thorax_c + (1 | CompanionNumber),
       prior = c(prior(normal(mean_y, sd_y * 5),          class = Intercept),
-                prior(normal(0, 2 * sd_y / sd_Thorax_c), class = b),
+                prior(normal(0, 2 * sd_y / sd_thorax_c), class = b),
                 prior(gamma(alpha, beta),                class = sd),
                 prior(cauchy(0, sd_y),                   class = sigma)),
       iter = 4000, warmup = 1000, chains = 4, cores = 4,
+      seed = 19,
       control = list(adapt_delta = 0.99),
-      stanvars = stanvars)
+      stanvars = stanvars,
+      file = "fits/fit19.05")
 ``` 
 
-It's easy to get lost in the differences in the priors and the technical details  with the model chains and such. The main thing to notice, here, is the differences in the model formulas (i.e., the likelihoods). Both models had intercepts and slopes. But whereas the model from 17.3 set both parameters to random, only the intercept in our last modes was random. The covariate `thorax_c` was fixed--it did not vary by group. Had we wanted it to, our `formula` syntax would have been something like `Longevity ~ 1 + thorax_c + (1 + thorax_c || CompanionNumber)`. And again, as noted in Chapter 17, the `||` portion of the syntax set the random intercepts and slopes to be orthogonal (i.e., correlate exactly at zero). As we'll see, this will often not be the case. But let's not get ahead of ourselves.
+It's easy to get lost in the differences in the priors and the technical details  with the model chains and such. The main thing to notice, here, is the differences in the model formulas (i.e., the likelihoods). Both models had intercepts and slopes. But whereas the model from 17.3 set both parameters to random, only the intercept in our last model was random. The covariate `thorax_c` was fixed--it did not vary by group. Had we wanted it to, our `formula` syntax would have been something like `Longevity ~ 1 + thorax_c + (1 + thorax_c || CompanionNumber)`. And again, as noted in Chapter 17, the `||` portion of the syntax set the random intercepts and slopes to be orthogonal (i.e., correlate exactly at zero). As we'll see, this will often not be the case. But let's not get ahead of ourselves.
 
 > Conceptually, the main difference between the models is merely the focus of attention. In the hierarchical linear regression model, the focus was on the slope coefficient. In that case, we were trying to estimate the magnitude of the slope, simultaneously for individuals and overall. The intercepts, which describe the levels of the nominal predictor, were of ancillary interest. In the present section, on the other hand, the focus of attention is reversed. We are most interested in the intercepts and their differences between groups, with the slopes on the covariate being of ancillary interest. (p. 573)
 
@@ -1069,7 +1074,7 @@ On page 574, Kruschke laid out the schematic for a hierarchical Student's-$t$ mo
 * modeling the group-level deflections as Gaussian with a mean of 0 and standard deviation $\sigma_\sigma$ estimated from the data,
 * and choosing a sensible prior for $\sigma_\sigma$ that is left-bound at 0 and gently slopes to the right (i.e., a folded $t$ or gamma distribution).
 
-Since we're modeling $\log(\sigma)$, we might use Gaussian prior centered on `sd(my_data$y) %>% log()` and a reasonable spread like 1. We can simulate a little to get a sense of what those distributions look like.
+Since we're modeling $\log (\sigma)$, we might use Gaussian prior centered on `sd(my_data$y) %>% log()` and a reasonable spread like 1. We can simulate a little to get a sense of what those distributions look like.
 
 ```{r, fig.width = 6, fig.height = 2}
 n_draws <- 1e3
@@ -1179,8 +1184,8 @@ stanvars <-
 
 Now fit the ANOVA-like homogeneous-variances model.
 
-```{r fit5, cache = T, message = F, warning = F}
-fit5 <-
+```{r fit19.6}
+fit19.6 <-
   brm(data = my_data,
       family = gaussian,
       Y ~ 1 + (1 | Group),
@@ -1190,13 +1195,14 @@ fit5 <-
       iter = 4000, warmup = 1000, chains = 4, cores = 4,
       seed = 19,
       control = list(adapt_delta = 0.999),
-      stanvars = stanvars)
+      stanvars = stanvars,
+      file = "fits/fit19.06")
 ``` 
 
 Here's the model summary.
 
 ```{r}
-print(fit5)
+print(fit19.6)
 ```
 
 Let's get ready to make our version of the top of Figure 19.7. First we wrangle.
@@ -1208,10 +1214,10 @@ n_draws <- 20
 densities <-
   my_data %>% 
   distinct(Group) %>% 
-  add_fitted_draws(fit5, n = n_draws, seed = 19, dpar = c("mu", "sigma")) %>% 
-  mutate(ll      = qnorm(.025, mean = mu, sd = sigma),
-         ul      = qnorm(.975, mean = mu, sd = sigma)) %>% 
-  mutate(Y       = map2(ll, ul, seq, length.out = 100)) %>% 
+  add_fitted_draws(fit19.6, n = n_draws, seed = 19, dpar = c("mu", "sigma")) %>% 
+  mutate(ll = qnorm(.025, mean = mu, sd = sigma),
+         ul = qnorm(.975, mean = mu, sd = sigma)) %>% 
+  mutate(Y = map2(ll, ul, seq, length.out = 100)) %>% 
   unnest(Y) %>% 
   mutate(density = dnorm(Y, mu, sigma)) %>% 
   group_by(.draw) %>% 
@@ -1220,7 +1226,7 @@ densities <-
 glimpse(densities)
 ```
 
-In our wrangling code, the main thing to notice is those last two lines. If you look closely to Kruschke’s Gaussians, you’ll notice they all have the same maximum height. Up to this point, ours haven’t. This has to do with technicalities on how densities are scaled. In brief, the wider densities have been shorter. So those last two lines scaled all the densities within the same group to the same metric. Otherwise the code was business as usual. 
+In our wrangling code, the main thing to notice is those last two lines. If you look closely to Kruschke's Gaussians, you'll notice they all have the same maximum height. Up to this point, ours haven't. This has to do with technicalities on how densities are scaled. In brief, the wider densities have been shorter. So those last two lines scaled all the densities within the same group to the same metric. Otherwise the code was business as usual. 
 
 Anyway, here's our version of the top panel of Figure 19.7.
 
@@ -1233,18 +1239,18 @@ densities %>%
   geom_jitter(data = my_data,
               height = .04, alpha = 1/2) +
   scale_x_continuous(breaks = seq(from = 80, to = 120, by = 10)) +
+  labs(title = "Data with Posterior Predictive Distrib.", 
+       y = NULL) +
   coord_cartesian(xlim = 75:125,
                   ylim = c(1.25, 4.5)) +
-  labs(title = "Data with Posterior Predictive Distrib.", 
-       y     = NULL) +
-  theme(axis.ticks.y = element_blank(),
-        axis.text.y  = element_text(hjust = 0))
+  theme(axis.text.y = element_text(hjust = 0),
+        axis.ticks.y = element_blank())
 ```
 
 Here are the difference distributions in the middle of Figure 19.7.
 
 ```{r, fig.width = 4, fig.height = 2.5}
-post <- posterior_samples(fit5)
+post <- posterior_samples(fit19.6)
 
 differences <-
   post %>% 
@@ -1255,11 +1261,11 @@ differences %>%
   gather() %>%
   mutate(key = factor(key, levels = c("D vs A", "C vs B"))) %>% 
   
-  ggplot(aes(x = value)) +
-  geom_histogram(color = "grey92", fill = "grey67",
-                 size = .2, bins = 40) +
-  stat_pointintervalh(aes(y = 0), 
-                      point_interval = mode_hdi, .width = c(.95, .5)) +
+  ggplot(aes(x = value, y = 0)) +
+  stat_histintervalh(point_interval = mode_hdi, .width = c(.5, .95),
+                     fill = "grey67", slab_color = "grey92",
+                     breaks = 40, slab_size = .25, outline_bars = T,
+                     normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(x = "Difference") +
   facet_wrap(~key, scales = "free_x", ncol = 4)
@@ -1273,11 +1279,11 @@ differences %>%
   gather() %>%
   mutate(key = factor(key, levels = c("D vs A", "C vs B"))) %>% 
   
-  ggplot(aes(x = value)) +
-  geom_histogram(color = "grey92", fill = "grey67",
-                 size = .2, bins = 40) +
-  stat_pointintervalh(aes(y = 0), 
-                      point_interval = mode_hdi, .width = c(.95, .5)) +
+  ggplot(aes(x = value, y = 0)) +
+  stat_histintervalh(point_interval = mode_hdi, .width = c(.5, .95),
+                     fill = "grey67", slab_color = "grey92",
+                     breaks = 30, slab_size = .25, outline_bars = T,
+                     normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(x = "Effect Size") +
   facet_wrap(~key, scales = "free_x", ncol = 4)
@@ -1286,7 +1292,7 @@ differences %>%
 Oh and remember, if you'd like to get all the possible contrasts in bulk, **tidybayes** has got your back.
 
 ```{r, fig.height = 4, fig.width = 6}
-fit5 %>%
+fit19.6 %>%
   spread_draws(r_Group[Group,]) %>%
   compare_levels(r_Group, by = Group) %>%
   # these next two lines allow us to reorder the contrasts along the y
@@ -1299,8 +1305,8 @@ fit5 %>%
   labs(x = "Contrast",
        y = NULL) +
   coord_cartesian(ylim = c(1.33, 6.5)) +
-  theme(axis.ticks.y = element_blank(),
-        axis.text.y  = element_text(hjust = 0))
+  theme(axis.text.y = element_text(hjust = 0),
+        axis.ticks.y = element_blank())
 ```
 
 But to get back on track, here are the `stanvars` for the robust hierarchical variances model.
@@ -1316,8 +1322,8 @@ stanvars <-
 
 Now fit that robust better-than-ANOVA model.
 
-```{r fit6, cache = T, message = F, warning = F}
-fit6 <-
+```{r fit19.7}
+fit19.7 <-
   brm(data = my_data,
       family = student,
       bf(Y     ~ 1 + (1 | Group), 
@@ -1336,19 +1342,20 @@ fit6 <-
       seed = 19,
       control = list(adapt_delta = 0.99,
                      max_treedepth = 12),
-      stanvars = stanvars)
+      stanvars = stanvars,
+      file = "fits/fit19.07")
 ``` 
 
 The chains look good.
 
 ```{r, fig.width = 8, fig.height = 5}
-plot(fit6)
+plot(fit19.7)
 ```
 
-Here's the summary.
+Here's the parameter summary.
 
 ```{r}
-print(fit6)
+print(fit19.7)
 ```
 
 Let's get ready to make our version of the top of Figure 19.7. First we wrangle.
@@ -1357,10 +1364,10 @@ Let's get ready to make our version of the top of Figure 19.7. First we wrangle.
 densities <-
   my_data %>% 
   distinct(Group) %>% 
-  add_fitted_draws(fit6, n = n_draws, seed = 19, dpar = c("mu", "sigma", "nu")) %>% 
-  mutate(ll      = qt(.025, df = nu),
-         ul      = qt(.975, df = nu)) %>% 
-  mutate(Y       = map2(ll, ul, seq, length.out = 100)) %>% 
+  add_fitted_draws(fit19.7, n = n_draws, seed = 19, dpar = c("mu", "sigma", "nu")) %>% 
+  mutate(ll = qt(.025, df = nu),
+         ul = qt(.975, df = nu)) %>% 
+  mutate(Y = map2(ll, ul, seq, length.out = 100)) %>% 
   unnest(Y) %>%
   mutate(density = dt(Y, nu)) %>% 
   # notice the conversion
@@ -1384,18 +1391,18 @@ densities %>%
   geom_jitter(data = my_data,
               height = .04, alpha = 1/2) +
   scale_x_continuous(breaks = seq(from = 80, to = 120, by = 10)) +
+  labs(title = "Data with Posterior Predictive Distrib.", 
+       y = NULL) +
   coord_cartesian(xlim = 75:125,
                   ylim = c(1.25, 4.5)) +
-  labs(title = "Data with Posterior Predictive Distrib.", 
-       y     = NULL) +
-  theme(axis.ticks.y = element_blank(),
-        axis.text.y  = element_text(hjust = 0))
+  theme(axis.text.y = element_text(hjust = 0),
+        axis.ticks.y = element_blank())
 ```
 
 Here are the difference distributions in the middle of Figure 19.8.
 
 ```{r, fig.width = 4, fig.height = 2.5}
-post <- posterior_samples(fit6)
+post <- posterior_samples(fit19.7)
 
 post %>% 
   transmute(`D vs A` = `r_Group[D,Intercept]` - `r_Group[A,Intercept]`,
@@ -1403,11 +1410,11 @@ post %>%
   gather() %>%
   mutate(key = factor(key, levels = c("D vs A", "C vs B"))) %>% 
   
-  ggplot(aes(x = value)) +
-  geom_histogram(color = "grey92", fill = "grey67",
-                 size = .2, bins = 40) +
-  stat_pointintervalh(aes(y = 0), 
-                      point_interval = mode_hdi, .width = c(.95, .5)) +
+  ggplot(aes(x = value, y = 0)) +
+  stat_histintervalh(point_interval = mode_hdi, .width = c(.5, .95),
+                     fill = "grey67", slab_color = "grey92",
+                     breaks = 40, slab_size = .25, outline_bars = T,
+                     normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab("Difference") +
   facet_wrap(~key, scales = "free_x", ncol = 4)
@@ -1424,11 +1431,11 @@ post %>%
   gather() %>%
   mutate(key = factor(key, levels = c("D vs A", "C vs B"))) %>% 
   
-  ggplot(aes(x = value)) +
-  geom_histogram(color = "grey92", fill = "grey67",
-                 size = .2, bins = 40) +
-  stat_pointintervalh(aes(y = 0), 
-                      point_interval = mode_hdi, .width = c(.95, .5)) +
+  ggplot(aes(x = value, y = 0)) +
+  stat_histintervalh(point_interval = mode_hdi, .width = c(.5, .95),
+                     fill = "grey67", slab_color = "grey92",
+                     breaks = 30, slab_size = .25, outline_bars = T,
+                     normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab("Effect Size") +
   facet_wrap(~key, scales = "free_x", ncol = 4)
@@ -1447,13 +1454,13 @@ post %>%
   gather() %>%
   mutate(key = factor(key, levels = c("D vs A", "C vs B", "D vs C", "B vs A"))) %>% 
   
-  ggplot(aes(x = value)) +
-  geom_histogram(color = "grey92", fill = "grey67",
-                 size = .2, bins = 40) +
-  stat_pointintervalh(aes(y = 0), 
-                      point_interval = mode_hdi, .width = c(.95, .5)) +
+  ggplot(aes(x = value, y = 0)) +
+  stat_histintervalh(point_interval = mode_hdi, .width = c(.5, .95),
+                     fill = "grey67", slab_color = "grey92",
+                     breaks = 30, slab_size = .25, outline_bars = T,
+                     normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
-  xlab(expression(paste("Differences in ", sigma))) +
+  xlab(expression(Differences~'in'~sigma)) +
   facet_wrap(~key, scales = "free", ncol = 4)
 ```
 
@@ -1465,15 +1472,15 @@ We computed a lot of effect sizes in this chapter. They were all standardized me
 
 > We need a "pure" number, one free of our original measurement unit, with which to index what can be alternately called the degree of departure from the null hypothesis of the alternate hypothesis, or the ES (effect size) we wish to detect. This is accomplished by standardizing the raw effect size as expressed in the measurement unit of the dependent variable by dividing it by the (common) standard deviation of the measures in their respective populations, the latter also in the original measurement unit. (p. 20)
 
-Though Cohen framed his discussion in terms of null-hypothesis significance testing, we can just as easily apply it to our Bayesian modeling framework. The main thing is we can use his definitions form above to define a particular kind of effect size—the standardized mean difference between two groups. This is commonly referred to as a Cohen’s $d$, which follows the formula
+Though Cohen framed his discussion in terms of null-hypothesis significance testing, we can just as easily apply it to our Bayesian modeling framework. The main thing is we can use his definitions form above to define a particular kind of effect size—the standardized mean difference between two groups. This is commonly referred to as a Cohen's $d$, which follows the formula
 
 $$d = \frac{\bar y_A - \bar y_B}{s_y},$$
 
-where the unstandardized means of the variable of interest $y$ are compared between two groups, A and B. From the raw data, we compute their two means, $\bar y_A$ and $\bar y_B$, and divide their difference by the common (i.e. pooled) standard deviation $s_y$. As is the typical case, the empirically-derived means and standard deviations are stand-ins (i.e., estimates) of the population parameters. If we're willing to ignore uncertainty, we can do this all by hand.
+where the unstandardized means of the variable of interest $y$ are compared between two groups, A and B. From the raw data, we compute their two means, $\bar y_A$ and $\bar y_B$, and divide their difference by the common (i.e., pooled) standard deviation $s_y$. As is the typical case, the empirically-derived means and standard deviations are stand-ins (i.e., estimates) of the population parameters. If we're willing to ignore uncertainty, we can do this all by hand.
 
 Let's walk this out with the fruit-fly data from section 19.3.2.
 
-```{r}
+```{r, message = F}
 my_data <- read_csv("data.R/FruitflyDataReduced.csv")
 
 glimpse(my_data)
@@ -1522,9 +1529,9 @@ Now computing Cohen's $d$ is just simple arithmetic.
 (y_bar_a - y_bar_b) / s_y
 ```
 
-Though I'm not up on contemporary standards in fruit fly research, a Cohen’s $d$ of that size would be considered [conspicuously] big in most areas of my field (psychology). If we'd like to compute the $d$ estimates for any other combination of experimental conditions, we'd just follow the corresponding arithmetic. 
+Though I'm not up on contemporary standards in fruit fly research, a Cohen’s $d$ of that size would be considered [conspicuously] large in most areas of my field (psychology). If we'd like to compute the $d$ estimates for any other combination of experimental conditions, we'd just follow the corresponding arithmetic. 
 
-As I hinted at earlier, the problem with this approach is it ignores uncertainty. Frequentists use various formulas to express this in terms of 95% confidence intervals. Our approach will be to express it with the posterior distribution of a Bayesian model. We've already accomplished this with our `fit1` from above. Here we'll use three other approaches. 
+As I hinted at earlier, the problem with this approach is it ignores uncertainty. Frequentists use various formulas to express this in terms of 95% confidence intervals. Our approach will be to express it with the posterior distribution of a Bayesian model. We've already accomplished this with our `fit19.1` from above. Here we'll use three other approaches. 
 
 Instead of the Bayesian hierarchical alternative to the frequentist ANOVA, we can use a single-level model where we predict a metric variable with separate intercepts for the two levels of `CompanionNumber`. First, we subset the data and define our `stanvars`.
 
@@ -1542,8 +1549,8 @@ stanvars <-
 
 Fit the model with `brm()`.
 
-```{r fit7, cache = T, message = F, warning = F}
-fit7 <-
+```{r fit19.8}
+fit19.8 <-
   brm(data = my_data,
       family = gaussian,
       Longevity ~ 0 + CompanionNumber,
@@ -1551,19 +1558,20 @@ fit7 <-
                 prior(cauchy(0, sd_y), class = sigma)),
       iter = 3000, warmup = 1000, chains = 4, cores = 4,
       seed = 19,
-      stanvars = stanvars)
+      stanvars = stanvars,
+      file = "fits/fit19.08")
 ```
 
 Check the summary.
 
 ```{r}
-print(fit7)
+print(fit19.8)
 ```
 
 Extract the posterior draws.
 
 ```{r}
-post <- posterior_samples(fit7)
+post <- posterior_samples(fit19.8)
 ```
 
 Here we'll plot the three dimensions of the posterior, each with the corresponding value from the Cohen's $d$ formula marked off as a vertical line in the foreground.
@@ -1576,30 +1584,27 @@ lines <-
 post %>% 
   pivot_longer(-lp__) %>% 
   
-  ggplot(aes(x = value)) +
-  geom_histogram(color = "grey92", fill = "grey67",
-                 size = .2, bins = 40) +
-  stat_pointintervalh(aes(y = 0), 
-                      point_interval = mode_hdi, .width = c(.95, .5)) +
+  ggplot(aes(x = value, y = 0)) +
+  stat_halfeyeh(point_interval = mode_hdi, .width = .95,
+                fill = "grey67", slab_color = "grey92",
+                normalize = "panels") +
   geom_vline(data = lines,
              aes(xintercept = value),
              color = "grey25") +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab("posterior") +
-  facet_wrap(~name, scales = "free_x")
+  facet_wrap(~name, scales = "free")
 ```
 
-The model did a great job capturing the group means. Notice how the posterior `sigma` is a bit lower than the value $s_y$. This is because $\sigma$ in the model is conditioned on the mean. Because we have two means, one for each group, that has 'explained some of the variation' in the criterion variable `Longevity`. Thus, our posterior for $\sigma$ might be more fully expressed as $\sigma | \text{CompanionNumber}$. If we would like to compute our Cohen's $d$ using the posterior iterations from `fit7`, we'd execute something like this.
+The model did a great job capturing the group means. Notice how the posterior `sigma` is a bit lower than the value $s_y$. This is because $\sigma$ in the model is conditioned on the mean. Because we have two means, one for each group, that has 'explained some of the variation' in the criterion variable `Longevity`. Thus, our posterior for $\sigma$ might be more fully expressed as $\sigma | \text{CompanionNumber}$. If we would like to compute our Cohen's $d$ using the posterior iterations from `fit19.8`, we'd execute something like this.
 
 ```{r, fig.width = 3, fig.height = 2.5}
 post %>% 
   mutate(d = (b_CompanionNumberVirgin1 - b_CompanionNumberVirgin8) / s_y) %>% 
   
-  ggplot(aes(x = d)) +
-  geom_histogram(color = "grey92", fill = "grey67",
-                 size = .2, bins = 40) +
-  stat_pointintervalh(aes(y = 0), 
-                      point_interval = mode_hdi, .width = c(.95, .5)) +
+  ggplot(aes(x = d, y = 0)) +
+  stat_halfeyeh(point_interval = mode_hdi, .width = .95,
+                fill = "grey67", slab_color = "grey92") +
   geom_vline(xintercept = (y_bar_a - y_bar_b) / s_y,
              color = "grey25") +
   scale_y_continuous(NULL, breaks = NULL) +
@@ -1608,7 +1613,7 @@ post %>%
 
 Similar to the previous plots, this time we superimposed the density with the estimate for $d$ we computed above, `(y_bar_a - y_bar_b) / s_y`. Happily, the hand-calculated estimate coheres nicely with the central tendency of our posterior distribution. But now we get a full measure of uncertainty. Notice how wide those 95% HDIs are. Hopefully this isn't a surprise given our noncommittal priors and only $n = 25$ for both groups. There's a lot of uncertainty in that posterior.
 
-A second way we might use a single-level model to compute a Cohen’s $d$ effect size is using a dummy variable. We'll convert our nominal variable `CompanionNumber` into a binary variable `Virgin1` for which 1 corresponds to `CompanionNumber == Virgin1` and 0 corresponds to `CompanionNumber == Virgin8`. Compute the dummy.
+A second way we might use a single-level model to compute a Cohen's $d$ effect size is using a dummy variable. We'll convert our nominal variable `CompanionNumber` into a binary variable `Virgin1` for which 1 corresponds to `CompanionNumber == Virgin1` and 0 corresponds to `CompanionNumber == Virgin8`. Compute the dummy.
 
 ```{r}
 my_data <-
@@ -1618,8 +1623,8 @@ my_data <-
 
 Now fit the dummy-predictor model with `brm()`.
 
-```{r fit8, cache = T, message = F, warning = F}
-fit8 <-
+```{r fit19.9}
+fit19.9 <-
   brm(data = my_data,
       family = gaussian,
       Longevity ~ 1 + Virgin1,
@@ -1628,24 +1633,23 @@ fit8 <-
                 prior(cauchy(0, sd_y), class = sigma)),
       iter = 3000, warmup = 1000, chains = 4, cores = 4,
       seed = 19,
-      stanvars = stanvars)
+      stanvars = stanvars,
+      file = "fits/fit19.09")
 ```
 
 ```{r}
-print(fit8)
+print(fit19.9)
 ```
 
 With this parameterization, our posterior for `Intercept` is the same, within simulation variation, as `CompanionNumberVirgin8` from `fit7`. The posterior for `sigma` is about the same for both models, too. But focus on `Virgin1`. This is the unstandardized mean difference, what we called $\bar y_A - \bar y_B$ in our formula for Cohen's $d$. Here's a look at its posterior distribution with its empirical estimate superimposed with a vertical line.
 
 ```{r, fig.width = 3, fig.height = 2.5}
-post <- posterior_samples(fit8)
+post <- posterior_samples(fit19.9)
 
 post %>% 
-  ggplot(aes(x = b_Virgin1)) +
-  geom_histogram(color = "grey92", fill = "grey67",
-                 size = .2, bins = 40) +
-  stat_pointintervalh(aes(y = 0), 
-                      point_interval = mode_hdi, .width = c(.95, .5)) +
+  ggplot(aes(x = b_Virgin1, y = 0)) +
+  stat_halfeyeh(point_interval = mode_hdi, .width = .95,
+                fill = "grey67", slab_color = "grey92") +
   geom_vline(xintercept = y_bar_a - y_bar_b,
              color = "grey25") +
   scale_y_continuous(NULL, breaks = NULL) +
@@ -1658,11 +1662,9 @@ Here's how to standardize that unstandardized effect size into a Cohen's-$d$ met
 post %>% 
   mutate(d = b_Virgin1 / s_y) %>% 
   
-  ggplot(aes(x = d)) +
-  geom_histogram(color = "grey92", fill = "grey67",
-                 size = .2, bins = 40) +
-  stat_pointintervalh(aes(y = 0), 
-                      point_interval = mode_hdi, .width = c(.95, .5)) +
+  ggplot(aes(x = d, y = 0)) +
+  stat_halfeyeh(point_interval = mode_hdi, .width = .95,
+                fill = "grey67", slab_color = "grey92") +
   geom_vline(xintercept = (y_bar_a - y_bar_b) / s_y,
              color = "grey25") +
   scale_y_continuous(NULL, breaks = NULL) +
@@ -1681,8 +1683,8 @@ my_data <-
 
 Because our criterion in a standardized metric, we no longer need our `stanvars`.
 
-```{r fit9, cache = T, message = F, warning = F}
-fit9 <-
+```{r fit19.10}
+fit19.10 <-
   brm(data = my_data,
       family = gaussian,
       Longevity_s ~ 1 + Virgin1,
@@ -1690,29 +1692,28 @@ fit9 <-
                 prior(normal(0, 1 * 5), class = b),
                 prior(cauchy(0, 1), class = sigma)),
       iter = 3000, warmup = 1000, chains = 4, cores = 4,
-      seed = 19)
+      seed = 19,
+      file = "fits/fit19.10")
 ```
 
 Behold our out-of-the-box Bayesian Cohen's $d$.
 
 ```{r, fig.width = 3, fig.height = 2.5}
 # no transformation necessary
-posterior_samples(fit9) %>% 
+posterior_samples(fit19.10) %>% 
   
-  ggplot(aes(x = b_Virgin1)) +
-  geom_histogram(color = "grey92", fill = "grey67",
-                 size = .2, bins = 40) +
-  stat_pointintervalh(aes(y = 0), 
-                      point_interval = mode_hdi, .width = c(.95, .5)) +
+  ggplot(aes(x = b_Virgin1, y = 0)) +
+  stat_halfeyeh(point_interval = mode_hdi, .width = .95,
+                fill = "grey67", slab_color = "grey92") +
   geom_vline(xintercept = (y_bar_a - y_bar_b) / s_y,
              color = "grey25") +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(expression(paste("Cohen's ", italic(d), " expressed as a posterior")))
 ```
 
-If you work them through, the approaches we took for `fit7` and `fit8` can be generalized to models with more than two groups. You just need to be careful how to compute the $s_y$ for each comparison. The same cannot be said for our `fit9` approach. If you were to, say, fit a model that produced estimates for all five groups, you could not just standardize the data beforehand using the overall standard deviation. If you did, the pooled standard deviation you'd be basing your not-quite-Cohen's $d$ posteriors on would be pooled across all groups, not just the two groups entailed in a given two-group comparison.
+If you work them through, the approaches we took for `fit19.8` and `fit19.9` can be generalized to models with more than two groups. You just need to be careful how to compute the $s_y$ for each comparison. The same cannot be said for our `fit19.10` approach. If you were to, say, fit a model that produced estimates for all five groups, you could not just standardize the data beforehand using the overall standard deviation. If you did, the pooled standard deviation you'd be basing your not-quite-Cohen's $d$ posteriors on would be pooled across all groups, not just the two groups entailed in a given two-group comparison.
 
-It's also the case the that standardized mean differences we computed for `fit1`, above, are not quite Cohen's $d$ effect sizes in the same way these have been. This is because the hierarchical approach we used partially pooled the estimates for each group toward the grand mean. You might say they were hierarchically-regularized Cohen's $d$s. But then again, Cohen's formula for his $d$ statistic did not account for Bayesian priors, either. So perhaps a purist would deny that any of the standardized mean differences we've computed in this chapter were proper Cohen's $d$ effect sizes. To be on the safe side, tell your readers exactly how you computed your models and what formulas you used to compute your effect sizes.
+It's also the case the that standardized mean differences we computed for `fit19.1`, above, are not quite Cohen's $d$ effect sizes in the same way these have been. This is because the hierarchical approach we used partially pooled the estimates for each group toward the grand mean. You might say they were hierarchically-regularized Cohen's $d$s. But then again, Cohen's formula for his $d$ statistic did not account for Bayesian priors, either. So perhaps a purist would deny that any of the standardized mean differences we've computed in this chapter were proper Cohen's $d$ effect sizes. To be on the safe side, tell your readers exactly how you computed your models and what formulas you used to compute your effect sizes.
 
 ### Populations and samples.
 
@@ -1767,9 +1768,9 @@ my_data %>%
             sd = sd(Score))
 ```
 
-Unsurprisingly, the values for the `Smart Drug` group are notably different from the population parameters. But notice how close the values from the `Placebo` group are to the population parameters. If they weren’t, we’d be concerned the `Placebo` condition was not a valid control. Looks like it was.
+Unsurprisingly, the values for the `Smart Drug` group are notably different from the population parameters. But notice how close the values from the `Placebo` group are to the population parameters. If they weren't, we’d be concerned the `Placebo` condition was not a valid control. Looks like it was.
 
-However, notice that the mean and standard deviation for the `Placebo` group aren’t the exact values of 100 and 15 the way they are in the population. If we wanted to compute a standardized mean difference between our `Smart Drug` group and folks in the population, we could just plug those values directly into our effect size equation. Here's what that would look like if we plug in the population mean for the control group.
+However, notice that the mean and standard deviation for the `Placebo` group are not the exact values of 100 and 15 the way they are in the population. If we wanted to compute a standardized mean difference between our `Smart Drug` group and folks in the population, we could just plug those values directly into our effect size equation. Here's what that would look like if we plug in the population mean for the control group.
 
 ```{r}
 (y_bar_a - 100) / s_y
@@ -1805,7 +1806,7 @@ sessionInfo()
 
 ```{r, echo = F}
 # remove our objects
-rm(generate_data, n, grand_mean, d, densities, arrow, text, gamma_a_b_from_omega_sigma, sd_y, omega, sigma, s_r, my_data, mean_y, stanvars, fit1, post, n_draws, post_draws, fit1_without_deflections, mw, fit2, fit3, my_small_data, sd_thorax_c, fit4, r, f, differences, fit5, fit6, y_bar_a, y_bar_b, s_y, fit7, lines, fit8, fit9)
+rm(generate_data, n, grand_mean, d, densities, arrow, text, gamma_a_b_from_omega_sigma, sd_y, omega, sigma, s_r, my_data, mean_y, stanvars, fit19.1, post, n_draws, post_draws, fit19.2, mw, fit19.3, fit19.4, my_small_data, sd_thorax_c, fit19.5, r, f, differences, fit19.6, fit19.7, y_bar_a, y_bar_b, s_y, fit19.8, lines, fit19.9, fit19.10)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
