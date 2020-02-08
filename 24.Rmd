@@ -92,7 +92,7 @@ We can work with that expression directly in base **R**. Here we use $\lambda = 
 
 ```{r}
 lambda <- 5.5
-y <- 2
+y      <- 2
 
 lambda^y * exp(-lambda) / factorial(y)
 ```
@@ -234,9 +234,9 @@ my_data %>%
   scale_color_manual(values = c("black", "white")) +
   scale_x_discrete(expand = c(0, 0), position = "top") +
   scale_y_discrete(expand = c(0, 0)) +
-  theme(legend.position = "none",
+  theme(axis.text.y = element_text(hjust = 0),
         axis.ticks = element_blank(),
-        axis.text.y = element_text(hjust = 0))
+        legend.position = "none")
 ```
 
 Load the **brms** and **tidybayes** packages.
@@ -286,7 +286,7 @@ tibble(x = seq(from = 0, to = 70, length.out = 1e3)) %>%
   ggplot(aes(x = x, ymin = 0, ymax = density)) +
   geom_ribbon(fill = "grey67") +
   scale_y_continuous(NULL, breaks = NULL) +
-  labs(title = expression(paste("Kruschke's wide prior for ", sigma[beta*x])),
+  labs(title = expression("Kruschke's wide prior for "*sigma[beta*x]),
        x = NULL) +
   coord_cartesian(xlim = 0:60) +
   theme(panel.grid = element_blank())
@@ -305,7 +305,7 @@ stanvars <-
 Fit Kruschke's model with **brms**.
 
 ```{r, eval = F}
-fit1 <-
+fit24.1 <-
   brm(data = my_data,
       family = poisson,
       Count ~ 1 + (1 | Hair) + (1 | Eye) + (1 | Hair:Eye),
@@ -313,7 +313,8 @@ fit1 <-
                 prior(gamma(alpha, beta), class = sd)),
       iter = 3000, warmup = 1000, chains = 4, cores = 4,
       seed = 24,
-      stanvars = stanvars)
+      stanvars = stanvars,
+      file = "fits/fit24.01")
 ```
 
 As it turns out, if you try to fit Kruschke's model with **brms** as is, you'll run into difficulties with divergent transitions and the like. One approach is to try tuning the `adapt_delta` and `max_treedepth` parameters. I had no luck with that approach. E.g., cranking `adapt_delta` up past `0.9999` still returned a divergent transition or two.
@@ -359,8 +360,8 @@ stanvars <-
 
 Now we've updated our `stanvars`, we'll fit the modified model. We should note that even this version required some adjustment to the `adapt_delta` and `max_treedepth` parameters. But it wasn't nearly the exercise in frustration entailed in the version, above.
 
-```{r fit1, cache = T, warning = F, message = F}
-fit1 <-
+```{r fit24.1}
+fit24.1 <-
   brm(data = my_data,
       family = poisson,
       Count ~ 1 + (1 | Hair) + (1 | Eye) + (1 | Hair:Eye),
@@ -370,13 +371,14 @@ fit1 <-
       control = list(adapt_delta = 0.99,
                      max_treedepth = 11),
       stanvars = stanvars,
-      seed = 24)
+      seed = 24,
+      file = "fits/fit24.01")
 ```
 
 Take a look at the parameter summary.
 
 ```{r}
-print(fit1)
+print(fit24.1)
 ```
 
 You'll notice that even though we tightened up the priors, the parameter estimates are still quite small relative to the values they allowed for. So even our tightened priors were quite permissive.
@@ -391,7 +393,7 @@ nd <-
   mutate(strip = str_c("E:", Eye, " H:", Hair, "\nN = ", Count))
 
 f <-
-  fitted(fit1,
+  fitted(fit24.1,
          newdata = nd,
          summary = F) %>% 
   data.frame() %>%
@@ -407,11 +409,11 @@ f %>%
   gather(key, count) %>% 
   mutate(proportion = count / 592) %>% 
   
-  ggplot(aes(x = proportion)) +
-  geom_histogram(color = "grey92", fill = "grey67",
-                 size = .05, bins = 50) +
-  geom_halfeyeh(aes(y = 0),
-                point_interval = mode_hdi, .width = .95, size = 1/2) +
+  ggplot(aes(x = proportion, y = 0)) +
+  stat_histintervalh(point_interval = mode_hdi, .width = .95,
+                     fill = "grey67", slab_color = "grey92",
+                     breaks = 20, slab_size = .125, outline_bars = T,
+                     normalize = "panels") +
   scale_x_continuous(breaks = c(0, .1, .2)) +
   scale_y_continuous(NULL, breaks = NULL) +
   coord_cartesian(xlim = c(0, .25)) +
@@ -426,7 +428,7 @@ I know; that's a lot. If you get lost, just go step by step and examine the resu
 ```{r}
 # a. make a custom function
 make_deflection <- function(x) {
-  x - posterior_samples(fit1)$b_Intercept
+  x - posterior_samples(fit24.1)$b_Intercept
 }
 
 # b. streamline `nd`
@@ -437,7 +439,7 @@ nd <-
 
 # c. use `fitted()`
 deflections <-
-  fitted(fit1,
+  fitted(fit24.1,
          newdata = nd,
          summary = F,
          scale = "linear") %>% 
@@ -460,14 +462,14 @@ deflections %>%
   mutate(`Blue.v.Brown\n(x)\nBlack.v.Blond` = `Blue − Brown @ Black` - `Blue − Brown @ Blond`) %>% 
   gather(key, difference) %>% 
   
-  ggplot(aes(x = difference)) +
+  ggplot(aes(x = difference, y = 0)) +
   geom_rect(aes(xmin = -.1, xmax = .1,
                 ymin = -Inf, ymax = Inf),
             fill = "white") +
-  geom_histogram(color = "grey92", fill = "grey67",
-                 size = .2, bins = 40) +
-  geom_halfeyeh(aes(y = 0),
-                point_interval = mode_hdi, .width = .95) +
+  stat_histintervalh(point_interval = mode_hdi, .width = .95,
+                     fill = "grey67", slab_color = "grey92",
+                     breaks = 30, slab_size = .25, outline_bars = T,
+                     normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   theme(panel.grid = element_blank()) +
   facet_wrap(~key, scales = "free")
@@ -547,8 +549,8 @@ bind_rows(
 
 Fit the model.
 
-```{r fit2, cache = T, warning = F, message = F}
-fit2 <-
+```{r fit24.2}
+fit24.2 <-
   brm(data = my_data,
       family = poisson,
       count ~ 1 + (1 | a) + (1 | b) + (1 | a:b),
@@ -557,19 +559,20 @@ fit2 <-
       iter = 3000, warmup = 1000, chains = 4, cores = 4,
       control = list(adapt_delta = 0.999),
       stanvars = stanvars,
-      seed = 24)
+      seed = 24,
+      file = "fits/fit24.02")
 ```
 
 Review the summary.
 
 ```{r}
-print(fit2)
+print(fit24.2)
 ```
 
 We might plot our $\sigma[x]$ posteriors against our prior to get a sense of how strong it was.
 
 ```{r, fig.width = 8, fig.height = 3}
-posterior_samples(fit2) %>% 
+posterior_samples(fit24.2) %>% 
   select(starts_with("sd")) %>% 
   # set_names(str_c("expression(sigma", c("*A", "*AB", "*B"), ")")) %>% 
   pivot_longer(everything(),
@@ -602,7 +605,7 @@ nd <-
   my_data %>% 
   mutate(strip = str_c("a:", a, " b:", b, "\nN = ", count))
 
-fitted(fit2,
+fitted(fit24.2,
        newdata = nd,
        summary = F) %>% 
   data.frame() %>%
@@ -611,11 +614,11 @@ fitted(fit2,
   mutate(proportion = count / sum(my_data$count)) %>% 
   
   # plot!
-  ggplot(aes(x = proportion)) +
-  geom_histogram(color = "grey92", fill = "grey67",
-                 size = .05, bins = 40) +
-  geom_halfeyeh(aes(y = 0),
-                point_interval = mode_hdi, .width = .95, size = 1/2) +
+  ggplot(aes(x = proportion, y = 0)) +
+  stat_histintervalh(point_interval = mode_hdi, .width = .95,
+                     fill = "grey67", slab_color = "grey92",
+                     breaks = 20, slab_size = .25, outline_bars = T,
+                     normalize = "panels") +
   scale_x_continuous(breaks = c(.05, .1, .15)) +
   scale_y_continuous(NULL, breaks = NULL) +
   coord_cartesian(xlim = c(0, .15)) +
@@ -633,7 +636,7 @@ nd <-
 
 # use `fitted()`
 deflections <-
-  fitted(fit2,
+  fitted(fit24.2,
          newdata = nd,
          summary = F,
          scale = "linear") %>% 
@@ -656,14 +659,14 @@ deflections %>%
   transmute(`a2.v.a3\n(x)\nb2.v.b3` = `a2 - a3 @ b2` - `a2 - a3 @ b3`) %>% 
   gather(key, difference) %>% 
   
-  ggplot(aes(x = difference)) +
+  ggplot(aes(x = difference, y = 0)) +
   geom_rect(aes(xmin = -.1, xmax = .1,
                 ymin = -Inf, ymax = Inf),
             fill = "white") +
-  geom_histogram(color = "grey92", fill = "grey67",
-                 size = .2, binwidth = .075) +
-  geom_halfeyeh(aes(y = 0),
-                point_interval = mode_hdi, .width = .95) +
+  stat_histintervalh(point_interval = mode_hdi, .width = .95,
+                     fill = "grey67", slab_color = "grey92",
+                     breaks = 30, slab_size = .25, outline_bars = T,
+                     normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   coord_cartesian(xlim = c(-.5, 2.5)) +
   theme(panel.grid = element_blank()) +
@@ -685,14 +688,14 @@ deflections %>%
   gather(key, difference) %>% 
   
   # plot
-  ggplot(aes(x = difference)) +
+  ggplot(aes(x = difference, y = 0)) +
   geom_rect(aes(xmin = -.1, xmax = .1,
                 ymin = -Inf, ymax = Inf),
             fill = "white") +
-  geom_histogram(color = "grey92", fill = "grey67",
-                 size = .2, binwidth = .075) +
-  geom_halfeyeh(aes(y = 0),
-                point_interval = mode_hdi, .width = .95) +
+  stat_histintervalh(point_interval = mode_hdi, .width = .95,
+                     fill = "grey67", slab_color = "grey92",
+                     breaks = 30, slab_size = .25, outline_bars = T,
+                     normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   coord_cartesian(xlim = c(-.5, 2.5)) +
   theme(panel.grid = element_blank()) +
@@ -703,8 +706,8 @@ deflections %>%
 
 Like we discussed in earlier chapters, this isn't a feasible approach for **brms**. However, we can compare this model with a simpler one that omits the interaction. First, fit the model.
 
-```{r fit3, cache = T, warning = F, message = F}
-fit3 <-
+```{r fit24.3}
+fit24.3 <-
   brm(data = my_data,
       family = poisson,
       count ~ 1 + (1 | a) + (1 | b),
@@ -713,13 +716,14 @@ fit3 <-
       iter = 3000, warmup = 1000, chains = 4, cores = 4,
       control = list(adapt_delta = 0.9999),
       stanvars = stanvars,
-      seed = 24)
+      seed = 24,
+      file = "fits/fit24.03")
 ```
 
 Now we can compare them by their stacking weights.
 
 ```{r, message = F, warning = F}
-model_weights(fit2, fit3) %>% 
+model_weights(fit24.2, fit24.3) %>% 
   round(digits = 3)
 ```
 
@@ -731,8 +735,8 @@ The Poisson distribution is widely used for count data. But notice how in our fi
 
 Here's how to fit that model.
 
-```{r fit4, cache = T, warning = F, message = F}
-fit4 <-
+```{r fit24.4}
+fit24.4 <-
   brm(data = my_data,
       family = binomial,
       count | trials(264) ~ 1 + (1 | a) + (1 | b) + (1 | a:b),
@@ -740,7 +744,8 @@ fit4 <-
                 prior(normal(0, 1), class = sd)),
       iter = 3000, warmup = 1000, chains = 4, cores = 4,
       control = list(adapt_delta = 0.999),
-      seed = 24)
+      seed = 24,
+      file = "fits/fit24.04")
 ```
 
 A few things about the syntax: The aggregated binomial model uses the logit link, just like with typical logistic regression. So when you specify `family = binomial`, you're requesting the logit link. The left side of the `formula` argument, `count | trials(264)` indicates a few things. First, our criterion is `count`. The bar `|` that follows on its right indicates we'd like add additional information about the criterion. In the case of binomial regression, **brms** requires we specify how many trials the value in each cell of the data is referring to. When we coded `trials(264)`, we indicated each cell was a total count of 264 trials. In case it isn't clear, here is where the value 264 came from.
@@ -753,7 +758,7 @@ my_data %>%
 Now look over the summary.
 
 ```{r}
-print(fit4)
+print(fit24.4)
 ```
 
 See that `mu = logit` part in the second line of the summary? Yep, that's our link function. Since we used a different likelihood and link function from earlier models, it shouldn't be surprising the parameters look different. But notice how the aggregated binomial model yields virtually the same results for the top portion of Figure 24.4.
@@ -763,7 +768,7 @@ nd <-
   my_data %>% 
   mutate(strip = str_c("a:", a, " b:", b, "\nN = ", count))
 
-fitted(fit4,
+fitted(fit24.4,
        newdata = nd,
        summary = F) %>% 
   data.frame() %>%
@@ -772,11 +777,11 @@ fitted(fit4,
   mutate(proportion = count / sum(my_data$count)) %>% 
   
   # plot!
-  ggplot(aes(x = proportion)) +
-  geom_histogram(color = "grey92", fill = "grey67",
-                 size = .05, bins = 40) +
-  geom_halfeyeh(aes(y = 0),
-                point_interval = mode_hdi, .width = .95, size = 1/2) +
+  ggplot(aes(x = proportion, y = 0)) +
+  stat_histintervalh(point_interval = mode_hdi, .width = .95,
+                     fill = "grey67", slab_color = "grey92",
+                     breaks = 20, slab_size = .25, outline_bars = T,
+                     normalize = "panels") +
   scale_x_continuous(breaks = c(.05, .1, .15)) +
   scale_y_continuous(NULL, breaks = NULL) +
   coord_cartesian(xlim = c(0, .15)) +
@@ -784,12 +789,12 @@ fitted(fit4,
   facet_wrap(~key, scales = "free_y")
 ```
 
-To further demonstrate the similarity of this approach to Kruschke's multilevel Poisson approach, let's compare the model-based cell estimates for each of the combinations of `a` and `b`, by both `fit2` and `fit4`.
+To further demonstrate the similarity of this approach to Kruschke's multilevel Poisson approach, let's compare the model-based cell estimates for each of the combinations of `a` and `b`, by both `fit24.2` and `fit24.4`.
 
 ```{r, fig.width = 8, fig.height = 3}
 # compute the fitted summary statistics
-rbind(fitted(fit2),
-      fitted(fit4)) %>% 
+rbind(fitted(fit24.2),
+      fitted(fit24.4)) %>% 
   data.frame() %>% 
   # add an augmented version of the data
   bind_cols(expand(my_data, 
@@ -826,7 +831,7 @@ sessionInfo()
 
 ```{r, echo = F}
 # remove our objects
-rm(lambda, y, d, gamma_a_b_from_omega_sigma, n_x1_level, n_x2_level, n_cell, y_log_mean, y_log_sd, s_r, stanvars, my_data, fit1, nd, f, make_deflection, deflections, fit2, fit3, fit4)
+rm(lambda, y, d, gamma_a_b_from_omega_sigma, n_x1_level, n_x2_level, n_cell, y_log_mean, y_log_sd, s_r, stanvars, my_data, fit24.1, nd, f, make_deflection, deflections, fit24.2, fit24.3, fit24.4)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
