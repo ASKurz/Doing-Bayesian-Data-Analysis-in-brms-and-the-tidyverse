@@ -6,7 +6,7 @@ output:
   github_document
 ---
 
-```{r set-options_21, echo = FALSE, cache = FALSE}
+```{r, echo = FALSE, cache = FALSE}
 options(width = 100)
 ```
 
@@ -99,8 +99,8 @@ p <-
              alpha = 2/3) +
   scale_color_manual(values = c("red4", "blue4")) +
   scale_fill_manual(values = c("red4", "blue4")) +
-  theme(panel.grid = element_blank(),
-        legend.position = "none")
+  theme(legend.position = "none",
+        panel.grid = element_blank())
 p %>% 
   ggMarginal(data = my_data,  
              groupFill = T,
@@ -118,21 +118,22 @@ library(brms)
 
 Our first logistic model with `family = bernoulli` uses only `weight_z` as a predictor.
 
-```{r fit1, cache = T, message = F, warning = F}
-fit1 <-
+```{r fit21.1}
+fit21.1 <-
   brm(data = my_data, 
       family = bernoulli,
       male ~ 1 + weight_z,
       prior = c(prior(normal(0, 2), class = Intercept),
                 prior(normal(0, 2), class = b)),
       iter = 2500, warmup = 500, chains = 4, cores = 4,
-      seed = 21)
+      seed = 21,
+      file = "fits/fit21.01")
 ```
 
 Here's the model summary.
 
 ```{r}
-print(fit1)
+print(fit21.1)
 ```
 
 Now let's get ready to make our version of Figure 21.3. First, we need to do some `fitted()`-oriented wrangling.
@@ -144,7 +145,7 @@ n_iter <- 20
 nd <- tibble(weight_z = seq(from = -2, to = 3.5, length.out = length))
 
 f <-
-  fitted(fit1,
+  fitted(fit21.1,
          newdata  = nd,
          summary  = F,
          nsamples = n_iter) %>% 
@@ -152,7 +153,7 @@ f <-
   mutate(iter = 1:n_iter) %>% 
   pivot_longer(-iter) %>% 
   mutate(weight_z = rep(nd$weight_z, times = n_iter)) %>% 
-  mutate(weight   = weight_z * sd(my_data$weight) + mean(my_data$weight))
+  mutate(weight = weight_z * sd(my_data$weight) + mean(my_data$weight))
 
 head(f)
 ```
@@ -180,7 +181,7 @@ f %>%
              aes(y = male),
              alpha = 1/3) +
   labs(title = "Data with Post. Pred.", 
-       y     = "male") +
+       y = "male") +
   coord_cartesian(xlim = range(my_data$weight)) +
   theme(panel.grid = element_blank())
 ```
@@ -192,7 +193,7 @@ library(tidybayes)
 
 # extract the draws
 post <-
-  posterior_samples(fit1) %>% 
+  posterior_samples(fit21.1) %>% 
   # convert the parameter draws to their natural metric following Equation 21.1
   transmute(Intercept = b_Intercept - (b_weight_z * mean(my_data$weight) / sd(my_data$weight)),
             weight    = b_weight_z / sd(my_data$weight)) %>% 
@@ -200,11 +201,11 @@ post <-
 
 # plot
 post %>% 
-  ggplot(aes(x = value)) +
-  geom_histogram(color = "grey92", fill = "grey67",
-                 size = .2, bins = 40) +
-  stat_pointintervalh(aes(y = 0),
-                      point_interval = mode_hdi, .width = c(.95, .5)) +
+  ggplot(aes(x = value, y = 0)) +
+  stat_histintervalh(point_interval = mode_hdi, .width = c(.95, .5),
+                     fill = "grey67", slab_color = "grey92",
+                     breaks = 50, slab_size = .25, outline_bars = T,
+                     normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(NULL) +
   theme(panel.grid = element_blank()) +
@@ -213,7 +214,7 @@ post %>%
 
 And here are those exact posterior mode and 95% HDI values.
 
-```{r, warning = F, message = F}
+```{r}
 post %>% 
   group_by(name) %>% 
   mode_hdi() %>% 
@@ -222,28 +223,29 @@ post %>%
 
 Now fit the two-predictor model using both `weight_z` and `height_z`
 
-```{r fit2, cache = T, message = F, warning = F}
-fit2 <-
+```{r fit21.2}
+fit21.2 <-
   brm(data = my_data, 
       family = bernoulli,
       male ~ 1 + weight_z + height_z,
       prior = c(prior(normal(0, 2), class = Intercept),
                 prior(normal(0, 2), class = b)),
       iter = 2500, warmup = 500, chains = 4, cores = 4,
-      seed = 21)
+      seed = 21,
+      file = "fits/fit21.02")
 ```
 
 Here's the model summary.
 
 ```{r}
-print(fit2)
+print(fit21.2)
 ```
 
 Before we make our plots for Figure 21.4, we'll need to extract the posterior samples and transform a little.
 
 ```{r}
 post <-
-  posterior_samples(fit2) %>% 
+  posterior_samples(fit21.2) %>% 
   transmute(b_weight  = b_weight_z / sd(my_data$weight),
             b_height  = b_height_z / sd(my_data$height),
             Intercept = b_Intercept - ((b_weight_z * mean(my_data$weight) / sd(my_data$weight)) +
@@ -274,8 +276,8 @@ post %>%
   ggtitle("Data with Post. Pred.") +
   coord_cartesian(xlim = range(my_data$weight),
                   ylim = range(my_data$height)) +
-  theme(panel.grid      = element_blank(),
-        legend.position = "none")
+  theme(legend.position = "none",
+        panel.grid = element_blank())
 ```
 
 With just a tiny bit more wrangling, we'll be ready to make the bottom panels of Figure 21.4.
@@ -286,11 +288,11 @@ post %>%
   mutate(name = factor(str_remove(name, "b_"),
                        levels = c("Intercept", "weight", "height"))) %>% 
   
-  ggplot(aes(x = value)) +
-  geom_histogram(color = "grey92", fill = "grey67",
-                 size = .2, bins = 40) +
-  stat_pointintervalh(aes(y = 0),
-                      point_interval = mode_hdi, .width = c(.95, .5)) +
+  ggplot(aes(x = value, y = 0)) +
+  stat_histintervalh(point_interval = mode_hdi, .width = c(.95, .5),
+                     fill = "grey67", slab_color = "grey92",
+                     breaks = 40, slab_size = .25, outline_bars = T,
+                     normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(NULL) +
   theme(panel.grid = element_blank()) +
@@ -299,7 +301,7 @@ post %>%
 
 By now, you know how to use `mode_hdi()` to return those exact summary values if you'd like them.
 
-Now remember how we backed away from Figure 21.1? Well, when you have a logistic regression with two predictors, there is a reasonable way to express those three dimensions on a two-dimensional grid. Now we have the results from `fit2`, let's try it out.
+Now remember how we backed away from Figure 21.1? Well, when you have a logistic regression with two predictors, there is a reasonable way to express those three dimensions on a two-dimensional grid. Now we have the results from `fit21.2`, let's try it out.
 
 First, we need a grid of values for our two predictors, `weight_z` and `height_z`.
 
@@ -315,7 +317,7 @@ Second, we plug those values into `fitted()` and wrangle.
 
 ```{r}
 f <-
-  fitted(fit2,
+  fitted(fit21.2,
          newdata = nd,
          scale = "linear") %>% 
   as_tibble() %>% 
@@ -358,10 +360,10 @@ $$
 \sum_j \underbrace{\frac{\zeta_j}{s_{x_j}} \overline x_j}_{\beta_j},
 $$
 
-where the $\zeta$s are the parameters from the model based on standardized predictors. Our `fit2` was based on standardized `weight` and `height` values (i.e., `weight_z` and `height_z`), yielding model coefficients in the $\zeta$ metric. Here we use the formula above to convert our `fit2` estimates to their unstandardized $\beta$ metric. For simplicity, we'll just take their means. 
+where the $\zeta$s are the parameters from the model based on standardized predictors. Our `fit21.2` was based on standardized `weight` and `height` values (i.e., `weight_z` and `height_z`), yielding model coefficients in the $\zeta$ metric. Here we use the formula above to convert our `fit21.2` estimates to their unstandardized $\beta$ metric. For simplicity, we'll just take their means. 
 
 ```{r}
-posterior_samples(fit2) %>% 
+posterior_samples(fit21.2) %>% 
   transmute(beta_0 = b_Intercept - ((b_weight_z * mean(my_data$weight) / sd(my_data$weight)) + 
                                       ((b_height_z * mean(my_data$height) / sd(my_data$height)))),
             beta_1 = b_weight_z / sd(my_data$weight),
@@ -396,15 +398,15 @@ $$0 < \mu < 1, $$
 it may or may not be clear that the results of our logistic regression models have a nonlinear relation with the actual parameter of interest, $\mu$, which, recall, is the probability our criterion variable is 1 (e.g., `male == 1`). To get a sense of that nonlinear relation, we might make a plot.
 
 ```{r, fig.width = 3.25, fig.height = 3}
-tibble(mu         = seq(from = 0, to = 1, length.out = 200)) %>% 
+tibble(mu = seq(from = 0, to = 1, length.out = 200)) %>% 
   mutate(logit_mu = log(mu / (1 - mu))) %>% 
 
   ggplot(aes(x = mu, y = logit_mu)) +
   geom_line() +
-  labs(x = expression(paste(mu, " (i.e., the probability space)")),
-       y = expression(paste("logit (", mu, ") (i.e., the parameter space)"))) +
-  theme(panel.grid      = element_blank(),
-        legend.position = "none")
+  labs(x = expression(mu~"(i.e., the probability space)"),
+       y = expression(logit~mu~"(i.e., the parameter space)")) +
+  theme(legend.position = "none",
+        panel.grid = element_blank())
 ```
 
 So whereas our probability space is bound between 0 and 1, the parameter space shoots off into negative and positive infinity. Also,
@@ -423,7 +425,7 @@ tibble(b0     = -50,
        inches = c(63:64, 67:68)) %>% 
   mutate(logit_mu = b0 + b1 * weight + b2 * inches) %>%
   mutate(log_odds = logit_mu) %>% 
-  mutate(p_male   = 1 / (1 + exp(-log_odds)))
+  mutate(p_male = 1 / (1 + exp(-log_odds)))
 ```
 
 ### When there are few 1's or 0's in the data.
@@ -440,30 +442,31 @@ n <- 500
 
 set.seed(21)
 d_rare <-
-  tibble(x  = rnorm(n, mean = 0, sd = 1)) %>% 
+  tibble(x = rnorm(n, mean = 0, sd = 1)) %>% 
   mutate(mu = b0 + b1 * x) %>% 
-  mutate(y  = rbinom(n, size = 1, prob = 1 / (1 + exp(-mu))))
+  mutate(y = rbinom(n, size = 1, prob = 1 / (1 + exp(-mu))))
 
 glimpse(d_rare)
 ```
 
 We're ready to fit the model. So far, we've been following along with Kruschke by using the Bernoulli distribution (i.e., `family = bernoulli`) in our **brms** models. Let's get frisky and use the $n = 1$ binomial distribution, here. You'll see it yields the same results.
 
-```{r fit3, cache = T, message = F, warning = F}
-fit3 <-
+```{r fit21.3}
+fit21.3 <-
   brm(data = d_rare, 
       family = binomial,
       y | trials(1) ~ 1 + x,
       prior = c(prior(normal(0, 2), class = Intercept),
                 prior(normal(0, 2), class = b)),
       iter = 2500, warmup = 500, chains = 4, cores = 4,
-      seed = 21)
+      seed = 21,
+      file = "fits/fit21.03")
 ```
 
 Recall that when you use the binomial distribution in newer versions of **brms**, you need to use the `trials()` syntax to tell `brm()` how many trials each row in the data corresponds to. Anyway, behold the summary.
 
 ```{r}
-print(fit3)
+print(fit21.3)
 ```
 
 Looks like the model did a good job recapturing those data-generating `b0` and `b1` values. Here's the preparatory work to needed before we can make our version of the main plot in Figure 21.5.a.
@@ -479,9 +482,9 @@ nd <- tibble(x = seq(from = -3.5, to = 3.5, length.out = length))
 # these will make the logistic curves
 set.seed(21)
 f <-
-  fitted(fit3,
-         newdata  = nd,
-         summary  = F,
+  fitted(fit21.3,
+         newdata = nd,
+         summary = F,
          nsamples = n_iter) %>% 
   as_tibble() %>%
   pivot_longer(everything(), 
@@ -517,16 +520,16 @@ f %>%
 Here are the two subplots at the bottom, left.
 
 ```{r, fig.width = 6, fig.height = 2.5, warning = F, message = F}
-posterior_samples(fit3) %>% 
+posterior_samples(fit21.3) %>% 
   transmute(Intercept = b_Intercept,
             x         = b_x) %>% 
   pivot_longer(everything()) %>% 
   
-  ggplot(aes(x = value)) +
-  geom_histogram(color = "grey92", fill = "grey67",
-                 size = .2, bins = 40) +
-  stat_pointintervalh(aes(y = 0),
-                      point_interval = mode_hdi, .width = c(.95, .5)) +
+  ggplot(aes(x = value, y = 0)) +
+  stat_histintervalh(point_interval = mode_hdi, .width = c(.95, .5),
+                     fill = "grey67", slab_color = "grey92",
+                     breaks = 40, slab_size = .25, outline_bars = T,
+                     normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(NULL) +
   theme(panel.grid = element_blank()) +
@@ -554,16 +557,19 @@ glimpse(d_not_rare)
 
 Fitting this model is just like before.
 
-```{r fit4, cache = T, message = F, warning = F, results = "hide"}
-fit4 <-
-  update(fit3,
-         newdata = d_not_rare)
+```{r fit21.4}
+fit21.4 <-
+  update(fit21.3,
+         newdata = d_not_rare,
+         iter = 2500, warmup = 500, chains = 4, cores = 4,
+         seed = 21,
+         file = "fits/fit21.04")
 ```
 
 Behold the summary.
 
 ```{r}
-print(fit4)
+print(fit21.4)
 ```
 
 Here's the main plot in Figure 21.5.b.
@@ -573,7 +579,7 @@ nd <- tibble(x = seq(from = -3.5, to = 3.5, length.out = length))
 
 set.seed(21)
 f <-
-  fitted(fit4,
+  fitted(fit21.4,
          newdata = nd,
          summary = F,
          nsamples = n_iter) %>% 
@@ -606,16 +612,16 @@ f %>%
 Behold the subplots at the bottom.
 
 ```{r, fig.width = 6, fig.height = 2.5, warning = F, message = F}
-posterior_samples(fit4) %>% 
+posterior_samples(fit21.4) %>% 
   transmute(Intercept = b_Intercept,
             x         = b_x) %>% 
   pivot_longer(everything()) %>% 
   
-  ggplot(aes(x = value)) +
-  geom_histogram(color = "grey92", fill = "grey67",
-                 size = .2, bins = 40) +
-  stat_pointintervalh(aes(y = 0),
-                      point_interval = mode_hdi, .width = c(.95, .5)) +
+  ggplot(aes(x = value, y = 0)) +
+  stat_histintervalh(point_interval = mode_hdi, .width = c(.95, .5),
+                     fill = "grey67", slab_color = "grey92",
+                     breaks = 40, slab_size = .25, outline_bars = T,
+                     normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(NULL) +
   theme(panel.grid = element_blank()) +
@@ -651,7 +657,7 @@ d <-
   set_names(str_c("x", 1:2))
 ```
 
-Let's confirm their correlation coefficient.
+Let's confirm the correlation coefficient.
 
 ```{r}
 cor(d)
@@ -668,47 +674,48 @@ set.seed(21)
 d <-
   d %>% 
   mutate(mu = b0 + b1 * x1 + b2 * x2) %>% 
-  mutate(y  = rbinom(n, size = 1, prob = 1 / (1 + exp(-mu))))
+  mutate(y = rbinom(n, size = 1, prob = 1 / (1 + exp(-mu))))
 ```
 
 Fit the model with the highly-correlated predictors.
 
-```{r fit5, cache = T, message = F, warning = F}
-fit5 <-
+```{r fit21.5}
+fit21.5 <-
   brm(data = d, 
       family = binomial,
       y | trials(1) ~ 1 + x1 + x2,
       prior = c(prior(normal(0, 2), class = Intercept),
                 prior(normal(0, 2), class = b)),
       iter = 2500, warmup = 500, chains = 4, cores = 4,
-      seed = 21)
+      seed = 21,
+      file = "fits/fit21.05")
 ```
 
 Behold the summary.
 
 ```{r}
-print(fit5)
+print(fit21.5)
 ```
 
 We did a good job recapturing Kruschke's $\beta$s in terms of our posterior means, but notice how large those posterior $SD$s are for $\beta_1$ and $\beta_2$. To get a better sense, let's look at them in a coefficient plot before continuing on with the text.
 
 ```{r, fig.width = 6, fig.height = 1}
-posterior_samples(fit5) %>% 
+posterior_samples(fit21.5) %>% 
   pivot_longer(-lp__) %>% 
   
   ggplot(aes(x = value, y = name)) +
-  stat_pointintervalh(point_interval = mode_hdi, .width = c(.5, .95)) +
+  stat_gradientintervalh(point_interval = mode_hdi, .width = c(.5, .95), fill = "grey25") +
   labs(x = NULL, y = NULL) +
-  theme(panel.grid   = element_blank(),
+  theme(axis.text.y = element_text(hjust = 0),
         axis.ticks.y = element_blank(),
-        axis.text.y  = element_text(hjust = 0))
+        panel.grid = element_blank())
 ```
 
 Them are some sloppy estimates! But we digress. Here's our version of Figure 21.6.a.
 
 ```{r, fig.width = 4.25, fig.height = 4}
 set.seed(21)  # we need this for the `sample_n()` function
-posterior_samples(fit5) %>% 
+posterior_samples(fit21.5) %>% 
   mutate(iter = 1:n()) %>% 
   sample_n(size = 20) %>% 
   expand(nesting(iter, b_Intercept, b_x1, b_x2),
@@ -727,8 +734,8 @@ posterior_samples(fit5) %>%
   ggtitle("Data with Post. Pred.") +
   coord_cartesian(xlim = -3:3,
                   ylim = -3:3) +
-  theme(panel.grid      = element_blank(),
-        legend.position = "none")
+  theme(legend.position = "none", 
+        panel.grid = element_blank())
 ```
 
 It can be easy to under-appreciate how sensitive this plot is to the seed you set for `sample_n()`. To give a better sense of the uncertainty in the posterior for the threshold, here we show the plot for several different seeds.
@@ -738,7 +745,7 @@ It can be easy to under-appreciate how sensitive this plot is to the seed you se
 different_seed <- function(i) {
   
   set.seed(i)
-  posterior_samples(fit5) %>% 
+  posterior_samples(fit21.5) %>% 
   mutate(iter = 1:n()) %>% 
   sample_n(size = 20) %>% 
   expand(nesting(iter, b_Intercept, b_x1, b_x2),
@@ -765,22 +772,22 @@ tibble(seed = 1:9) %>%
   ggtitle("Data with Post. Pred.") +
   coord_cartesian(xlim = -3:3,
                   ylim = -3:3) +
-  theme(panel.grid      = element_blank(),
-        legend.position = "none") +
+  theme(legend.position = "none",
+        panel.grid = element_blank()) +
   facet_wrap(~seed)
 ```
 
 We'll use `pairs()` to make our version of Figure 21.6.b.
 
 ```{r, fig.width = 3.75, fig.height = 3.5}
-pairs(fit5,
+pairs(fit21.5,
       off_diag_args = list(size = 1/5, alpha = 1/5))
 ```
 
 Finally, here are the Pearson's correlations among the model parameters.
 
 ```{r}
-vcov(fit5, correlation = T) %>%
+vcov(fit21.5, correlation = T) %>%
   round(digits = 3)
 ```
 
@@ -801,26 +808,27 @@ d <-
   tibble(x1 = rnorm(n, mean = 0, sd = 1),
          x2 = rnorm(n, mean = 0, sd = 1)) %>% 
   mutate(mu = b1 * x1 + b2 * x2 + b3 * x1 * x2 - b0) %>% 
-  mutate(y  = rbinom(n, size = 1, prob = 1 / (1 + exp(-mu))))
+  mutate(y = rbinom(n, size = 1, prob = 1 / (1 + exp(-mu))))
 ```
 
 To fit the interaction model, let's go back to the Bernoulli likelihood.
 
-```{r fit6, cache = T, message = F, warning = F}
-fit6 <-
+```{r ffit21.6}
+fit21.6 <-
   brm(data = d, 
       family = bernoulli,
       y ~ 1 + x1 + x2 + x1:x2,
       prior = c(prior(normal(0, 2), class = Intercept),
                 prior(normal(0, 2), class = b)),
       iter = 2500, warmup = 500, chains = 4, cores = 4,
-      seed = 21)
+      seed = 21,
+      file = "fits/fit21.06")
 ```
 
 Looks like the model did a nice job recapturing the data-generating parameters.
 
 ```{r}
-print(fit6)
+print(fit21.6)
 ```
 
 I'm not quite sure how to expand Kruschke's equation from the top of page 629 to our interaction model. But no worries. We can take a slightly different approach to show the consequences of our interaction model on the probability $y = 1$. First, we define our `newdata` and then get the `Estimate`s from `fitted()`. Then we wrangle as usual.
@@ -833,7 +841,7 @@ nd <-
            x2 = seq(from = -3.5, to = 3.5, length.out = length))
 
 f <-
-  fitted(fit6,
+  fitted(fit21.6,
          newdata = nd,
          scale = "linear") %>% 
   as_tibble() %>% 
@@ -883,14 +891,14 @@ tibble(x = seq(from = 0, to = 1, length.out = 200)) %>%
               size = 0, fill = "grey50") +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(title = "beta(1, 9)", 
-       x     = NULL) +
+       x = NULL) +
   theme(panel.grid = element_blank())
 ```
 
 To fit the **brms** analogue to Kruschke's rogust logistic regression model, we'll need to adopt what  Bürkner calls the non-linear syntax, which you can learn about in detail with his vignette, [*Estimating Non-Linear Models with brms*](https://cran.r-project.org/web/packages/brms/vignettes/brms_nonlinear.html).
 
-```{r fit7, cache = T, message = F, warning = F}
-fit7 <-
+```{r fit21.7}
+fit21.7 <-
   brm(data = my_data, 
       family = bernoulli(link = identity),
       bf(male ~ a * .5 + (1 - a) * 1 / (1 + exp(-1 * (b0 + b1 * weight_z))),
@@ -900,7 +908,8 @@ fit7 <-
                 prior(normal(0, 2), nlpar = "b1"),
                 prior(beta(1, 9),   nlpar = "a")),
       iter = 2500, warmup = 500, chains = 4, cores = 4,
-      seed = 21)
+      seed = 21,
+      file = "fits/fit21.07")
 ```
 
 And just for clarity, you can do the same thing with `family = binomial(link = identity)`, too. Just don't forget to specify the number of trials with `trials()`. But to explain what's going on with our syntax, above, I think it's best to quote Bürkner at length:
@@ -912,7 +921,7 @@ And just for clarity, you can do the same thing with `family = binomial(link = i
 Now, behold the summary.
 
 ```{r}
-print(fit7)
+print(fit21.7)
 ```
 
 It turns out Bürkner's warning on "different posterior regions" applied to our case. While preparing this document, I played around with higher `adapt_delta` values, as suggested in the warning message. The model showed problems even at `adapt_delta = 0.999`. Here, our main purpose is to ape Kruschke. But if this was a substantive model of interest, I'd suggest following Bürkner's advice and think hard about specifying narrower priors.
@@ -920,7 +929,7 @@ It turns out Bürkner's warning on "different posterior regions" applied to our 
 Anyway, here's a quick and dirty look at the marginal effects for `weight_z`.
 
 ```{r, fig.width = 4, fig.height = 3}
-conditional_effects(fit7) %>% 
+conditional_effects(fit21.7) %>% 
   plot(points = T)
 ```
 
@@ -932,7 +941,7 @@ length <- 200
 nd <- tibble(weight_z = seq(from = -2, to = 3.5, length.out = length))
 
 f <-
-  fitted(fit7,
+  fitted(fit21.7,
          newdata = nd,
          summary = F,
          nsamples = n_iter) %>% 
@@ -962,7 +971,7 @@ f %>%
              aes(y = male),
              alpha = 1/3) +
   labs(title = "Data with Post. Pred.", 
-       y     = "male") +
+       y = "male") +
   coord_cartesian(xlim = range(my_data$weight)) +
   theme(panel.grid = element_blank())
 ```
@@ -970,18 +979,18 @@ f %>%
 Here we show the marginal distributions in our versions of the lower panels of Figure 21.8.
 
 ```{r, fig.width = 8, fig.height = 2.5, warning = F, message = F}
-posterior_samples(fit7) %>% 
+posterior_samples(fit21.7) %>% 
   transmute(Intercept = b_b0_Intercept - (b_b1_Intercept * mean(my_data$weight) / sd(my_data$weight)),
             weight    = b_b1_Intercept / sd(my_data$weight),
             guessing  = b_a_Intercept) %>% 
   pivot_longer(everything()) %>% 
   mutate(name = factor(name, levels = c("Intercept", "weight", "guessing"))) %>% 
   
-  ggplot(aes(x = value)) +
-  geom_histogram(color = "grey92", fill = "grey67",
-                 size = .2, bins = 40) +
-  stat_pointintervalh(aes(y = 0),
-                      point_interval = mode_hdi, .width = c(.95, .5)) +
+  ggplot(aes(x = value, y = 0)) +
+  stat_histintervalh(point_interval = mode_hdi, .width = c(.95, .5),
+                     fill = "grey67", slab_color = "grey92",
+                     breaks = 40, slab_size = .25, outline_bars = T,
+                     normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(NULL) +
   theme(panel.grid = element_blank()) +
@@ -991,7 +1000,7 @@ posterior_samples(fit7) %>%
 Here are the `pairs()` plots.
 
 ```{r, fig.width = 3.75, fig.height = 3.5}
-pairs(fit7,
+pairs(fit21.7,
       off_diag_args = list(size = 1/5, alpha = 1/5))
 ```
 
@@ -1110,7 +1119,7 @@ glimpse(my_data)
 
 #### The model.
 
-I'm not aware that Kruschke's modeling approach, here, will work well within the brms paradigm. I suggest we fit a simple hierarchical logistic regression model, instead. With this approach, we use the statistical model
+I'm not aware that Kruschke's modeling approach, here, will work well within the **brms** paradigm. I suggest we fit a simple hierarchical logistic regression model, instead. With this approach, we use the statistical model
 
 \begin{align*}
 \text{Hits}_i               & \sim \operatorname{Binomial} (\text{AtBats}_i, p_i) \\
@@ -1122,17 +1131,18 @@ I'm not aware that Kruschke's modeling approach, here, will work well within the
 \sigma_\text{PriPos:Player} & \sim \operatorname{HalfCauchy} (0, 1).
 \end{align*}
 
-Here's how to fit the model with **brms**. Notice we're finally making good use of the `trials()` syntax. This is because we're fitting an aggregated binomial model. Instead of our criterion variable `Hits` being a vector of 0s and 1s, it's the number of successful trials given the total number of trials, which is listed in the `AtBats` vector. Aggregated binomial.
+Here's how to fit the model with **brms**. Notice we're finally making good use of the `trials()` syntax. This is because we're fitting an aggregated binomial model. Instead of our criterion variable `Hits` being a vector of 0's and 1's, it's the number of successful trials given the total number of trials, which is listed in the `AtBats` vector. Aggregated binomial.
 
-```{r fit8, cache = T, message = F, warning = F}
-fit8 <-
+```{r fit21.8}
+fit21.8 <-
   brm(data = my_data,
       family = binomial(link = "logit"),
       Hits | trials(AtBats) ~ 1 + (1 | PriPos) + (1 | PriPos:Player),
       prior = c(prior(normal(0, 2), class = Intercept),
                 prior(cauchy(0, 1), class = sd)),
       iter = 2500, warmup = 500, chains = 4, cores = 4,
-      seed = 21)
+      seed = 21,
+      file = "fits/fit21.08")
 ```
 
 #### Results.
@@ -1140,7 +1150,7 @@ fit8 <-
 Before we start plotting, review the model summary.
 
 ```{r}
-print(fit8)
+print(fit21.8)
 ```
 
 If you look closely at our model versus the one in the text, you'll see ours has fewer parameters. As a down-the-line consequence, our model doesn't support a direct analogue to the plot at the top of Figure 21.13. However, we can come close. Rather than modeling the position-based probabilities as multiple draws of beta distributions, we can simply summarize our probabilities by their posterior distributions. 
@@ -1155,20 +1165,19 @@ nd <-
   summarise(AtBats = mean(AtBats) %>% round(0))
 
 # push the model through `fitted()` and wrangle
-fitted(fit8,
-       newdata    = nd,
+fitted(fit21.8,
+       newdata = nd,
        re_formula = Hits | trials(AtBats) ~ 1 + (1 | PriPos),
-       scale      = "linear",
-       summary    = F) %>% 
+       scale = "linear",
+       summary = F) %>% 
   as_tibble() %>% 
   gather() %>% 
   transmute(probability = inv_logit_scaled(value)) %>% 
-  bind_cols(nd %>% 
-              expand(PriPos, iter = 1:8000)) %>% 
+  bind_cols(expand(nd, PriPos, iter = 1:8000)) %>% 
   
   # plot
   ggplot(aes(x = probability, y = PriPos)) +
-  geom_vline(xintercept = fixef(fit8)[1] %>% inv_logit_scaled(), color = "white") +
+  geom_vline(xintercept = fixef(fit21.8)[1] %>% inv_logit_scaled(), color = "white") +
   geom_density_ridges(size = 0, fill = "grey67", scale = .9) +
   geom_jitter(data = my_data,
               aes(x = Hits / AtBats),
@@ -1176,10 +1185,10 @@ fitted(fit8,
   coord_cartesian(xlim = 0:1,
                   ylim = c(1, 9.5)) +
   labs(title = "Data with Posterior Predictive Distrib.",
-       x     = "Hits / AtBats") +
-  theme(panel.grid   = element_blank(),
+       x = "Hits / AtBats") +
+  theme(axis.text.y = element_text(hjust = 0),
         axis.ticks.y = element_blank(),
-        axis.text.y  = element_text(hjust = 0))
+        panel.grid = element_blank())
 ```
 
 For kicks and giggles, we depicted the grand mean probability as the white vertical line in the background with the `geom_vline()` line.
@@ -1196,16 +1205,16 @@ When we take the inverse logit of our intercepts, we do get vales in a probabili
 ```{r, fig.width = 8, fig.height = 3.75}
 # wrangle like a boss
 nd %>% 
-  add_fitted_draws(fit8, 
+  add_fitted_draws(fit21.8, 
                    n = 20,
                    re_formula = Hits | trials(AtBats) ~ 1 + (1 | PriPos),
                    dpar = c("mu")) %>% 
   # use the equations from above
-  mutate(alpha   = mu * AtBats, 
-         beta    = (1 - mu) * AtBats) %>% 
-  mutate(ll      = qbeta(.025, shape1 = alpha, shape2 = beta),
-         ul      = qbeta(.975, shape1 = alpha, shape2 = beta)) %>% 
-  mutate(theta   = map2(ll, ul, seq, length.out = 100)) %>% 
+  mutate(alpha = mu * AtBats, 
+         beta  = (1 - mu) * AtBats) %>% 
+  mutate(ll = qbeta(.025, shape1 = alpha, shape2 = beta),
+         ul = qbeta(.975, shape1 = alpha, shape2 = beta)) %>% 
+  mutate(theta = map2(ll, ul, seq, length.out = 100)) %>% 
   unnest(theta) %>% 
   mutate(density = dbeta(theta, alpha, beta)) %>% 
   group_by(.draw) %>% 
@@ -1215,22 +1224,21 @@ nd %>%
   ggplot(aes(y = PriPos)) +
   geom_ridgeline(aes(x = theta, height = -density, group = interaction(PriPos, .draw)),
                  fill = NA, color = adjustcolor("grey50", alpha.f = 1/3),
-                 size = 1/4, scale = 3/4,
-                 min_height = NA) +
+                 size = 1/4, scale = 3/4, min_height = NA) +
   geom_jitter(data = my_data,
               aes(x = Hits / AtBats, size = AtBats),
               height = .05, alpha = 1/6, shape = 1) +
   scale_size_continuous(range = c(1/4, 4)) +
   labs(title = "Data with Posterior Predictive Distrib.",
-       x     = "Hits / AtBats",
-       y     = NULL) +
+       x = "Hits / AtBats",
+       y = NULL) +
   coord_flip(ylim = c(0.67, 8.67)) +
-  theme(panel.grid   = element_blank(),
+  theme(axis.text.x = element_text(angle = 90, hjust = 1),
         axis.ticks.x = element_blank(),
-        axis.text.x  = element_text(angle = 90, hjust = 1),
-        legend.position   = c(.956, .8),
         legend.background = element_rect(fill = "transparent", color = "white"),
-        legend.key        = element_rect(fill = "transparent", color = "transparent"))
+        legend.key = element_rect(fill = "transparent", color = "transparent"),
+        legend.position = c(.956, .8),
+        panel.grid = element_blank())
 ```
 
 Since we didn't actually presume the beta distribution anywhere in our `brm()` statistical model, I wouldn’t attempt to present this workflow in a scientific outlet. Go with the previous plot. This attempt seems dishonest. But it is kinda fun to see how far we can push our results.
@@ -1250,9 +1258,9 @@ nd <-
 
 # push the model through `fitted()` and wrangle
 f <-
-  fitted(fit8,
+  fitted(fit21.8,
          newdata = nd,
-         re_formula = Hits  | trials(AtBats) ~ 1 + (1 | PriPos),
+         re_formula = Hits | trials(AtBats) ~ 1 + (1 | PriPos),
          scale = "linear",
          summary = F) %>% 
   as_tibble() %>% 
@@ -1272,12 +1280,12 @@ f %>%
   pivot_longer(everything()) %>% 
   mutate(name = factor(name, levels = c("Pitcher vs. Catcher", "Catcher vs. 1st Base"))) %>% 
   
-  ggplot(aes(x = value)) +
+  ggplot(aes(x = value, y = 0)) +
   geom_vline(xintercept = 0, color = "white") +
-  geom_histogram(color = "grey92", fill = "grey67",
-                 size = .2, bins = 40) +
-  stat_pointintervalh(aes(y = 0),
-                      point_interval = mode_hdi, .width = c(.95, .5)) +
+  stat_histintervalh(point_interval = mode_hdi, .width = c(.95, .5),
+                     fill = "grey67", slab_color = "grey92",
+                     breaks = 40, slab_size = .25, outline_bars = T,
+                     normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab("Difference (in b)") +
   theme(panel.grid = element_blank()) +
@@ -1295,12 +1303,12 @@ f %>%
   pivot_longer(everything()) %>% 
   mutate(name = factor(name, levels = c("Pitcher vs. Catcher", "Catcher vs. 1st Base"))) %>% 
   
-  ggplot(aes(x = value)) +
+  ggplot(aes(x = value, y = 0)) +
   geom_vline(xintercept = 0, color = "white") +
-  geom_histogram(color = "grey92", fill = "grey67",
-                 size = .2, bins = 40) +
-  stat_pointintervalh(aes(y = 0),
-                      point_interval = mode_hdi, .width = c(.95, .5)) +
+  stat_histintervalh(point_interval = mode_hdi, .width = c(.95, .5),
+                     fill = "grey67", slab_color = "grey92",
+                     breaks = 30, slab_size = .25, outline_bars = T,
+                     normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab("Difference (in probability)") +
   theme(panel.grid = element_blank()) +
@@ -1321,7 +1329,7 @@ sessionInfo()
 
 ```{r, message = F, echo = F}
 # Here we'll remove our objects
-rm(my_data, p, fit1, length, n_iter, nd, f, thresholds, fit2, post, b0, b1, n, d_rare, fit3, d_not_rare, fit4, s, m, d, b2, fit5, different_seed, b3, fit6, fit7, logistic, positions)
+rm(my_data, p, fit21.1, length, n_iter, nd, f, thresholds, fit21.2, post, b0, b1, n, d_rare, fit21.3, d_not_rare, fit21.4, s, m, d, b2, fit21.5, different_seed, b3, fit21.6, fit21.7, logistic, positions, fit21.8)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
