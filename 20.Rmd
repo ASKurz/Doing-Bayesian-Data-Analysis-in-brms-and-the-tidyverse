@@ -52,15 +52,15 @@ nonadditive_component <- -1
 
 (
   d <-
-  tibble(x1                = rep(c(-1, 1), each = 2),
-         x2                = rep(c(1, -1), times = 2)) %>% 
-  mutate(mu_additive       = grand_mean + (x1 * deflection_1) + (x2 * deflection_2)) %>% 
+  tibble(x1 = rep(c(-1, 1), each = 2),
+         x2 = rep(c(1, -1), times = 2)) %>% 
+  mutate(mu_additive = grand_mean + (x1 * deflection_1) + (x2 * deflection_2)) %>% 
   mutate(mu_multiplicative = mu_additive + (x1 * x2 * nonadditive_component),
          # we'll need this to accommodate `position = "dodge"` within `geom_col()`
          x1_offset         = x1 + x2 * -.45,
          # we'll need this for the fill
          x2_c              = factor(x2, levels = c(1, -1)))
-  )
+)
 ```
 
 There's enough going on with the lines, arrows, and titles across the three panels that to my mind it seems easier to make three distinct plots and them join them at the end with syntax from the **patchwork** package. But enough of the settings are common among the panels that it also makes sense to keep from repeating that part of the code. So we'll take a three-step solution. For the first step, we'll make the baseline or foundational plot, which we'll call `p`.
@@ -77,11 +77,11 @@ p <-
                      labels = c("x1[1]", "x1[2]")) +
   scale_y_continuous(expression(mu), breaks = seq(from = 0, to = 10, by = 2)) +
   coord_cartesian(ylim = 0:10) +
-  theme(panel.grid        = element_blank(),
-        axis.ticks.x      = element_blank(),
-        legend.position   = c(.17, .875),
+  theme(axis.ticks.x = element_blank(),
         legend.background = element_rect(fill = "transparent"),
-        legend.key        = element_rect(size = 0))
+        legend.key = element_rect(size = 0),
+        legend.position = c(.17, .875),
+        panel.grid = element_blank())
 
 p
 ```
@@ -197,7 +197,7 @@ The big new element is multiple `(|)` parts in the `formula`. In this simple mod
 
 ### Example: It's only money.
 
-Load the salary data.
+Load the salary data [^2].
 
 ```{r, message = F, warning = F}
 my_data <- read_csv("data.R/Salary.csv")
@@ -211,9 +211,9 @@ We'll follow Kruschke's example on page 593 and modify the `Pos` variable a bit.
 my_data <-
   my_data %>% 
   mutate(Pos = factor(Pos,
-                      levels  = c("FT3", "FT2", "FT1", "NDW", "DST") ,
+                      levels = c("FT3", "FT2", "FT1", "NDW", "DST") ,
                       ordered = T,
-                      labels  = c("Assis", "Assoc", "Full", "Endow", "Disting")))
+                      labels = c("Assis", "Assoc", "Full", "Endow", "Disting")))
 ```
 
 With 1080 cases, two factors, and a criterion, these data are a little too unwieldy to look at the individual case level. But if we're tricky on how we aggregate, we can get a good sense of their structure with a `geom_tile()` plot. Here our strategy is to aggregate by our two factors, `Pos` and `Org`. Since our criterion is `Salary`, we'll compute the mean value of the cases within each unique paring, encoded as `m_salary`. Also, we'll get a sense of how many cases there are within each factor pairing with `n`.
@@ -238,11 +238,11 @@ my_data %>%
   scale_color_manual(values = c("white", "black"), guide = 'none') +
   scale_x_discrete("Org", expand = c(0, 0)) +
   scale_y_discrete("Pos", expand = c(0, 0)) +
-  theme(legend.position = "top",
-        panel.grid  = element_blank(),
-        axis.ticks  = element_blank(),
-        axis.text.x = element_text(angle = 90, hjust = 0),
-        axis.text.y = element_text(hjust = 0))
+  theme(axis.text.x = element_text(angle = 90, hjust = 0),
+        axis.text.y = element_text(hjust = 0),
+        axis.ticks = element_blank(),
+        legend.position = "top",
+        panel.grid = element_blank())
 ```
 
 Hopefully it's clear that each cell is a unique pairing of `Org` and `Pos`. The cells are color coded by the mean `Salary`. The numbers in the cells give the $n$ cases they represent. When there's no data for a unique combination of `Org` and `Pos`, the cells are left light gray and blank.
@@ -273,17 +273,8 @@ stanvars <-
 
 Now fit the model.
 
-```{r, echo = F, warning = F, message = F}
-# too large and slow to fit multiple times
-
-# save("fit1", file = "/Users/solomon/Dropbox/Recoding Doing Bayesian Data Analysis/fits/20_fit1.rda")
-# rm(fit1)
-
-load("/Users/solomon/Dropbox/Recoding Doing Bayesian Data Analysis/fits/20_fit1.rda")
-```
-
-```{r fit1, eval = F}
-fit1 <-
+```{r fit20.1}
+fit20.1 <-
   brm(data = my_data,
       family = gaussian,
       Salary ~ 1 + (1 | Pos) + (1 | Org) + (1 | Pos:Org),
@@ -294,19 +285,20 @@ fit1 <-
       seed = 20,
       control = list(adapt_delta = 0.999,
                      max_treedepth = 13),
-      stanvars = stanvars)
+      stanvars = stanvars,
+      file = "fits/fit20.01")
 ``` 
 
-The chains look okay.
+The chains look fine.
 
 ```{r, fig.width = 8, fig.height = 6}
-plot(fit1)
+plot(fit20.1)
 ```
 
 Here's the model summary.
 
 ```{r}
-print(fit1)
+print(fit20.1)
 ```
 
 This was a difficult model to fit with **brms**. Stan does well when the criteria are on or close to a standardized metric. These `Salary` data are a far far cry from that. Tuning `adapt_delta` and `max_treedepth` helped a bit, but the effective samples are still modest given the number of iterations.
@@ -325,12 +317,12 @@ f <-
   distinct(Pos) %>% 
   expand(Pos, 
          Org = c("BFIN", "CHEM", "PSY", "ENG")) %>% 
-  add_fitted_draws(fit1, n = n_draw, seed = 20,
+  add_fitted_draws(fit20.1, n = n_draw, seed = 20,
                    allow_new_levels = T,
                    dpar = c("mu", "sigma")) %>% 
-  mutate(ll      = qnorm(.025, mean = mu, sd = sigma),
-         ul      = qnorm(.975, mean = mu, sd = sigma)) %>% 
-  mutate(Salary  = map2(ll, ul, seq, length.out = 100)) %>% 
+  mutate(ll = qnorm(.025, mean = mu, sd = sigma),
+         ul = qnorm(.975, mean = mu, sd = sigma)) %>% 
+  mutate(Salary = map2(ll, ul, seq, length.out = 100)) %>% 
   unnest() %>% 
   mutate(density = dnorm(Salary, mu, sigma)) %>% 
   group_by(.draw) %>% 
@@ -347,7 +339,7 @@ library(ggridges)
 
 f %>% 
   ggplot(aes(x = Salary, y = Pos)) +
-  geom_vline(xintercept = fixef(fit1)[, 1], color = "white") +
+  geom_vline(xintercept = fixef(fit20.1)[, 1], color = "white") +
   geom_ridgeline(aes(height = density, group = interaction(Pos, .draw),
                      color = Pos),
                  fill = NA, show.legend = F,
@@ -361,37 +353,37 @@ f %>%
                      labels = c("$0", "$100K", "200K", "$300K")) +
   coord_cartesian(xlim = 0:35e4,
                   ylim = c(1.25, 5.5)) +
-  labs(title    = "Data with Posterior Predictive Distributions", 
+  labs(title = "Data with Posterior Predictive Distributions", 
        subtitle = "The white vertical line is the model-implied grand mean.",
-       y        = "Pos") +
-  theme(panel.grid   = element_blank(),
+       y = "Pos") +
+  theme(axis.text.y = element_text(hjust = 0),
         axis.ticks.y = element_blank(),
-        axis.text.y  = element_text(hjust = 0)) +
+        panel.grid = element_blank()) +
   facet_wrap(~Org, ncol = 2)
 ```
 
 The **brms** package doesn't have a convenience function that returns output quite like what Kruschke displayed in his Table 20.2. But we can get close. The `posterior_summary()` will return posterior means, $SD$s, and percentile-based 95% intervals for all model parameters. Due to space concerns, I'll just show the first ten lines.
 
 ```{r}
-posterior_summary(fit1)[1:10,]
+posterior_summary(fit20.1)[1:10,]
 ```
 
 I'm not aware of a simple way to extract the effective samples for all parameters within a **brms** fit object. There is no `effsamples()` function. However, we do have `neff_ratio()`, which returns a named vector of the ratios. For space constraints, here we look at the first ten values.
 
 ```{r}
-neff_ratio(fit1)[1:10]
+neff_ratio(fit20.1)[1:10]
 ```
 
-The `brms::neff_ratio()` function returns ratios of the effective samples over the total number of post-warmup iterations. So if we know the `neff_ratio()` values and the number of post-warmup iterations, the 'Eff.Sample' values are just a little algebra away. A quick solution is to look at the 'total post-warmup samples' line at the top of our `print()` output. Another way is to extract that information from our `brm()` fit object. I’m not aware of a way to do that directly, but we can extract the iter value (i.e., `fit1$fit@sim$iter`), the warmup value (i.e., `fit1$fit@sim$warmup`), and the number of chains (i.e., `fit1$fit@sim$chains`). With those values in hand, simple algebra will return the `total post-warmup samples` value. E.g.,
+The `brms::neff_ratio()` function returns ratios of the effective samples over the total number of post-warmup iterations. So if we know the `neff_ratio()` values and the number of post-warmup iterations, the 'Eff.Sample' values are just a little algebra away. A quick solution is to look at the 'total post-warmup samples' line at the top of our `print()` output. Another way is to extract that information from our `brm()` fit object. I'm not aware of a way to do that directly, but we can extract the iter value (i.e., `fit20.1$fit@sim$iter`), the warmup value (i.e., `fit20.1$fit@sim$warmup`), and the number of chains (i.e., `fit20.1$fit@sim$chains`). With those values in hand, simple algebra will return the `total post-warmup samples` value. E.g.,
 
 ```{r}
-(n_iter <- (fit1$fit@sim$iter - fit1$fit@sim$warmup) * fit1$fit@sim$chains)
+(n_iter <- (fit20.1$fit@sim$iter - fit20.1$fit@sim$warmup) * fit20.1$fit@sim$chains)
 ```
 
 And now we have `n_iter`, we can calculate the 'Eff.Sample' values.
 
 ```{r}
-neff_ratio(fit1) %>% 
+neff_ratio(fit20.1) %>% 
   data.frame() %>% 
   rownames_to_column() %>% 
   set_names("parameter", "neff_ratio") %>% 
@@ -404,7 +396,7 @@ neff_ratio(fit1) %>%
 If we're careful, we can use `left_join()` to bind together the posterior summaries and their effective samples like this.
 
 ```{r, warning = F, message = F}
-post <- posterior_samples(fit1)
+post <- posterior_samples(fit20.1)
 
 # extract the means and medians
 post %>% 
@@ -427,7 +419,7 @@ post %>%
     ) %>% 
   # now finally join the effective samples
   left_join(
-    neff_ratio(fit1) %>% 
+    neff_ratio(fit20.1) %>% 
       as.data.frame() %>% 
       rownames_to_column() %>% 
       set_names("key", "neff_ratio") %>% 
@@ -448,7 +440,7 @@ Our code returned the summaries for all model parameters, including the log post
 As Kruschke then pointed out, "individual salaries vary tremendously around the predicted cell mean" (p. 594), which you can quantify using $\sigma_y$. Here it is using `posterior_summary()`.
 
 ```{r}
-posterior_summary(fit1)["sigma", ]
+posterior_summary(fit20.1)["sigma", ]
 ```
 
 And we can get a better sense of the distribution with a plot.
@@ -478,7 +470,7 @@ nd <-
 
 # feed the new data into `fitted()`
 f <-
-  fitted(fit1,
+  fitted(fit20.1,
          newdata = nd,
          summary = F,
          allow_new_levels = T) %>% 
@@ -488,14 +480,13 @@ f <-
 
 # plot
 f %>% 
-  ggplot(aes(x = `Assoc vs Assis`)) +
-  geom_histogram(color = "grey92", fill = "grey67",
-                 size = .2, bins = 40) +
-  stat_pointintervalh(aes(y = 0),
-                      point_interval = mode_hdi, .width = c(.95, .5)) +
+  ggplot(aes(x = `Assoc vs Assis`, y = 0)) +
+  stat_histintervalh(point_interval = mode_hdi, .width = c(.95, .5),
+                     fill = "grey67", slab_color = "grey92",
+                     breaks = 40, slab_size = .25, outline_bars = T) +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(title = "Assoc vs Assis",
-       x     = "Difference") +
+       x = "Difference") +
   theme(panel.grid = element_blank())
 ```
 
@@ -516,7 +507,7 @@ nd <-
          Pos = "mu")
 
 f <-
-  fitted(fit1,
+  fitted(fit20.1,
          newdata = nd,
          summary = F,
          allow_new_levels = T) %>% 
@@ -529,11 +520,11 @@ f <-
 f %>% 
   gather() %>% 
   
-  ggplot(aes(x = value)) +
-  geom_histogram(color = "grey92", fill = "grey67",
-                 size = .2, bins = 40) +
-  stat_pointintervalh(aes(y = 0),
-                      point_interval = mode_hdi, .width = c(.95, .5)) +
+  ggplot(aes(x = value, y = 0)) +
+  stat_histintervalh(point_interval = mode_hdi, .width = c(.95, .5),
+                     fill = "grey67", slab_color = "grey92",
+                     breaks = 40, slab_size = .25, outline_bars = T,
+                     normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(x     = "Difference") +
   theme(panel.grid = element_blank()) +
@@ -542,11 +533,10 @@ f %>%
 
 And here are their numeric summaries.
 
-```{r, warning = F, message = F}
+```{r}
 f %>% 
   gather(contrast, mode) %>% 
   group_by(contrast) %>% 
-
   mode_hdi(mode) %>% 
   select(contrast:.upper) %>% 
   mutate_if(is.double, round, digits = 0)
@@ -573,14 +563,14 @@ brief_col_names <-
 
 # get the draws with `fitted()`
 f1 <-
-  fitted(fit1, 
+  fitted(fit20.1, 
          newdata = nd,
          summary = F) %>% 
   # wrangle
   as_tibble() %>% 
   set_names(brief_col_names) %>% 
-  mutate(`Full - Assis @ PSY`          = Full_PSY - Assis_PSY,
-         `Full - Assis @ CHEM`         = Full_CHEM - Assis_CHEM) %>% 
+  mutate(`Full - Assis @ PSY`  = Full_PSY - Assis_PSY,
+         `Full - Assis @ CHEM` = Full_CHEM - Assis_CHEM) %>% 
   mutate(`Full.v.Assis (x) CHEM.v.PSY` = `Full - Assis @ CHEM` - `Full - Assis @ PSY`)
 
 # what have we done?
@@ -592,25 +582,25 @@ It'll take just a tiny bit more wrangling before we're ready to plot.
 ```{r, fig.width = 8, fig.height = 2.5}
 text <-
   tibble(key   = "Full - Assis @ PSY",
-         value = 14000,
-         y     = 1090,
+         value = 15500,
+         y     = .95,
          label = "ROPE") %>% 
-  mutate(key   = factor(key, levels = c("Full - Assis @ PSY", "Full - Assis @ CHEM", "Full.v.Assis (x) CHEM.v.PSY")))
+  mutate(key = factor(key, levels = c("Full - Assis @ PSY", "Full - Assis @ CHEM", "Full.v.Assis (x) CHEM.v.PSY")))
 
 f1 %>% 
   select(-contains("_")) %>% 
   gather() %>% 
   mutate(key = factor(key, levels = c("Full - Assis @ PSY", "Full - Assis @ CHEM", "Full.v.Assis (x) CHEM.v.PSY"))) %>% 
   
-  ggplot(aes(x = value)) +
-  # We usually omit it, but for kicks and giggles we'll throw in the ROPE
+  ggplot(aes(x = value, y = 0)) +
+  # for kicks and giggles we'll throw in the ROPE
   geom_rect(xmin = -1e3, xmax = 1e3,
             ymin = -Inf, ymax = Inf,
             color = "transparent", fill = "white") +
-  geom_histogram(color = "grey92", fill = "grey67",
-                 size = .2, bins = 40) +
-  stat_pointintervalh(aes(y = 0),
-                      point_interval = mode_hdi, .width = c(.95, .5)) +
+  stat_histintervalh(point_interval = mode_hdi, .width = c(.95, .5),
+                     fill = "grey67", slab_color = "grey92",
+                     breaks = 40, slab_size = .25, outline_bars = T,
+                     normalize = "panels") +
   geom_text(data = text,
             aes(y = y, label = label),
             color = "white", size = 5) +
@@ -639,7 +629,7 @@ brief_col_names <-
 
 # get the draws with `fitted()`
 f2 <-
-  fitted(fit1, 
+  fitted(fit20.1, 
          newdata = nd,
          summary = F) %>% 
   # wrangle
@@ -662,14 +652,14 @@ f2 %>%
   select(-contains("_")) %>% 
   gather() %>% 
   
-  ggplot(aes(x = value)) +
+  ggplot(aes(x = value, y = 0)) +
   geom_rect(xmin = -1e3, xmax = 1e3,
             ymin = -Inf, ymax = Inf,
             color = "transparent", fill = "white") +
-  geom_histogram(color = "grey92", fill = "grey67",
-                 size = .2, bins = 40) +
-  stat_pointintervalh(aes(y = 0),
-                      point_interval = mode_hdi, .width = c(.95, .5)) +
+  stat_histintervalh(point_interval = mode_hdi, .width = c(.95, .5),
+                     fill = "grey67", slab_color = "grey92",
+                     breaks = 30, slab_size = .25, outline_bars = T,
+                     normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab("Difference") +
   theme(panel.grid = element_blank()) +
@@ -707,11 +697,10 @@ Here's that $\sigma_{\beta 1 \times 2}$.
 
 ```{r, fig.width = 3.75, fig.height = 2.5}
 post %>% 
-  ggplot(aes(x = `sd_Pos:Org__Intercept`)) +
-  geom_histogram(color = "grey92", fill = "grey67",
-                 size = .2, bins = 40) +
-  stat_pointintervalh(aes(y = 0),
-                      point_interval = mode_hdi, .width = c(.95, .5)) +
+  ggplot(aes(x = `sd_Pos:Org__Intercept`, y = 0)) +
+  stat_histintervalh(point_interval = mode_hdi, .width = c(.95, .5),
+                     fill = "grey67", slab_color = "grey92",
+                     breaks = 30, slab_size = .25, outline_bars = T) +
   scale_y_continuous(NULL, breaks = NULL) +
   theme(panel.grid = element_blank())
 ```
@@ -723,8 +712,8 @@ Here is Kruschke's initial example of a possible interaction effect of sex and p
 ```{r, fig.width = 3.25, fig.height = 3}
 d <-
   tibble(monetary_units = c(10, 12, 15, 18),
-         sex            = rep(c("women", "men"), times = 2),
-         politics       = rep(c("democrat", "republican"), each = 2)) %>% 
+         politics       = rep(c("democrat", "republican"), each = 2),
+         sex            = rep(c("women", "men"), times = 2)) %>% 
   mutate(sex_number = if_else(sex == "women", 1, 2),
          politics   = factor(politics, levels = c("republican", "democrat")))
 
@@ -734,11 +723,10 @@ d %>%
   scale_color_manual(NULL, values = c("red2", "blue2")) +
   scale_x_continuous("sex", breaks = 1:2, labels = c("women", "men")) +
   coord_cartesian(ylim = 0:20) +
-  theme(panel.grid        = element_blank(),
-        legend.position   = c(.2, .15),
-        legend.background = element_rect(fill  = "transparent"),
-        legend.key        = element_rect(fill  = "transparent", 
-                                         color = "transparent"))
+  theme(legend.background = element_rect(fill  = "transparent"),
+        legend.key = element_rect(fill  = "transparent", color = "transparent"),
+        legend.position = c(.2, .15),
+        panel.grid = element_blank())
 ```
 
 Because the pay discrepancy between men and women is not equal between Democrats and Republicans, in this example, it can be tempting to claim there is a subtle interaction. Not necessarily so. 
@@ -759,11 +747,10 @@ d %>%
   geom_line(size = 2) +
   scale_color_manual(NULL, values = c("red2", "blue2")) +
   scale_x_continuous("sex", breaks = 1:2, labels = c("women", "men")) +
-  theme(panel.grid        = element_blank(),
-        legend.position   = c(.2, .4),
-        legend.background = element_rect(fill  = "transparent"),
-        legend.key        = element_rect(fill  = "transparent", 
-                                         color = "transparent"))
+  theme(legend.background = element_rect(fill  = "transparent"),
+        legend.key = element_rect(fill  = "transparent", color = "transparent"),
+        legend.position = c(.2, .4),
+        panel.grid = element_blank())
 ```
 
 "Equal ratios are transformed to equal distances by a logarithmic transformation" (p. 599).
@@ -783,16 +770,12 @@ stanvars <-
 
 Recall that to fit a robust hierarchical variances model, we need to wrap our two formulas within the `bf()` function. **Warning**: this one takes a while to fit.
 
-```{r, echo = F, warning = F, message = F}
-# too large and slow to fit multiple times
-# save("fit2", file = "/Users/solomon/Dropbox/Recoding Doing Bayesian Data Analysis/fits/20_fit2.rda")
-# rm(fit2)
-
-load("/Users/solomon/Dropbox/Recoding Doing Bayesian Data Analysis/fits/20_fit2.rda")
+```{r, echo = F, eval = F}
+# Heads up: this took about 8 hours to fit (2-7-2020)
 ```
 
-```{r, eval = F}
-fit2 <-
+```{r fit20.2}
+fit20.2 <-
   brm(data = my_data,
       family = student,
       bf(Salary ~ 1 + (1 | Pos) + (1 | Org) + (1 | Pos:Org), 
@@ -806,13 +789,14 @@ fit2 <-
       seed = 20,
       control = list(adapt_delta = 0.9995,
                      max_treedepth = 15),
-      stanvars = stanvars)
+      stanvars = stanvars,
+      file = "fits/fit20.02")
 ``` 
 
 Behold the summary.
 
 ```{r}
-print(fit2)
+print(fit20.2)
 ```
 
 This time we'll just feed the results of the wrangling code right into the plotting code for our version of the top panels of Figure 20.8.
@@ -826,12 +810,12 @@ my_data %>%
   distinct(Pos) %>% 
   expand(Pos, 
          Org = c("BFIN", "CHEM", "PSY", "ENG")) %>% 
-  add_fitted_draws(fit2, n = n_draw, seed = 20,
+  add_fitted_draws(fit20.2, n = n_draw, seed = 20,
                    allow_new_levels = T,
                    dpar = c("mu", "sigma", "nu")) %>% 
-  mutate(ll      = qt(.025, df = nu),
-         ul      = qt(.975, df = nu)) %>% 
-  mutate(Salary  = map2(ll, ul, seq, length.out = 100)) %>% 
+  mutate(ll = qt(.025, df = nu),
+         ul = qt(.975, df = nu)) %>% 
+  mutate(Salary = map2(ll, ul, seq, length.out = 100)) %>% 
   unnest() %>%
   mutate(density = dt(Salary, nu)) %>% 
   # notice the conversion
@@ -842,7 +826,7 @@ my_data %>%
   
   # plot
   ggplot(aes(x = Salary, y = Pos)) +
-  geom_vline(xintercept = fixef(fit1)[, 1], color = "white") +
+  geom_vline(xintercept = fixef(fit20.2)[1, 1], color = "white") +
   geom_ridgeline(aes(height = density, group = interaction(Pos, .draw),
                      color = Pos),
                  fill = NA, show.legend = F,
@@ -856,12 +840,12 @@ my_data %>%
                      labels = c("$0", "$100K", "200K", "$300K")) +
   coord_cartesian(xlim = 0:35e4,
                   ylim = c(1.25, 5.5)) +
-  labs(title    = "Data with Posterior Predictive Distributions", 
+  labs(title = "Data with Posterior Predictive Distributions", 
        subtitle = "The white vertical line is the model-implied grand mean.",
-       y        = "Pos") +
-  theme(panel.grid   = element_blank(),
+       y = "Pos") +
+  theme(axis.text.y = element_text(hjust = 0),
         axis.ticks.y = element_blank(),
-        axis.text.y  = element_text(hjust = 0)) +
+        panel.grid = element_blank()) +
   facet_wrap(~Org, ncol = 2)
 ```
 
@@ -869,7 +853,7 @@ Our results for the bottom panel of Figure 20.8 will differ substantially from K
 
 ```{r, fig.width = 8, fig.height = 2.5}
 # wrangle
-posterior_samples(fit2) %>% 
+posterior_samples(fit20.2) %>% 
   transmute(Normality              = log10(nu), 
             `Mean of Cell Sigma's` = exp(b_sigma_Intercept), 
             `SD of Cell Sigma's`   = exp(`sd_Pos:Org__sigma_Intercept`)) %>%
@@ -877,11 +861,11 @@ posterior_samples(fit2) %>%
   mutate(key = factor(key, levels = c("Normality", "Mean of Cell Sigma's", "SD of Cell Sigma's"))) %>% 
   
   # plot
-  ggplot(aes(x = value)) +
-  geom_histogram(color = "grey92", fill = "grey67",
-                 size = .2, bins = 40) +
-  stat_pointintervalh(aes(y = 0),
-                      point_interval = mode_hdi, .width = c(.95, .5)) +
+  ggplot(aes(x = value, y = 0)) +
+  stat_histintervalh(point_interval = mode_hdi, .width = c(.95, .5),
+                     fill = "grey67", slab_color = "grey92",
+                     breaks = 30, slab_size = .25, outline_bars = T,
+                     normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab("param. value") +
   theme(panel.grid = element_blank()) +
@@ -905,14 +889,14 @@ brief_col_names <-
 
 # get the draws with `fitted()`
 f <-
-  fitted(fit2, 
+  fitted(fit20.2, 
          newdata = nd,
          summary = F) %>% 
   # wrangle
   as_tibble() %>% 
   set_names(brief_col_names) %>% 
-  transmute(`Full - Assis @ CHEM`      = Full_CHEM - Assis_CHEM,
-            `Full - Assis @ PSY`       = Full_PSY - Assis_PSY) %>% 
+  transmute(`Full - Assis @ CHEM` = Full_CHEM - Assis_CHEM,
+            `Full - Assis @ PSY`  = Full_PSY - Assis_PSY) %>% 
   mutate(`Full.v.Assis (x) CHEM.v.PSY` = `Full - Assis @ CHEM` - `Full - Assis @ PSY`) %>% 
   gather() %>% 
   mutate(key = factor(key, levels = c("Full - Assis @ PSY", "Full - Assis @ CHEM", "Full.v.Assis (x) CHEM.v.PSY")))
@@ -925,14 +909,14 @@ Now plot.
 
 ```{r, fig.width = 8, fig.height = 2.5}
 f %>% 
-  ggplot(aes(x = value)) +
+  ggplot(aes(x = value, y = 0)) +
   geom_rect(xmin = -1e3, xmax = 1e3,
             ymin = -Inf, ymax = Inf,
             color = "transparent", fill = "white") +
-  geom_histogram(color = "grey92", fill = "grey67",
-                 size = .2, bins = 40) +
-  stat_pointintervalh(aes(y = 0),
-                      point_interval = mode_hdi, .width = c(.95, .5)) +
+  stat_histintervalh(point_interval = mode_hdi, .width = c(.95, .5),
+                     fill = "grey67", slab_color = "grey92",
+                     breaks = 30, slab_size = .25, outline_bars = T,
+                     normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab("Difference") +
   theme(panel.grid = element_blank()) +
@@ -941,7 +925,7 @@ f %>%
 
 See? Our contrast distributions are really close those in the text. Here are the numeric estimates.
 
-```{r, warning = F, message = F}
+```{r}
 f %>% 
   group_by(key) %>% 
   mode_hdi(value) %>% 
@@ -949,23 +933,23 @@ f %>%
   mutate_if(is.double, round, digits = 0)
 ```
 
-In the second half of the middle paragraph on page 605, Kruschke contrasted the $\sigma_{\beta 1 \times 2}$ parameter in the two models (i.e., our `fit1` and `fit2`). Recall that in the **brms** output, these are termed `sd_Pos:Org__Intercept`. Here are the comparisons from our **brms** models.
+In the second half of the middle paragraph on page 605, Kruschke contrasted the $\sigma_{\beta 1 \times 2}$ parameter in the two models (i.e., our `fit20.1` and `fit20.2`). Recall that in the **brms** output, these are termed `sd_Pos:Org__Intercept`. Here are the comparisons from our **brms** models.
 
 ```{r}
-posterior_summary(fit1)["sd_Pos:Org__Intercept", ]
-posterior_summary(fit2)["sd_Pos:Org__Intercept", ]
+posterior_summary(fit20.1)["sd_Pos:Org__Intercept", ]
+posterior_summary(fit20.2)["sd_Pos:Org__Intercept", ]
 ```
 
 They are similar to the values in the text. And recall, of course, the `brms::posterior_summary()` function returns posterior means. If you really wanted the posterior modes, like Kruschke reported in the text, you'll have to work a little harder.
 
-```{r, warning = F, message = F}
-posterior_samples(fit1) %>% 
+```{r}
+posterior_samples(fit20.1) %>% 
   transmute(value = `sd_Pos:Org__Intercept`) %>% 
-  mutate(key = "fit1") %>% 
+  mutate(key = "fit20.1") %>% 
   bind_rows(
-    posterior_samples(fit2) %>% 
+    posterior_samples(fit20.2) %>% 
       transmute(value = `sd_Pos:Org__Intercept`) %>% 
-      mutate(key = "fit2")
+      mutate(key = "fit20.2")
   ) %>% 
   group_by(key) %>% 
   mode_hdi(value) %>% 
@@ -976,27 +960,27 @@ posterior_samples(fit1) %>%
 "Which model is a better description of the data?... In principle, an intrepid programmer could do a Bayesian model comparison..." (pp. 605--606). We could also examine iformation criteria, like the LOO.
 
 ```{r}
-fit1 <- add_criterion(fit1, "loo")
-fit2 <- add_criterion(fit2, "loo")
+fit20.1 <- add_criterion(fit20.1, "loo")
+fit20.2 <- add_criterion(fit20.2, "loo")
 ```
 
-Sigh. Both models had high `pareto_k` values, suggesting there were outliers relative to what was expected by their likelihoods. Just a little further in the text, Kruschke gives us hints why this might be so: 
+*Sigh*. Both models had high `pareto_k` values, suggesting there were outliers relative to what was expected by their likelihoods. Just a little further in the text, Kruschke gives us hints why this might be so: 
 
 > Moreover, both models assume that the data within cells are distributed symmetrically above and below their central tendency, either as a normal distribution or a $t$-distribution. The data instead seem to be skewed toward larger values, especially for advanced seniorities. (p. 606)
 
 Here's the current LOO difference.
 
 ```{r}
-loo_compare(fit1, fit2) %>% print(simplify = F)
+loo_compare(fit20.1, fit20.2) %>% print(simplify = F)
 ```
 
-For a more robust model comparison, we might follow the `kfold()` suggestion in the warning. However, be warned: The `kfold()` function entails refitting the model `K` times. Both these models took hours to fit, particularly `fit2`.
+For a more robust model comparison, we might follow the `kfold()` suggestion in the warning. However, be warned: The `kfold()` function entails refitting the model `K` times. `fit20.1` took about an hour to fit and `fit20.2` took about 8 hours. Proceed with caution. 
 
 But really, "we might want to create a model that describes the data within each cell as a skewed distribution such as a Weibull" (p. 606). Yes, **brms** can handle Weibull regression (e.g., [here](https://discourse.mc-stan.org/t/fitting-time-to-event-data-with-weibull-hazard-using-brm-function/4638)).
 
 ```{r, echo = F}
 # these fits are sufficiently large that I'd like to clear them out before moving on
-rm(fit1, fit2)
+rm(fit20.1, fit20.2)
 ```
 
 ## Within-subject designs
@@ -1040,7 +1024,7 @@ Here's the 4-subject response time data.
   tibble(response_time = c(300, 320, 350, 370, 400, 420, 450, 470),
          subject       = rep(1:4, each = 2),
          hand          = rep(c("dominant", "nondominant"), times = 4))
-  )
+)
 ```
 
 "For every subject, the difference between dominant and nondominant hands is exactly 20 ms, but there are big differences across subjects in overall response times" (p. 608). Here's what that looks like.
@@ -1120,16 +1104,8 @@ stanvars <-
 
 Here's how to fit the model with `brm()`.
 
-```{r, echo = F, warning = F, message = F}
-# especially with that reloo below, too large and slow to fit multiple times
-# save("fit3", file = "/Users/solomon/Dropbox/Recoding Doing Bayesian Data Analysis/fits/20_fit3.rda")
-# rm(fit3)
-
-load("/Users/solomon/Dropbox/Recoding Doing Bayesian Data Analysis/fits/20_fit3.rda")
-```
-
-```{r, eval = F}
-fit3 <-
+```{r fit20.3}
+fit20.3 <-
   brm(data = my_data,
       family = gaussian,
       Yield ~ 1 + (1 | Till) + (1 | Fert) + (1 | Field) + (1 | Till:Fert),
@@ -1140,7 +1116,8 @@ fit3 <-
       seed = 20,
       control = list(adapt_delta = 0.99,
                      max_treedepth = 12),
-      stanvars = stanvars)
+      stanvars = stanvars,
+      file = "fits/fit20.03")
 ``` 
 
 #### Results.
@@ -1148,39 +1125,39 @@ fit3 <-
 Check the summary.
 
 ```{r}
-print(fit3)
+print(fit20.3)
 ```
 
 We might compare the $\sigma$ posteriors with a plot.
 
 ```{r, fig.width = 8, fig.height = 2.5}
-posterior_samples(fit3) %>% 
+posterior_samples(fit20.3) %>% 
   pivot_longer(c(sigma, starts_with("sd"))) %>% 
     
   ggplot(aes(x = value, y = name)) +
   geom_halfeyeh(point_interval = mode_hdi, .width = c(.5, .95),
-                scale = "width", relative_scale = .9) +
+                scale = .85, normalize = "xy") +
   labs(x = NULL,
        y = NULL) +
   coord_cartesian(xlim = 0:50,
                   ylim = c(1.25, 5.5)) +
-  theme(panel.grid   = element_blank(),
-        axis.text.y  = element_text(hjust = 0),
-        axis.ticks.y = element_blank())
+  theme(axis.text.y = element_text(hjust = 0),
+        axis.ticks.y = element_blank(),
+        panel.grid = element_blank())
 ```
 
-Now we have the results of `fit3`, we are ready to make our version if Figure 20.10. Note that how within `add_fitted_draws()`, we used the `re_formula` argument to average over the random effects of `Field` (i.e., we left `(1 | Field)` out of the formula). That's our equivalent to when Kruschke wrote "The predictive normal distributions are plotted with means at $\beta_0 + \beta_B + \beta_W + \beta_{B \times W}$ (collapsed across $\beta_S$) and with standard deviation $\sigma$" (pp. 614-615).
+Now we have the results of `fit20.3`, we are ready to make our version if Figure 20.10. Note that how within `add_fitted_draws()`, we used the `re_formula` argument to average over the random effects of `Field` (i.e., we left `(1 | Field)` out of the formula). That's our equivalent to when Kruschke wrote "The predictive normal distributions are plotted with means at $\beta_0 + \beta_B + \beta_W + \beta_{B \times W}$ (collapsed across $\beta_S$) and with standard deviation $\sigma$" (pp. 614-615).
 
 ```{r, fig.width = 6, fig.height = 3.5}
 # wrangle
 my_data %>% 
   distinct(Till, Fert) %>% 
-  add_fitted_draws(fit3, n = 20,
+  add_fitted_draws(fit20.3, n = 20,
                    re_formula = Yield ~ 1 + (1 | Till) + (1 | Fert) + (1 | Till:Fert),
                    dpar = c("mu", "sigma")) %>% 
-  mutate(ll      = qnorm(.025, mean = mu, sd = sigma),
-         ul      = qnorm(.975, mean = mu, sd = sigma)) %>% 
-  mutate(Yield   = map2(ll, ul, seq, length.out = 100)) %>% 
+  mutate(ll = qnorm(.025, mean = mu, sd = sigma),
+         ul = qnorm(.975, mean = mu, sd = sigma)) %>% 
+  mutate(Yield = map2(ll, ul, seq, length.out = 100)) %>% 
   unnest(Yield) %>% 
   mutate(density = dnorm(Yield, mu, sigma)) %>% 
   group_by(.draw) %>% 
@@ -1193,8 +1170,7 @@ my_data %>%
             size = 1/4) +
   geom_ridgeline(aes(height = -density, group = interaction(Fert, .draw),
                      color = Fert),
-                 fill = NA, 
-                 size = 1/3, scale = 3/4,
+                 fill = NA, size = 1/3, scale = 3/4,
                  min_height = NA) +
   geom_jitter(data = my_data,
               height = .025, alpha = 1/4) +
@@ -1203,9 +1179,9 @@ my_data %>%
   coord_flip(xlim = 90:190,
              ylim = c(0.5, 2.75)) +
   ggtitle("Data with Posterior Predictive Distribution") +
-  theme(panel.grid      = element_blank(),
-        axis.ticks.x    = element_blank(),
-        legend.position = "none") +
+  theme(axis.ticks.x = element_blank(),
+        legend.position = "none",
+        panel.grid = element_blank()) +
   facet_wrap(~Till)
 ```
 
@@ -1222,11 +1198,10 @@ nd <-
   my_data %>% 
   distinct(Till, Fert)
 
-fitted(fit3,
+fitted(fit20.3,
        newdata = nd,
        summary = F,
-       re_formula = Yield ~ 1 + (1 | Till) + (1 | Fert) + (1 | Till:Fert)
-       ) %>% 
+       re_formula = Yield ~ 1 + (1 | Till) + (1 | Fert) + (1 | Till:Fert)) %>% 
   as_tibble() %>% 
   set_names(col_names) %>% 
   transmute(
@@ -1241,14 +1216,14 @@ fitted(fit3,
   pivot_longer(everything()) %>% 
   mutate(name = factor(name, levels = c("Moldbrd vs Ridge", "Moldbrd.Ridge vs Chisel", "Deep.Surface vs Broad", "Chisel.Moldbrd.v.Ridge (x) Broad.v.Deep.Surface"))) %>% 
   
-  ggplot(aes(x = value)) +
+  ggplot(aes(x = value, y = 0)) +
   geom_rect(xmin = -5, xmax = 5,
             ymin = -Inf, ymax = Inf,
             color = "transparent", fill = "white") +
-  geom_histogram(color = "grey92", fill = "grey67",
-                 size = .2, bins = 40) +
-  stat_pointintervalh(aes(y = 0),
-                      point_interval = mode_hdi, .width = c(.95, .5)) +
+  stat_histintervalh(point_interval = mode_hdi, .width = c(.95, .5),
+                     fill = "grey67", slab_color = "grey92",
+                     breaks = 40, slab_size = .25, outline_bars = T,
+                     normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab("Difference") +
   theme(panel.grid = element_blank(),
@@ -1260,16 +1235,8 @@ As far as I can tell, it appears that our contrasts indicate our variance parame
 
 Kruschke then posed a model "with field/subject coding suppressed, hence no lines connecting data from the same field/subject" (p. 616). Here's how to fit that model.
 
-```{r, echo = F, warning = F, message = F}
-# too large and slow to fit multiple times
-# save("fit4", file = "/Users/solomon/Dropbox/Recoding Doing Bayesian Data Analysis/fits/20_fit4.rda")
-# rm(fit4)
-
-load("/Users/solomon/Dropbox/Recoding Doing Bayesian Data Analysis/fits/20_fit4.rda")
-```
-
-```{r, eval = F}
-fit4 <-
+```{r fit20.4}
+fit20.4 <-
   brm(data = my_data,
       family = gaussian,
       Yield ~ 1 + (1 | Till) + (1 | Fert) + (1 | Till:Fert),
@@ -1280,20 +1247,21 @@ fit4 <-
       seed = 20,
       control = list(adapt_delta = 0.999,
                      max_treedepth = 12),
-      stanvars = stanvars)
+      stanvars = stanvars,
+      file = "fits/fit20.04")
 ``` 
 
 Behold the summary.
 
 ```{r}
-print(fit4)
+print(fit20.4)
 ```
 
-Look at how much larger the posterior is for $\sigma_y$ in this model compared to `fit3`.
+Look at how much larger the posterior is for $\sigma_y$ in this model compared to `fit20.3`.
 
 ```{r}
-posterior_summary(fit3)["sigma", ]
-posterior_summary(fit4)["sigma", ]
+posterior_summary(fit20.3)["sigma", ]
+posterior_summary(fit20.4)["sigma", ]
 ```
 
 Here's the top portion of Figure 20.12.
@@ -1302,12 +1270,12 @@ Here's the top portion of Figure 20.12.
 # wrangle
 my_data %>% 
   distinct(Till, Fert) %>% 
-  add_fitted_draws(fit4, n = 20,
+  add_fitted_draws(fit20.4, n = 20,
                    re_formula = Yield ~ 1 + (1 | Till) + (1 | Fert) + (1 | Till:Fert),
                    dpar = c("mu", "sigma")) %>% 
-  mutate(ll      = qnorm(.025, mean = mu, sd = sigma),
-         ul      = qnorm(.975, mean = mu, sd = sigma)) %>% 
-  mutate(Yield   = map2(ll, ul, seq, length.out = 200)) %>% 
+  mutate(ll = qnorm(.025, mean = mu, sd = sigma),
+         ul = qnorm(.975, mean = mu, sd = sigma)) %>% 
+  mutate(Yield = map2(ll, ul, seq, length.out = 200)) %>% 
   unnest(Yield) %>% 
   mutate(density = dnorm(Yield, mu, sigma)) %>% 
   group_by(.draw) %>% 
@@ -1317,8 +1285,7 @@ my_data %>%
   ggplot(aes(x = Yield, y = Fert)) +
   geom_ridgeline(aes(height = -density, group = interaction(Fert, .draw),
                      color = Fert),
-                 fill = NA, 
-                 size = 1/3, scale = 3/4,
+                 fill = NA, size = 1/3, scale = 3/4,
                  min_height = NA) +
   geom_jitter(data = my_data,
               height = .025, alpha = 1/4) +
@@ -1327,20 +1294,19 @@ my_data %>%
   coord_flip(xlim = 90:190,
              ylim = c(0.5, 2.75)) +
   ggtitle("Data with Posterior Predictive Distribution") +
-  theme(panel.grid      = element_blank(),
-        axis.ticks.x    = element_blank(),
-        legend.position = "none") +
+  theme(axis.ticks.x = element_blank(),
+        legend.position = "none",
+        panel.grid = element_blank()) +
   facet_wrap(~Till)
 ```
 
 Now the make the plots for the contrast distributions.
 
 ```{r, fig.width = 8, fig.height = 2.5}
-fitted(fit4,
+fitted(fit20.4,
        newdata = nd,
        summary = F,
-       re_formula = Yield ~ 1 + (1 | Till) + (1 | Fert) + (1 | Till:Fert)
-       ) %>% 
+       re_formula = Yield ~ 1 + (1 | Till) + (1 | Fert) + (1 | Till:Fert)) %>% 
   as_tibble() %>% 
   set_names(col_names) %>% 
   transmute(
@@ -1355,14 +1321,14 @@ fitted(fit4,
   gather() %>% 
   mutate(key = factor(key, levels = c("Moldbrd vs Ridge", "Moldbrd.Ridge vs Chisel", "Deep.Surface vs Broad", "Chisel.Moldbrd.v.Ridge (x) Broad.v.Deep.Surface"))) %>% 
   
-  ggplot(aes(x = value)) +
+  ggplot(aes(x = value, y = 0)) +
   geom_rect(xmin = -5, xmax = 5,
             ymin = -Inf, ymax = Inf,
             color = "transparent", fill = "white") +
-  geom_histogram(color = "grey92", fill = "grey67",
-                 size = .2, bins = 40) +
-  stat_pointintervalh(aes(y = 0),
-                      point_interval = mode_hdi, .width = c(.95, .5)) +
+  stat_histintervalh(point_interval = mode_hdi, .width = c(.95, .5),
+                     fill = "grey67", slab_color = "grey92",
+                     breaks = 40, slab_size = .25, outline_bars = T,
+                     normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab("Difference") +
   theme(panel.grid = element_blank(),
@@ -1377,31 +1343,31 @@ Though not identical, these were closer to those Kruschke displayed in the text.
 Like we covered in Chapter 10, I'm not aware that Stan/**brms** will allow for $\delta$ factor-inclusion parameters the way JAGS allows. However, if you'd like to compare models with different parameters, you can always use information criteria.
 
 ```{r, eval = F}
-fit3 <- add_criterion(fit3, "loo")
-fit4 <- add_criterion(fit4, "loo")
+fit20.3 <- add_criterion(fit20.3, "loo")
+fit20.4 <- add_criterion(fit20.4, "loo")
 ```
 
 Executing that yielded the following warning message:
 
-> Found 5 observations with a pareto_k > 0.7 in model 'fit3'. It is recommended to set 'reloo = TRUE' in order to calculate the ELPD without the assumption that these observations are negligible. This will refit the model 5 times to compute the ELPDs for the problematic observations directly.
+> Found 4 observations with a pareto_k > 0.7 in model 'fit20.3'. It is recommended to set 'reloo = TRUE' in order to calculate the ELPD without the assumption that these observations are negligible. This will refit the model 4 times to compute the ELPDs for the problematic observations directly.
 
 Let's follow the diagnostic warnings to make sure the model comparison is robust to the outlying values.
 
 ```{r, eval = F}
-fit3 <- add_criterion(fit3, "loo", reloo = T)
+fit20.3 <- add_criterion(fit20.3, "loo", reloo = T)
 ```
 
 We're finally ready for the LOO comparison. 
 
 ```{r}
-loo_compare(fit3, fit4) %>% 
+loo_compare(fit20.3, fit20.4) %>% 
   print(simplify = F)
 ```
 
 All good. Based on the LOO values, we should prefer the fuller model. This, of course, should be no surprise. The posterior for $\sigma_\text{Field}$ was a far cry from zero.
 
 ```{r}
-posterior_summary(fit3)["sd_Field__Intercept", ]
+posterior_summary(fit20.3)["sd_Field__Intercept", ]
 ```
 
 Kruschke ended this chapter by mentioning Bayes' factors:
@@ -1422,7 +1388,7 @@ sessionInfo()
 
 ```{r, message = F, echo = F}
 # remove the objects
-rm(grand_mean, deflection_1, deflection_2, nonadditive_component, d, p, p1, p2, p3, gamma_a_b_from_omega_sigma, my_data, mean_y, sd_y, omega, sigma, s_r, stanvars, n_draw, f, n_iter, post, nd, brief_col_names, f1, text, f2, fit3, col_names, fit4)
+rm(grand_mean, deflection_1, deflection_2, nonadditive_component, d, p, p1, p2, p3, gamma_a_b_from_omega_sigma, my_data, mean_y, sd_y, omega, sigma, s_r, stanvars, fit20.1, n_draw, f, n_iter, post, nd, brief_col_names, f1, text, f2, fit20.2, fit20.3, col_names, fit20.4)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
@@ -1432,4 +1398,8 @@ ggplot2::theme_set(ggplot2::theme_grey())
 
 bayesplot::color_scheme_set("blue")
 ```
+
+## Footnote {-}
+
+[^2]: It's not quite clear where these data come from. At the top of page 591, Kruschke wrote "in this section, we will be looking at some real-world salaries." Further down on the same page, Kruschke added: "The data are annual salaries of 1,080 tenure-track professors at a large-enrollment, small-city, midwestern-American, research-oriented, state university. (Salaries at big- city and private universities tend to be higher, while salaries at liberal-arts colleges and teaching-oriented state universities tend to be lower.) The data span 60 academic departments that had at least seven members. The data also include the professor’s seniority." He did not provide a reference.
 
