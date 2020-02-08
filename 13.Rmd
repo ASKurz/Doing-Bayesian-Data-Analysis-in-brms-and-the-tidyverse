@@ -135,7 +135,7 @@ I've been playing around with this a bit. If you look closely at the code block 
 hdi_of_icdf <- function(name, width = .95, tol = 1e-8, ... ) {
   
   incredible_mass <-  1.0 - width
-  interval_width  <- function(low_tail_prob, name, width, ...) {
+  interval_width <- function(low_tail_prob, name, width, ...) {
     name(width + low_tail_prob, ...) - name(low_tail_prob, ...)
   }
   opt_info <- optimize(interval_width, c(0, incredible_mass), 
@@ -222,7 +222,7 @@ min_n_for_hdi_power <-
     } # End while( not_powerful_enough ).
     # Return the sample size that achieved the desired power:
     return(sample_size)
-  }
+}
 ```
 
 Other than altering Kruschke's formatting a little bit, the only meaningful change I made to the code was removing the line that checked for the `HDIofICD()` function and then `source()`ed it, if necessary. Following along with Kruschke on page 370, here's an example for which $\omega_\text{data generating} = .75$, $\kappa = 2000$, the ROPE is $[.48, .52]$, and the desired power is the conventional .8.
@@ -500,7 +500,7 @@ library(brms)
 
 This won't be of much concern for some of the complex models we'll be fitting in later chapters. But for simple models like this, a lot of the time you spend waiting for `brms::brm()` to return your posterior and its summary has to do with compilation time. The issue of compilation goes into technical details I just don't have the will to go through right now. But if we can avoid or minimize compilation time, it'll be a boon for our power simulations. As it turns out, we can. The first time we fit our desired model, we have to compile. But once we have that initial fit object in hand, we can reuse it with the `update()` function, which will allow us to avoid further compilation. So that's what we’re going to do, here. We're going to fit the model once and save it.
 
-```{r fit1, cache = T, message = F, warning = F, results = "hide"}
+```{r fit13.1}
 # how many rows of 0s and 1s should we have in the data?
 n <- 74
 
@@ -511,14 +511,15 @@ size <- 1
 omega <- .7
 
 # fit that joint
-fit1 <-
+fit13.1 <-
   brm(data = tibble(y = rbinom(n, size, omega)),
       family = bernoulli(link = identity),
       y ~ 1,
       prior(beta(1, 1), class = Intercept),
       warmup = 1000, iter = 3000, chains = 4, cores = 1,
       seed = 13,
-      control = list(adapt_delta = .9))
+      control = list(adapt_delta = .9),
+      file = "fits/fit13.01")
 ```
 
 You may (or not) recall that at the end of Chapter 3, we covered how to time an operation in **R**. When you're setting up a Monte Carlo power study, it can be important to use those time-tracking skills to get a sense of how long it takes to fit your models. While I was setting this model up, I experimented with keeping the default `cores = 1` or setting my typical `cores = 4`. As it turns out, with a very simple model like this, `cores = 1` was a little faster. If you're fitting one model, that's no big deal. But in a situation where you're fitting 100 or 1000, you'll want to make sure you're fitting them as efficiently as possible. 
@@ -528,7 +529,7 @@ But anyway, our practice will be to keep all the specifications in `fit` constan
 To make sure we're not setting ourselves up to fail, we might make sure the chains look okay.
 
 ```{r, fig.width = 8, fig.height = 1.5}
-plot(fit1)
+plot(fit13.1)
 ```
 
 Looks like a dream. Let's move forward and run the simulation proper. In his script file, Kruschke suggested we simulate with large $N$s like 1000 or so. Since this is just an example, I'm gonna cut that to 100. 
@@ -554,7 +555,7 @@ sim1 <-
   # simulate the data
   mutate(data = pmap(list(n, size, theta), rbinom)) %>% 
   # fit the models on the simulated data
-  mutate(fit = map(data, ~update(fit1, newdata = list(y = .))))
+  mutate(fit = map(data, ~update(fit13.1, newdata = list(y = .))))
 ```
 
 ```{r, echo = F}
@@ -591,7 +592,7 @@ get_hdi <- function(fit) {
 }
 
 # how does it work?
-get_hdi(fit1)
+get_hdi(fit13.1)
 ```
 
 Now we'll apply that function to our `fits` tibble to pull those simulated HDIs. Then we'll program in the markers for the ROPE and HDI width criteria, perform logical tests to see whether they were passes within each of the 100 simulations, and summarize the tests.
@@ -655,7 +656,7 @@ sim2 <-
                        shape1 =      omega  * (kappa - 2) + 1,
                        shape2 = (1 - omega) * (kappa - 2) + 1)) %>% 
   mutate(data = pmap(list(n, size, theta), rbinom)) %>% 
-  mutate(hdi  = map(data, ~update(fit1, newdata = list(y = .)) %>% get_hdi()))
+  mutate(hdi = map(data, ~update(fit13.1, newdata = list(y = .)) %>% get_hdi()))
 ```
 
 Since we saved the HDI estimates in the `hdi` column, we can just `unnest()` then and summarize our power results.
@@ -739,7 +740,7 @@ d <-
                                            theta_transformed))) %>% 
   # generate idealized data very close to thetas
   mutate(z = round(theta_transformed * ideal_n_trl_per_subj)) %>% 
-  # create vector of 0’s and 1’s matching the z values generated above
+  # create vector of 0's and 1's matching the z values generated above
   mutate(y = map(z, ~c(rep(1, .), rep(0, ideal_n_trl_per_subj - .)))) %>% 
   unnest(y)
 ```
@@ -752,33 +753,35 @@ str(d)
 
 We are going to follow the same procedure we did when we originally fit the model to the therapeutic touch data in Chapter 9. Instead of reproducing the model Kruschke presented in his scripts, we are going to fit a hierarchical logistic regression model.
 
-```{r fit2, cache = T, message = F, warning = F}
-fit2 <-
+```{r fit13.2}
+fit13.2 <-
   brm(data = d,
       family = bernoulli(link = logit),
       y ~ 1 + (1 | s),
       prior = c(prior(normal(0, 1.5), class = Intercept),
                 prior(normal(0, 1), class = sd)),
       iter = 2000, warmup = 1000, chains = 4, cores = 4,
-      seed = 13)
+      seed = 13,
+      file = "fits/fit13.02")
 ```
 
 Unlike in the text, we had no need for thinning our chains. The effective number of samples was fine.
 
 ```{r}
-print(fit2)
+print(fit13.2)
 ```
 
 Here's a look at our two main parameters, our version of the top panels of Figure 13.3.
 
 ```{r, fig.width = 6, fig.height = 2.5}
-posterior_samples(fit2) %>% 
+posterior_samples(fit13.2) %>% 
   pivot_longer(b_Intercept:sd_s__Intercept) %>% 
   
   ggplot(aes(x = value, y = 0)) +
   stat_histintervalh(point_interval = mode_hdi, .width = .95,
                      fill = "grey67", slab_color = "grey92",
-                     breaks = 40, slab_size = .4, outline_bars = T) +
+                     breaks = 40, slab_size = .25 , outline_bars = T,
+                     normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(subtitle = "Remember, these are in the log-odds metric.",
        x = NULL) +
@@ -794,7 +797,7 @@ With **brms**, you can sample from those model-implied parameter values with the
 set.seed(13)
 
 f <-
-  fitted(fit2,
+  fitted(fit13.2,
         newdata = tibble(s = 0),
         allow_new_levels = T,
         summary = F) %>% 
@@ -811,7 +814,7 @@ f %>%
   ggplot(aes(x = theta, y = 0)) +
   stat_histintervalh(point_interval = mode_hdi, .width = .95,
                      fill = "grey67", slab_color = "grey92",
-                     breaks = 30, slab_size = .2, outline_bars = T) +
+                     breaks = 20, slab_size = .2, outline_bars = T) +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(subtitle = "Behold our \"distribution of parameter values consistent\nwith our idealized hypothesis.\"",
        x = expression(theta)) +
@@ -874,7 +877,7 @@ With this data type, Kruschke indicated he ran
 
 Before running the simulations in full, we fit the model once and save that fit to iteratively reuse with `update()`.
 
-```{r fit3, cache = T, message = F, results = "hide"}
+```{r fit13.3}
 # how many subjects should we have?
 n_subj <- 14
 
@@ -882,7 +885,7 @@ n_subj <- 14
 n     <- 47
 
 # fit that joint
-fit3 <-
+fit13.3 <-
   brm(data = sample_theta(seed = 13, n_subj = 14) %>% 
         mutate(y = map(theta, rbinom, n = n, size = 1)) %>% 
         unnest(y),
@@ -892,13 +895,14 @@ fit3 <-
                 prior(normal(0, 1), class = sd)),
       iter = 2000, warmup = 1000, chains = 4, cores = 4,
       seed = 13,
-      control = list(adapt_delta = .9))
+      control = list(adapt_delta = .9),
+      file = "fits/fit13.03")
 ```
 
 Check real quick to make sure the fit turned out okay.
 
 ```{r}
-print(fit3)
+print(fit13.3)
 ```
 
 Looks fine. Our new model simulation carries with it some new goals.
@@ -919,7 +923,7 @@ get_theta_hdi <- function(fit) {
 }
 
 # how does it work?
-get_theta_hdi(fit3)
+get_theta_hdi(fit13.3)
 ```
 
 As for the individual-level goals, the two Kruschke outlined in the text apply to our model in a straightforward way. But we will need one more custom function designed to pull the $\theta_s$s for the $\theta_s$s. Let's call this one `get_theta_s_hdi()`.
@@ -946,7 +950,7 @@ get_theta_s_hdi <- function(fit) {
 }
 
 # how does it work?
-get_theta_s_hdi(fit3)
+get_theta_s_hdi(fit13.3)
 ```
 
 With `sim2`, we avoided saving our model `brms::brm()` fit objects by using `map(data, ~update(fit1, newdata = list(y = .)) %>% get_hdi())`. That is, within the `purrr::map()` function, we first used `update()` to update the fit to the new data and then pumped that directly into `get_hdi()`, which simply returned our intervals. Though slick, this approach won't work here because we want to pump our updated model fit into two functions, both `get_theta_hdi()` and `get_theta_s_hdi()`. Our work-around will be to make a custom function that updates the fit, saves it as an object, inserts that fit object into both `get_theta_hdi()` and `get_theta_s_hdi()`, binds their results together, and the only returns the intervals. We'll call this function `fit_then_hdis()`.
@@ -954,7 +958,7 @@ With `sim2`, we avoided saving our model `brms::brm()` fit objects by using `map
 ```{r}
 fit_then_hdis <- function(data, seed) {
   
-  fit <- update(fit3, 
+  fit <- update(fit13.3, 
                 newdata = data, 
                 seed = seed)
   
@@ -978,10 +982,10 @@ n_sim <- 100
 sim3 <-
   tibble(seed = 1:n_sim) %>% 
   mutate(data = map(seed, sample_data, n_subj = n_subj, n_trial = n_trial)) %>% 
-  mutate(hdi  = map2(data, seed, fit_then_hdis))
+  mutate(hdi = map2(data, seed, fit_then_hdis))
 ```
 
-If we hold these by the criteria of each $\text{HDI}_{\theta_s} > \text{ROPE}$ and all to have widths less than 0.2, It looks like our initial data-generating `fit3` is in the ballpark. Here are the results for the full power analysis, `sim3`.
+If we hold these by the criteria of each $\text{HDI}_{\theta_s} > \text{ROPE}$ and all to have widths less than 0.2, It looks like our initial data-generating `fit13.3` is in the ballpark. Here are the results for the full power analysis, `sim3`.
 
 ```{r, eval = F}
 sim3 <-
@@ -1049,7 +1053,7 @@ n_sim <- 100
 sim4 <-
   tibble(seed = 1:n_sim) %>% 
   mutate(data = map(seed, sample_data, n_subj = n_subj, n_trial = n_trial)) %>%
-  mutate(hdi  = map2(data, seed, fit_then_hdis))
+  mutate(hdi = map2(data, seed, fit_then_hdis))
 ```
 
 Wrangle before summarizing.
@@ -1140,30 +1144,32 @@ head(d)
 
 Fit the $\theta$-generating model.
 
-```{r fit4, cache = T, message = F, warning = F}
-fit4 <-
-  update(fit2,
+```{r fit13.4}
+fit13.4 <-
+  update(fit13.2,
          newdata = d,
          cores = 4,
-         seed = 13)
+         seed = 13,
+         file = "fits/fit13.04")
 ```
 
 Check to make sure things look alright.
 
 ```{r}
-print(fit4)
+print(fit13.4)
 ```
 
 Here's a look at our two main parameters, our version of the bottom panels of Figure 13.3.
 
 ```{r, fig.width = 6, fig.height = 2.5}
-posterior_samples(fit4) %>% 
+posterior_samples(fit13.4) %>% 
   pivot_longer(b_Intercept:sd_s__Intercept) %>% 
 
   ggplot(aes(x = value, y = 0)) +
   stat_histintervalh(point_interval = mode_hdi, .width = .95,
                      fill = "grey67", slab_color = "grey92",
-                     breaks = 50, slab_size = .4, outline_bars = T) +
+                     breaks = 40, slab_size = .25, outline_bars = T,
+                     normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(subtitle = "Remember, these are in the log-odds metric.",
        x = NULL) +
@@ -1177,10 +1183,10 @@ Now redefine our `fitted()` object, `f`, which gets pumped into the `sample_data
 set.seed(13)
 
 f <-
-  fitted(fit4,
-        newdata = tibble(s = 0),
-        allow_new_levels = T,
-        summary = F) %>% 
+  fitted(fit13.4,
+         newdata = tibble(s = 0),
+         allow_new_levels = T,
+         summary = F) %>% 
   data.frame() %>% 
   set_names("theta")
 ```
@@ -1192,7 +1198,7 @@ f %>%
   ggplot(aes(x = theta, y = 0)) +
   stat_histintervalh(point_interval = mode_hdi, .width = c(.95, .5),
                      fill = "grey67", slab_color = "grey92",
-                     breaks = 40, slab_size = .4, outline_bars = T) +
+                     breaks = 40, slab_size = .25, outline_bars = T) +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(subtitle = "Behold our \"distribution of parameter values consistent\nwith our idealized hypothesis.\"",
        x = expression(theta)) +
@@ -1215,7 +1221,7 @@ n_sim <- 100
 sim5 <-
   tibble(seed = 1:n_sim) %>% 
   mutate(data = map(seed, sample_data, n_subj = n_subj, n_trial = n_trial)) %>%
-  mutate(hdi  = map2(data, seed, fit_then_hdis))
+  mutate(hdi = map2(data, seed, fit_then_hdis))
 ```
 
 Wrangle before summarizing.
@@ -1501,7 +1507,6 @@ p1 <-
   geom_hline(yintercept = .65, color = "white") +
   geom_line() +
   geom_point(size = 2/3) +
-  scale_x_continuous(NULL, breaks = 0:7 * 100) +
   coord_cartesian(ylim = 0:1)
 
 p2 <-
@@ -1512,7 +1517,6 @@ p2 <-
   geom_point(aes(color = p < .05),
              alpha = 1/2, size = 2/3, show.legend = F) +
   scale_color_viridis_d(option = "D", end = .75) +
-  scale_x_continuous(NULL, breaks = 0:7 * 100) +
   scale_y_continuous(expression(italic(p)*"-value"), limits = c(0, 1)) 
 
 p3 <-
@@ -1525,7 +1529,6 @@ p3 <-
   annotate(geom = "text", x = 60, y = c(-8, 28), 
            label = c("accept the null", "reject the null"), color = "grey50") +
   scale_color_viridis_d(option = "D", end = .75) +
-  scale_x_continuous(NULL, breaks = 0:7 * 100) +
   scale_y_continuous("log(BF)", limits = c(-10, 30))
 
 p4 <-
@@ -1536,7 +1539,6 @@ p4 <-
                      color = ll > .55 | ul < .45),
                  alpha = 1/2, show.legend = F) +
   scale_color_viridis_d(option = "D", end = .75) +
-  scale_x_continuous(NULL, breaks = 0:7 * 100) +
   scale_y_continuous("95% HDI", limits = c(0, 1))
 
 p5 <-
@@ -1547,10 +1549,11 @@ p5 <-
   geom_point(aes(color = width < .08),
              alpha = 1/2, size = 2/3, show.legend = F) +
   scale_color_viridis_d(option = "D", end = .75) +
-  scale_x_continuous(NULL, breaks = 0:7 * 100) +
   scale_y_continuous("HDI width", limits = c(0, 1))
 
-(p1 / p2 / p3 / p4 / p5) & theme(panel.grid = element_blank())
+(p1 / p2 / p3 / p4 / p5) & 
+  scale_x_continuous(NULL, breaks = 0:7 * 100) &
+  theme(panel.grid = element_blank())
 ```
 
 ### Average behavior of sequential tests.
@@ -1565,7 +1568,7 @@ p5 <-
 >
 > Bayesian power analysis is not affected by intending multiple tests. In Bayesian analysis, the decision is based on the posterior distribution, which is determined by the data in hand, whether actual or simulated, and not by what other tests are intended. In Bayesian analysis, the probability of achieving a goal, that is the power, is determined only by the data-generating process (which includes the stopping rule) and not by the cloud of counterfactual samples (which includes other tests). (p. 393)
 
-For more thoughts on the multiple comparisons issue, check out [this post](https://statmodeling.stat.columbia.edu/2017/06/25/analyze-comparisons-thats-better-looking-max-difference-trying-multiple-comparisons-correction/) from Gelman's blog
+For more thoughts on the multiple comparisons issue, check out [this post](https://statmodeling.stat.columbia.edu/2017/06/25/analyze-comparisons-thats-better-looking-max-difference-trying-multiple-comparisons-correction/) from Gelman's blog.
 
 ### Power: prospective, retrospective, and replication.
 
@@ -1587,7 +1590,7 @@ Though researchers sometimes use retrospective power analyses and are sometimes 
 
 > Conducting a power analysis in advance of collecting data is very important and valuable. Often in real research, a fascinating theory and clever experimental manipulation imply a subtle effect. It can come as a shock to the researcher when power analysis reveals that detecting the subtle effect would take many hundreds of subjects! But the shock of power analysis is far less than the pain of actually running dozens of subjects and finding highly uncertain estimates of the sought-after effect. (p. 395)
 
-For more handy uses of power analyses, keep reading in the text.
+For more handy uses of power analyses, keep reading in the text. For more practice with simulation approaches to Bayesian power analyses with **brms**, check out my blog series on the topic. You might start with the first post, [*Bayesian power analysis: Part I. Prepare to reject* $H_0$ *with simulation*](https://solomonkurz.netlify.com/post/bayesian-power-analysis-part-i/).
 
 ## Reference {-}
 
