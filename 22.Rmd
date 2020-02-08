@@ -65,11 +65,11 @@ bind_rows(d1, d2) %>%
   geom_vline(xintercept = 0, color = "white") +
   geom_text(size = 3) +
   scale_color_viridis_c(end = .9) +
-  coord_equal() +
   labs(x = expression(x[1]),
        y = expression(x[2])) +
-  theme(panel.grid = element_blank(),
-        legend.position = "none") +
+  coord_equal() +
+  theme(legend.position = "none",
+        panel.grid = element_blank()) +
   facet_wrap(~data, ncol = 2)
 ```
 
@@ -97,16 +97,16 @@ Thus even in the case of a very different set of possible outcomes $S^\text{very
 Getting more applied, here's a tibble presentation of Kruschke's commute example with three modes of transportation.
 
 ```{r}
-tibble(mode         = c("walking", "bicycling", "bussing"),
-       preference   = 3:1) %>% 
+tibble(mode       = c("walking", "bicycling", "bussing"),
+       preference = 3:1) %>% 
   mutate(`chance %` = (100 * preference / sum(preference)) %>% round(digits = 1))
 ```
 
 Sticking with the example, if we take bicycling out of the picture, the `preference` values remain, but the `chance %` values change.
 
 ```{r}
-tibble(mode         = c("walking", "bussing"),
-       preference   = c(3, 1)) %>% 
+tibble(mode       = c("walking", "bussing"),
+       preference = c(3, 1)) %>% 
   mutate(`chance %` = 100 * preference / sum(preference))
 ```
 
@@ -149,8 +149,8 @@ bind_rows(d3, d4) %>%
   coord_equal() +
   labs(x = expression(x[1]),
        y = expression(x[2])) +
-  theme(panel.grid = element_blank(),
-        legend.position = "none") +
+  theme(legend.position = "none",
+        panel.grid = element_blank()) +
   facet_wrap(~data, ncol = 2)
 ```
 
@@ -197,27 +197,21 @@ d1 %>%
 
 This will make it easier to set the priors. Here we'll just use the rather wide priors Kruschke indicated on page 662.
 
-```{r, echo = F, warning = F, message = F}
-# save("fit1", file = "/Users/solomon/Dropbox/Recoding Doing Bayesian Data Analysis/fits/22_fit1.rda")
-# rm(fit1)
-
-load("/Users/solomon/Dropbox/Recoding Doing Bayesian Data Analysis/fits/22_fit1.rda")
-```
-
-```{r, eval = F}
-fit1 <-
+```{r fit22.1}
+fit22.1 <-
   brm(data = d1, 
       family = categorical(link = logit),
-      Y ~ 0 + intercept + X1 + X2,
+      Y ~ 0 + Intercept + X1 + X2,
       prior(normal(0, 20), class = b),
       iter = 2000, warmup = 1000, cores = 4, chains = 4,
-      seed = 22)
+      seed = 22,
+      file = "fits/fit22.01")
 ```
 
 Since it's the default, we didn't have to include the `(link = logit)` bit in the `family` argument. I'm just being explicit for the sake of pedagogy. Take a look at the parameter summary.
 
 ```{r}
-print(fit1)
+print(fit22.1)
 ```
 
 As indicated in the formulas, above, we get posteriors for each level of `Y`, except for `Y == 1`. That serves as the reference category. The values for $\beta_{i, k = 1}$ are all fixed at $0$.
@@ -228,22 +222,22 @@ Here's how we might make the histograms in Figure 22.5.
 library(tidybayes)
 
 # extract the posterior draws
-post <- posterior_samples(fit1)
+post <- posterior_samples(fit22.1)
 
 # wrangle
 post %>% 
   pivot_longer(-lp__) %>% 
-  mutate(name      = str_remove(name, "b_")) %>% 
+  mutate(name = str_remove(name, "b_")) %>% 
   mutate(lambda    = str_extract(name, "[2-4]+") %>% str_c("lambda==", .),
-         parameter = if_else(str_detect(name, "intercept"), "beta[0]",
+         parameter = if_else(str_detect(name, "Intercept"), "beta[0]",
                              if_else(str_detect(name, "X1"), "beta[1]", "beta[2]"))) %>% 
   
   # plot
-  ggplot(aes(x = value)) +
-  geom_histogram(color = "grey92", fill = "grey67",
-                 size = .2, bins = 60) +
-  stat_pointintervalh(aes(y = 0),
-                      point_interval = mode_hdi, .width = .95, size = 1) +
+  ggplot(aes(x = value, y = 0)) +
+  stat_histintervalh(point_interval = mode_hdi, .width = .95,
+                     fill = "grey67", slab_color = "grey92",
+                     breaks = 30, slab_size = .25, outline_bars = T,
+                     normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab("marginal posterior") +
   theme(panel.grid = element_blank()) +
@@ -255,13 +249,13 @@ Because the $\beta$ values for when $\lambda = 1$ are all fixed to 0, we left th
 ```{r}
 post %>% 
   pivot_longer(-lp__) %>% 
-  mutate(name      = str_remove(name, "b_")) %>% 
+  mutate(name = str_remove(name, "b_")) %>% 
   mutate(lambda    = str_extract(name, "[2-4]+") %>% str_c("lambda[", ., "]"),
-         parameter = if_else(str_detect(name, "intercept"), "beta[0]",
+         parameter = if_else(str_detect(name, "Intercept"), "beta[0]",
                              if_else(str_detect(name, "X1"), "beta[1]", "beta[2]"))) %>% 
   group_by(lambda, parameter) %>% 
   summarise(mean = mean(value) %>% round(digits = 1)) %>% 
-  pivot_wider(names_from  = parameter,
+  pivot_wider(names_from = parameter,
               values_from = mean)
 ```
 
@@ -275,7 +269,7 @@ Unfortunately, this makes the parameters difficult to interpret directly. Krusch
 nd <- crossing(X1 = seq(from = -2, to = 2, length.out = 50),
                X2 = seq(from = -2, to = 2, length.out = 50))
 
-fitted(fit1,
+fitted(fit22.1,
        newdata = nd) %>% 
   as_tibble() %>% 
   select(contains("Estimate")) %>% 
@@ -317,7 +311,7 @@ sessionInfo()
 
 ```{r, message = F, echo = F}
 # remove the objects
-rm(d1, d2, d3, d4, fit1, post, nd)
+rm(d1, d2, d3, d4, fit22.1, post, nd)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
