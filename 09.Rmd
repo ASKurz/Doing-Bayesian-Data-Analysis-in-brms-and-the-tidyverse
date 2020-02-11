@@ -1186,7 +1186,7 @@ But anyway, we'll be doing logistic regression using the logit link. Kruschke wi
 
 The next new part of our syntax is `(1 | s)`. As in the popular frequentist [**lme4** package](https://cran.r-project.org/web/packages/lme4/index.html), you specify random effects or group-level parameters with the `(|)` syntax in **brms**. On the left side of the `|`, you tell **brms** what parameters you'd like to make random (i.e., vary by group). On the right side of the `|`, you tell **brms** what variable you want to group the parameters by. In our case, we want the intercepts to vary over the grouping variable `s`.
 
-```{r}
+```{r fit9.1}
 fit9.1 <-
   brm(data = my_data,
       family = bernoulli(link = logit),
@@ -1268,7 +1268,8 @@ post_small %>%
   ggplot(aes(x = value, y = 0)) +
   stat_histintervalh(point_interval = mode_hdi, .width = .95,
                      fill = "grey67", slab_color = "grey92",
-                     breaks = 40, slab_size = .25, outline_bars = T) +
+                     breaks = 40, slab_size = .25, outline_bars = T,
+                     normalize = "panels") +
   xlab(NULL) +
   facet_wrap(~key, scales = "free", ncol = 3)
 ```
@@ -1437,7 +1438,7 @@ It appears that as $\sigma$ goes lower than 1.25, the prior becomes increasingly
 
 Next, Kruschke examined the prior distribution. There are a few ways to do this. The one we'll explore involved adding the `sample_prior = "only"` argument to the `brm()` function. When you do so, the results of the model are just the prior. That is, `brm()` leaves out the likelihood. This returns a bunch of samples from the prior predictive distribution.
 
-```{r, warning = F}
+```{r fit9.1_prior}
 fit9.1_prior <-
   brm(data = my_data,
       family = bernoulli(link = logit),
@@ -1472,7 +1473,6 @@ prior_samples <-
 
 head(prior_samples)
 ```
-
 
 Now we can use our `prior_samples` object to make the diagonal of the lower grid of Figure 9.11.
 
@@ -1655,7 +1655,7 @@ As these data are aggregated, we'll fit with an aggregated binomial model. This 
 
 Also note the `(1 | PriPos) + (1 | PriPos:Player)` syntax. In this model, we have two grouping factors, `PriPos` and `Player`. Thus we have two `(|)` arguments. But since players are themselves nested within positions, we have encoded that nesting with the `(1 | PriPos:Player)` syntax. For more on this style of syntax, see [Kristoffer Magnusson's handy post](https://rpsychologist.com/r-guide-longitudinal-lme-lmer#different-level-3-variance-covariance-matrix). Since **brms** syntax is based on that from the earlier **nlme** and **lme4** packages, the basic syntax rules apply. Bürkner, of course, also covers these topics in the `brmsformula` subsection of his [**brms** reference manual](https://cran.r-project.org/web/packages/brms/brms.pdf).
 
-```{r}
+```{r fit9.2}
 fit9.2 <-
   brm(data = my_data,
       family = binomial(link = logit),
