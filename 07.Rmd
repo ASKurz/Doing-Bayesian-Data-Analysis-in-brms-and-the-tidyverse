@@ -108,7 +108,8 @@ d %>%
   ggplot(aes(x = theta, y = 0)) +
   stat_histintervalh(point_interval = mode_hdi, .width = .95,
                      fill = "grey67", slab_color = "grey92",
-                     breaks = 30, slab_size = .25, outline_bars = T) +
+                     breaks = 30, slab_size = .25, outline_bars = T,
+                     normalize = "panels") +
   scale_x_continuous(expression(theta), limits = c(0, 1)) +
   scale_y_continuous(NULL, breaks = NULL) +
   theme(panel.grid = element_blank()) +
@@ -117,7 +118,7 @@ d %>%
 
 If we want the exact values for the mode and 95% HDIs, we can use the `tidybayes::mode_hdi()` function.
 
-```{r, warning = F, message = F}
+```{r}
 d %>% 
   group_by(key) %>% 
   mode_hdi(theta)
@@ -454,7 +455,8 @@ d %>%
   ggplot(aes(x = accepted_traj, y = 0)) +
   stat_histintervalh(point_interval = mode_hdi, .width = .95,
                      fill = "grey67", slab_color = "grey92",
-                     breaks = 40, slab_size = .25, outline_bars = T) +
+                     breaks = 40, slab_size = .25, outline_bars = T,
+                     normalize = "panels") +
   scale_x_continuous(expression(theta), breaks = 0:5 * 0.2) +
   scale_y_continuous(NULL, breaks = NULL) +
   theme(panel.grid = element_blank()) +
@@ -683,7 +685,7 @@ model_2 <- bf(z2 | trials(n2) ~ 1)
 
 Before we fit, we'll have to address a technicality. The **brms** package does allow for multivariate Bernoulli models. However, it does not support such models with different numbers of trials across the variables. Since our first variable is of 8 trials and the second is of 7, **brms** will not support this model using the Bernoulli likelihood. However, we can fit the model in **brms** as an aggregated binomial model. The main difficulty is that the regularizing `beta(2, 2)` prior won't make sense, here. So we'll opt for the regularizing `normal(0, 1)`, instead.
 
-```{r 07_fit1, cache = T, warning = F, message = F, results = 'hide'}
+```{r fit7.1}
 fit7.1 <-
   brm(data = d, 
       family = binomial(),
@@ -803,18 +805,7 @@ d <- tibble(y = rep(0:1, times = c(n - z, z)))
 
 Here we fit the model. Note how since we're just univariate, it's easy to switch back to directly modeling with the Bernoulli likelihood.
 
-```{r, echo = F, warning = F, message = F}
-# I don't know why, but bookdown kept throwing errors from the chunk below when
-# I tried executing `bookdown::publish_book()`.
-# this was a quick solution
-
-# save("fit2", file = "fits/fit2.rda")
-# rm(fit2)
-
-load("fits/fit2.rda")
-```
-
-```{r, eval = F}
+```{r fit7.2}
 fit7.2 <-
   brm(data = d, 
       family = bernoulli(link = identity),
@@ -830,9 +821,9 @@ On page 179, Kruschke discussed *burn-in* steps within the Gibbs framework:
 
 > The preliminary steps, during which the chain moves from its unrepresentative initial value to the modal region of the posterior, is called the *burn-in* period. For realistic applications, it is routine to apply a burn-in period of several hundred to several thousand steps.
 
-For each HMC chain, the first $n$ iterations are warmups. In this example, $n = 500$ (i.e., `warmup = 500`). Within the Stan-HMC paradigm, [warmups are somewhat analogous to but not synonymous with burn-in iterations](https://andrewgelman.com/2017/12/15/burn-vs-warm-iterative-simulation-algorithms/) as done by the Gibbs sampling in JAGS. But HMC warmups are like Gibbs burn-ins in that both are discarded and not used to describe the posterior. For more on warmup, check out McElreath's lecture, [starting here](https://www.youtube.com/watch?v=13mEekRdOcQ&t=75s&frags=pl%2Cwn) or, for more detail, the [*HMC Algorithm Parameters* section of the *Stan Reference Manual*, version 2.20](https://mc-stan.org/docs/2_20/reference-manual/hmc-algorithm-parameters.html). 
+For each HMC chain, the first $n$ iterations are calles "warmups." In this example, $n = 500$ (i.e., `warmup = 500`). Within the Stan-HMC paradigm, [warmups are somewhat analogous to but not synonymous with burn-in iterations](https://andrewgelman.com/2017/12/15/burn-vs-warm-iterative-simulation-algorithms/) as done by the Gibbs sampling in JAGS. But HMC warmups are like Gibbs burn-ins in that both are discarded and not used to describe the posterior. For more on warmup, check out McElreath's lecture, [starting here](https://www.youtube.com/watch?v=13mEekRdOcQ&t=75s&frags=pl%2Cwn) or, for more detail, the [*HMC Algorithm Parameters* section (15.2) of the *Stan Reference Manual*, version 2.22](https://mc-stan.org/docs/2_22/reference-manual/hmc-algorithm-parameters.html). 
 
-It appears that the upshot of all this is that many of the packages in the Stan ecosystem don't make it easy to extract the warmup values. For example, the `brms::plot()` function excludes them from the trace plot without the option to include them.
+It appears that the upshot of all this is some of the packages in the Stan ecosystem don't make it easy to extract the warmup values. For example, the `brms::plot()` function excludes them from the trace plot without the option to include them.
 
 ```{r, fig.width = 8, fig.height = 1.25}
 plot(fit7.2)
@@ -863,15 +854,10 @@ The [**bayesplot** package](https://github.com/stan-dev/bayesplot) makes it easi
 library(bayesplot)
 ```
 
-```{r, echo = F}
-theme_set(theme_grey())
-```
-
 We'll reproduce the upper left panel with `mcmc_trace()`.
 
 ```{r, fig.width = 6, fig.height = 2, warning = F}
-mcmc_trace(warmups, pars = "b_Intercept") +
-  theme(panel.grid = element_blank())
+mcmc_trace(warmups, pars = "b_Intercept")
 ```
 
 As an alternative, we can also extract the warmup draws from a `brm()` fit with the [**ggmcmc** package](https://cran.rstudio.com/package=ggmcmc). 
@@ -899,9 +885,8 @@ ggs(fit7.2) %>%
 
 It appears our HMC warmup iterations found the posterior quite quickly. Here's the autocorrelation plot.
 
-```{r, fig.width = 4, fig.height = 4, message = F, warning = F}
-mcmc_acf(warmups, pars = "b_Intercept", lags = 25) +
-  theme(panel.grid = element_blank())
+```{r, fig.width = 4, fig.height = 4}
+mcmc_acf(warmups, pars = "b_Intercept", lags = 25)
 ```
 
 Our autocorrelation plots indicate substantially lower autocorrelations yielded by HMC as implemented by Stan than what Kruschke generated with the MH algorithm. This is one of the reasons folks using HMC tend to use fewer iterations than those using MH or Gibbs.
@@ -926,36 +911,32 @@ mcmc_acf(warmups)$data %>%
 
 Here are the overlaid densities. 
 
-```{r, fig.width = 4, fig.height = 2, warning = F}
-mcmc_dens_overlay(warmups, pars = c("b_Intercept")) +
-  theme(panel.grid = element_blank())
+```{r, fig.width = 4, fig.height = 2}
+mcmc_dens_overlay(warmups, pars = c("b_Intercept"))
 ```
 
 The densities aren't great, but they still appear nicer than those in for the burn-in iterations in the text. With our warmups in their current state, I'm not aware how we might conveniently make a shrink factor plot, as seen in the lower left of Figure 7.10. So it goes...
 
 Figure 7.11 examined the post-burn-in iterations. We'll follow suit with our post-warmup iterations.
 
-```{r, fig.width = 6, fig.height = 2, message = F, warning = F}
+```{r, fig.width = 6, fig.height = 2}
 post <- posterior_samples(fit7.2, add_chain = T)
 
-mcmc_trace(post, pars = "b_Intercept") +
-  theme(panel.grid = element_blank())
+mcmc_trace(post, pars = "b_Intercept")
 ```
 
 The autocorrelation plots:
 
-```{r, fig.width = 4, fig.height = 4, message = F, warning = F}
-mcmc_acf(post, pars = "b_Intercept", lags = 40) +
-  theme(panel.grid = element_blank())
+```{r, fig.width = 4, fig.height = 4}
+mcmc_acf(post, pars = "b_Intercept", lags = 40)
 ```
 
 As with the warmups, above, the post-warmup autocorrelation plots indicate substantially lower autocorrelations yielded by HMC as implemented by Stan than what Kruschke generated with the MH algorithm. This is one of the reasons folks using HMC tend to use fewer iterations than those using MH or Gibbs.
 
 Here are the overlaid densities.
 
-```{r, fig.width = 4, fig.height = 2, message = F, warning = F}
-mcmc_dens_overlay(post, pars = c("b_Intercept")) +
-  theme(panel.grid = element_blank())
+```{r, fig.width = 4, fig.height = 2}
+mcmc_dens_overlay(post, pars = c("b_Intercept"))
 ```
 
 And now that we're focusing on the post-warmup iterations, we can make a shrink factor plot. We'll do so with the `coda::gelman.plot()` function. But you can’t just dump your `brm()` fit object into `coda::gelman.plot()`. It's the wrong object type. However, **brms** offers the `as.mcmc()` function which will convert `brm()` objects for use in coda package functions.
@@ -968,13 +949,13 @@ fit7.2_c %>% glimpse()
 
 With our freshly-converted `fit2_c` object in hand, we’re ready to plot.
 
-```{r, fig.width = 4, fig.height = 3.25, message = F, warning = F}
+```{r, fig.width = 4, fig.height = 3.25}
 coda::gelman.plot(fit7.2_c[, "b_Intercept", ])
 ```
 
 Looks great. As Kruschke explained on page 181, that plot is based on the potential scale reduction factor, or $\hat R$ as it's typically referred to in the Stan ecosystem. Happily, **brms** reports the $\hat R$ values for the major model parameters using `print()` or `summary()`.
 
-```{r, warning = F}
+```{r}
 print(fit7.2)
 ```
 
@@ -982,7 +963,7 @@ Instead of a running value, you get a single statistic in the 'Rhat' column.
 
 On page 181, Kruschke discussed how his overlaid density plots include the HDIs, by chain. The convenience functions from **brms** and **bayesplot** don't easily get us there. But we can get those easy enough with a little help `tidybayes::geom_halfeyeh()`.
 
-```{r, fig.width = 5, fig.height = 2.75, message = F}
+```{r, fig.width = 5, fig.height = 2.75}
 post %>% 
   ggplot(aes(x = b_Intercept, y = chain, fill = chain)) +
   geom_halfeyeh(point_interval = mode_hdi,
@@ -1111,8 +1092,7 @@ For our version of the bottom of Figure 7.12, we'll use the `bayesplot::mcmc_acf
 ```{r, fig.width = 4, fig.height = 5}
 mcmc_acf_bar(post,
              pars = "b_Intercept",
-             lags = 20) +
-  theme(panel.grid = element_blank())
+             lags = 20)
 ```
 
 All three rows of our versions for Figure 7.12 indicate in their own way how much lower our autocorrelations were than the ones in the text.
