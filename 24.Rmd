@@ -477,7 +477,7 @@ deflections %>%
 
 If you're curious, here are the precise summary values.
 
-```{r, warning = F}
+```{r}
 deflections %>% 
   mutate(`Blue − Brown @ Black` = `E:Blue H:Black` - `E:Brown H:Black`,
          `Blue − Brown @ Blond` = `E:Blue H:Blond` - `E:Brown H:Blond`) %>% 
@@ -574,7 +574,7 @@ We might plot our $\sigma[x]$ posteriors against our prior to get a sense of how
 ```{r, fig.width = 8, fig.height = 3}
 posterior_samples(fit24.2) %>% 
   select(starts_with("sd")) %>% 
-  # set_names(str_c("expression(sigma", c("*A", "*AB", "*B"), ")")) %>% 
+  # set_names(str_c("expression(sigma", c("*a", "*ab", "*b"), ")")) %>% 
   pivot_longer(everything(),
                names_to = "sd") %>% 
   
@@ -587,9 +587,9 @@ posterior_samples(fit24.2) %>%
   geom_density(aes(fill = sd),
                size = 0, alpha = 1/2) +
   scale_fill_viridis_d(NULL, option = "A", begin = .2, end = .8,
-                       labels = c(expression(sigma[A]),
-                                  expression(sigma[AB]),
-                                  expression(sigma[B])),
+                       labels = c(expression(sigma[a]),
+                                  expression(sigma[ab]),
+                                  expression(sigma[b])),
                        guide = guide_legend(label.hjust = 0)) +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(NULL) +
@@ -665,8 +665,7 @@ deflections %>%
             fill = "white") +
   stat_histintervalh(point_interval = mode_hdi, .width = .95,
                      fill = "grey67", slab_color = "grey92",
-                     breaks = 30, slab_size = .25, outline_bars = T,
-                     normalize = "panels") +
+                     breaks = 30, slab_size = .25, outline_bars = T) +
   scale_y_continuous(NULL, breaks = NULL) +
   coord_cartesian(xlim = c(-.5, 2.5)) +
   theme(panel.grid = element_blank()) +
@@ -694,8 +693,7 @@ deflections %>%
             fill = "white") +
   stat_histintervalh(point_interval = mode_hdi, .width = .95,
                      fill = "grey67", slab_color = "grey92",
-                     breaks = 30, slab_size = .25, outline_bars = T,
-                     normalize = "panels") +
+                     breaks = 30, slab_size = .25, outline_bars = T) +
   scale_y_continuous(NULL, breaks = NULL) +
   coord_cartesian(xlim = c(-.5, 2.5)) +
   theme(panel.grid = element_blank()) +
@@ -728,6 +726,49 @@ model_weights(fit24.2, fit24.3) %>%
 ```
 
 Virtually all the weight went to the interaction model.
+
+Also, if we step back and ask ourselves what the purpose of an omnibus text of an interaction is for in this context, we'd conclude such a test is asking the question *Is* $\sigma_{a \times b}$ *the same as zero?* Let's look again at that posterior from `fit24.2`.
+
+```{r, fig.width = 6, fig.height = 3}
+posterior_samples(fit24.2) %>% 
+  
+  ggplot(aes(x = `sd_a:b__Intercept`, y = 0)) +
+  geom_halfeyeh(.width = c(.5, .95)) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  labs(title = "Does this look the same as zero, to you?",
+       x = expression(sigma[a%*%b])) +
+  theme(panel.grid = element_blank())
+```
+
+Sure, there's some uncertainty in that posterior. Byt that is not zero. We didn’t need an omnibus test or even model comparison via stacking weights to figure that one out.
+
+If you wanted to get fancy with it, we might even do a hierarchical variance decomposition. Here the question is what percentage of the hierarchical variance is attributed to `a`, `b` and their interaction? Recall that **brms** returns those variance parameters in the $\sigma$ metric. So before we can compare them in terms of percentages of the total variance, we have to first have to square them.
+
+```{r}
+post <-
+  posterior_samples(fit24.2) %>% 
+  transmute(`sigma[a]^2`  = sd_a__Intercept^2,
+            `sigma[b]^2`  = sd_b__Intercept^2,
+            `sigma[ab]^2` = `sd_a:b__Intercept`^2) %>% 
+  mutate(`sigma[total]^2` = `sigma[a]^2` + `sigma[b]^2` + `sigma[ab]^2`)
+
+head(post)
+```
+
+Now we just need to divide the individual variance parameters by their total and multiply by 100 to get the percent of variance for each. We'll look at the results in a plot.
+
+```{r, fig.width = 4, fig.height = 2.5}
+post %>% 
+  pivot_longer(-`sigma[total]^2`) %>% 
+  mutate(`% hierarchical variance` = 100 * value / `sigma[total]^2`) %>% 
+  
+  ggplot(aes(x = `% hierarchical variance`, y = name)) +
+  geom_halfeyeh(.width = c(.5, .95)) +
+  scale_y_discrete(NULL, labels = ggplot2:::parse_safe) +
+  theme(panel.grid = element_blank())
+```
+
+Just as each of the variance parameters was estimated with uncertainty, all that uncertainty got propagated into their transformations. Even in the midst of all this uncertainty, it's clear that a good healthy portion of the hierarchical variance is from the interaction. Again, whatever you might think about $a \times b$, it's definitely not zero.
 
 ## ~~Log-linear models for contingency tables~~ Bonus: Alternative parameterization
 
@@ -831,7 +872,7 @@ sessionInfo()
 
 ```{r, echo = F}
 # remove our objects
-rm(lambda, y, d, gamma_a_b_from_omega_sigma, n_x1_level, n_x2_level, n_cell, y_log_mean, y_log_sd, s_r, stanvars, my_data, fit24.1, nd, f, make_deflection, deflections, fit24.2, fit24.3, fit24.4)
+rm(lambda, y, d, gamma_a_b_from_omega_sigma, n_x1_level, n_x2_level, n_cell, y_log_mean, y_log_sd, s_r, stanvars, my_data, fit24.1, nd, f, make_deflection, deflections, fit24.2, fit24.3, post, fit24.4)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
