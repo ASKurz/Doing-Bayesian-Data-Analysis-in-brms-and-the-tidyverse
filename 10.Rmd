@@ -59,7 +59,7 @@ d %>%
   knitr::kable()
 ```
 
-Thus given $\omega_1 = .25$, $\omega_2 = .75$ and $\kappa = 12$, we can describe the bias of the two coin factories as $\text B_1 (3.5, 8.5)$ and $\text B_2 (8.5, 3.5)$. With a little wrangling, we canuse our `d` tibble to make the densities of Figure 10.2.
+Thus given $\omega_1 = .25$, $\omega_2 = .75$ and $\kappa = 12$, we can describe the bias of the two coin factories as $\operatorname{beta} (\theta_{[m = 1]} | 3.5, 8.5)$ and $\operatorname{beta} (\theta_{[m = 2]} | 8.5, 3.5)$. With a little wrangling, we canuse our `d` tibble to make the densities of Figure 10.2.
 
 ```{r, fig.width = 6, fig.height = 2}
 length <- 101
@@ -703,7 +703,7 @@ d %>%
   theme(panel.grid = element_blank())
 ```
 
-As you'd expect with a small-$\nu$ Student's $t$, some of our values are quite distinct from the central clump. If you don't recall, Student's $t$-distribution has three parameters: $\nu$, $\mu$, and $\sigma$. The Gaussian is a special case of Student's $t$ for which $\nu = \infty$. When $\nu$ gets small, the consequence is the distribution allocates more mass in the tails. From a Gaussian perspective, the small-$\nu$ Student's $t$ expects more outliers--though it's a little odd calling them outliers from a small-$\nu$ Student's $t$ perspective.
+As you'd expect with a small-$\nu$ Student's $t$, some of our values are far from the central clump. If you don't recall, Student's $t$-distribution has three parameters: $\nu$, $\mu$, and $\sigma$. The Gaussian is a special case of Student's $t$ for which $\nu = \infty$. As $\nu$ gets small, the distribution allocates more mass in the tails. From a Gaussian perspective, the small-$\nu$ Student's $t$ expects more outliers--though it's a little odd calling them outliers from a small-$\nu$ Student's $t$ perspective.
 
 Let's see how well the Gaussian versus the Student's $t$ likelihoods handle the data. Here we'll use fairly liberal priors.
 
@@ -761,7 +761,7 @@ fit10.4 <- add_criterion(fit10.4, criterion = c("loo", "waic"))
 loo_compare(fit10.3, fit10.4, criterion = "waic")
 ```
 
-Based on the WAIC difference, we hace some support for preferring the Student's $t$, but do notice how wide that `SE` was. We can also compare the models using model weights. Here we'll use the default weighting scheme.
+Based on the WAIC difference, we have some support for preferring the Student's $t$, but do notice how wide that `SE` was. We can also compare the models using model weights. Here we'll use the default weighting scheme.
 
 ```{r, warning = F, message = F}
 model_weights(fit10.3, fit10.4)
@@ -792,7 +792,7 @@ pp_check(fit10.3)
 pp_check(fit10.4)
 ```
 
-The default `pp_check()` setting allows us to compare the density of the data $y$ (i.e., the dark blue) with 10 density’s simulated from the posterior $y_\text{rep}$ (i.e., the light blue). We prefer model that produce $y_\text{rep}$ distributions that resemble $y$. Though the results from both models were similar, the simulated distributions from `fit10.4` mimicked the original data a little more convincingly. To learn more about this approach, check out Gabry's vignette [*Graphical posterior predictive checks using the bayesplot package*](https://cran.r-project.org/web/packages/bayesplot/vignettes/graphical-ppcs.html).
+The default `pp_check()` setting allows us to compare the density of the data $y$ (i.e., the dark blue) with 10 density’s simulated from the posterior $y_\text{rep}$ (i.e., the light blue). We prefer models that produce $y_\text{rep}$ distributions resembling $y$. Though the results from both models were similar, the simulated distributions from `fit10.4` mimicked the original data a little more convincingly. To learn more about this approach to posterior predictive checks, check out Gabry's vignette [*Graphical posterior predictive checks using the bayesplot package*](https://cran.r-project.org/web/packages/bayesplot/vignettes/graphical-ppcs.html).
 
 ## Prediction: Model averaging
 
@@ -811,9 +811,9 @@ The default `pp_check()` setting allows us to compare the density of the data $y
 
 Okay, while the concept of model averaging is of great interest, we aren't going to be able to follow this approach to it within the Stan/**brms** paradigm. This, recall, is because our paradigm doesn't allow for a hierarchical organization of models in the same way JAGS does. However, we can still play the model averaging game with extensions of our model weighting paradigm, above. Before we get into the details,
 
-> recall that there were two models of mints that created the coin, with one mint being tail-biased with mode $\omega = 0.25$ and one mint being head-biased with mode $\omega = 0.75$ The two subpanels in the lower-right illustrate the posterior distributions on $\omega$ within each model, $p(\theta | D, \omega = 0.25)$ and $p(\theta | D, \omega = 0.75)$ The winning model was $\omega = 0.75$, and therefore the predicted value of future data, based on the winning model alone, would use $p(\theta | D, \omega = 0.75)$. (p. 289)
+> recall that there were two models of mints that created the coin, with one mint being tail-biased with mode $\omega = 0.25$ and one mint being head-biased with mode $\omega = 0.75$ The two subpanels in the lower-right [of Figure 10.3] illustrate the posterior distributions on $\omega$ within each model, $p(\theta | D, \omega = 0.25)$ and $p(\theta | D, \omega = 0.75)$ The winning model was $\omega = 0.75$, and therefore the predicted value of future data, based on the winning model alone, would use $p(\theta | D, \omega = 0.75)$. (p. 289)
 
-That is, the posterior for `fit10.1`. 
+Here's the histogram for $p(\theta | D, \omega = 0.75)$, which we generate from our `fit10.1`.
 
 ```{r, fig.width = 3.5, fig.height = 3, warning = F, message = F}
 library(tidybayes)
@@ -851,7 +851,7 @@ pp_a <-
 head(pp_a) 
 ```
 
-We can plot our model-averaged $\theta$ with a little help from good old `tidybayes::stat_pointintervalh()`.
+We can plot our model-averaged $\theta$ with a little help from good old `tidybayes::stat_histintervalh()`.
 
 ```{r, fig.width = 3.5, fig.height = 3}
 pp_a %>% 
@@ -905,7 +905,7 @@ tibble(omega = .5,
   facet_wrap(~model)
 ```
 
-Here's how you might compute the $\alpha$ and $\beta$ values for the corresponding Beta distributions.
+Here's how you might compute the $\alpha$ and $\beta$ values for the corresponding beta distributions.
 
 ```{r}
 tibble(omega = .5,
@@ -1024,7 +1024,7 @@ Another way to express the anything's-possible model is with the Haldane prior, 
 p_d(z, n, a = 500, b = 500) / p_d(z, n, a = .01, b = .01)
 ```
 
-Now we flipped to favoring the must-be-fair model. You might be asking, *Wait, kind of distribution did that Haldane prior produce?* Here we compare it to the Beta(1, 1).
+Now we flipped to favoring the must-be-fair model. You might be asking, *Wait, kind of distribution did that Haldane prior produce?* Here we compare it to the $\operatorname{beta} (1, 1)$.
 
 ```{r, fig.width = 7, fig.height = 3}
 # how granular to you want the theta sequence?
@@ -1033,8 +1033,8 @@ length <- 1e3
 # simulate the data
 tibble(alpha = c(1, .01),
        beta  = c(1, .01),
-       model = factor(c("Uninformative prior, Beta(1, 1)", "Haldane prior, Beta(0.01, 0.01)"),
-                      levels = c("Uninformative prior, Beta(1, 1)", "Haldane prior, Beta(0.01, 0.01)"))) %>%
+       model = factor(c("Uninformative prior, beta(1, 1)", "Haldane prior, beta(0.01, 0.01)"),
+                      levels = c("Uninformative prior, beta(1, 1)", "Haldane prior, beta(0.01, 0.01)"))) %>%
   expand(nesting(alpha, beta, model),
          theta = seq(from = 0, to = 1, length.out = length)) %>% 
   mutate(density = dbeta(theta, 
@@ -1087,7 +1087,7 @@ hdi_of_qbeta <- function(shape1, shape2) {
 }
 ```
 
-Recall that when we combine a $\text{Beta} (\theta | \alpha, \beta)$ prior with the results of a Bernoulli likelihood, we get a posterior defined by $\text{Beta} (\theta | z + \alpha, N - z + \beta)$.
+Recall that when we combine a $\operatorname{beta} (\theta | \alpha, \beta)$ prior with the results of a Bernoulli likelihood, we get a posterior defined by $\operatorname{beta} (\theta | z + \alpha, N - z + \beta)$.
 
 ```{r}
 d <-
@@ -1262,6 +1262,7 @@ p3 <-
 ((p1 + p2 + p3) & 
     scale_x_continuous(breaks = 0:1) &
     ylim(0, 80) &
+    theme_grey() &
     theme(panel.grid = element_blank())) + 
   plot_layout(guides = 'collect')
 ```
