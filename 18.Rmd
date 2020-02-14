@@ -16,7 +16,7 @@ knitr::opts_chunk$set(fig.align = "center")
 
 ## Multiple linear regression
 
-If $y \sim \operatorname{Normal} (\mu, \sigma)$ and $\mu = \beta_0 + \beta_1 x_1 + \beta_2 x_2$, then it's also the case that we can rewrite the formula for $y$ as
+Say we have one criterion $y$ and two predictors, $x_1$ and $x_2$. If $y \sim \operatorname{Normal} (\mu, \sigma)$ and $\mu = \beta_0 + \beta_1 x_1 + \beta_2 x_2$, then it's also the case that we can rewrite the formula for $y$ as
 
 $$y \sim \operatorname{Normal} (\beta_0 + \beta_1 x_1 + \beta_2 x_2, \sigma).$$
 
@@ -100,26 +100,34 @@ d <-
 
 Now we have our simulated data in hand, we're ready for three of the four panels of Figure 18.2.
 
-```{r, fig.width = 3.5, fig.height = 3.25}
-d %>% 
+```{r, fig.width = 6, fig.height = 5.5, warning = F, message = F}
+p1 <-
+  d %>% 
   ggplot(aes(x = x_1, y = y)) +
   geom_point(alpha = 2/3) +
   coord_cartesian(xlim = 0:10,
                   ylim = 0:50)
 
-d %>% 
+p2 <-
+  d %>% 
   ggplot(aes(x = x_2, y = y)) +
   geom_point(alpha = 2/3) +
   coord_cartesian(xlim = 0:10,
                   ylim = 0:50)
 
-d %>% 
+p3 <-
+  d %>% 
   ggplot(aes(x = x_1, y = x_2)) +
   geom_vline(xintercept = seq(from = 0, to = 10, by = .5), color = "grey98") +
   geom_hline(yintercept = seq(from = 0, to = 10, by = .5), color = "grey98") +
   geom_point(alpha = 2/3) +
   coord_cartesian(xlim = 0:10,
                   ylim = 0:10)
+
+# bind them together with patchwork
+library(patchwork)
+
+plot_spacer() + p1 + p2 + p3
 ```
 
 We came pretty close.
@@ -143,8 +151,6 @@ glimpse(my_data)
 Now we have the data, here are three of the four plots.
 
 ```{r, fig.width = 6, fig.height = 6, warning = F, message = F}
-library(patchwork)
-
 p1 <-
   my_data %>% 
   ggplot(aes(x = Spend, y = SATT)) +
@@ -174,9 +180,11 @@ wrap_elements(grid::textGrob('No 3D wireframe plots for us')) +
 
 You can learn more about how we added that title to our plot ensemble [here](https://patchwork.data-imaginist.com/articles/guides/annotation.html) and more about how we added that text in place of a wireframe plot [here](https://patchwork.data-imaginist.com/articles/guides/assembly.html).
 
+> The separate influences of the two predictors could be assessed in this example because the predictors had only mild correlation with each other. There was enough independent variation of the two predictors that their distinct relationships to the outcome variable could be detected. In some situations, however, the predictors are so tightly correlated that their distinct effects are difficult to tease apart. Correlation of predictors causes the estimates of their regression coefficients to trade-off, as we will see when we examine the posterior distribution. (p. 514)
+
 ### The model and implementation.
 
-We'll make a custom function to standardize the criterion and predictor values.
+"As with the model for simple linear regression, the Markov Chain Monte Carlo (MCMC) sampling can be more efficient if the data are mean-centered or standardized" (p. 515). We'll make a custom function to standardize the criterion and predictor values.
 
 ```{r}
 standardize <- function(x) {
@@ -383,8 +391,8 @@ Like we practiced with in the last chapter, the simplest way to do so in **brms*
 
 ```{r}
 nd <-
-  tibble(spend_z      =  1,
-         prcnt_take_z = -1)
+  tibble(prcnt_take_z = -1,
+         spend_z      =  1)
 
 fitted(fit18.1,
        newdata = nd)
@@ -663,7 +671,7 @@ post %>%
 
 Kruschke was right. The posterior distributions are only slightly narrower than the priors for those two. With our combination of data and model, we learned virtually nothing beyond the knowledge we encoded in those priors.
 
-Kruschke mentioned SEM as a possible solution to multicollinearity. **brms** [isn't fully capable of SEM, at the moment](https://github.com/paul-buerkner/brms/issues/304), but its [multivariate syntax](https://cran.r-project.org/web/packages/brms/vignettes/brms_multivariate.html) does allow for [path analysis](http://www.imachordata.com/bayesian-sem-with-brms/) and [IRT models](https://github.com/paul-buerkner/brms/issues/203). However, you can currently fit a variety of Bayesian SEMs with the [**blavaan** package](https://cran.r-project.org/web/packages/blavaan/index.html). I'm not aware of any textbooks highlighting **blavaan**. If you've seen any, [please share](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues).
+Kruschke mentioned SEM as a possible solution to multicollinearity. **brms** [isn't fully capable of SEM, at the moment](https://github.com/paul-buerkner/brms/issues/304), but its [multivariate syntax](https://cran.r-project.org/web/packages/brms/vignettes/brms_multivariate.html) does allow for [path analysis](http://www.imachordata.com/bayesian-sem-with-brms/) and [IRT models](https://github.com/paul-buerkner/brms/issues/203). However, you can currently fit a variety of Bayesian SEMs with the [**blavaan** package](https://cran.r-project.org/web/packages/blavaan/index.html). I'm not aware of any textbooks highlighting **blavaan**. If you know of any, [please share](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues).
 
 ### Informative priors, sparse data, and correlated predictors.
 
@@ -685,15 +693,22 @@ From page 526:
     & = \beta_0 + \beta_1 x_1 + \underbrace{(\beta_2 + \beta_{1 \times 2} x_1)}_{\text{slope of } x_2} x_2.
 \end{align*}
 
-Figure 18.8 is out of our **ggplot2** repertoire.
+Figure 18.8 is out of our **ggplot2** repertoire. Even without it, we can still appreciate Kruschke's overall message that "Great care must be taken when interpreting the coefficients of a model that includes interaction terms ([Braumoeller, 2004](http://investigadores.cide.edu/crow/Clases/MetCuant12/Lectura/Braumoeller%20Interaction%20Terms.pdf)). In particular, low-order terms are especially difficult to interpret when higher-order interactions are present" (p. 526). When in doubt, plot.
 
 ### An example.
+
+Presuming we're still just modeling $\mu$ with two predictors, we can express the formula with the interaction term as
+
+$$
+\mu = \beta_0 + \beta_1+ \beta_2 x_2 + \underbrace{\beta_{1 \times 2}}_{\beta_3} \underbrace{x_2 x_1 }_{x_3}. 
+$$
 
 With **brms**, you can specify an interaction with either the `x_i*x_j` syntax or the `x_i:x_j` syntax. I typically use `x_i:x_j`. It's often the case that you can just make the interaction term right in the model formula. But since we're fitting the model with standardized predictors and then using Kruschke's equations to convert the parameters back to the unstandardized metric, it seems easier to make the interaction term in the data, first.
 
 ```{r}
 my_data <-
   my_data %>% 
+  # make x_3
   mutate(interaction   = Spend * PrcntTake) %>% 
   mutate(interaction_z = standardize(interaction))
 ```
@@ -783,12 +798,13 @@ post %>%
 
 "To properly understand the credible slopes on the two predictors, we must consider the credible slopes on each predictor as a function of the value of the other predictor" (p. 528). This is our motivation for the middle panel of Figure 18.9. To make it, we'll need to `expand()` our `post`, wrangle a bit, and plot with `geom_pointrange()`.
 
-```{r, fig.width = 6, fig.height = 2.5, warning = F, message = F}
+```{r}
 # this will come in handy in `expand()`
 bounds <- range(my_data$PrcntTake)
 
-# wrangle
-post %>% 
+p1 <-
+  # wrangle
+  post %>% 
   expand(nesting(Spend, `Spend : Percent Take`),
          PrcntTake = seq(from = bounds[1], to = bounds[2], length.out = 20)) %>% 
   mutate(slope = Spend + `Spend : Percent Take` * PrcntTake) %>% 
@@ -805,14 +821,15 @@ post %>%
        y = "Slope on spend")
 ```
 
-That worked like a charm. We'll follow the same basic order of operations for the final panel.
+We'll follow the same basic order of operations for the final panel and then bind them together with **patchwork**.
 
-```{r, fig.width = 6, fig.height = 2.5, warning = F, message = F}
+```{r, fig.width = 6, fig.height = 5, warning = F, message = F}
 # this will come in handy in `expand()`
 bounds <- range(my_data$Spend)
 
-# wrangle
-post %>% 
+p2 <-
+  # wrangle
+  post %>% 
   expand(nesting(`Percent Take`, `Spend : Percent Take`),
          Spend = seq(from = bounds[1], to = bounds[2], length.out = 20)) %>% 
   mutate(slope = `Percent Take` + `Spend : Percent Take` * Spend) %>% 
@@ -826,6 +843,8 @@ post %>%
   labs(title = expression("Slope on prcnt_take is "~beta[2]+beta[3]%.%spend),
        x = "Value of spend",
        y = "Slope on prcnt_take")
+
+p1 / p2
 ```
 
 Kruschke outlined all this in the opening paragraphs of page 530. His parting words of this subsection warrant repeating: "if you include an interaction term, you cannot ignore it even if its marginal posterior distribution includes zero" (p. 530).
@@ -900,7 +919,7 @@ make_beta_0 <-
 }
 ```
 
-Sigh, our poor `make_beta_0()` and `make_beta_1()` code is getting obscene. I don't have the energy to think of how to wrap this into a simpler function. But someone probably should. If that ends up as you, [do share your code](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues).
+*Sigh*, our poor `make_beta_0()` and `make_beta_1()` code is getting obscene. I don't have the energy to think of how to wrap this into a simpler function. Someone probably should. If that ends up as you, [do share your code](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues).
 
 ```{r}
 sd_x_1  <- sd(my_data$Spend)
