@@ -15,7 +15,7 @@ options(width = 100)
 
 > In the context of the generalized linear model (GLM) introduced in the previous chapter, this chapter's situation involves the most trivial cases of the linear core of the GLM, as indicated in the left cells of Table 15.1 (p. 434), with a link function that is the identity along with a normal distribution for describing noise in the data, as indicated in the first row of Table 15.2 (p. 443). We will explore options for the prior distribution on parameters of the normal distribution, and methods for Bayesian estimation of the parameters. We will also consider alternative noise distributions for describing data that have outliers. (pp. 449--450)
 
-Although I agree this chapter covers the "most trivial cases of the linear core of the GLM", Kruschke's underselling himself a bit, here. If he only stuck with the "most trivial" cases, he would have only demonstrated the Gaussian likelihood. But Kruschke went well beyond and introduced robust Student's $t$ modeling. It's a great testament to Kruchke's rigorous approach that he did so right away. IMO, we could use more robust Student's $t$ models in the social sciences. So heed well, friends.
+Although I agree this chapter covers the "most trivial cases of the linear core of the GLM", Kruschke's underselling himself a bit, here. In addition to "trivial" Gaussian models, Kruschke went well beyond and introduced robust Student's $t$ modeling. It's a testament to Kruschke's rigorous approach that he did so so early in the text. IMO, we could use more robust Student's $t$ models in the social sciences. So heed well, friends.
 
 ## Estimating the mean and standard deviation of a normal distribution
 
@@ -33,9 +33,9 @@ library(tidyverse)
 sequence_length <- 100
 
 d <-
-  crossing(mu    = c(87.8, 100, 112),
-           sigma = c(7.35, 12.2, 18.4),
-           y     = seq(from = 50, to = 150, length.out = sequence_length)) %>% 
+  crossing(y     = seq(from = 50, to = 150, length.out = sequence_length),
+           mu    = c(87.8, 100, 112),
+           sigma = c(7.35, 12.2, 18.4)) %>% 
   mutate(density = dnorm(y, mean = mu, sd = sigma),
          mu      = factor(mu, labels = str_c("mu==", c(87.8, 100, 112))),
          sigma   = factor(sigma, labels = str_c("sigma==", c(7.35, 12.2, 18.4))))
@@ -127,7 +127,7 @@ stanvars <-
   stanvar(sd_y,   name = "sd_y")
 ```
 
-It's been a while since we used the `stanvar()` function, so we should review. Though we've saved that as `stanvars`, you could name it whatever you want. But the trick is to them tell `brms::brm()` about your values in a `stanvars` statement. 
+It's been a while since we used the `stanvar()` function, so we should review. Though we've saved that as `stanvars`, you could name it whatever you want. The main trick is to them tell `brms::brm()` about your values in a `stanvars` statement. 
 
 Kruschke mentioned that the "the conventional noncommittal gamma prior [for the precision] has shape and rate constants that are close to zero, such as Sh = 0.01 and R = 0.01" (p. 456). Here's what that looks like.
 
@@ -143,7 +143,7 @@ tibble(x   = seq(from = 0, to = 12, by = .05)) %>%
   coord_cartesian(xlim = 0:10)
 ```
 
-The thing is, with **brms** we typically estimate $\sigma$ rather than precision. Though gamma is also a feasible prior distribution for $\sigma$, we won't use it here. But we won't be using Kruschke's uniform prior distribution, either. The Stan team [discourages uniform priors for variance parameters](https://github.com/stan-dev/stan/wiki/Prior-Choice-Recommendations), such as our $\sigma$. I'm not going to get into the details of why, but you've got that hyperlink above and the good old [Stan User's Guide](https://mc-stan.org/users/documentation/) if you'd like to dive deeper. 
+The thing is, with **brms** we typically estimate $\sigma$ rather than precision. Though gamma is also a feasible prior distribution for $\sigma$, we won't use it here. But we won't be using Kruschke's uniform prior, either. The Stan team [discourages uniform priors for variance parameters](https://github.com/stan-dev/stan/wiki/Prior-Choice-Recommendations), such as our $\sigma$. I'm not going to get into the details of why, but you've got that hyperlink above and the good old [Stan User's Guide](https://mc-stan.org/users/documentation/) if you'd like to dive deeper. 
 
 Here we'll use the half normal. By "half normal," we mean that the mean is zero and it's bounded from zero to positive infinity--no negative $\sigma$ values for us! By the "half normal," we also mean to suggest that smaller values are more credible than those approaching infinity. When working with unstandardized data, an easy default for a weakly-regularizing half normal is to set the $\sigma$ hyperparameter (i.e., *S*) to the standard deviation of the criterion variable (i.e., $s_Y$). Here's that that looks like for this example.
 
@@ -159,7 +159,7 @@ tibble(x   = seq(from = 0, to = 110, by = .1)) %>%
   coord_cartesian(xlim = 0:100)
 ```
 
-This prior isn't quite as non-committal as the conventional gamma prior for precision. It discourages the HMC algorithm from exploring $\sigma$ values much larger than two or three times the standard deviation in the data themselves. In practice, it will have a minimal influence on the posterior. If you'd like to make it even less committal, try setting that $\sigma$ hyperparameter to some multiple of $s_Y$ like $2 \times s_Y$ or $10 \times s_Y$. Compare this to Kruschke's recommendations for setting a noncommittal uniform prior for $\sigma$. When using the uniform distribution, $\operatorname{uniform} (L, H)$, 
+This prior isn't quite as non-committal as the conventional gamma prior for precision. It discourages the HMC algorithm from exploring $\sigma$ values much larger than two or three times the standard deviation in the data themselves. In practice, I've found it to have a minimal influence on the posterior. If you'd like to make it even less committal, try setting that $\sigma$ hyperparameter to some multiple of $s_Y$ like $2 \times s_Y$ or $10 \times s_Y$. Compare this to Kruschke's recommendations for setting a noncommittal uniform prior for $\sigma$. When using the uniform distribution, $\operatorname{uniform} (L, H)$, 
 
 > we will set the high value $H$ of the uniform prior on $\sigma$ to a huge multiple of the standard deviation in the data, and set the low value $L$ to a tiny fraction of the standard deviation in the data. Again, this means that the prior is vague no matter what the scale of the data happens to be. (p. 455)
 
@@ -209,7 +209,7 @@ fit16.1 <-
       file = "fits/fit16.01")
 ```
 
-To be more explicit, the `stanvars = stanvars` argument at the bottom of our code is what allowed us to define our intercept prior as `normal(mean_y, sd_y * 100)` instead of requiring us to type in the parameters as `normal(107.8413, 25.4452 * 100)`. Same basic point goes for our $\sigma$ prior.
+To be more explicit, the `stanvars = stanvars` argument at the bottom of our code is what allowed us to define our intercept prior as `normal(mean_y, sd_y * 100)` instead of requiring us to type in the parameters as `normal(107.8413, 25.4452 * 100)`. The same basic point goes for our $\sigma$ prior.
 
 Also, notice our prior code for $\sigma$, `prior(normal(0, sd_y), class = sigma)`. Nowhere in there did we actually say we wanted a half normal as opposed to a typical normal. That's because the **brms** default is to set the lower bound for priors of `class = sigma` to zero. There's no need for us to fiddle with it.
 
@@ -300,7 +300,7 @@ By default, `head()` returned six rows, each one corresponding to the credible p
 5. `Score` ~ $N$(`r round(post[5, 1], 3)`, `r round(post[5, 2], 3)`)
 6. `Score` ~ $N$(`r round(post[6, 1], 3)`, `r round(post[6, 2], 3)`)
 
-Each row of `post` yields a full model equation credibly describing the data--or at least as credibly as we can within the limits of the model. We can give voice to a subset of these credible distributions with our version of the upper right panel of Figure 16.3.
+Each row of `post` yields a full model equation with which we might credibly describe the data--or at least as credibly as we can within the limits of the model. We can give voice to a subset of these credible distributions with our version of the upper right panel of Figure 16.3.
 
 Before I show that plotting code, it might make sense to slow down on the preparatory data wrangling steps. There are several ways to overlay multiple posterior predictive density lines like those in our upcoming plots. We'll practice a few over the next few chapters. For the method we'll use in this chapter, it's handy to first determine how many you'd like. Here we'll follow Kruschke and choose 63, which we'll save as `n_lines`.
 
@@ -372,7 +372,7 @@ crossing(nu = c(Inf, 4, 2, 1),
   ggplot(aes(x = y, y = density, group = nu, color = nu)) +
   geom_line() +
   scale_color_viridis_d(expression(paste(italic(t)[nu])), option = "B", direction = 1, end = .8) +
-  labs(y = "p(y)") +
+  ylab("p(y)") +
   coord_cartesian(xlim = -6:6) +
   theme(legend.background = element_rect(fill = "grey92"),
         legend.key = element_rect(color = "transparent", fill = "transparent"),
@@ -401,7 +401,7 @@ tibble(y = seq(from = -10, to = 20, length.out = 1e3)) %>%
   coord_cartesian(xlim = -5:15)
 ```
 
-I'm now aware that we have the data for the bottom panel of Figure 16.5. However, we can simulate similar data with the `rt.scaled()` function from the [**metRology** package](https://sourceforge.net/projects/metrology/).
+I'm not aware that we have the data for the bottom panel of Figure 16.5. However, we can simulate similar data with the `rt.scaled()` function from the [**metRology** package](https://sourceforge.net/projects/metrology/).
 
 ```{r, fig.width = 6, fig.height = 3}
 set.seed(145)
@@ -457,8 +457,8 @@ Speaking of which, here's the code for the left column for Figure 16.6.
 ```{r}
 # the primary data
 d <-
-  crossing(nu = c(Inf, 5, 2, 1),
-           y  = seq(from = -8, to = 8, length.out = 1e3)) %>%
+  crossing(y  = seq(from = -8, to = 8, length.out = 1e3),
+           nu = c(Inf, 5, 2, 1)) %>%
   mutate(label = str_c("nu == ", nu) %>% 
            factor(., levels = c("nu == Inf", "nu == 5", "nu == 2", "nu == 1")))
 
@@ -475,8 +475,8 @@ p1 <-
   # note how this function has its own data
   geom_text(data = tibble(
     y     = 0,
-    label = factor(c("nu == Inf", "nu == 5", "nu == 2", "nu == 1")),
-    text  = c("68%", "64%", "58%", "50%")),
+    text  = c("68%", "64%", "58%", "50%"),
+    label = factor(c("nu == Inf", "nu == 5", "nu == 2", "nu == 1"))),
     aes(y = .175, label = text),
     color = "grey92") +
   scale_y_continuous("p(y)", breaks = c(0, .2, .4)) +
@@ -546,7 +546,7 @@ tibble(y = rexp(n = n_draws, rate = 1 / mu)) %>%
 
 The simulation showed that when we define the exponential rate as 1/29 and use the typical boundary at 0, the mean of our samples converges to 29. But when we only consider the samples of 1 or greater, the mean converges to 30. Thus, our exponential(1/29) prior with a boundary at 1 is how we get a shifted exponential distribution when we use it as our prior for $\nu$ in **brms**. Just make sure to remember that if you want the mean to be 30, you'll need to specify the rate of 1/29.
 
-Also, Stan will bark if you try to enter the `1/29` into the exponential prior:
+Also, Stan will bark if you simply try to set that exponential prior with the code `prior(exponential(1/29), class = nu)`:
 
 > DIAGNOSTIC(S) FROM PARSER:
 Info: integer division implicitly rounds to integer. Found int division: 1 / 29
@@ -746,6 +746,21 @@ fixef(fit16.1)
 fixef(fit16.2)
 ```
 
+Here that is in a coefficient plot using `tidybayes::stat_intervalh()`.
+
+```{r, fig.width = 6, fig.height = 1.25}
+bind_rows(posterior_samples(fit16.1) %>% select(b_Intercept),
+          posterior_samples(fit16.2) %>% select(b_Intercept)) %>% 
+  mutate(fit = rep(c("fit16.1", "fit16.2"), each = n() / 2)) %>% 
+  
+  ggplot(aes(x = b_Intercept, y = fit)) +
+  stat_intervalh(point_interval = mode_hdi, .width = c(.5, .8, .95)) +
+  scale_color_grey("HDI", start = 2/3, end = 0, 
+                   labels = c("95%", "80%", "50%")) +
+  ylab(NULL) +
+  theme(legend.key.size = unit(0.45, "cm"))
+```
+
 ### Using the $t$ distribution in Stan.
 
 Kruschke expressed concern about high autocorrelations in the chains of his JAGS model. Here are the results of our Stan/**brms** attempt.
@@ -798,14 +813,14 @@ Just for kicks and giggles, the `pp_check()` offers us a handy way to compare th
 # fit16.1 with Gaus
 set.seed(16)
 p1 <-
-  pp_check(fit16.1, nsamples = 63, type = "ecdf_overlay") + 
+  pp_check(fit16.1, nsamples = n_lines, type = "ecdf_overlay") + 
   labs(subtitle = "fit16.1 with `family = gaussian`") +
   coord_cartesian(xlim = range(my_data$Score)) +
   theme(legend.position = "none")
 
 # fit16.2 with Student's t
 p2 <-
-  pp_check(fit16.2, nsamples = 63, type = "ecdf_overlay") + 
+  pp_check(fit16.2, nsamples = n_lines, type = "ecdf_overlay") + 
   labs(subtitle = "fit16.2 with `family = student`") +
   coord_cartesian(xlim = range(my_data$Score))
 
@@ -996,7 +1011,15 @@ hypothesis(fit16.3,
            "GroupPlacebo - GroupSmartDrug = 0")
 ```
 
-See how our 95% ETIs are both negative and how we have that little `*` in the `Star` column?
+See how our 95% ETIs are both negative and how we have that little `*` in the `Star` column? If you like the visual approach, you can even feed the `hypothesis()` code into `plot()`.
+
+```{r, fig.width = 5, fig.height = 2.5}
+hypothesis(fit16.3,
+           "GroupPlacebo - GroupSmartDrug = 0") %>% 
+  plot()
+```
+
+Back to the text:
 
 > The reason that the $t$ test is less sensitive than the Bayesian estimation in this example is that the $t$ test assumes normality and therefore its estimate of the within-group variances is too large when there are outliers.
 >
