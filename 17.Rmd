@@ -196,7 +196,7 @@ head(d)
 Presuming a data set with a sole standardized predictor `x_z` for a sole standardized criterion `y_z`, the basic **brms** code corresponding to the JAGS code Kruschke showed on page 483 looks like this.
 
 ```{r eval = F}
-fit1 <-
+fit <-
   brm(data = my_data,
       family = student,
       y_z ~ 1 + x_z,
@@ -231,17 +231,12 @@ d <-
 Somewhat analogous to how Kruschke standardized his data within the JAGS code, you could standardize the data within the `brm()` function. That would look something like this.
 
 ```{r eval = F}
-fit1 <-
+fit <-
   brm(data = d %>%  # the standardizing occurs in the next two lines
         mutate(height_z = standardize(height),
                weight_z = standardize(weight)),
       family = student,
-      weight_z ~ 1 + height_z,
-      prior = c(prior(normal(0, 10), class = Intercept),
-                prior(normal(0, 10), class = b),
-                prior(normal(0, 1), class = sigma),
-                prior(exponential(one_over_twentynine), class = nu)),
-      stanvars = stanvar(1/29, name = "one_over_twentynine"))
+      weight_z ~ 1 + height_z)
 ```
 
 But anyway, let's open **brms**.
@@ -293,7 +288,7 @@ where $\zeta_0$ and $\zeta_1$ denote the intercept and slope for the model of th
 
 $$z_{\hat y} = \zeta_0 + \zeta_1 z_x.$$
 
-To implement those equations, we'll first extract the posterior samples. We'll begin with `fit17.1`, the model for which $N = 300$.
+To implement those equations, we'll first extract the posterior samples. We begin with `fit17.1`, the model for which $N = 300$.
 
 ```{r}
 post <- posterior_samples(fit17.1)
@@ -509,9 +504,9 @@ To be clear, we're going to fit the models with Stan/**brms** twice. Above, we u
 
 #### Constants for vague priors.
 
-It's worth repeating a large portion of Kruschke's second paragraph:
+The issues is we want a system where we can readily specify vague priors on our regression models when the data are not standardized. As it turns out,
 
-> A regression slope can take on a maximum value of $\operatorname{SD}_y / \operatorname{SD}_x$ for data that are perfectly correlated. Therefore, the prior on the slope will be given a standard deviation that is large compared to that maximum. The biggest that an intercept could be, for data that are perfectly correlated, is $M_x \operatorname{SD}_y / \operatorname{SD}_x$. Therefore, the prior on the intercept will have a standard deviation that is large compared to that maximum. (p. 487)
+> a regression slope can take on a maximum value of $\operatorname{SD}_y / \operatorname{SD}_x$ for data that are perfectly correlated. Therefore, the prior on the slope will be given a standard deviation that is large compared to that maximum. The biggest that an intercept could be, for data that are perfectly correlated, is $M_x \operatorname{SD}_y / \operatorname{SD}_x$. Therefore, the prior on the intercept will have a standard deviation that is large compared to that maximum. (p. 487)
 
 With that in mind, we'll specify our `stanvars` as follows:
 
@@ -526,7 +521,7 @@ stanvars <-
   stanvar(1/29, name = "one_over_twentynine")
 ```
 
-As in Chapter 16, "set the priors to be extremely broad relative to the data" (p. 487). With our `stanvars` saved, we're ready to fit `fit17.3`.
+As in Chapter 16, "set the priors to be extremely broad relative to the data" (p. 487). With our `stanvars` defined, we're ready to fit `fit17.3`.
 
 ```{r fit17.3}
 fit17.3 <-
@@ -593,14 +588,22 @@ mcmc_acf(posterior_samples(fit17.3), pars = c("b_Intercept", "b_height", "sigma"
 
 Their $N_{eff}/N$ ratios were pretty similar. Both were reasonable. You'd probably want to run a simulation to contrast them with any rigor.
 
-```{r, fig.width = 6, fig.height = 1.5}
-neff_ratio(fit17.1) %>% 
-  mcmc_neff() +
-  yaxis_text(hjust = 0)
+```{r, fig.width = 6, fig.height = 3.25, warning = F, message = F}
+library(patchwork)
 
-neff_ratio(fit17.3) %>% 
+p1 <-
+  neff_ratio(fit17.1) %>% 
   mcmc_neff() +
-  yaxis_text(hjust = 0)
+  yaxis_text(hjust = 0) +
+  ggtitle("fit17.1")
+
+p2 <-
+  neff_ratio(fit17.3) %>% 
+  mcmc_neff() +
+  yaxis_text(hjust = 0) +
+  ggtitle("fit17.3")
+
+p1 / p2 + plot_layout(guide = "collect")
 ```
 
 ### Interpreting the posterior distribution.
@@ -623,7 +626,7 @@ post %>%
   xlab("lbs")
 ```
 
-Looks pretty wide, doesn’t it? Hopefully this isn’t a surprise. Recall that this `post` is from `fit17.2`, the posterior based on the $n = 30$ data. With so few data, most predictions from that model are uncertain. But also, 50 inches is way out of the bounds of the data the model was based on, so we should be uncertain in this range.
+Looks pretty wide, doesn’t it? Hopefully this isn’t a surprise. Recall that this `post` is from `fit17.2`, the posterior based on the $n = 30$ data. With so few cases, most predictions from that model are uncertain. But also, 50 inches is way out of the bounds of the data the model was based on, so we should be uncertain in this range.
 
 Let's practice a second method. With the `brms::fitted()` function, we can specify the desired `height` value into a tibble, which we'll then feed into the `newdata` argument. Fitted will then return the model-implied criterion value for that predictor variable. To warm up, we'll first to it with `fit17.3`, the model based on the untransformed data.
 
@@ -805,7 +808,7 @@ my_data %>%
   facet_wrap(~Subj %>% factor(., levels = 1:25))
 ```
 
-There's some good pedagogy in that method. But it's good to have options and in this case `fitted()` is a simpler option. Here's the preparatory data wrangling step.
+There's some good pedagogy in that method. But I like having options and in this case `fitted()` affords a simpler workflow. Here's the preparatory data wrangling step.
 
 ```{r}
 # how many posterior lines would you like?
@@ -838,7 +841,8 @@ head(f)
 For the second time, here's the top panel of Figure 17.4, this time based off of `fitted()`.
 
 ```{r, fig.width = 4.25, fig.height = 4}
-my_data %>% 
+p1 <-
+  my_data %>% 
   mutate(Subj = Subj %>% as.character()) %>% 
   
   ggplot(aes(x = X, y = Y)) +
@@ -855,6 +859,8 @@ my_data %>%
                   ylim = 30:270) +
   labs(subtitle = eval(substitute(paste("Data from all units with", n_lines, "credible population-level\nregression lines")))) +
   theme(legend.position = "none")
+
+p1
 ```
 
 The whole process is quite similar for the `Subj`-specific lines. There are two main differences. First, we need to specify which `Subj` values we'd like to get `fitted()` points for. That goes into our `nd` tibble. Second, we omit the `re_formula` argument. There are other subtleties, like with the contents of the `bind_cols()` function. But hopefully those are self-evident.
@@ -886,8 +892,9 @@ head(f)
 
 And now for the second time, here's the bottom panel of Figure 17.4, this time based off of `fitted()`.
 
-```{r, fig.width = 7, fig.height = 6}
-my_data %>% 
+```{r, fig.width = 7, fig.height = 10}
+p2 <-
+  my_data %>% 
   ggplot(aes(x = X, y = Y)) +
   geom_line(data = f,
             aes(group = iter),
@@ -901,6 +908,15 @@ my_data %>%
                   ylim = 50:270) +
   theme(legend.position = "none") +
   facet_wrap(~Subj %>% factor(., levels = 1:25))
+
+# combine with patchwork
+p3 <- plot_spacer()
+
+p4 <-
+  (p3 | p1 | p3) + 
+  plot_layout(widths = c(1, 4, 1))
+
+(p4 / p2) + plot_layout(heights = c(0.6, 1))
 ```
 
 Especially if you're new to these kinds of models, it's easy to get lost in all that code. And for real--the wrangling required for those plots was no joke. The primary difficulty was that we had to convert standardized solutions to unstandardized solutions, which leads to an important distinction. When we used the first method of working with the `posterior_samples()` and `coef()` output, we focused on **transforming the model parameters**. In contrast, when we used the second method of working with the `fitted()` output, we focused instead on **transforming the model predictions and predictor values**. This distinction can be really confusing, at first. Stick with it! There will be times one method is more convenient or intuitive than the other. It's good to have both methods in your repertoire. 
@@ -1177,7 +1193,7 @@ sessionInfo()
 
 ```{r, echo = F}
 # remove the objects
-rm(n_draw, d, curves, HtWtDataGenerator, standardize, fit17.1, stanvars, fit17.2, post, make_beta_0, make_beta_1, sd_x, sd_y, m_x, m_y, n_lines, rope, beta_0_sigma, beta_1_sigma, fit17.3, nd, my_data, fit17.4, c, f, fit17.5, make_beta_2)
+rm(n_draw, d, curves, HtWtDataGenerator, standardize, fit17.1, stanvars, fit17.2, post, make_beta_0, make_beta_1, sd_x, sd_y, m_x, m_y, n_lines, rope, beta_0_sigma, beta_1_sigma, fit17.3, p1, p2, nd, my_data, fit17.4, p3, p4, c, f, fit17.5, make_beta_2)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
