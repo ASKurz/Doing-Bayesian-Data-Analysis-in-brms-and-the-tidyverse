@@ -21,7 +21,7 @@ options(width = 100)
 
 "We begin by considering a situation with multiple metric predictors, because this case makes it easiest to visualize the concepts of logistic regression" (p. 623).
 
-Figure 21.1 is beyond the scope of our **ggplot2** paradigm. But we will discuss an alternative in the end of section 21.1.2.
+Figure 21.1 is beyond the scope of our current **ggplot2** paradigm. But we will discuss an alternative in the end of section 21.1.2.
 
 ### The model and implementation in ~~JAGS~~ brms.
 
@@ -60,7 +60,7 @@ fit <-
                 prior(normal(0, 2), class = b)))
 ```
 
-And the results of these two should be the same as long as the dara are not aggregated. In **brms**, the default link for both `family = bernoulli` and `family = binomial` models is `logit`, which is exactly what we want, here. Also, note the additional `| trials(1) ` syntax on the left side of the model formula. You could get away with omitting this in older versions of **brms**. But newer versions bark at you to specify how many of trials each row in the data represents. This is because, as with the baseball data we’ll use later in the chapter, the binomial distribution includes an $n$ parameter. When working with un-aggregated data like what we’re about to do, below, it’s presumed that $n = 1$.
+As long as the data are not aggregated, the results of these two should be the same within simulation variance. In **brms**, the default link for both `family = bernoulli` and `family = binomial` models is `logit`, which is exactly what we want, here. Also, note the additional `| trials(1) ` syntax on the left side of the model formula. You could get away with omitting this in older versions of **brms**. But newer versions prompt users to specify how many of trials each row in the data represents. This is because, as with the baseball data we’ll use later in the chapter, the binomial distribution includes an $n$ parameter. When working with un-aggregated data like what we’re about to do, below, it’s presumed that $n = 1$.
 
 ### Example: Height, weight, and gender.
 
@@ -187,7 +187,11 @@ f %>%
   theme(panel.grid = element_blank())
 ```
 
-Here we show the marginal distributions in our versions of the lower panels of Figure 21.3.
+We should discuss those thresholds (i.e., the verticla lines) a bit. Kruschke:
+
+> The spread of the logistic curves indicates the uncertainty of the estimate; the steepness of the logistic curves indicates the magnitude of the regression coefficient. The 50% probability threshold is marked by arrows that drop down from the logistic curve to the $x$-axis, near a weight of approximately 160 pounds. The threshold is the $x$ value at which $\mu = 0.5$, which is $x = -\beta_0 / \beta_1$. (p. 626)
+
+Now here we show the marginal distributions in our versions of the lower panels of Figure 21.3.
 
 ```{r, fig.width = 6, fig.height = 2.5, warning = F, message = F}
 library(tidybayes)
@@ -349,7 +353,7 @@ f %>%
   theme(legend.position = "left")
 ```
 
-If you look way back to Figure 21.1, you'll see the following formula at the top,
+If you look way back to Figure 21.1 (p. 623), you'll see the following formula at the top:
 
 $$y \sim \operatorname{dbern} (m), m = \operatorname{logistic} (0.018 x_1 + 0.7 x_2 - 50).$$
 
@@ -374,7 +378,7 @@ posterior_samples(fit21.2) %>%
 
 Within rounding error, those values are the same ones in the formula at the top of Kruschke's Figure 21.1! That is, our last plot was a version of Figure 21.1.
 
-Hopefully this helps make sense of what the thresholds in Figure 21.4.a represented. But do note a major limitation of this visualization approach. By expressing the threshold by multiple lines drawn from the posterior in Figure 21.4.a, we expressed the uncertainty inherent in the posterior distribution. However, for this probability plane approach, we've taken a single value from the posterior, the mean (i.e., the `Estimate`), to compute the probabilities. Though beautiful, our probability-plane plot does a poor job expressing the uncertainty in the model.
+Hopefully this helps make sense of what the thresholds in Figure 21.4.a represented. But do note a major limitation of this visualization approach. By expressing the threshold with multiple lines drawn from the posterior in Figure 21.4.a, we expressed the uncertainty inherent in the posterior distribution. However, for this probability plane approach, we've taken a single value from the posterior, the mean (i.e., the `Estimate`), to compute the probabilities. Though beautiful, our probability-plane plot does a poor job expressing the uncertainty in the model. If you're curious how one might include uncertainty into a plot like this, check out the intriguing blog post by Adam Pearce, [*Communicating Model Uncertainty Over Space*](https://pair-code.github.io/interpretability/uncertainty-over-space/).
 
 ## Interpreting the regression coefficients
 
@@ -416,7 +420,7 @@ $$\operatorname{logit} (\mu) = \log \Bigg (\frac{p(y = 1)}{p(y = 0)} \Bigg ).$$
 
 Thus, "the ratio, $p(y = 1) / p(y = 0)$, is called the odds of outcome 1 to outcome 0, and therefore $\operatorname{logit} (\mu)$ is the log odds of outcome 1 to outcome 0" (p. 630).
 
-Here's a tibble layout of the height/weight examples in the middle of page 630.
+Here's a table layout of the height/weight examples in the middle of page 630.
 
 ```{r}
 tibble(b0     = -50,
@@ -426,8 +430,11 @@ tibble(b0     = -50,
        inches = c(63:64, 67:68)) %>% 
   mutate(logit_mu = b0 + b1 * weight + b2 * inches) %>%
   mutate(log_odds = logit_mu) %>% 
-  mutate(p_male = 1 / (1 + exp(-log_odds)))
+  mutate(p_male = 1 / (1 + exp(-log_odds))) %>% 
+  knitr::kable()
 ```
+
+> Thus, a regression coefficient in logistic regression indicates how much a 1 unit change of the predictor increases the log odds of outcome 1. A regression coefficient of 0.5 corresponds to a rate of probability change of about 12.5 percentage points per $x$-unit at the threshold $x$ value. A regression coefficient of 1.0 corresponds to a rate of probability change of about 24.4 percentage points per $x$-unit at the threshold $x$ value. When $x$ is much larger or smaller than the threshold $x$ value, the rate of change in probability is smaller, even though the rate of change in log odds is constant. (pp. 630--631)
 
 ### When there are few 1's or 0's in the data.
 
@@ -573,9 +580,9 @@ Behold the summary.
 print(fit21.4)
 ```
 
-Here's the main plot in Figure 21.5.b.
+Here's the code for the main plot in Figure 21.5.b.
 
-```{r, fig.width = 4.25, fig.height = 3.75}
+```{r}
 nd <- tibble(x = seq(from = -3.5, to = 3.5, length.out = length))
 
 set.seed(21)
@@ -596,7 +603,8 @@ thresholds <-
   group_by(iter) %>% 
   filter(y == max(y))
 
-f %>%   
+p1 <-
+  f %>%   
   ggplot(aes(x = x, y = y)) +
   geom_hline(yintercept = .5, color = "white") +
   geom_vline(xintercept = thresholds$x, color = "white", size = 2/5) +
@@ -610,10 +618,11 @@ f %>%
   theme(panel.grid = element_blank())
 ```
 
-Behold the subplots at the bottom.
+Now make the two subplots at the bottom.
 
-```{r, fig.width = 6, fig.height = 2.5, warning = F, message = F}
-posterior_samples(fit21.4) %>% 
+```{r}
+p2 <-
+  posterior_samples(fit21.4) %>% 
   transmute(Intercept = b_Intercept,
             x         = b_x) %>% 
   pivot_longer(everything()) %>% 
@@ -628,6 +637,18 @@ posterior_samples(fit21.4) %>%
   theme(panel.grid = element_blank()) +
   facet_wrap(~name, scales = "free", ncol = 2)
 ```
+
+This time we'll combine them with **patchwork**.
+
+```{r, fig.width = 5.5, fig.height = 6}
+library(patchwork)
+
+p3 <- plot_spacer()
+
+p1 / (p2 + p3 + plot_layout(widths = c(2, 1))) +
+  plot_layout(height = c(4, 1))
+```
+
 
 > You can see in Figure 21.5 that the estimate of the slope (and of the intercept) is more certain in the right panel than in the left panel. The 95% HDI on the slope, $\beta_1$, is much wider in the left panel than in the right panel, and you can see that the logistic curves in the left panel have greater variation in steepness than the logistic curves in the right panel. The analogous statements hold true for the intercept parameter.
 >
@@ -794,7 +815,7 @@ vcov(fit21.5, correlation = T) %>%
 
 ### Interaction of metric predictors.
 
-Kruschke didn't walk through an analysis in this section, but it's worth the practice. Let's simulate data based on the formula he gave in Figure 21.7, top right.
+"There may be applications in which it is meaningful to consider a multiplicative interaction of metric predictors" (p. 633). Kruschke didn't walk through an analysis in this section, but it's worth the practice. Let's simulate data based on the formula he gave in Figure 21.7, top right.
 
 ```{r}
 n  <- 500
@@ -862,7 +883,8 @@ f %>%
             aes(label = y, color = y == 1),
             size = 2.75, show.legend = F) +
   scale_color_manual(values = c("white", "black")) +
-  scale_fill_viridis_c(option = "A", begin = .15, limits = c(0, 1)) +
+  scale_fill_viridis_c(expression(italic(p)(italic(y)==1)), 
+                       option = "A", begin = .15, limits = c(0, 1)) +
   scale_x_continuous(expand = c(0, 0)) +
   scale_y_continuous(expand = c(0, 0)) +
   coord_cartesian(xlim = range(nd$x1),
@@ -891,7 +913,7 @@ tibble(x = seq(from = 0, to = 1, length.out = 200)) %>%
   geom_ribbon(aes(ymin = 0, ymax = dbeta(x, 1, 9)),
               size = 0, fill = "grey50") +
   scale_y_continuous(NULL, breaks = NULL) +
-  labs(title = "beta(1, 9)", 
+  labs(title = expression("beta"*(1*", "*9)), 
        x = NULL) +
   theme(panel.grid = element_blank())
 ```
@@ -927,7 +949,7 @@ print(fit21.7)
 
 It turns out Bürkner's warning on "different posterior regions" applied to our case. While preparing this document, I played around with higher `adapt_delta` values, as suggested in the warning message. The model showed problems even at `adapt_delta = 0.999`. Here, our main purpose is to ape Kruschke. But if this was a substantive model of interest, I'd suggest following Bürkner's advice and think hard about specifying narrower priors.
 
-Anyway, here's a quick and dirty look at the marginal effects for `weight_z`.
+Anyway, here's a quick and dirty look at the conditional effects for `weight_z`.
 
 ```{r, fig.width = 4, fig.height = 3}
 conditional_effects(fit21.7) %>% 
@@ -959,10 +981,11 @@ thresholds <-
   filter(value == max(value))
 ```
 
-Now plot.
+Now make the top panel.
 
 ```{r, fig.width = 4.5, fig.height = 3.75}
-f %>% 
+p1 <-
+  f %>% 
   ggplot(aes(x = weight, y = value)) +
   geom_hline(yintercept = .5, color = "white", size = 1/2) +
   geom_vline(xintercept = thresholds$weight, color = "white", size = 2/5) +
@@ -977,10 +1000,11 @@ f %>%
   theme(panel.grid = element_blank())
 ```
 
-Here we show the marginal distributions in our versions of the lower panels of Figure 21.8.
+Here we make the marginal-distribution plots for our versions of the lower panels of Figure 21.8.
 
 ```{r, fig.width = 8, fig.height = 2.5, warning = F, message = F}
-posterior_samples(fit21.7) %>% 
+p2 <-
+  posterior_samples(fit21.7) %>% 
   transmute(Intercept = b_b0_Intercept - (b_b1_Intercept * mean(my_data$weight) / sd(my_data$weight)),
             weight    = b_b1_Intercept / sd(my_data$weight),
             guessing  = b_a_Intercept) %>% 
@@ -996,6 +1020,13 @@ posterior_samples(fit21.7) %>%
   xlab(NULL) +
   theme(panel.grid = element_blank()) +
   facet_wrap(~name, scales = "free", ncol = 3)
+```
+
+Now combine them with **patchwork** and behold the glory.
+
+```{r, fig.width = 5.5, fig.height = 6}
+p1 / p2 +
+  plot_layout(height = c(4, 1))
 ```
 
 Here are the `pairs()` plots.
@@ -1242,7 +1273,7 @@ nd %>%
         panel.grid = element_blank())
 ```
 
-Since we didn't actually presume the beta distribution anywhere in our `brm()` statistical model, I wouldn’t attempt to present this workflow in a scientific outlet. Go with the previous plot. This attempt seems dishonest. But it is kinda fun to see how far we can push our results.
+Since we didn't actually presume the beta distribution anywhere in our `brm()` statistical model, *I would not attempt to present this workflow in a scientific outlet*. Go with the previous plot. This attempt seems dishonest. But it is kinda fun to see how far we can push our results.
 
 Happily, our contrasts will be less contentious. Here's the initial wrangling.
 
@@ -1271,10 +1302,11 @@ f <-
 head(f)
 ```  
 
-Here are our versions of the middle two panels of Figure 21.13.
+Here we make are our versions of the middle two panels of Figure 21.13.
 
-```{r, fig.width = 6, fig.height = 2.5, warning = F, message = F}
-f %>% 
+```{r}
+p1 <-
+  f %>% 
   # compute the differences and put the data in the long format
   transmute(`Pitcher vs. Catcher`  = Pitcher - Catcher,
             `Catcher vs. 1st Base` = Catcher - `1st Base`) %>% 
@@ -1285,7 +1317,7 @@ f %>%
   geom_vline(xintercept = 0, color = "white") +
   stat_histintervalh(point_interval = mode_hdi, .width = c(.95, .5),
                      fill = "grey67", slab_color = "grey92",
-                     breaks = 40, slab_size = .25, outline_bars = T,
+                     breaks = 40, slab_size = .2, outline_bars = T,
                      normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab("Difference (in b)") +
@@ -1293,10 +1325,11 @@ f %>%
   facet_wrap(~name, scales = "free", ncol = 2)
 ```
 
-And here are our versions of the bottom two panels of Figure 21.13.
+Now make our versions of the bottom two panels of Figure 21.13.
 
-```{r, fig.width = 6, fig.height = 2.5, warning = F, message = F}
-f %>% 
+```{r}
+p2 <-
+  f %>% 
   # do the transformation before computing the differences
   mutate_all(inv_logit_scaled) %>% 
   transmute(`Pitcher vs. Catcher`  = Pitcher - Catcher,
@@ -1308,12 +1341,18 @@ f %>%
   geom_vline(xintercept = 0, color = "white") +
   stat_histintervalh(point_interval = mode_hdi, .width = c(.95, .5),
                      fill = "grey67", slab_color = "grey92",
-                     breaks = 30, slab_size = .25, outline_bars = T,
+                     breaks = 40, slab_size = .2, outline_bars = T,
                      normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab("Difference (in probability)") +
   theme(panel.grid = element_blank()) +
   facet_wrap(~name, scales = "free", ncol = 2)
+```
+
+Combine and plot.
+
+```{r, fig.width = 6, fig.height = 4}
+p1 / p2
 ```
 
 Note how our distributions are described as differences in probability, rather than in $\omega$.
@@ -1330,7 +1369,7 @@ sessionInfo()
 
 ```{r, message = F, echo = F}
 # Here we'll remove our objects
-rm(my_data, p, fit21.1, length, n_iter, nd, f, thresholds, fit21.2, post, b0, b1, n, d_rare, fit21.3, d_not_rare, fit21.4, s, m, d, b2, fit21.5, different_seed, b3, fit21.6, fit21.7, logistic, positions, fit21.8)
+rm(my_data, p, fit21.1, length, n_iter, nd, f, thresholds, fit21.2, post, b0, b1, n, d_rare, fit21.3, d_not_rare, fit21.4, p1, p2, p3, s, m, d, b2, fit21.5, different_seed, b3, fit21.6, fit21.7, logistic, positions, fit21.8)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
