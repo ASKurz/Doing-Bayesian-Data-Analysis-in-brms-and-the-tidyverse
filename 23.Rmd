@@ -68,7 +68,7 @@ p1 / p2 &
   theme(panel.grid = element_blank()) 
 ```
 
-For both plots, `z` is in a standardized metric (i.e., $z$-score). With the cumulative normal function, the cumulative probability, $\Phi(z)$, increases nonlinearly with the $z$-scores such that, much like with the logistic curve, the greatest change occurs around $z = 0$ and tapers off in the tails.
+For both plots, `z` is in a standardized metric (i.e., $z$-score). With the cumulative normal function, the cumulative probability $\Phi(z)$ increases nonlinearly with the $z$-scores such that, much like with the logistic curve, the greatest change occurs around $z = 0$ and tapers off in the tails.
 
 The inverse of $\Phi(x)$ is the *probit* function. As indicated in the above block quote, we'll be making extensive use of the probit function in this chapter for our Bayesian models.
 
@@ -97,7 +97,7 @@ den <-
 head(den)
 ```
 
-Before making the data for the bar portion of the plot, we'll need to define the $\theta$-values they'll be placed between. We'll also need to define the exact points on the x-axis from which we'd like those bars to originate. Those points, which we'll call `label_1`, will double as names for the individual bars.
+Before making the data for the bar portion of the plot, we'll need to define the $\theta$-values they'll be placed between. We also need to define the exact points on the x-axis from which we'd like those bars to originate. Those points, which we'll call `label_1`, will double as names for the individual bars.
 
 ```{r}
 (theta_1 <- seq(from = 1.5, to = 6.5, by = 1))
@@ -451,7 +451,7 @@ post %>%
 
 The initial `means` data at the top contains the $\theta_i$-specific means, which we used to make the dashed vertical lines with `geom_vline()`. Did you see what we did there with those `group_by()` and `mutate()` lines? That's how we computed the mean threshold within each step of the HMC chain, what Kruschke (p. 680) denoted as $\bar \theta (s) = \sum_k^{K-1} \theta_k (s) / (K - 1)$, where $s$ refers to particular steps in the HMC chain. 
 
-Perhaps of greater interest, you might have noticed how different our plot is from the one in the text. We might should compare the results of our **brms** parameterization of $\theta_{[i]}$ with one based on the parameterization in the text in an expanded version of the bottom plot of Figure 23.2. To convert our **brms** output to match Kruschke's, we'll rescale our $\theta_{[i]}$ draws with help from the `scales::rescale()` function, which you might learn more about [here](https://www.rdocumentation.org/packages/scales/versions/0.4.1/topics/rescale).
+Perhaps of greater interest, you might have noticed how different our plot is from the one in the text. We might should compare the results of our **brms** parameterization of $\theta_{[i]}$ with one based on the parameterization in the text in an expanded version of the bottom plot of Figure 23.2. To convert our **brms** output to match Kruschke's, we'll rescale our $\theta_{[i]}$ draws with help from the `scales::rescale()` function, about which you might learn more [here](https://www.rdocumentation.org/packages/scales/versions/0.4.1/topics/rescale).
 
 ```{r, fig.width = 5, fig.height = 3.5}
 # primary data wrangling
@@ -582,6 +582,8 @@ post %>%
 Happily, the model produces data that look a lot like those from which it was generated.
 
 ```{r, fig.width = 4, fig.height = 2.5}
+set.seed(23)
+
 post %>% 
   mutate(z = rnorm(n(), mean = 0, sd = 1)) %>% 
   mutate(Y = case_when(
@@ -909,7 +911,7 @@ Just for fun,
 
 > rate how much you agree with the statement, "Bayesian estimation is more informative than null-hypothesis significance testing," by selecting one option from the following: 1 = strongly disagree; 2 = disagree; 3 = undecided; 4 = agree; 5 = strongly agree. This sort of ordinal response interface is often called a Likert-type response ([Likert, 1932](https://legacy.voteview.com/pdf/Likert_1932.pdf), pronounced LICK-ert not LIKE-ert). Sometimes, it is called a Likert "scale" but the term "scale" in this context is more properly reserved for referring to an underlying metric variable that is indicated by the arithmetic mean of several meaningfully related Likert-type responses (e.g., Carifio & Perla, [2007](https://thescipub.com/pdf/10.3844/jssp.2007.106.116), [2008](https://pdfs.semanticscholar.org/795d/7d9c30bb0ba54d078215f9239a865960eea6.pdf); [Norman, 2010](https://www.researchgate.net/publication/41420484_LIkert_scales_levels_of_measurement_adn_the_laws_of_statistics)). (p. 681)
 
-Kruschke then briefly introduced how one might combine several such meaningfully-related Likert-type responses with latent variable methods. He then clarified this text will not explore that approach, further. The current version of **brms** (i.e., [2.11.0](https://CRAN.R-project.org/package=brms/news/news.html)) has very limited latent variable capacities. However, they are in the works. Interested modelers can follow Bürkner's progress in [GitHub issue #304](https://github.com/paul-buerkner/brms/issues/304). He also has [a paper](https://arxiv.org/pdf/1905.09501.pdf) in how one might use **brms** to fit item response theory models, which can be viewed as a special family of latent variable models. One can also fit Bayesian latent variable models with the [**blavaan** package](https://faculty.missouri.edu/~merklee/blavaan/).
+Kruschke then briefly introduced how one might combine several such meaningfully-related Likert-type responses with latent variable methods. He then clarified this text will not explore that approach, further. The current version of **brms** (i.e., [2.11.1](https://CRAN.R-project.org/package=brms/news/news.html)) has very limited latent variable capacities. However, they are in the works. Interested modelers can follow Bürkner's progress in [GitHub issue #304](https://github.com/paul-buerkner/brms/issues/304). He also has [a paper](https://arxiv.org/pdf/1905.09501.pdf) on how one might use **brms** to fit item response theory models, which can be viewed as a special family of latent variable models. One can also fit Bayesian latent variable models with the [**blavaan** package](https://faculty.missouri.edu/~merklee/blavaan/).
 
 ## The case of two groups
 
@@ -928,15 +930,15 @@ fit <-
                 prior(normal(0, 4), class = b)))
 ```
 
-Also of note, we've expanded the `prior` section to include a line for `class = b`. As with the thresholds, interpret this prior through the context of the underlying standard normal cumulative distribution, $\Phi(z)$. Note the interpretation, though. By **brms** defaults, the underlying Gaussian for the reference category of `x` will be $\operatorname{Normal} (0, 1)$. Thus whatever parameter value you get for the other categories in `x`, those will be standardized mean differences.
+Also of note, we've expanded the `prior` section to include a line for `class = b`. As with the thresholds, interpret this prior through the context of the underlying standard normal cumulative distribution, $\Phi(z)$. Note the interpretation, though. By **brms** defaults, the underlying Gaussian for the reference category of `x` will be $\operatorname{Normal} (0, 1)$. Thus whatever parameter value you get for the other categories in `x`, those will be standardized mean differences, making them a kind of effect size.
 
-Note, the above all presumes you're only interested in comparing means between groups. Things get more complicated if you want groups to vary by $\sigma$, too. Hold on tight. 
+Note, the above all presumes you're only interested in comparing means between groups. Things get more complicated if you want groups to vary by $\sigma$, too. Hold on tight! 
 
 First, look back at the output from `print(fit1)` or `print(fit2)`. The second line for both reads: `Links: mu = probit; disc = identity`. Hopefully the `mu = probit` part is no surprise. Probit regression is the primary focus of this chapter. But check out the `disc = identity` part and notice that nowhere in there is there any mention of `sigma = identity` like we get when treating the criterion as metric as in conventional Gaussian models (i.e., execute `print(fit3)` or `print(fit4)`). 
 
 Yes, there is a relationship between `disc` and `sigma`. `disc` is shorthand for *discrimination*. The term comes from the item response theory (IRT) literature and discrimination is the inverse of $\sigma$ (see Bürkner's [*Bayesian Item Response Modelling in R with brms and Stan*](https://arxiv.org/pdf/1905.09501.pdf)). In IRT, discrimination is often denoted $a$ or $\alpha$. Here I'll adopt the latter, making $\sigma = 1 / \alpha$. But focusing back on **brms** summary output, notice how both `disc` and `sigma` are modeled using the identity link. If you recall from earlier chapters, we switched to the log link to constrain the values to zero and above when we allowed $\sigma$ to vary across groups. It's the same thing for our discrimination parameter, $\alpha$. Because $\alpha$ should always be zero or above, **brms** defaults to the log link when modeling it with predictors.
 
-As with $\sigma$ in conventional Gaussian models, we'll be using some version of the `bf()` syntax when modeling the discrimination parameter in **brms**. For a general introduction to what Bürkner calls distributional modeling, see his vignette, [*Estimating Distributional Models with brms*](https://cran.r-project.org/web/packages/brms/vignettes/brms_distreg.html). In the case of the discrimination parameter for the cumulative model, we'll want more focused instructions. Bürkner and Vouree [(2019)](https://journals.sagepub.com/doi/abs/10.1177/2515245918823199) have our backs. We read:
+As with $\sigma$ in conventional Gaussian models, we'll be using some version of the `bf()` syntax when modeling the discrimination parameter in **brms**. For a general introduction to what Bürkner calls distributional modeling, see his vignette, [*Estimating Distributional Models with brms*](https://cran.r-project.org/web/packages/brms/vignettes/brms_distreg.html). In the case of the discrimination parameter for the cumulative model, we'll want more focused instructions. Happily, Bürkner and Vouree [(2019)](https://journals.sagepub.com/doi/abs/10.1177/2515245918823199) have our backs. We read:
 
 > Conceptually, unequal variances are incorporated in the model by specifying an additional regression formula for the variance component of the latent variable $\tilde Y$. In brms, the parameter related to latent variances is called *disc* (short for "discrimination"), following conventions in item response theory. Note that disc is not the variance itself, but the inverse of the standard deviation, $s.$ That is, $s = 1/ \text{disc}$. Further, because disc must be strictly positive, it is by default modeled on the log scale.
 >
@@ -955,7 +957,7 @@ fit <-
                 prior(normal(0, 4), class = b, dpar = disc)))
 ```
 
-Note how when using the `0 + ...` syntax, the `disc` parameters are of `class = b` within the `prior()` function. If you'd like to assign them priors differing from the other `b` parameters, you'll need to specify `dpar = dics`. Again, though the mean structure for this model is on the probit scale, the discrimination structure is on the log scale. Recalling that $\sigma = 1/\alpha$, which means $\alpha = 1/\sigma$, and also that we're modeling $\log (\alpha)$, the priors for the standard deviations of the non-reference category groups are on the scale of $\log (1 / \sigma)$. 
+Note how when using the `disc ~ 0 + ...` syntax, the `disc` parameters are of `class = b` within the `prior()` function. If you'd like to assign them priors differing from the other `b` parameters, you'll need to specify `dpar = disc`. Again, though the mean structure for this model is on the probit scale, the discrimination structure is on the log scale. Recalling that $\sigma = 1/\alpha$, which means $\alpha = 1/\sigma$, and also that we're modeling $\log (\alpha)$, the priors for the standard deviations of the non-reference category groups are on the scale of $\log (1 / \sigma)$. 
 
 To get a better sense of how one might set a prior on such a scale, we might compare $\sigma$, $\alpha$, and $\log (\alpha)$. Here are the density and cumulative density functions for $\operatorname{Normal} (0, 0.5)$, $\operatorname{Normal} (0, 1)$, and $\operatorname{Normal} (0, 2)$.
 
@@ -1398,7 +1400,7 @@ If you think you have a better approximation of Kruschke's data, [please share](
 
 "This type of model is often referred to as *ordinal probit regression* or *ordered probit regression* because the probit function is the link function corresponding to the cumulative-normal inverse-link function" (p. 688, *emphasis* in the original).
 
-### Implementation in JAGS.
+### Implementation in ~~JAGS~~ brms.
 
 This model is easy to specify in **brms**. Just make sure to think clearly about your priors.
 
@@ -1477,7 +1479,7 @@ post %>%
 
 This differs from Kruschks's $\beta_1$, which is in an unstandardized metric based on the parameters in his version of the model. But unlike the effect sizes from previous models, this one is not in a Cohen's-$d$ metric. Rather, this is a fully-standardized regression coefficient. As to the large subplot at the top of Figure 23.7, we can make something like it by nesting `conditional_effects()` within `plot()`.
 
-```{r, fig.width = 4, fig.height = 2.75, warning = F, message = F}
+```{r, fig.width = 4, fig.height = 2.75}
 conditional_effects(fit23.9) %>% 
   plot(theme = theme(panel.grid = element_blank()))
 ```
