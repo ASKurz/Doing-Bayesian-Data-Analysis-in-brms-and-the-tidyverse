@@ -21,7 +21,7 @@ options(width = 100)
 
 "The key descriptor of the [models in this chapter is their] inverse-link function, which is the softmax function (which will be defined below). Therefore, [Kruschke] refer[ed] to the method as softmax regression instead of multinomial logistic regression" (p. 650)
 
-Say we have a metric predictor $x$ and a multinomial criterion $\lambda$ with $k$ categories. We can express the basic liner model as
+Say we have a metric predictor $x$ and a multinomial criterion $y$ with $k$ categories. We can express the basic liner model as
 
 $$\lambda_k = \beta_{0, k} + \beta_{1, k} x,$$
 
@@ -39,8 +39,9 @@ $$\phi_k = \operatorname{softmax}_S (\{\lambda_k\}) = \frac{\exp (\lambda_k)}{\s
 
 > In words, [the equation] says that the probability of outcome $k$ is the exponentiated linear propensity of outcome $k$ relative to the sum of exponentiated linear propensities across all outcomes in the set $S$. You may be wondering, Why exponentiate? Intuitively, we have to go from propensities that can have negative values to probabilities that can only have non-negative values, and we have to preserve order. The exponential function satisfies that need. (p. 650)
 
-There are are indeterminacies in the system of equations Kruschke covered in this section, the upshot of which is we'll end up making one of the $k$ categories the reference category, which we term $r$. Continuing on with our univariable model, we choose convenient constants for our parameters for $r$: $\beta_{0, r} = 0$ and $\beta_{1, r} = 0$. As such, the regression coefficients for the remaining categories are relative to those for $r$.
+You may be wondering what happened to $y$ and where all those $\lambda$s came from. Here we're using $\lambda$ to describe the propensity of outcome $k$, as indexed within our criterion $y$. So, the output of these models, $\phi_k$, is the relative probability we'll see each of our $k$ categories within our criterion $y$. What we want is $\phi_k$. The way we parameterize that with the softmax function is with $\lambda_k$.
 
+There are are indeterminacies in the system of equations Kruschke covered in this section, the upshot of which is we'll end up making one of the $k$ categories the reference category, which we term $r$. Continuing on with our univariable model, we choose convenient constants for our parameters for $r$: $\beta_{0, r} = 0$ and $\beta_{1, r} = 0$. As such, *the regression coefficients for the remaining categories are relative to those for* $r$.
 
 Kruschke saved the data for Figure 22.1 in the `SoftmaxRegData1.csv` and `SoftmaxRegData2.csv` files.
 
@@ -171,7 +172,7 @@ Though there's no explicit softmax talk in that vignette, you can find it docume
 
 ### Conditional logistic model.
 
-The conditional logistic regression models are not natively supported in **brms** at this time. However, if you follow [issue #560](https://github.com/paul-buerkner/brms/issues/560), you'll see there are ways to fit them using the nonlinear syntax. If you compare the syntax Bürkner used in that thread on January 30^th^ to the JAGS syntax Kruschke showed on pages 661 and 662, you'll see they appears to follow contrasting parameterizations.
+The conditional logistic regression models are not natively supported in **brms** at this time. However, if you follow [issue #560](https://github.com/paul-buerkner/brms/issues/560), you'll see there are ways to fit them using the nonlinear syntax. If you compare the syntax Bürkner used in that thread on January 30^th^ to the JAGS syntax Kruschke showed on pages 661 and 662, you'll see they appear to follow contrasting parameterizations.
 
 I think that's about as far as I'm going with this model type at this time. If you work through the solution, [please share your code](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues).
 
@@ -281,7 +282,8 @@ fitted(fit22.1,
   
   ggplot(aes(x = X1, y = X2, fill = probability)) +
   geom_raster(interpolate = T) +
-  scale_fill_viridis_c(option = "A", limits = c(0, 1)) +
+  scale_fill_viridis_c(expression(phi[italic(k)*"|"*italic(S)]),
+                       option = "A", limits = c(0, 1)) +
   scale_x_continuous(expand = c(0, 0)) +
   scale_y_continuous(expand = c(0, 0)) +
   theme(panel.grid = element_blank()) +
