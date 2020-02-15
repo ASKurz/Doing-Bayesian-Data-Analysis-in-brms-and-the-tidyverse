@@ -302,7 +302,7 @@ Here's the model summary.
 print(fit20.1)
 ```
 
-This was a difficult model to fit with **brms**. Stan does well when the criteria are on or close to a standardized metric. These `Salary` data are a far far cry from that. Tuning `adapt_delta` and `max_treedepth` helped a bit, but the effective samples are still modest given the number of iterations.
+This was a difficult model to fit with **brms**. Stan does well when the criteria are on or close to a standardized metric and these `Salary` data are a far cry from that. Tuning `adapt_delta` and `max_treedepth` went a long way to help the model out.
 
 Okay, let's get ready for our version of Figure 20.3. First, we'll use `tidybayes::add_fitted_draws()` to help organize the necessary posterior draws.
 
@@ -436,7 +436,7 @@ post %>%
   head(n = 10)
 ```
 
-Our code returned the summaries for all model parameters, including the log posterior (i.e., `lp__`). Since that's just way too much output to display, here, we just looked at the first 10. If you wanted to subset the parameters, you could just `filter()` by the `Parameter` column. And if this kind of a table was really important, to you, you might even use the code above as inspiration for a custom function.
+Our code returned the summaries for all model parameters, including the log posterior (i.e., `lp__`). Since that's way too much output to display, here, we just looked at the first 10. If you wanted to subset the parameters, you could just `filter()` by the `Parameter` column. And if this kind of a table was really important, to you, you might even use the code above as inspiration for a custom function.
 
 As Kruschke then pointed out, "individual salaries vary tremendously around the predicted cell mean" (p. 594), which you can quantify using $\sigma_y$. Here it is using `posterior_summary()`.
 
@@ -459,9 +459,9 @@ As Kruschke pointed out, this parameter is held constant across all subgroups. T
 
 ### Main effect contrasts.
 
-Comparisons that "involve levels of a single factor and collapse across the other factor(s), are called main effect comparisons or contrasts" (p. 595).
+> In applications with multiple levels of the factors, it is virtually always the case that we are interested in comparing particular levels with each other.... These sorts of comparisons, which involve levels of a single factor and collapse across the other factor(s), are called main effect comparisons or contrasts.(p. 595)
 
-Here's the first contrast.
+The `fitted()` function provides a versatile framework for contrasts among the main effects. Here's the first contrast.
 
 ```{r, fig.width = 3, fig.height = 2.5, warning = F, message = F}
 # define the new data
@@ -500,7 +500,7 @@ f %>%
   mutate_if(is.double, round, digits = 0)
 ```
 
-Here are the next two contrasts.
+Now make the next two contrasts.
 
 ```{r, fig.width = 6, fig.height = 2.5}
 nd <- 
@@ -543,7 +543,7 @@ f %>%
   mutate_if(is.double, round, digits = 0)
 ```
 
-For further discussion on marginal contrasts in **brms**, see [this discussion](https://github.com/paul-buerkner/brms/issues/552) on the **brms** GitHub issues section and [this discussion](https://discourse.mc-stan.org/t/how-do-i-get-marginal-effects-for-categorical-variables-to-condition-on-an-average-rather-than-a-category/5323) in the Stan user forums.
+For further discussion on marginal contrasts in **brms**, see the discussion in [issue #552]((https://github.com/paul-buerkner/brms/issues/552)) in the **brms** GitHub repo and [this discussion](https://discourse.mc-stan.org/t/how-do-i-get-marginal-effects-for-categorical-variables-to-condition-on-an-average-rather-than-a-category/5323) in the Stan user forums.
 
 ### Interaction contrasts and simple effects.
 
@@ -613,7 +613,7 @@ f1 %>%
 
 If it was really important that the labels in the x-axes were different, like they are in Kruschke's Figure 20.5, you could always make the three plots separately and then bind them together with **patchwork** syntax.
 
-Though he didn't show the results, Kruschke mentioned a few other contrasts we might do at the top of page 598. The example entailed comparing the differences within `BFIN` to the average of the other three. Let's walk it out.
+Though he didn't show the results, on page 598 Kruschke mentioned a few other contrasts we might consider. The example entailed comparing the differences within `BFIN` to the average of the other three. Let's walk it out.
 
 ```{r}
 # define our new data
@@ -648,7 +648,7 @@ glimpse(f2)
 
 Now plot.
 
-```{r, fig.width = 5.33, fig.height = 6.75}
+```{r, fig.width = 8, fig.height = 4.5}
 f2 %>% 
   select(-contains("_")) %>% 
   gather() %>% 
@@ -664,12 +664,14 @@ f2 %>%
   scale_y_continuous(NULL, breaks = NULL) +
   xlab("Difference") +
   theme(panel.grid = element_blank()) +
-  facet_wrap(~key, scales = "free_y", ncol = 2)
+  facet_wrap(~key, scales = "free_y", ncol = 3)
 ```
 
 So while the overall pay averages for those in `BFIN` were larger than those in the other three departments, the differences between full and associate professors within `BFIN` wasn’t substantially different from the differences within the other three departments. To be sure, the interquartile range of that last difference distribution fell below both zero and the ROPE, but there's still a lot of spread in the rest of the distribution.
 
 #### Interaction effects: High uncertainty and shrinkage.
+
+"It is important to realize that the estimates of interaction contrasts are typically much more uncertain than the estimates of simple effects or main effects" (p. 598).
 
 If we start with our `fitted()` object `f1`, we can wrangle a bit, compute the HDIs with `tidybayes::mode_hdi()` and then use simple subtraction to compute the interval range for each difference.
 
@@ -707,6 +709,8 @@ post %>%
 ```
 
 ## Rescaling can change interactions, homogeneity, and normality
+
+> When interpreting interactions, it can be important to consider the scale on which the data are measured. This is because an interaction means non-additive effects when measured on the current scale. If the data are nonlinearly transformed to a different scale, then the non-additivity can also change. (p. 599)
 
 Here is Kruschke's initial example of a possible interaction effect of sex and political party with respect to wages.
 
@@ -769,7 +773,7 @@ stanvars <-
   stanvar(1/29,      name = "one_over_twentynine")
 ```
 
-Recall that to fit a robust hierarchical variances model, we need to wrap our two formulas within the `bf()` function. **Warning**: this one takes a while to fit.
+Recall that to fit a robust hierarchical variances model, we need to wrap our two formulas within the `bf()` function. **Warning**: this one took several hours fit.
 
 ```{r, echo = F, eval = F}
 # Heads up: this took about 8 hours to fit (2-7-2020)
@@ -944,18 +948,27 @@ posterior_summary(fit20.2)["sd_Pos:Org__Intercept", ]
 They are similar to the values in the text. And recall, of course, the `brms::posterior_summary()` function returns posterior means. If you really wanted the posterior modes, like Kruschke reported in the text, you'll have to work a little harder.
 
 ```{r}
-posterior_samples(fit20.1) %>% 
-  transmute(value = `sd_Pos:Org__Intercept`) %>% 
-  mutate(key = "fit20.1") %>% 
-  bind_rows(
-    posterior_samples(fit20.2) %>% 
-      transmute(value = `sd_Pos:Org__Intercept`) %>% 
-      mutate(key = "fit20.2")
-  ) %>% 
-  group_by(key) %>% 
-  mode_hdi(value) %>% 
-  select(key:.upper) %>% 
+bind_rows(posterior_samples(fit20.1) %>% select(`sd_Pos:Org__Intercept`),
+          posterior_samples(fit20.2) %>% select(`sd_Pos:Org__Intercept`)) %>% 
+  mutate(fit = rep(c("fit20.1", "fit20.2"), each = n() / 2)) %>% 
+  group_by(fit) %>% 
+  mode_hdi(`sd_Pos:Org__Intercept`) %>% 
+  select(fit:.upper) %>% 
   mutate_if(is.double, round, digits = 0)
+```
+
+The curious might even look at those in a plot.
+
+```{r, fig.width = 6, fig.height = 2}
+bind_rows(posterior_samples(fit20.1) %>% select(`sd_Pos:Org__Intercept`),
+          posterior_samples(fit20.2) %>% select(`sd_Pos:Org__Intercept`)) %>% 
+  mutate(fit = rep(c("fit20.1", "fit20.2"), each = n() / 2)) %>% 
+  
+  ggplot(aes(x = `sd_Pos:Org__Intercept`, y = fit)) +
+  geom_halfeyeh(point_interval = mode_hdi, .width = c(.5, .95)) +
+  labs(x = expression(sigma[beta][1%*%2]),
+       y = NULL) +
+  theme(panel.grid = element_blank())
 ```
 
 "Which model is a better description of the data?... In principle, an intrepid programmer could do a Bayesian model comparison..." (pp. 605--606). We could also examine iformation criteria, like the LOO.
@@ -975,7 +988,7 @@ Here's the current LOO difference.
 loo_compare(fit20.1, fit20.2) %>% print(simplify = F)
 ```
 
-For a more robust model comparison, we might follow the `kfold()` suggestion in the warning. However, be warned: The `kfold()` function entails refitting the model `K` times. `fit20.1` took about an hour to fit and `fit20.2` took about 8 hours. Proceed with caution. 
+For a more robust model comparison, we might follow the `kfold()` suggestion in the warning. However, be warned: The `kfold()` function entails refitting the model `K` times. `fit20.1` took about an hour to fit and `fit20.2` took several more. Proceed with caution. 
 
 But really, "we might want to create a model that describes the data within each cell as a skewed distribution such as a Weibull" (p. 606). Yes, **brms** can handle Weibull regression (e.g., [here](https://discourse.mc-stan.org/t/fitting-time-to-event-data-with-weibull-hazard-using-brm-function/4638)).
 
