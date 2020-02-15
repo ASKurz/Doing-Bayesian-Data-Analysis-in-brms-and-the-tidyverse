@@ -12,7 +12,7 @@ knitr::opts_chunk$set(fig.align = "center")
 
 # Count Predicted Variable
 
-> Consider a situation in which we observe two nominal values for every item measured... Across the whole sample, the result is a table of counts for each combination of values of the nominal variables. The counts are what we are trying to predict and the nominal variables are the predictors. This is the type of situation addressed in this chapter...
+> Consider a situation in which we observe two nominal values for every item measured.... Across the whole sample, the result is a table of counts for each combination of values of the nominal variables. The counts are what we are trying to predict and the nominal variables are the predictors. This is the type of situation addressed in this chapter....
 >
 > In the context of the generalized linear model (GLM) introduced in Chapter 15, this chapter's situation involves a predicted value that is a count, for which we will use an inverse-link function that is exponential along with a Poisson distribution for describing noise in the data (pp. 703--704)
 
@@ -101,7 +101,7 @@ y      <- 2
 lambda^y * exp(-lambda) / factorial(y)
 ```
 
-If we'd like to simulate from the Poisson distribution, we'd use the `rpois()` function. It takes two arguments, `n` and `lambda`. Let's generate 1000 draws based on $\lambda = 5$.
+If we'd like to simulate from the Poisson distribution, we'd use the `rpois()` function. It takes two arguments, `n` and `lambda`. Let's generate 1,000 draws based on $\lambda = 5$.
 
 ```{r, message = F, warning = F}
 set.seed(24)
@@ -145,7 +145,7 @@ tibble(lambda = c(1.8, 8.3, 32.1)) %>%
              labeller = label_bquote(dpois(y*"|"*lambda == .(lambda))))
 ```
 
-For more on our `labeller = label_bquote` syntax, check out [this](https://ggplot2.tidyverse.org/reference/label_bquote.html). And [here's](https://stackoverflow.com/questions/15530202/add-vertical-bar-in-expression-to-plot) is where I learned about the `*"|"*` syntax.
+For more on our `labeller = label_bquote` syntax, check out [this](https://ggplot2.tidyverse.org/reference/label_bquote.html).
 
 But anyway, given $\lambda$, the Poisson distribution gives the probabilities of specific non-negative integers. And instead of using our hand-coded function from above, we can also use `dpois()` to get precise density values.
 
@@ -425,7 +425,13 @@ f %>%
   facet_wrap(~key, scales = "free_y")
 ```
 
-We’ll have to work a bit to get the deflection differences. If this was a simple multilevel model with a single random grouping variable, we could just use the `ranef()` function to return the deflections. Like `fitted()`, it'll return summaries by default. But you can get the posterior draws with the `summary = F` argument. But since we used two grouping variables and their interaction, it'd be a bit of a pain to work that way. But we do have a handy alternative. First, if we use the `scale = "linear"` argument, `fitted()` will return the draws in the $\lambda$ scale rather than the original count metric. With the group-level draws in the $\lambda$ metric, all we need to do is subtract the fixed effect (i.e., the grand mean, the population estimate) from each to convert them to the deflection metric. So below, we'll (a) make a custom `make_deflection()` function to do the conversions, (b) redefine our `nd` data to make our naming conventions a little more streamlined, (c) use `fitted()` and its `scale = "linear"` argument to get the draws in the $\lambda$ metric, (d) wrangle a touch, and (e) use our handy `make_deflection()` function to convert the results to the deflection metric.
+We'll have to work a bit to get the deflection differences. If this was a simple multilevel model with a single random grouping variable, we could just use the `ranef()` function to return the deflections. Like `fitted()`, it'll return summaries by default. But you can get the posterior draws with the `summary = F` argument. But since we used two grouping variables and their interaction, it'd be a bit of a pain to work that way. Happily, we do have a handy alternative. First, if we use the `scale = "linear"` argument, `fitted()` will return the draws in the $\lambda$ scale rather than the original count metric. With the group-level draws in the $\lambda$ metric, all we need to do is subtract the fixed effect (i.e., the grand mean, the population estimate) from each to convert them to the deflection metric. So below, we'll 
+
+a) make a custom `make_deflection()` function to do the conversions, 
+b) redefine our `nd` data to make our naming conventions a little more streamlined,
+c) use `fitted()` and its `scale = "linear"` argument to get the draws in the $\lambda$ metric, 
+d) wrangle a touch, and 
+e) use our handy `make_deflection()` function to convert the results to the deflection metric.
 
 I know; that's a lot. If you get lost, just go step by step and examine the results along the way.
 
@@ -602,7 +608,7 @@ posterior_samples(fit24.2) %>%
         legend.background = element_rect(fill = "transparent"))
 ```
 
-Our $\operatorname{HalfNormal} (0, 1)$ prior is that short medium-gray shape in the background. The posteriors are the taller and more colorful mounds in the foreground. Here's the top part of Figure 24.4.
+Our $\operatorname{Normal}^+ (0, 1)$ prior is that short medium-gray shape in the background. The posteriors are the taller and more colorful mounds in the foreground. Here's the top part of Figure 24.4.
 
 ```{r, fig.width = 8, fig.height = 6}
 nd <-
@@ -729,9 +735,7 @@ model_weights(fit24.2, fit24.3) %>%
   round(digits = 3)
 ```
 
-Virtually all the weight went to the interaction model.
-
-Also, if we step back and ask ourselves what the purpose of an omnibus text of an interaction is for in this context, we'd conclude such a test is asking the question *Is* $\sigma_{a \times b}$ *the same as zero?* Let's look again at that posterior from `fit24.2`.
+Virtually all the weight went to the interaction model. Also, if we step back and ask ourselves what the purpose of an omnibus text of an interaction is for in this context, we'd conclude such a test is asking the question *Is* $\sigma_{a \times b}$ *the same as zero?* Let's look again at that posterior from `fit24.2`.
 
 ```{r, fig.width = 6, fig.height = 3}
 posterior_samples(fit24.2) %>% 
@@ -744,7 +748,7 @@ posterior_samples(fit24.2) %>%
   theme(panel.grid = element_blank())
 ```
 
-Sure, there's some uncertainty in that posterior. Byt that is not zero. We didn’t need an omnibus test or even model comparison via stacking weights to figure that one out.
+Sure, there's some uncertainty in that posterior. But that is not zero. We didn't need an omnibus test or even model comparison via stacking weights to figure that one out.
 
 If you wanted to get fancy with it, we might even do a hierarchical variance decomposition. Here the question is what percentage of the hierarchical variance is attributed to `a`, `b` and their interaction? Recall that **brms** returns those variance parameters in the $\sigma$ metric. So before we can compare them in terms of percentages of the total variance, we have to first have to square them.
 
@@ -776,7 +780,7 @@ Just as each of the variance parameters was estimated with uncertainty, all that
 
 ## ~~Log-linear models for contingency tables~~ Bonus: Alternative parameterization
 
-The Poisson distribution is widely used for count data. But notice how in our figures, we converted the results to the proportion metric. Once you're talking about proportions, it's not hard to further adjust your approach to thinking in terms of probabilities. So instead of thinking about the $n$ within each cell of our contingency table, we might also think about the probability of a given condition. To approach the data this way, we could use a multilevel aggregated binomial model. McElreath covered this in Chapter 10 of his text [*Statistical Rethinking*](https://xcelab.net/rm/statistical-rethinking/). See [my translation of the text into brms code](https://bookdown.org/content/1850/counting-and-classification.html#aggregated-binomial-chimpanzees-again-condensed), too.
+The Poisson distribution is widely used for count data. But notice how in our figures, we converted the results to the proportion metric. Once you're talking about proportions, it's not hard to further adjust your approach to thinking in terms of probabilities. So instead of thinking about the $n$ within each cell of our contingency table, we might also think about the probability of a given condition. To approach the data this way, we could use a multilevel aggregated binomial model. McElreath covered this in Chapter 10 of his [*Statistical Rethinking*](https://xcelab.net/rm/statistical-rethinking/). See [my translation of the text into brms code](https://bookdown.org/content/1850/counting-and-classification.html#aggregated-binomial-chimpanzees-again-condensed), too.
 
 Here's how to fit that model.
 
