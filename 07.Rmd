@@ -68,11 +68,7 @@ library(tidyverse)
 tibble(theta = seq(from = 0, to = 1, length.out = 100)) %>% 
   
   ggplot() +
-  geom_ribbon(aes(x    = theta,
-                  ymin = 0, 
-                  ymax = dbeta(theta, 
-                               shape1 = 15, 
-                               shape2 = 7)),
+  geom_ribbon(aes(x = theta, ymin = 0, ymax = dbeta(theta, shape1 = 15, shape2 = 7)),
               fill = "grey67") +
   geom_segment(aes(x = h[1], xend = h[2], y = 0, yend = 0),
                size = .75) +
@@ -251,7 +247,95 @@ tibble(x = 1:7,
 
 ### General properties of a random walk.
 
-Unfortunately, the computations behind Figure 7.3 are beyond my math + programming capabilities. If you've got the code, hit me up in my [GitHub issue #14](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues/14).
+> The tajectory shown in Figure 7.2 is just one possible sequence of positions when the movement heuristic is applied. At each time step, the direction of the proposed move is random, and if the relative probability of the proposed position is less than that of the current position, then acceptance of the proposed move is also random. Because of the randomness, if the process were started over again, then the specific trajectory would almost certainly be different. Regardless of the specific trajectory, in the long run the relative frequency of visits mimics the target distribution.
+>
+> Figure 7.3 shows the probability of being in each position as a function of time. (p. 149)
+
+I was initially stumped on how to reproduce the simulation depicted in Figure 7.3. However, [Cardy Moten III](https://github.com/cmoten) kindly [shared a solution](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues/14) which was itself based on Kruschke's blog post from 2012, [*Metropolis Algorithm: Discrete position probabilities*](https://doingbayesiandataanalysis.blogspot.com/2012/08/metropolis-algorithm-discrete-position.html). Here's a mild reworking of their solutions. First, we simulate.
+
+```{r}
+nslots   <- 7
+p_target <- 1:7
+p_target <- p_target / sum(p_target)
+
+# construct the transition matrix
+proposal_matrix <- matrix(0, nrow = nslots, ncol = nslots)
+
+for(from_idx in 1:nslots) {
+  for(to_idx in 1:nslots) {
+    if(to_idx == from_idx - 1) {proposal_matrix[from_idx, to_idx] <- 0.5}
+    if(to_idx == from_idx + 1) {proposal_matrix[from_idx, to_idx] <- 0.5}
+  }
+}
+
+# construct the acceptance matrix
+acceptance_matrix <- matrix(0, nrow = nslots, ncol = nslots)
+
+for(from_idx in 1:nslots) {
+  for(to_idx in 1:nslots) {
+    acceptance_matrix[from_idx, to_idx] <- min(p_target[to_idx] / p_target[from_idx], 1)
+  }
+}
+
+# compute the matrix of move probabilities
+move_matrix <- proposal_matrix * acceptance_matrix
+
+# compute the transition matrix, including the probability of staying in place
+transition_matrix <- move_matrix
+for (diag_idx in 1:nslots) {
+  transition_matrix[diag_idx, diag_idx] = 1.0 - sum(move_matrix[diag_idx, ])
+}
+
+# specify starting position vector:
+position_vec <- rep(0, nslots)
+position_vec[round(nslots / 2)] <- 1.0
+
+p <- list()
+data <- 
+  tibble(position = 1:nslots, 
+         prob     = position_vec)
+
+# loop through the requisite time indexes
+# update the data and transition vector
+for(time_idx in 1:15) {
+  
+  p[[time_idx]] <- data
+  
+  # update the position vec
+  position_vec <- position_vec %*% transition_matrix
+  
+  # update the data
+  data <- NULL 
+  data <- 
+    tibble(position = 1:nslots, 
+           prob     = t(position_vec))
+}
+```
+
+Now we wrangle and plot.
+
+```{r, fig.width = 10, fig.height = 8}
+p %>% 
+  as_tibble_col() %>% 
+  mutate(facet = str_c("italic(t)==", 1:15)) %>% 
+  unnest(value) %>% 
+  bind_rows(
+    tibble(position = 1:nslots, 
+           prob     = p_target, 
+           facet    = "target")
+  ) %>% 
+  mutate(facet = factor(facet, levels = c(str_c("italic(t)==", 1:15), "target"))) %>% 
+  
+  # plot!
+  ggplot(aes(x = position, y = prob, fill = facet == "target")) +
+  geom_col(width = .2) +
+  scale_fill_manual(values = c("grey50", "goldenrod2")) +
+  scale_x_continuous(expression(theta), breaks = 1:7) +
+  ylab(expression(italic(p)(theta))) +
+  theme(legend.position = "none",
+        panel.grid = element_blank()) +
+  facet_wrap(~facet, scales = "free_y", labeller = label_parsed)
+```
 
 ### Why we care.
 
@@ -1138,8 +1222,8 @@ sessionInfo()
 ```
 
 ```{r, message = F, warning = F, echo = F}
-# Here we'll remove our objects
-rm(hdi_of_icdf, h, omega, d, my_mode_simulation, sim, num_days, positions, current, i, proposal, prob_accept_the_proposal, mu, sigma, proposed_jump, my_data, likelihood, prior_d, target_rel_prob, traj_length, trajectory, burn_in, n_accepted, n_rejected, my_metropolis, betas, theta_sequence, bernoulli_likelihood, theta_1_data, theta_2_data, d_prior, d_likelihood, model_1, model_2, fit7.1, post, z, n, fit7.2, warmups, fit7.2_c, lagged_post, lagged_post_wide, p1, p2, p3)
+# here we'll remove our objects
+rm(hdi_of_icdf, h, omega, d, my_mode_simulation, sim, num_days, positions, current, nslots, p_target, proposal_matrix, acceptance_matrix, from_idx, to_idx, diag_idx, time_idx, move_matrix, transition_matrix, position_vec, p, data, i, proposal, prob_accept_the_proposal, mu, sigma, proposed_jump, my_data, likelihood, prior_d, target_rel_prob, traj_length, trajectory, burn_in, n_accepted, n_rejected, my_metropolis, betas, theta_sequence, bernoulli_likelihood, theta_1_data, theta_2_data, d_prior, d_likelihood, model_1, model_2, fit7.1, post, z, n, fit7.2, warmups, fit7.2_c, lagged_post, lagged_post_wide, p1, p2, p3)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
