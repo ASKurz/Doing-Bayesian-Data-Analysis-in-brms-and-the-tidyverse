@@ -26,9 +26,9 @@ description: "This project is an attempt to re-express the code in Kruschke's (2
 
 # What and why {-}
 
-Kruschke began his text with "This book explains how to actually do Bayesian data analysis, by real people (like you), for realistic data (like yours)." In the same way, this project is designed to help those real people do Bayesian data analysis. My contribution is converting Kruschke's JAGS and Stan code for use in Bürkner's [**brms** package](https://github.com/paul-buerkner/brms) [@R-brms; @burknerBrmsPackageBayesian2017; @burknerAdvancedBayesianMultilevel2018], which makes it easier to fit Bayesian regression models in **R** [@R-base] using Hamiltonian Monte Carlo (HMC). I also prefer plotting and data wrangling with the packages from the [**tidyverse**](http://style.tidyverse.org) [@R-tidyverse; @wickhamWelcomeTidyverse2019]. So we'll be using those methods, too.
+Kruschke began his text with "This book explains how to actually do Bayesian data analysis, by real people (like you), for realistic data (like yours)." In the same way, this project is designed to help those real people do Bayesian data analysis. My contribution is converting Kruschke's JAGS and Stan code for use in Bürkner's [**brms** package](https://github.com/paul-buerkner/brms) [@R-brms; @burknerBrmsPackageBayesian2017; @burknerAdvancedBayesianMultilevel2018], which makes it easier to fit Bayesian regression models in **R** [@R-base] using Hamiltonian Monte Carlo. I also prefer plotting and data wrangling with the packages from the [**tidyverse**](http://style.tidyverse.org) [@R-tidyverse; @wickhamWelcomeTidyverse2019]. So we'll be using those methods, too.
 
-This project is not meant to stand alone. It's a supplement to the second edition of Kruschke's [-@kruschkeDoingBayesianData2015] [*Doing Bayesian Data Analysis*](https://sites.google.com/site/doingbayesiandataanalysis/). Please give the source material some love.
+This project is not meant to stand alone. It's a supplement to the second edition of Kruschke's [-@kruschkeDoingBayesianData2015] [*Doing Bayesian data analysis: A tutorial with R, JAGS, and Stan*](https://sites.google.com/site/doingbayesiandataanalysis/). Please give the source material some love.
 
 ## We have updates {-}
 
@@ -60,12 +60,6 @@ There are some minor improvements I'd like to add in future versions, such as pr
 * the conditional logistic models of Section 22.3.3.2 ([issue #22](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues/22)).
 
 If you know how to conquer any of these unresolved challenges, I'd love to hear all about it. In addition, please feel free to open a new issue if you find any flaws in the other sections of the project.
-
-## You can do this, too {-}
-
-This project is powered by Yihui Xie's [bookdown package](https://bookdown.org) [@R-bookdown], which makes it easy to turn R Markdown files into HTML, PDF, and EPUB. To learn more about bookdown, check out Xie [-@xieBookdownAuthoringBooks2016], [*bookdown: Authoring books and technical documents with R markdown*](https://bookdown.org/yihui/bookdown/). While you're at it, also check out Xie, Allaire, and Grolemund's [-@xieMarkdownDefinitiveGuide2020] [*R markdown: The definitive guide*](https://bookdown.org/yihui/rmarkdown/). And if you're unacquainted with GitHub, check out Jenny Bryan's [*Happy Git and GitHub for the useR*](https://happygitwithr.com/) [@bryanHappyGitGitHub2020].
-
-The source code of the project is available on GitHub at [https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse).
 
 ## Thank-you's are in order {-}
 
