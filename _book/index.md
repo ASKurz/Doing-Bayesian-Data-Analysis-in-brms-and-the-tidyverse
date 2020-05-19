@@ -1,11 +1,17 @@
 --- 
 title: "*Doing Bayesian Data Analysis* in brms and the tidyverse"
-subtitle: "version 0.1.0"
+subtitle: "version 0.2.0"
 author: ["A Solomon Kurz"]
-date: "2020-02-17"
+date: "2020-05-19"
 site: bookdown::bookdown_site
-output: bookdown::gitbook
+output: 
+  bookdown::gitbook:
+    split_bib: yes
 documentclass: book
+bibliography: bib_zotero.bib
+biblio-style: apalike
+csl: apa.csl
+link-citations: yes
 geometry:
   margin = 0.5in
 urlcolor: blue
@@ -13,7 +19,6 @@ highlight: tango
 header-includes:
   \usepackage{underscore}
   \usepackage[T1]{fontenc}
-link-citations: yes
 github-repo: ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse
 twitter-handle: SolomonKurz
 description: "This project is an attempt to re-express the code in Kruschke's (2015) textbook. His models are re-fit in brms, plots are redone with ggplot2, and the general data wrangling code predominantly follows the tidyverse style."
@@ -21,27 +26,33 @@ description: "This project is an attempt to re-express the code in Kruschke's (2
 
 # What and why {-}
 
-Kruschke began his text with "This book explains how to actually do Bayesian data analysis, by real people (like you), for realistic data (like yours)." In the same way, this project is designed to help those real people do Bayesian data analysis. My contribution is converting Kruschke's JAGS and Stan code for use in Bürkner's [**brms** package](https://github.com/paul-buerkner/brms), which makes it easier to fit Bayesian regression models in **R** using Hamiltonian Monte Carlo (HMC). I also prefer plotting and data wrangling with the packages from the [**tidyverse**](http://style.tidyverse.org). So we'll be using those methods, too.
+Kruschke began his text with "This book explains how to actually do Bayesian data analysis, by real people (like you), for realistic data (like yours)." In the same way, this project is designed to help those real people do Bayesian data analysis. My contribution is converting Kruschke's JAGS and Stan code for use in Bürkner's [**brms** package](https://github.com/paul-buerkner/brms) [@R-brms; @burknerBrmsPackageBayesian2017; @burknerAdvancedBayesianMultilevel2018], which makes it easier to fit Bayesian regression models in **R** [@R-base] using Hamiltonian Monte Carlo (HMC). I also prefer plotting and data wrangling with the packages from the [**tidyverse**](http://style.tidyverse.org) [@R-tidyverse; @wickhamWelcomeTidyverse2019]. So we'll be using those methods, too.
 
-This project is not meant to stand alone. It's a supplement to the second edition of [Kruschke's *Doing Bayesian Data Analysis*](https://sites.google.com/site/doingbayesiandataanalysis/). Please give the source material some love.
+This project is not meant to stand alone. It's a supplement to the second edition of Kruschke's [-@kruschkeDoingBayesianData2015] [*Doing Bayesian Data Analysis*](https://sites.google.com/site/doingbayesiandataanalysis/). Please give the source material some love.
 
-## Caution: Work in progress {-}
+## We have updates {-}
 
-### We've come so far! {-}
+For a brief rundown of the version history, we have:
 
-The first phase for this project was focused on developing the primary content, a few chapters at a time. Welcome to version 0.1.0 and the beginning of a new project phase! With version 0.1.0, we now have [fairly] complete drafts of all chapters in Kruschke's text. The supermajority of Kruschke's JAGS and Stan models have been fit using **brms** code and most of the results are quite comparable to those in the original text. We have also reproduced most of the data-related figures and tables and little subpoints and examples sprinkled throughout Kruschke's prose. In addition, we have a few bonus content areas not found in the original text, such as
+### Version 0.1.0. {-}
 
-* an introduction to Bayesian information criteria in Section 10.3.2,
-* an extra walkout of simple effect sizes in Section 19.6, and
-* a comparison of the hierarchical aggregated binomial model with Kruschke’s hierarchical Poisson approach in Section 24.4.
+I released the 0.1.0 version of this project in February 17, 2020. It was the first [fairly] complete draft including material from all the chapters in Kruschke's text. The supermajority of Kruschke's JAGS and Stan models were fit **brms** 2.11.5. The results were saved in the [`fits` folder on GitHub](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/tree/master/fits) and most of the results are quite comparable to those in the original text. We also reproduced most of the data-related figures and tables and little subpoints and examples sprinkled throughout Kruschke's prose.
 
-Another nice feature of this version is all models have ben refit with **brms** 2.11.5 and saved as external files you can access in the [`fits` folder on GitHub](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/tree/master/fits).
+### Version 0.2.0. {-}
+
+Welcome to version 0.2.0! Noteworthy changes include:
+
+* finally reproducing the simulation necessary for Figure 7.3 (see [GitHub issue #14](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues/14)) with help from Cardy Moten III ([\@cmoten](https://github.com/cmoten));
+* with guidance from Bjørn Peare Bartholdy ([\@bbartholdy](https://github.com/bbartholdy)), Mladen Jovanović ([\@mladenjovanovic](https://github.com/mladenjovanovic)), Cory Whitney ([\@CWWhitney](https://github.com/CWWhitney)), and Brenton M. Wiernik ([\@bwiernik](https://github.com/bwiernik)), we have improved in-text citations and reference sections using [BibTex](http://www.bibtex.org/) [@BibTeX2020], [Better BibTeX](https://github.com/retorquere/zotero-better-bibtex) [@BetterBibTeXZotero2020], and [zotero](https://www.zotero.org/) [@ZoteroYourPersonal2020];
+* increased the plot resolution with `fig.retina = 2.5`;
+* small updates to broken **ggplot2** code;
+* refreshed hyperlinks; and
+* various typo corrections.
 
 ### We're not done yet and I could use your help. {-}
 
-There are some minor improvements I'd like to add in future versions, such as refreshed hyperlinks (e.g., prioritizing HTTPS, following canonical CRAN style), prettying up the plots with custom themes, and so on. As much as I'm looking forward to these improvements, they're mainly just fluff. The most important improvements I'd like to make are patching up the content holes. A few simulations, figures, and models are beyond my current skill set. I’ve opened separate GitHub issues for the most important ones and they are as follows:
+There are some minor improvements I'd like to add in future versions, such as prettying up the plots with custom themes. More importantly, I'd like to patch up the content holes. A few simulations, figures, and models are beyond my current skill set. I've opened separate GitHub issues for the most important ones and they are as follows:
 
-* the random-walk simulation in Section 7.2.3 and the corresponding plot in Figure 7.3 ([issue #14](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues/14)),
 * the effective-sample-size simulations in Section 7.5.2 and the corresponding plots in Figures 7.13 and 7.14 ([issue #15](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues/15)),
 * several of the simulations in Sections 11.1.4, 11.3.1, and 11.3.2 and their corresponding figures (issues [#16](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues/16), [#17](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues/17), [#18](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues/18), and [#19](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues/19)),
 * the stopping-rule simulations in Section 13.3.2 and their corresponding figures ([issue #20](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues/20)),
@@ -50,18 +61,28 @@ There are some minor improvements I'd like to add in future versions, such as re
 
 If you know how to conquer any of these unresolved challenges, I'd love to hear all about it. In addition, please feel free to open a new issue if you find any flaws in the other sections of the project.
 
+## You can do this, too {-}
+
+This project is powered by Yihui Xie's [bookdown package](https://bookdown.org) [@R-bookdown], which makes it easy to turn R Markdown files into HTML, PDF, and EPUB. To learn more about bookdown, check out Xie [-@xieBookdownAuthoringBooks2016], [*bookdown: Authoring books and technical documents with R markdown*](https://bookdown.org/yihui/bookdown/). While you're at it, also check out Xie, Allaire, and Grolemund's [-@xieMarkdownDefinitiveGuide2020] [*R markdown: The definitive guide*](https://bookdown.org/yihui/rmarkdown/). And if you're unacquainted with GitHub, check out Jenny Bryan's [*Happy Git and GitHub for the useR*](https://happygitwithr.com/) [@bryanHappyGitGitHub2020].
+
+The source code of the project is available on GitHub at [https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse).
+
 ## Thank-you's are in order {-}
 
 Before we enter the primary text, I'd like to thank the following for their helpful contributions:
 
+* Bjørn Peare Bartholdy ([\@bbartholdy](https://github.com/bbartholdy)),
 * Paul-Christian Bürkner ([\@paul-buerkner](https://github.com/paul-buerkner)),
 * Andrew Gelman ([\@andrewgelman](https://github.com/andrewgelman)),
+* Mladen Jovanović ([\@mladenjovanovic](https://github.com/mladenjovanovic)),
 * Matthew Kay ([\@mjskay](https://github.com/mjskay)),
 * TJ Mahr ([\@tjmahr](https://github.com/tjmahr)),
+* Cardy Moten III ([\@cmoten](https://github.com/cmoten)),
 * Lukas Neugebauer ([\@LukasNeugebauer](https://github.com/LukasNeugebauer)),
 * Demetri Pananos ([\@Dpananos](https://github.com/dpananos)),
 * Aki Vehtari ([\@avehtari](https://github.com/avehtari)),
-* Matti Vuorre ([\@mvuorre](https://github.com/mvuorre)), and
+* Matti Vuorre ([\@mvuorre](https://github.com/mvuorre)), 
+* Cory Whitney ([\@CWWhitney](https://github.com/CWWhitney)), and
 * Brenton M. Wiernik ([\@bwiernik](https://github.com/bwiernik)).
 
 
