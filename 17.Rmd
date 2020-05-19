@@ -13,7 +13,7 @@ options(width = 100)
 
 # Metric Predicted Variable with One Metric Predictor
 
-> We will initially describe the relationship between the predicted variable, $y$ and predictor, $x$, with a simple linear model and normally distributed residual randomness in $y$. This model is often referred to as 'simple linear regression.' We will generalize the model in three ways. First, we will give it a noise distribution that accommodates outliers, which is to say that we will replace the normal distribution with a $t$ distribution as we did in the previous chapter. The model will be implemented in [**brms**]. Next, we will consider differently shaped relations between the predictor and the predicted, such as quadratic trend. Finally, we will consider hierarchical models of situations in which every individual has data that can be described by an individual trend, and we also want to estimate group-level typical trends across individuals. (p. 478)
+> We will initially describe the relationship between the predicted variable, $y$ and predictor, $x$, with a simple linear model and normally distributed residual randomness in $y$. This model is often referred to as 'simple linear regression.' We will generalize the model in three ways. First, we will give it a noise distribution that accommodates outliers, which is to say that we will replace the normal distribution with a $t$ distribution as we did in the previous chapter. The model will be implemented in [**brms**]. Next, we will consider differently shaped relations between the predictor and the predicted, such as quadratic trend. Finally, we will consider hierarchical models of situations in which every individual has data that can be described by an individual trend, and we also want to estimate group-level typical trends across individuals. [@kruschkeDoingBayesianData2015, p. 478]
 
 ## Simple linear regression
 
@@ -91,10 +91,10 @@ d %>%
   geom_path(data = curves,
             aes(group = y_mean),
             color = "blue", size = 1) +
-  coord_cartesian(xlim = -10:10,
-                  ylim = -10:30) +
   labs(title = "Normal PDF around Linear Function",
        subtitle = "We simulated x from a uniform distribution in the left panel and simulated it from a mixture of\n two Gaussians on the right.") +
+  coord_cartesian(xlim = c(-10, 10),
+                  ylim = c(-10, 30)) +
   theme(strip.background = element_blank(),
         strip.text = element_blank()) +
   facet_wrap(~panel)
@@ -343,13 +343,11 @@ ggplot(data = d,
               slope = post[1:n_lines, "b_1"],
               color = "grey67", size = 1/4, alpha = .3) +
   geom_point(alpha = 1/2) +
-  labs(subtitle = eval(substitute(paste("Data with",
-                                        n_lines,
-                                        "credible regression lines"))),
+  labs(subtitle = eval(substitute(paste("Data with", n_lines, "credible regression lines"))),
        x = "height",
        y = "weight") +
-  coord_cartesian(xlim = 50:80,
-                  ylim = -50:470)
+  coord_cartesian(xlim = c(50, 80),
+                  ylim = c(-50, 470))
 ```
 
 We'll want to open the **tidybayes** package to help make the histograms.
@@ -447,8 +445,8 @@ ggplot(data = d %>%
   labs(subtitle = eval(substitute(paste("Data with", n_lines, "credible regression lines"))),
        x = "height",
        y = "weight") +
-  coord_cartesian(xlim = 0:80,
-                  ylim = -350:250)
+  coord_cartesian(xlim = c(0, 80),
+                  ylim = c(-350, 250))
 ```
 
 Next we'll make the histograms.
@@ -672,7 +670,7 @@ glimpse(my_data)
 
 ### The model and implementation in ~~JAGS~~ brms.
 
-Here we'll standardize the data and define our `stanvars`. I should note that standardizing and mean centering, more generally, becomes complicated with multilevel models. Here we're just standardizing based on the grand mean and grand standard deviation. But there are other ways to standardize, such as within groups. Craig Enders has a [good book chapter](https://scholar.google.com/scholar?hl=en&as_sdt=0%2C1&q=Centering+Predictors+and+Contextual+Effects&btnG=) that touched on the topic, as well as [an earlier (2007) paper with Tofighi](http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.928.9848&rep=rep1&type=pdf).
+Here we'll standardize the data and define our `stanvars`. I should note that standardizing and mean centering, more generally, becomes complicated with multilevel models. Here we're just standardizing based on the grand mean and grand standard deviation. But there are other ways to standardize, such as within groups. Craig Enders has a good [-@endersCenteringPredictorsContextual2013] [book chapter](https://scholar.google.com/scholar?hl=en&as_sdt=0%2C1&q=Centering+Predictors+and+Contextual+Effects&btnG=) that touched on the topic, as well as an earlier [-@enders2007centering] [paper](http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.928.9848&rep=rep1&type=pdf) with Tofighi.
 
 ```{r}
 my_data <-
@@ -681,7 +679,7 @@ my_data <-
          y_z = standardize(Y))
 ```
 
-In my experience, you typically use the `(|)` syntax when fitting a hierarchical model with the`brm()` function. The terms before the `|` are those varying by group and you tell `brm()` what the grouping variable is after the `|`. In the case of multiple group-level parameters--which is the case with this model (i.e., both intercept and the `x_z` slope--, this syntax also estimates correlations among the group-level parameters. Kruschke’s model doesn’t appear to include such a correlation. Happily, we can use the `(||)` syntax instead, which omits correlations among the group-level parameters. If you're curious about the distinction, fit the model both ways and explore the differences in the `print()` output. For more on the topic, see the *Group-level terms* subsection of the `brmsformula` section of the [**brms** reference manual](https://cran.r-project.org/web/packages/brms/brms.pdf).
+In my experience, you typically use the `(|)` syntax when fitting a hierarchical model with the`brm()` function. The terms before the `|` are those varying by group and you tell `brm()` what the grouping variable is after the `|`. In the case of multiple group-level parameters--which is the case with this model (i.e., both intercept and the `x_z` slope--, this syntax also estimates correlations among the group-level parameters. Kruschke’s model doesn’t appear to include such a correlation. Happily, we can use the `(||)` syntax instead, which omits correlations among the group-level parameters. If you're curious about the distinction, fit the model both ways and explore the differences in the `print()` output. For more on the topic, see the *Group-level terms* subsection of the `brmsformula` section of the [**brms** reference manual](https://CRAN.R-project.org/package=brms/brms.pdf) [@brms2020RM].
 
 ```{r fit17.4}
 fit17.4 <-
@@ -755,8 +753,8 @@ my_data %>%
   scale_color_viridis_d() +
   scale_y_continuous(breaks = seq(from = 50, to = 250, by = 50)) +
   labs(subtitle = eval(substitute(paste("Data from all units with", n_lines, "credible population-level\nregression lines")))) +
-  coord_cartesian(xlim = 40:95,
-                  ylim = 30:270) +
+  coord_cartesian(xlim = c(40, 95),
+                  ylim = c(30, 270)) +
   theme(legend.position = "none")
 ```
 
@@ -802,8 +800,8 @@ my_data %>%
   scale_x_continuous(breaks = seq(from = 50, to = 90,  by = 20)) +
   scale_y_continuous(breaks = seq(from = 50, to = 250, by = 100)) +
   labs(subtitle = "Each unit now has its own bundle of credible regression lines") +
-  coord_cartesian(xlim = 45:90,
-                  ylim = 50:270) +
+  coord_cartesian(xlim = c(45, 90),
+                  ylim = c(50, 270)) +
   theme(legend.position = "none") +
   facet_wrap(~Subj %>% factor(., levels = 1:25))
 ```
@@ -855,9 +853,9 @@ p1 <-
             size = 1/4) +
   scale_color_viridis_d(option = "C") +
   scale_y_continuous(breaks = seq(from = 50, to = 250, by = 50)) +
-  coord_cartesian(xlim = 40:95,
-                  ylim = 30:270) +
   labs(subtitle = eval(substitute(paste("Data from all units with", n_lines, "credible population-level\nregression lines")))) +
+  coord_cartesian(xlim = c(40, 95),
+                  ylim = c(30, 270)) +
   theme(legend.position = "none")
 
 p1
@@ -904,8 +902,8 @@ p2 <-
   scale_x_continuous(breaks = seq(from = 50, to = 90,  by = 20)) +
   scale_y_continuous(breaks = seq(from = 50, to = 250, by = 100)) +
   labs(subtitle = "Each unit now has its own bundle of credible regression lines") +
-  coord_cartesian(xlim = 45:90,
-                  ylim = 50:270) +
+  coord_cartesian(xlim = c(45, 90),
+                  ylim = c(50, 270)) +
   theme(legend.position = "none") +
   facet_wrap(~Subj %>% factor(., levels = 1:25))
 
@@ -950,7 +948,7 @@ my_data <-
 glimpse(my_data)
 ```
 
-With **brms**, there are a couple ways to handle measurement error on a variable (e.g., see [Chapter 14 of this **bookdown** project](https://bookdown.org/content/1850/missing-data-and-other-opportunities.html)). Here we'll use the `se()` syntax, following the form `response | se(se_response, sigma = TRUE)`. In this form, `se` stands for standard error, the loose frequentist analogue to the Bayesian posterior $SD$. Unless you're fitting a meta-analysis on summary information, make sure to specify `sigma = TRUE`. Without that you'll have no estimate for $\sigma$! For more information on the `se()` method, go to the [**brms** reference manual](https://cran.r-project.org/web/packages/brms/brms.pdf) and find the *Additional response information* subsection of the `brmsformula` section.
+With **brms**, there are a couple ways to handle measurement error on a variable (e.g., see [Chapter 14](https://bookdown.org/content/3890/missing-data-and-other-opportunities.html) of my ebook, [*Statistical Rethinking with brms, ggplot2, and the tidyverse*](https://bookdown.org/content/3890/) [@kurzStatisticalRethinkingBrms2020]. Here we'll use the `se()` syntax, following the form `response | se(se_response, sigma = TRUE)`. In this form, `se` stands for standard error, the loose frequentist analogue to the Bayesian posterior $SD$. Unless you're fitting a meta-analysis on summary information, make sure to specify `sigma = TRUE`. Without that you'll have no estimate for $\sigma$! For more information on the `se()` method, go to the [**brms** reference manual](https://CRAN.R-project.org/package=brms/brms.pdf) and find the *Additional response information* subsection of the `brmsformula` section [@brms2020RM, p. 37].
 
 ```{r fit17.5}
 fit17.5 <-
@@ -1066,8 +1064,8 @@ my_data %>%
   scale_x_continuous("Family size", breaks = 1:8) +
   labs(title = "All states",
        y = "Median income") +
-  coord_cartesian(xlim = 1:8,
-                  ylim = 0:150000)
+  coord_cartesian(xlim = c(1, 8),
+                  ylim = c(0, 150000))
 ```
 
 Like before, we'll extract the group-level coefficients (i.e., those specific to the `State`s) with the `coef()` function. And also like before, the `coef()` output will require a little wrangling.
@@ -1146,12 +1144,11 @@ my_data %>%
   geom_point(aes(color = State)) +
   geom_line(aes(color = State)) +
   scale_color_viridis_d() +
-  scale_x_continuous(breaks = 1:8) +
+  scale_x_continuous("Family size", breaks = 1:8) +
   labs(subtitle = "Each State now has its own bundle of credible regression curves.",
-       x = "Family size",
        y = "Median income") +
-  coord_cartesian(xlim = 1:8,
-                  ylim = 0:150000) +
+  coord_cartesian(xlim = c(1, 8),
+                  ylim = c(0, 150000)) +
   theme(legend.position = "none") +
   facet_wrap(~State)
 ```
@@ -1175,15 +1172,11 @@ I'm guessing the distinction in our $\nu$ distribution and that in the text is o
 
 ### Further extensions.
 
-Kruschke discussed the ease with which users of Bayesian software might specify nonlinear models. Check out Bürkner’s vignette, [*Estimating Non-Linear Models with brms*](https://cran.r-project.org/web/packages/brms/vignettes/brms_nonlinear.html) for more on the topic. Though I haven't used it, I believe it is also possible to use the $t$ distribution to model group-level variation in **brms** (see [this GitHub discussion](https://github.com/paul-buerkner/brms/issues/231) for details).
+Kruschke discussed the ease with which users of Bayesian software might specify nonlinear models. Check out Bürkner's [-@Bürkner2020Non_linear] vignette, [*Estimating non-linear models with brms*](https://CRAN.R-project.org/package=brms/vignettes/brms_nonlinear.html), for more on the topic. Though I haven't used it, I believe it is also possible to use the $t$ distribution to model group-level variation in **brms** (see [this GitHub discussion](https://github.com/paul-buerkner/brms/issues/231) for details).
 
 ## Procedure and perils for expanding a model
 
-Across several chapters, we've already dipped our toes into posterior predictive checks. For more on the PPC "double dipping" issue, check out Gelman's [*Discussion with Sander Greenland on posterior predictive checks*](http://andrewgelman.com/2014/08/11/discussion-sander-greenland-posterior-predictive-checks/) or Simpson's [*Touch me, I want to feel your data*](http://andrewgelman.com/2017/09/07/touch-want-feel-data/), which is itself connected to Gabry and colleagues' [*Visualization in Bayesian workflow*](https://arxiv.org/abs/1709.01449).
-
-## Reference {-}
-
-[Kruschke, J. K. (2015). *Doing Bayesian data analysis, Second Edition: A tutorial with R, JAGS, and Stan.* Burlington, MA: Academic Press/Elsevier.](https://sites.google.com/site/doingbayesiandataanalysis/)
+Across several chapters, we've already dipped our toes into posterior predictive checks. For more on the PPC "double dipping" issue, check out Gelman's [*Discussion with Sander Greenland on posterior predictive checks*](http://andrewgelman.com/2014/08/11/discussion-sander-greenland-posterior-predictive-checks/) or Simpson's [*Touch me, I want to feel your data*](http://andrewgelman.com/2017/09/07/touch-want-feel-data/), which is itself connected to @gabry2019visualization, [*Visualization in Bayesian workflow*](https://arxiv.org/abs/1709.01449).
 
 ## Session info {-}
 

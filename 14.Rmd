@@ -14,13 +14,13 @@ knitr::opts_chunk$set(fig.align = "center")
 
 > Stan is the name of a software package that creates representative samples of parameter values from a posterior distribution for complex hierarchical models, analogous to JAGS...
 > 
-> According to the Stan reference manual, Stan is named after [Stanislaw Ulam](https://en.wikipedia.org/wiki/Stanislaw_Ulam) (1909-1984), who was a pioneer of Monte Carlo methods. (Stan is not named after the slang term referring to an overenthusiastic or psychotic fanatic, formed by a combination of the words "stalker" and "fan.") The name of the software package has also been unpacked as the acronym, Sampling Through Adaptive Neighborhoods ([Gelman et al., 2013, p. 307](https://stat.columbia.edu/~gelman/book/)), but it is usually written as Stan not STAN.
+> According to the Stan reference manual, Stan is named after [Stanislaw Ulam](https://en.wikipedia.org/wiki/Stanislaw_Ulam) (1909–1984), who was a pioneer of Monte Carlo methods. (Stan is not named after the slang term referring to an overenthusiastic or psychotic fanatic, formed by a combination of the words "stalker" and "fan.") The name of the software package has also been unpacked as the acronym, Sampling Through Adaptive Neighborhoods [@gelman2013bayesian, p. 307], but it is usually written as Stan not STAN.
 >
 > Stan uses a different method than JAGS for generating Monte Carlo steps. The method is called *Hamiltonian Monte Carlo* (HMC). HMC can be more effective than the various samplers in JAGS and BUGS, especially for large complex models. Moreover, Stan operates with compiled C++ and allows greater programming flexibility, which again is especially useful for unusual or complex models. For large data sets or complex models, Stan can provide solutions when JAGS (or BUGS) takes too long or fails. (pp. 399--400, *emphasis* in the original)
 
-To learn more about Stan from the Stan team themselves, check out the main website [https://mc-stan.org/](https://mc-stan.org/). If you like to dive deep, bookmark the [*Stan User's Guide*](https://mc-stan.org/docs/2_21/stan-users-guide/index.html) and the [*Stan Language Reference Manual*](https://mc-stan.org/docs/2_21/reference-manual/index.html). 
+To learn more about Stan from the Stan team themselves, check out the main website [https://mc-stan.org/](https://mc-stan.org/). If you like to dive deep, bookmark the [*Stan User's Guide*](https://mc-stan.org/docs/2_23/stan-users-guide/index.html) [@standevelopmentteamStanUserGuide2020] and the [*Stan Reference Manual*](https://mc-stan.org/docs/2_23/reference-manual/index.html) [@standevelopmentteamStanReferenceManual2020]. 
 
-We won't be using Stan directly in this project. I prefer working with it indirectly through the interface of Bürkner's **brms** package instead. If you haven't already, bookmark the **brms** [GitHub repository](https://github.com/paul-buerkner/brms), [CRAN page](https://cran.r-project.org/web/packages/brms/index.html), and [reference manual](https://cran.r-project.org/web/packages/brms/brms.pdf). You can also view Bürkner's talk from the useR! International R User 2017 Conference, [*brms: Bayesian Multilevel Models using Stan*](https://www.youtube.com/watch?v=40o0_0XTB6E). Here's how Bürkner described **brms** in its GitHub repo:
+We won't be using Stan directly in this project. I prefer working with it indirectly through the interface of Bürkner's **brms** package instead. If you haven't already, bookmark the **brms** [GitHub repository](https://github.com/paul-buerkner/brms), [CRAN page](https://CRAN.R-project.org/package=brms), and [reference manual](https://CRAN.R-project.org/package=brms/brms.pdf) [@brms2020RM]. You can also view Bürkner's talk from the useR! International R User 2017 Conference, [*brms: Bayesian Multilevel Models using Stan*](https://www.youtube.com/watch?v=40o0_0XTB6E). Here's how Bürkner described **brms** in its GitHub repo:
 
 > The **brms** package provides an interface to fit Bayesian generalized (non-)linear multivariate multilevel models using Stan, which is a C++ package for performing full Bayesian inference (see [http://mc-stan.org/](http://mc-stan.org/)). The formula syntax is very similar to that of the package lme4 to provide a familiar and simple interface for performing regression analyses. A wide range of response distributions are supported, allowing users to fit – among others – linear, robust linear, count data, survival, response times, ordinal, zero-inflated, and even self-defined mixture models all in a multilevel context. Further modeling options include non-linear and smooth terms, auto-correlation structures, censored data, missing value imputation, and quite a few more. In addition, all parameters of the response distribution can be predicted in order to perform distributional regression. Multivariate models (i.e., models with multiple response variables) can be fit, as well. Prior specifications are flexible and explicitly encourage users to apply prior distributions that actually reflect their beliefs. Model fit can easily be assessed and compared with posterior predictive checks, cross-validation, and Bayes factors. (**emphasis** in the original)
 
@@ -28,7 +28,7 @@ We won't be using Stan directly in this project. I prefer working with it indire
 
 "Stan generates random representative samples from a posterior distribution by using a variation of the Metropolis algorithm called HMC" (p. 400).
 
-I'm not going to walk through the the details of HMC sampling, at this time. In addition to Kruschke's explanation, you might check out McElreath's [lecture on HMC from January, 2019](https://www.youtube.com/watch?v=v-j0UmWf3Us) or one of these lectures ([here](https://www.youtube.com/watch?v=jUSZboSq1zg), [here](https://www.youtube.com/watch?v=_fnDz2Bz3h8), or [here](https://www.youtube.com/watch?v=pHsuIaPbNbY)) by Michael Betancourt. I’m also not sufficiently up on the math required to properly make the figures in this section. But we can at least get the ball rolling.
+I'm not going to walk through the the details of HMC sampling, at this time. In addition to Kruschke's explanation, you might check out McElreath's [lecture on HMC from January, 2019](https://www.youtube.com/watch?v=v-j0UmWf3Us) or one of these lectures ([here](https://www.youtube.com/watch?v=jUSZboSq1zg), [here](https://www.youtube.com/watch?v=_fnDz2Bz3h8), or [here](https://www.youtube.com/watch?v=pHsuIaPbNbY)) by Michael Betancourt. I'm also not sufficiently up on the math required to properly make the figures in this section. But we can at least get the ball rolling.
 
 ```{r, warning = F, message = F}
 library(tidyverse)
@@ -77,8 +77,8 @@ p1 <-
                y = 0.16, yend = 0.04,
                arrow = arrow(length = unit(0.2, "cm")), 
                size = 1/4, color = "grey50") +
-  coord_cartesian(xlim = -3:3) +
-  ggtitle("Posterior Distrib.")
+  ggtitle("Posterior Distrib.") +
+  coord_cartesian(xlim = c(-3, 3))
 
 p2 <-
   d %>% 
@@ -91,9 +91,9 @@ p2 <-
   geom_segment(x = -1.1, xend = 0.1,
                y = 1.5, yend = 1.5,
                arrow = arrow(length = unit(0.275, "cm"), ends = "both")) +
-  coord_cartesian(xlim = -3:3,
-                  ylim = 0:5) +
-  ggtitle("Negative Log Posterior ('Potential')")
+  ggtitle("Negative Log Posterior ('Potential')") +
+  coord_cartesian(xlim = c(-3, 3),
+                  ylim = c(0, 5))
 
 (p1 / p2) & 
   scale_x_continuous(breaks = -3:3) &
@@ -102,13 +102,13 @@ p2 <-
 
 Because I'm not sure how to make the dots and trajectories depicted in the third row, I also won't be able to make proper histograms for the bottom rows. This will go for Figures 14.2 and 14.3, too. If you know how to reproduce them properly, please share your code in my [GitHub issue #21](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues/21). Let's let Kruschke close this section out:
 
-> Mathematical theories that accurately describe the dynamics of mechanical systems have been worked out by physicists. The formulation here, in terms of kinetic and potential energy, is named after [William Rowan Hamilton](https://en.wikipedia.org/wiki/William_Rowan_Hamilton) (1805-1865). HMC was described in the physics literature by [Duane, Kennedy, Pendleton, and Roweth (1987)](https://www.sciencedirect.com/science/article/abs/pii/037026938791197X) (who called it "hybrid" Monte Carlo), and HMC was applied to statistical problems by [Neal (1994)](https://arxiv.org/pdf/hep-lat/9208011.pdf). A brief mathematical overview of HMC is presented by [MacKay (2003, chap. 30)](https://www.inference.org.uk/itprnn/book.pdf). A more thorough mathematical review of HMC is provided by [Neal (2011)](https://arxiv.org/pdf/1206.1901.pdf). Details of how HMC is implemented in Stan can be found in the Stan reference manual and in the book by Gelman et al. (2013). (pp. 405--406)
+> Mathematical theories that accurately describe the dynamics of mechanical systems have been worked out by physicists. The formulation here, in terms of kinetic and potential energy, is named after [William Rowan Hamilton](https://en.wikipedia.org/wiki/William_Rowan_Hamilton) (1805–1865). HMC was described in the physics literature by @duaneHybridMonteCarlo1987 (who called it "hybrid" Monte Carlo), and HMC was applied to statistical problems by @nealImprovedAcceptanceProcedure1994. A brief mathematical overview of HMC is presented by [@mackay2003information, chap. 30]. A more thorough mathematical review of HMC is provided by [@neal2011mcmc]. Details of how HMC is implemented in Stan can be found in the Stan reference manual and in the book by @gelman2013bayesian. (pp. 405--406)
 
 ## Installing Stan
 
 You can learn about installing Stan at [https://mc-stan.org/users/interfaces/](https://mc-stan.org/users/interfaces/). We, of course, have already been working with Stan via **brms**. Bürkner has some nice information on how to install **brms** in the FAQ section of the [**brms** GitHub repository](https://github.com/paul-buerkner/brms).
 
-To install the latest official release from CRAN, execute `install.packages("brms")`. If you'd like to install the current developmental version, you can execute
+To install the latest official release from CRAN, execute `install.packages("brms")`. If you'd like to install the current developmental version, you can execute the following.
 
 ```{r, eval = F}
 if (!requireNamespace("remotes")) {
@@ -121,7 +121,7 @@ As Kruschke advised, it's a good idea to "be sure that your versions of R and RS
 
 ## A Complete example
 
-If you'd like to learn how to fit models in Stan itself, you might consult the updated versions of the *Stan User's Guide* and *Stan Language Reference Manual*, which you can find at [https://mc-stan.org/users/documentation/](https://mc-stan.org/users/documentation/). You might also check out the Stan [Case Studies](https://mc-stan.org/users/documentation/case-studies.html) and [other tutorials](https://mc-stan.org/users/documentation/tutorials.html) listed by the Stan team. 
+If you'd like to learn how to fit models in Stan itself, you might consult the updated versions of the *Stan User's Guide* and *Stan Reference Manual*, which you can find at [https://mc-stan.org/users/documentation/](https://mc-stan.org/users/documentation/). You might also check out the Stan [Case Studies](https://mc-stan.org/users/documentation/case-studies.html) and [other tutorials](https://mc-stan.org/users/documentation/tutorials.html) listed by the Stan team. 
 
 We will continue using Stan via **brms**. 
 
@@ -183,7 +183,7 @@ Here's the summary.
 print(fit14.1)
 ```
 
-Did you notice that divergent transitions warning at the top? I don't believe Kruschke discussed those in the text. For an good introduction, check out the [*Divergent Transitions* section](https://mc-stan.org/docs/2_22/reference-manual/divergent-transitions.html) in the *Stan Reference Manual*. In short, divergent transitions indicate your HMC chains had some difficulty exploring the parameter space. As indicated in the warning, increasing the `adapt_delta` parameter to a value above 0.8, but below 1, can help. Other times increasing the number of `warmup` iterations or using better priors will help, too. Sometimes divergent transitions indicate you might need to seriously reconsider your model. When you're stumped, the [Stan Forums](https://discourse.mc-stan.org/) can be a good place to look for help. You can even find a [subsection dedicated to **brms** users](https://discourse.mc-stan.org/c/interfaces/brms/36), there.
+Did you notice that divergent transitions warning at the top? I don't believe Kruschke discussed those in the text. For an good introduction, check out the [*Divergent Transitions* section](https://mc-stan.org/docs/2_23/reference-manual/divergent-transitions.html) in the *Stan Reference Manual*. In short, divergent transitions indicate your HMC chains had some difficulty exploring the parameter space. As indicated in the warning, increasing the `adapt_delta` parameter to a value above 0.8, but below 1, can help. Other times increasing the number of `warmup` iterations or using better priors will help, too. Sometimes divergent transitions indicate you might need to seriously reconsider your model. When you're stumped, the [Stan Forums](https://discourse.mc-stan.org/) can be a good place to look for help. You can even find a [subsection dedicated to **brms** users](https://discourse.mc-stan.org/c/interfaces/brms/36), there.
 
 Anyway, we will solve our divergent-transitions problem by setting `adapt_delta = 0.99` and using a better prior. If you recall, $\operatorname{beta} (1, 1)$ is flat. Why not use a weakly-regularizing $\operatorname{beta} (2, 2)$, instead? Before fitting the model, we can use the `tidybayes::stat_dist_halfeyeh()` function to visualize those two priors.
 
@@ -334,17 +334,13 @@ fit14.2 <-
 
 The first line within `brm()` defined the data. The second line defined the likelihood function and its link function. We haven't talked much about link functions, yet, but that will start in Chapter 15. Likelihoods contain parameters and our third line within `brm()` defined the equation we wanted to use to predict/describe our parameter of interest, $\theta$. We defined our sole prior in the fourth line. The remaining arguments contain the unsexy technical specifications, such as how many MCMC chains we'd like to use and into what folder we'd like to save our fit as an external file. 
 
-You do not need to arrange `brm()` arguments this way. For other arrangements, take a look at the examples in the **brms** [reference manual](https://cran.r-project.org/web/packages/brms/brms.pdf) or in some of Bürkner's vignettes (e.g., [*Estimating Multivariate Models with brms*](https://cran.r-project.org/web/packages/brms/vignettes/brms_multivariate.html)). However you go about fitting your models with `brm()`, I mainly recommend you find a general style and stick with it. Standardizing your approach will make your code more readable for others and yourself.
+You do not need to arrange `brm()` arguments this way. For other arrangements, take a look at the examples in the [**brms** reference manual](https://CRAN.R-project.org/package=brms/brms.pdf) or in some of Bürkner's vignettes, such as his [*Estimating Multivariate Models with brms*](https://CRAN.R-project.org/package=brms/vignettes/brms_multivariate.html) [-@Bürkner2020Multivariate]. However you go about fitting your models with `brm()`, I mainly recommend you find a general style and stick with it. Standardizing your approach will make your code more readable for others and yourself.
 
 ## Limitations and extras
 
 > At the time of this writing, one of the main limitations of Stan is that it does not allow discrete (i.e., categorical) parameters. The reason for this limitation is that Stan has HMC as its foundational sampling method, and HMC requires computing the gradient (i.e., derivative) of the posterior distribution with respect to the parameters. Of course, gradients are undefined for discrete parameters. (p. 415)
 
 To my knowledge this is still the case, which means **brms** has this limitation, too. As wildly powerful as it is, **brms** it not as flexible as working directly with Stan. However, [Bürkner and others](https://github.com/paul-buerkner/brms/graphs/contributors) are constantly expanding its capabilities. Probably the best places keep track of the new and evolving features of **brms** are the [issues](https://github.com/paul-buerkner/brms/issues) and [news](https://github.com/paul-buerkner/brms/blob/master/NEWS.md) sections in its GitHub repo, [https://github.com/paul-buerkner/brms](https://github.com/paul-buerkner/brms).
-
-## Reference {-}
-
-[Kruschke, J. K. (2015). *Doing Bayesian data analysis, Second Edition: A tutorial with R, JAGS, and Stan.* Burlington, MA: Academic Press/Elsevier.](https://sites.google.com/site/doingbayesiandataanalysis/)
 
 ## Session info {-}
 

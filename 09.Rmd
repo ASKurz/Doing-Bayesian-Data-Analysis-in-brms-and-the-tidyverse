@@ -12,7 +12,7 @@ knitr::opts_chunk$set(fig.align = "center")
 
 # Hierarchical Models
 
-As Kruschke put it, "There are many realistic situations that involve meaningful hierarchical structure. Bayesian modeling software makes it straightforward to specify and analyze complex hierarchical models" (p. 221). IMO, **brms** makes it even easier than JAGS. Further down, we read:
+As Kruschke put it, "There are many realistic situations that involve meaningful hierarchical structure. Bayesian modeling software makes it straightforward to specify and analyze complex hierarchical models" [-@kruschkeDoingBayesianData2015, p. 221]. IMO, **brms** makes it even easier than JAGS. Further down, we read:
 
 > The parameters at different levels in a hierarchical model are all merely parameters that coexist in a joint parameter space. We simply apply Bayes' rule to the joint parameter space, as we did for example when estimating two coin biases back in Figure 7.5, p. 167. To say it a little more formally with our parameters $\theta$ and $\omega$, Bayes' rule applies to the joint parameter space: $p(\theta, \omega | D) \propto p(D | \theta, \omega) p(\theta, \omega)$. What is special to hierarchical models is that the terms on the right-hand side can be factored into a chain of dependencies, like this:
 >
@@ -41,7 +41,7 @@ As a consequence, we can re-express $\theta$ as
 
 $$\theta \sim \operatorname{beta} (\omega(\kappa - 2) + 1, (1 - \omega)(\kappa - 2) + 1).$$
 
-On page 224, Kruschke wrote: "The value of $\kappa$ governs how near $\theta$ is to $\omega$, with larger values of $\kappa$ generating values of $\theta$ more concentrated near $\omega$." To give a sense of that, we'll simulate 20 beta distributions, all with $\omega = .25$ but with $\theta$ increasing from 10 to 200, by 10.
+On page 224, Kruschke wrote: "The value of $\kappa$ governs how near $\theta$ is to $\omega$, with larger values of $\kappa$ generating values of $\theta$ more concentrated near $\omega$." To give a sense of that, we'll simulate 20 beta distributions, all with $\omega = .25$ but with $\theta$ increasing from 10 to 200, by 10. We'll then plot them with a little help from the [**ggridges** package](https://CRAN.R-project.org/package=ggridges) [@R-ggridges].
 
 ```{r, fig.width = 5, fig.height = 5, message = F, warning = F}
 library(tidyverse)
@@ -88,7 +88,7 @@ beta  <- 2
 (alpha - 1) / (alpha + beta - 2)
 ```
 
-That is, the mode of $\text{beta} (2, 2)$ is $.5$. 
+That is, the mode of $\operatorname{beta} (2, 2)$ is $.5$. 
 
 We won't be able to make the wireframe plots on the left of Figure 9.2, but we can make the others. We'll make the initial data following Kruschke's (p. 226) formulas.
 
@@ -212,9 +212,9 @@ text <-
 
 # here's the primary data for the plot
 tibble(theta = rep(parameter_space, times = 2),
-       alpha = rep(c(74.5, 25.5),   each = 101),
-       beta  = rep(c(25.5, 74.5),   each = 101),
-       omega = rep(letters[1:2],    each = 101)) %>%
+       alpha = rep(c(74.5, 25.5), each = 101),
+       beta  = rep(c(25.5, 74.5), each = 101),
+       omega = rep(letters[1:2],  each = 101)) %>%
   
   # the plot
   ggplot(aes(x = theta, fill = omega)) +
@@ -225,7 +225,7 @@ tibble(theta = rep(parameter_space, times = 2),
   scale_color_viridis_d(option = "A", begin = .3, end = .7) +
   labs(x = expression(theta),
        y = "density") +
-  coord_cartesian(ylim = 0:12) +
+  coord_cartesian(ylim = c(0, 12)) +
   theme(legend.position = "none",
         panel.grid = element_blank())
 ```
@@ -1012,8 +1012,8 @@ p23 <-
   geom_text(aes(size = size), 
             parse = T, hjust = 0, show.legend = F) +
   scale_size_continuous(range = c(3.5, 5.5)) +
-  coord_cartesian(xlim = 1:2,
-                  ylim = 4:11) +
+  coord_cartesian(xlim = c(1, 2),
+                  ylim = c(4, 11)) +
   theme(axis.text = element_text(color = "white"),
         axis.ticks = element_blank(),
         panel.grid = element_blank(),
@@ -1031,8 +1031,8 @@ p33 <-
   geom_text(aes(size = size), 
             hjust = 0, show.legend = F) +
   scale_size_continuous(range = c(3.5, 5.5)) +
-  coord_cartesian(xlim = 1:2,
-                  ylim = 4:11) +
+  coord_cartesian(xlim = c(1, 2),
+                  ylim = c(4, 11)) +
   theme(axis.text = element_text(color = "white"),
         axis.ticks = element_blank(),
         panel.grid = element_blank(),
@@ -1042,8 +1042,8 @@ p53 <-
   ggplot() +
   annotate(geom = "text", x = 1, y = 10, 
            label = "Posterior", size = 6, hjust = 0) +
-  coord_cartesian(xlim = 1:2,
-                  ylim = 3:11) +
+  coord_cartesian(xlim = c(1, 2),
+                  ylim = c(3, 11)) +
   theme(axis.text = element_text(color = "white"),
         axis.ticks = element_blank(),
         panel.grid = element_blank(),
@@ -1088,7 +1088,7 @@ tibble(shape = c(.01, 1.56, 1, 6.25),
              ymax = dgamma(x = x, shape = shape, rate = rate))) +
   geom_ribbon(fill = "grey67") +
   scale_y_continuous(breaks = c(0, .01, .02)) +
-  coord_cartesian(xlim = 0:150) +
+  coord_cartesian(xlim = c(0, 150)) +
   labs(x = expression(kappa),
        y = expression(p(kappa*"|"*s*","*r))) +
   theme(panel.grid = element_blank()) +
@@ -1145,7 +1145,7 @@ Unlike JAGS, the **brms** `formula` will not correspond as closely to the schema
 
 ### Example: Therapeutic touch.
 
-Load the data from the `TherapeuticTouchData.csv` file (see [Rosa, Rosa, Sarner, & Barrett, 1998](https://jamanetwork.com/journals/jama/fullarticle/187390)).
+Load the data from the `TherapeuticTouchData.csv` file [see @rosaCloseLookTherapeutic1998].
 
 ```{r, warning = F, message = F}
 my_data <- read_csv("data.R/TherapeuticTouchData.csv")
@@ -1179,7 +1179,7 @@ my_data %>%
   ggplot(aes(x = mean)) +
   geom_histogram(color = "grey92", fill = "grey67",
                  size = .2, binwidth = .1) +
-  coord_cartesian(xlim = 0:1) +
+  coord_cartesian(xlim = c(0, 1)) +
   labs(x = "Proportion Correct",
        y = "# Practitioners") +
   theme(panel.grid = element_blank())
@@ -1201,7 +1201,7 @@ $$\operatorname{logit} (\theta) = \log \big (\theta/(1 - \theta) \big ).$$
 
 But anyway, we'll be doing logistic regression using the logit link. Kruschke will cover this in detail in Chapter 21.
 
-The next new part of our syntax is `(1 | s)`. As in the popular frequentist [**lme4** package](https://cran.r-project.org/web/packages/lme4/index.html), you specify random effects or group-level parameters with the `(|)` syntax in **brms**. On the left side of the `|`, you tell **brms** what parameters you'd like to make random (i.e., vary by group). On the right side of the `|`, you tell **brms** what variable you want to group the parameters by. In our case, we want the intercepts to vary over the grouping variable `s`.
+The next new part of our syntax is `(1 | s)`. As in the popular frequentist [**lme4** package](https://CRAN.R-project.org/package=lme4) [@R-lme4; @batesFittingLinearMixedeffects2015], you specify random effects or group-level parameters with the `(|)` syntax in **brms**. On the left side of the `|`, you tell **brms** what parameters you'd like to make random (i.e., vary by group). On the right side of the `|`, you tell **brms** what variable you want to group the parameters by. In our case, we want the intercepts to vary over the grouping variable `s`.
 
 ```{r fit9.1}
 fit9.1 <-
@@ -1323,8 +1323,8 @@ p3 <-
   geom_point(color = "grey50", size = 1/8, alpha = 1/8)
 
 (p1 + p2 + p3) &
-  coord_cartesian(xlim = 0:1,
-                  ylim = 0:1)
+  coord_cartesian(xlim = c(0, 1),
+                  ylim = c(0, 1))
 ```
 
 This is posterior distribution for the population estimate for $\theta$, which roughly corresponds to the upper right histogram of $\omega$ in Figure 9.10.
@@ -1353,7 +1353,7 @@ post %>%
   scale_y_continuous(NULL, breaks = NULL)
 ```
 
-I'm not aware there's a straight conversion to get $\sigma$ in a probability metric. As far as I can tell, you have to first use `coef()` to "extract [the] model coefficients, which are the sum of population-level effects and corresponding group-level effects" (p. 46 of the [**brms** reference manual, version 2.11.1](https://cran.r-project.org/web/packages/brms/brms.pdf)). With the model coefficient draws in hand, you can index them by posterior iteration, group them by that index, compute the iteration-level $SD$s, and then plot the distribution of the $SD$s.
+I'm not aware there's a straight conversion to get $\sigma$ in a probability metric. As far as I can tell, you have to first use `coef()` to "extract [the] model coefficients, which are the sum of population-level effects and corresponding group-level effects" [@brms2020RM, p. 46]. With the model coefficient draws in hand, you can index them by posterior iteration, group them by that index, compute the iteration-level $SD$s, and then plot the distribution of the $SD$s.
 
 ```{r, fig.width = 3.25, fig.height = 2.5, warning = F}
 # the tibble of the primary data
@@ -1415,7 +1415,7 @@ tibble(prior = rbeta(n = 1e5, 1, 1)) %>%
                  binwidth = .05, boundary = 0) +
   scale_x_continuous(expression(omega), labels = c("0", ".25", ".5", ".75", "1")) +
   scale_y_continuous(NULL, breaks = NULL) +
-  coord_cartesian(xlim = 0:1) +
+  coord_cartesian(xlim = c(0, 1)) +
   theme(legend.position = "none")
 ```
 
@@ -1447,7 +1447,7 @@ tibble(sd = seq(from = .25, to = 3, by = .25)) %>%
                  binwidth = .05, boundary = 0) +
   scale_x_continuous(labels = c("0", ".25", ".5", ".75", "1")) +
   scale_y_continuous(NULL, breaks = NULL) +
-  coord_cartesian(xlim = 0:1) +
+  coord_cartesian(xlim = c(0, 1)) +
   facet_wrap(~sd)
 ```
 
@@ -1502,7 +1502,7 @@ prior_samples %>%
                 binwidth = .05, boundary = 0) +
   scale_x_continuous(labels = c("0", ".25", ".5", ".75", "1")) +
   scale_y_continuous(NULL, breaks = NULL) +
-  coord_cartesian(xlim = 0:1) +
+  coord_cartesian(xlim = c(0, 1)) +
   facet_wrap(~key)
 ```
 
@@ -1544,8 +1544,8 @@ p3 <-
 
 (p1 + p2 + p3) &
   geom_abline(linetype = 1, color = "white") &
-  coord_cartesian(xlim = 0:1,
-                  ylim = 0:1)
+  coord_cartesian(xlim = c(0, 1),
+                  ylim = c(0, 1))
 ```
 
 In case you were curious, here are the Pearson's correlation coefficients among the priors.
@@ -1668,9 +1668,9 @@ my_data %>%
   arrange(desc(n))
 ```
 
-As these data are aggregated, we'll fit with an aggregated binomial model. This is still logistic regression. The Bernoulli distribution is a special case of the binomial distribution when the number of trials in each data point is 1 (see [this vignette](https://cran.r-project.org/web/packages/brms/vignettes/brms_families.html) for details). Since our data are aggregated, the information encoded in `Hits` is a combination of multiple trials, which requires us to jump up to the more general binomial likelihood. Note the `Hits  | trials(AtBats)` syntax. With that bit, we instructed **brms** that our criterion, `Hits`, is an aggregate of multiple trials and the number of trials is encoded in `AtBats`. 
+As these data are aggregated, we'll fit with an aggregated binomial model. This is still logistic regression. The Bernoulli distribution is a special case of the binomial distribution when the number of trials in each data point is 1 [see @Bürkner2020Parameterization for details]. Since our data are aggregated, the information encoded in `Hits` is a combination of multiple trials, which requires us to jump up to the more general binomial likelihood. Note the `Hits  | trials(AtBats)` syntax. With that bit, we instructed **brms** that our criterion, `Hits`, is an aggregate of multiple trials and the number of trials is encoded in `AtBats`. 
 
-Also note the `(1 | PriPos) + (1 | PriPos:Player)` syntax. In this model, we have two grouping factors, `PriPos` and `Player`. Thus we have two `(|)` arguments. But since players are themselves nested within positions, we have encoded that nesting with the `(1 | PriPos:Player)` syntax. For more on this style of syntax, see [Kristoffer Magnusson's handy post](https://rpsychologist.com/r-guide-longitudinal-lme-lmer#different-level-3-variance-covariance-matrix). Since **brms** syntax is based on that from the earlier **nlme** and **lme4** packages, the basic syntax rules apply. Bürkner, of course, also covers these topics in the `brmsformula` subsection of his [**brms** reference manual](https://cran.r-project.org/web/packages/brms/brms.pdf).
+Also note the `(1 | PriPos) + (1 | PriPos:Player)` syntax. In this model, we have two grouping factors, `PriPos` and `Player`. Thus we have two `(|)` arguments. But since players are themselves nested within positions, we have encoded that nesting with the `(1 | PriPos:Player)` syntax. For more on this style of syntax, see [Kristoffer Magnusson](https://twitter.com/krstoffr)'s handy blog post, [*Using R and lme/lmer to fit different two- and three-level longitudinal models*](https://rpsychologist.com/r-guide-longitudinal-lme-lmer). Since **brms** syntax is based on that from the earlier **lme4** package, the basic syntax rules apply. Bürkner [-@brms2020RM], of course, also covered these topics in the `brmsformula` subsection of the [**brms** reference manual](https://CRAN.R-project.org/package=brms/brms.pdf).
 
 ```{r fit9.2}
 fit9.2 <-
@@ -1777,7 +1777,7 @@ make_point <- function(data, mapping, limits, ...) {
 }
 ```
 
-To learn more about wrapping custom plots into custom functions, check out [Chapter 16](https://ggplot2-book.org/programming.html) of Wickham's [*ggplot2, Elegant graphics for data analysis*](https://ggplot2-book.org/).
+To learn more about wrapping custom plots into custom functions, check out [Chapter 16](https://ggplot2-book.org/programming.html) of Wickham's [-@wickhamGgplot2ElegantGraphics2016] [*ggplot2, Elegant graphics for data analysis*](https://ggplot2-book.org/).
 
 Now we have our `make_histogram()` and `make_point()` functions, we'll use `grid.arrange()` to paste together the left half of Figure 9.14.
 
@@ -1812,7 +1812,7 @@ p1 + p2 + p3 + p4
 
 We could follow the same procedure to make the right portion of Figure 9.14. But instead, let's switch gears and explore the second way **brms** affords us for plotting group-level parameters. This time, we'll use `coef()`.
 
-Up in section 9.2.4, we learned that we can use `coef()` to "extract [the] model coefficients, which are the sum of population-level effects and corresponding group-level effects" (p. 43 of the [**brms** reference manual](https://cran.r-project.org/web/packages/brms/brms.pdf)). The grouping level we're interested in is ` PriPos`, so we'll use that to index the information returned by `coef()`. Since `coef()` returns a matrix, we'll use `as_tibble()` to convert it to a tibble.
+Up in Section 9.2.4, we learned that we can use `coef()` to "extract [the] model coefficients, which are the sum of population-level effects and corresponding group-level effects" [@brms2020RM, p. 43]. The grouping level we're interested in is ` PriPos`, so we'll use that to index the information returned by `coef()`. Since `coef()` returns a matrix, we'll use `as_tibble()` to convert it to a tibble.
 
 ```{r}
 coef_primary_position <-
@@ -2134,10 +2134,6 @@ p1 + (p2 / p3 / p3) +
 Do note that, unlike Kruschke's Figure 9.17, our subplots are all based on $\theta$ rather than $\omega$. This is because of our use of a hierarchical aggregated binomial, rather than the approach Kruschke took. Even so, look how similar the results are.
 
 > Finally, we have only looked at a tiny fraction of the relations among the 968 parameters. We could investigate many more comparisons among parameters if we were specifically interested. In traditional statistical testing based on $p$-values (which will be discussed in Chapter 11), we would pay a penalty for even intending to make more comparisons. This is because a $p$ value depends on the space of counter-factual possibilities created from the testing intentions. In a Bayesian analysis, however, decisions are based on the posterior distribution, which is based only on the data (and the prior), not on the testing intention. More discussion of multiple comparisons can be found in Section 11.4. (pp. 259--260)
-
-## Reference {-}
-
-[Kruschke, J. K. (2015). *Doing Bayesian data analysis, Second Edition: A tutorial with R, JAGS, and Stan.* Burlington, MA: Academic Press/Elsevier.](https://sites.google.com/site/doingbayesiandataanalysis/)
 
 ## Session info {-}
 

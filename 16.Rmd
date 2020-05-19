@@ -13,7 +13,7 @@ options(width = 100)
 
 # Metric-Predicted Variable on One or Two Groups
 
-> In the context of the generalized linear model (GLM) introduced in the previous chapter, this chapter's situation involves the most trivial cases of the linear core of the GLM, as indicated in the left cells of Table 15.1 (p. 434), with a link function that is the identity along with a normal distribution for describing noise in the data, as indicated in the first row of Table 15.2 (p. 443). We will explore options for the prior distribution on parameters of the normal distribution, and methods for Bayesian estimation of the parameters. We will also consider alternative noise distributions for describing data that have outliers. (pp. 449--450)
+> In the context of the generalized linear model (GLM) introduced in the previous chapter, this chapter's situation involves the most trivial cases of the linear core of the GLM, as indicated in the left cells of Table 15.1 (p. 434), with a link function that is the identity along with a normal distribution for describing noise in the data, as indicated in the first row of Table 15.2 (p. 443). We will explore options for the prior distribution on parameters of the normal distribution, and methods for Bayesian estimation of the parameters. We will also consider alternative noise distributions for describing data that have outliers. [@kruschkeDoingBayesianData2015, pp. 449--450]
 
 Although I agree this chapter covers the "most trivial cases of the linear core of the GLM", Kruschke's underselling himself a bit, here. In addition to "trivial" Gaussian models, Kruschke went well beyond and introduced robust Student's $t$ modeling. It's a testament to Kruschke's rigorous approach that he did so so early in the text. IMO, we could use more robust Student's $t$ models in the social sciences. So heed well, friends.
 
@@ -62,7 +62,7 @@ d %>%
              size = 2) +
   scale_y_continuous(expression(paste("p(y|", mu, ", ", sigma, ")")), breaks = NULL) +
   ggtitle("Competing Gaussian likelihoods given the same data") +
-  coord_cartesian(xlim = 60:140) +
+  coord_cartesian(xlim = c(60, 140)) +
   facet_grid(sigma ~ mu, labeller = label_parsed)
 ```
 
@@ -140,10 +140,10 @@ tibble(x   = seq(from = 0, to = 12, by = .05)) %>%
   geom_vline(xintercept = 1 / sd_y, linetype = 2) +
   labs(subtitle = "The grey density in the background is the conventional gamma prior for precision.\nThe dashed vertical line is our precision value.") +
   scale_y_continuous(breaks = NULL) +
-  coord_cartesian(xlim = 0:10)
+  coord_cartesian(xlim = c(0, 10))
 ```
 
-The thing is, with **brms** we typically estimate $\sigma$ rather than precision. Though gamma is also a feasible prior distribution for $\sigma$, we won't use it here. But we won't be using Kruschke's uniform prior, either. The Stan team [discourages uniform priors for variance parameters](https://github.com/stan-dev/stan/wiki/Prior-Choice-Recommendations), such as our $\sigma$. I'm not going to get into the details of why, but you've got that hyperlink above and the good old [Stan User's Guide](https://mc-stan.org/users/documentation/) if you'd like to dive deeper. 
+The thing is, with **brms** we typically estimate $\sigma$ rather than precision. Though gamma is also a feasible prior distribution for $\sigma$, we won't use it here. But we won't be using Kruschke's uniform prior, either. The Stan team [discourages uniform priors for variance parameters](https://github.com/stan-dev/stan/wiki/Prior-Choice-Recommendations), such as our $\sigma$. I'm not going to get into the details of why, but you've got that hyperlink above and the good old [Stan User's Guide](https://mc-stan.org/docs/2_23/stan-users-guide/index.html) [@standevelopmentteamStanUserGuide2020] if you'd like to dive deeper. 
 
 Here we'll use the half normal. By "half normal," we mean that the mean is zero and it's bounded from zero to positive infinity--no negative $\sigma$ values for us! By the "half normal," we also mean to suggest that smaller values are more credible than those approaching infinity. When working with unstandardized data, an easy default for a weakly-regularizing half normal is to set the $\sigma$ hyperparameter (i.e., *S*) to the standard deviation of the criterion variable (i.e., $s_Y$). Here's that that looks like for this example.
 
@@ -156,7 +156,7 @@ tibble(x   = seq(from = 0, to = 110, by = .1)) %>%
   geom_vline(xintercept = sd_y, linetype = 2) +
   scale_y_continuous(breaks = NULL) +
   labs(subtitle = "The gray density in the background is the half-normal prior for sigma.\nThe dashed vertical line is our 'sd_y' value.") +
-  coord_cartesian(xlim = 0:100)
+  coord_cartesian(xlim = c(0, 100))
 ```
 
 This prior isn't quite as non-committal as the conventional gamma prior for precision. It discourages the HMC algorithm from exploring $\sigma$ values much larger than two or three times the standard deviation in the data themselves. In practice, I've found it to have a minimal influence on the posterior. If you'd like to make it even less committal, try setting that $\sigma$ hyperparameter to some multiple of $s_Y$ like $2 \times s_Y$ or $10 \times s_Y$. Compare this to Kruschke's recommendations for setting a noncommittal uniform prior for $\sigma$. When using the uniform distribution, $\operatorname{uniform} (L, H)$, 
@@ -352,9 +352,9 @@ pp_check(fit16.1, nsamples = n_lines)
 
 Before we move on, we should talk a little about effect sizes, which we all but glossed over in our code. 
 
-> *Effect size* is simply the amount of change induced by the treatment relative to the standard deviation: $(\mu - 100) / \sigma$. In other words, the effect size is the "standardized" change... A conventionally "small" effect size in psychological research is 0.2 ([Cohen, 1988](https://www.taylorfrancis.com/books/9780203771587)), and the ROPE limits are set at half that size for purposed of illustration. (p. 457, *emphasis* in the original).
+> *Effect size* is simply the amount of change induced by the treatment relative to the standard deviation: $(\mu - 100) / \sigma$. In other words, the effect size is the "standardized" change... A conventionally "small" effect size in psychological research is 0.2 [@cohenStatisticalPowerAnalysis1988], and the ROPE limits are set at half that size for purposed of illustration. (p. 457, *emphasis* in the original).
 
-Another way to describe this kind of effect size is as a *standardized mean difference*. In addition to the seminal work by Cohen, you might brush up on effect sizes with Kelley and Preacher's (2012) [*On effect size*](https://www3.nd.edu/~kkelley/publications/articles/Kelley_and_Preacher_Psychological_Methods_2012.pdf).
+Another way to describe this kind of effect size is as a *standardized mean difference*. In addition to the seminal work by Cohen, you might brush up on effect sizes with Kelley and Preacher's [-@kelley2012effect] [*On effect size*](https://www3.nd.edu/~kkelley/publications/articles/Kelley_and_Preacher_Psychological_Methods_2012.pdf).
 
 ## Outliers and robust estimation: The $t$ distribution
 
@@ -373,7 +373,7 @@ crossing(nu = c(Inf, 4, 2, 1),
   geom_line() +
   scale_color_viridis_d(expression(paste(italic(t)[nu])), option = "B", direction = 1, end = .8) +
   ylab("p(y)") +
-  coord_cartesian(xlim = -6:6) +
+  coord_cartesian(xlim = c(-6, 6)) +
   theme(legend.background = element_rect(fill = "grey92"),
         legend.key = element_rect(color = "transparent", fill = "transparent"),
         legend.position = c(.92, .75))
@@ -398,10 +398,10 @@ tibble(y = seq(from = -10, to = 20, length.out = 1e3)) %>%
              size = 2) +
   labs(title = "Maximum Likelihood Estimates",
        y = "p(y)") +
-  coord_cartesian(xlim = -5:15)
+  coord_cartesian(xlim = c(-5, 15))
 ```
 
-I'm not aware that we have the data for the bottom panel of Figure 16.5. However, we can simulate similar data with the `rt.scaled()` function from the [**metRology** package](https://sourceforge.net/projects/metrology/).
+I'm not aware that we have the data for the bottom panel of Figure 16.5. However, we can simulate similar data with the `rt.scaled()` function from the [**metRology** package](https://sourceforge.net/projects/metrology/) [@R-metRology].
 
 ```{r, fig.width = 6, fig.height = 3}
 set.seed(145)
@@ -481,7 +481,7 @@ p1 <-
     color = "grey92") +
   scale_y_continuous("p(y)", breaks = c(0, .2, .4)) +
   labs(subtitle = "Shaded from y = - 1 to y = 1") +
-  coord_cartesian(xlim = -6:6) +
+  coord_cartesian(xlim = c(-6, 6)) +
   facet_wrap(~label, ncol = 1, labeller = label_parsed)
 ```
 
@@ -513,7 +513,7 @@ p2 <-
            label = "68%", color = "grey92") +
   scale_y_continuous("p(y)", breaks = c(0, .2, .4)) +
   labs(subtitle = "Shaded for the middle 68.27%") +
-  coord_cartesian(xlim = -6:6) +
+  coord_cartesian(xlim = c(-6, 6)) +
   facet_wrap(~label, ncol = 1, labeller = label_parsed)
 ```
 
@@ -600,7 +600,7 @@ p1 <-
   scale_y_continuous(NULL, breaks = NULL) +
   labs(title = expression(exponential(lambda==29)~shifted~+1),
        x = expression(nu)) +
-  coord_cartesian(xlim = 1:150)
+  coord_cartesian(xlim = c(1, 150))
 
 # the bottom panel plot
 p2 <-
@@ -715,7 +715,7 @@ post %>%
   scale_y_continuous(NULL, breaks = NULL) +
   labs(title = "Data with Post. Pred.",
        x = "y") +
-  coord_cartesian(xlim = 50:210)
+  coord_cartesian(xlim = c(50, 210))
 ```
 
 Much like Kruschke mused in the text, this plot
@@ -835,7 +835,7 @@ model_weights(fit16.1, fit16.2) %>%
   round(digits = 6)
 ```
 
-Almost all the [stacking weight](http://www.stat.columbia.edu/~gelman/research/published/stacking_paper_discussion_rejoinder.pdf) went to `fit16.2`, our robust Student's $t$ model.
+Almost all the stacking weight [see @yaoUsingStackingAverage2018] went to `fit16.2`, our robust Student's $t$ model.
 
 ## Two groups
 
@@ -859,7 +859,7 @@ stanvars <-
   stanvar(1/29,   name = "one_over_twentynine")
 ```
 
-Within the **brms** framework, Bürkner calls it distributional modeling when you model more than the mean. Since we're now modeling both $\mu$ and $\sigma$, we're fitting a distributional model. When doing so with **brms**, you typically wrap your `formula` syntax into the `bf()` function. It's also important to know that when modeling $\sigma$, **brms** defaults to modeling its log. So we'll use `log(sd_y)` in its prior. For more on all this, see Bürkner"s [*Estimating Distributional Models with brms*](https://cran.r-project.org/web/packages/brms/vignettes/brms_distreg.html).
+Within the **brms** framework, Bürkner calls it distributional modeling when you model more than the mean. Since we're now modeling both $\mu$ and $\sigma$, we're fitting a distributional model. When doing so with **brms**, you typically wrap your `formula` syntax into the `bf()` function. It's also important to know that when modeling $\sigma$, **brms** defaults to modeling its log. So we'll use `log(sd_y)` in its prior. For more on all this, see Bürkner's [-@Bürkner2020Distributional] vignette, [*Estimating distributional models with brms*](https://cran.r-project.org/web/packages/brms/vignettes/brms_distreg.html).
 
 ```{r fit16.3}
 fit16.3 <-
@@ -984,7 +984,7 @@ post %>%
   scale_y_continuous(NULL, breaks = NULL) +
   labs(title = "Data with Post. Pred.",
        x = "y") +
-  coord_cartesian(xlim = 50:210) +
+  coord_cartesian(xlim = c(50, 210)) +
   facet_wrap(~Group)
 ```
 
@@ -1040,11 +1040,7 @@ It's worth repeating a portion of this section.
 
 > If the initially assumed noise distribution does not match the data distribution, there are two ways to pursue a better description. The preferred way is to use a better noise distribution. The other way is to transform the data to a new scale so that they tolerably match the shape of the assumed noise distribution. In other words, we can either change the shoe to fit the foot, or we can squeeze the foot to fit in the shoe. Changing the shoe is preferable to squeezing the foot. In traditional statistical software, users were stuck with the pre-packaged noise distribution, and had no way to change it, so they transformed their data and squeezed them into the software. This practice can lead to confusion in interpreting the parameters because they are describing the transformed data, not the data on the original scale. In software such as [**brms**, we can spend less time squeezing our feet into ill-fitting shoes]. (p. 472)
 
-We'll have more practice with the robust Student's $t$ in some of the following chapters. But if you'd like even more, you might check out my blog on the topic [*Robust Linear Regression with Student's $t$-Distribution*](https://solomonkurz.netlify.com/post/robust-linear-regression-with-the-robust-student-s-t-distribution/) and the companion post [*Bayesian robust correlations with brms (and why you should love Student’s $t$)*](https://solomonkurz.netlify.com/post/bayesian-robust-correlations-with-brms-and-why-you-should-love-student-s-t/).
-
-## Reference {-}
-
-[Kruschke, J. K. (2015). *Doing Bayesian data analysis, Second Edition: A tutorial with R, JAGS, and Stan.* Burlington, MA: Academic Press/Elsevier.](https://sites.google.com/site/doingbayesiandataanalysis/)
+We'll have more practice with the robust Student's $t$ in some of the following chapters. But if you'd like even more, you might check out my blog post on the topic, [*Robust Linear Regression with Student's $t$-Distribution*](https://solomonkurz.netlify.com/post/robust-linear-regression-with-the-robust-student-s-t-distribution/), and the companion post, [*Bayesian robust correlations with brms (and why you should love Student's $t$)*](https://solomonkurz.netlify.com/post/bayesian-robust-correlations-with-brms-and-why-you-should-love-student-s-t/).
 
 ## Session info {-}
 

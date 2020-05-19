@@ -10,13 +10,16 @@ output:
 knitr::opts_chunk$set(fig.align = "center")
 ```
 
+```{r, echo = F, eval = F}
 # (PART) ALL THE FUNDAMENTALS APPLIED TO INFERRING A BINOMIAL PROBABILITY {-}
 
-> In the next few chapters, we will develop all the foundational concepts and methods of Bayesian data analysis, which are applied to the simplest type of data. Because of the simplicity of the data, we can focus on the Bayesian methods and scaffold the concepts clearly and efficiently. The subsequent part of the book applies the methods developed in this part to more complex data structures. (p. 121)
+# > In the next few chapters, we will develop all the foundational concepts and methods of Bayesian data analysis, which are applied to the simplest type of data. Because of the simplicity of the data, we can focus on the Bayesian methods and scaffold the concepts clearly and efficiently. The subsequent part of the book applies the methods developed in this part to more complex data structures. [@kruschkeDoingBayesianData2015, p. 121]
+
+```
 
 # Inferring a Binomial Probability via Exact Mathematical Analysis
 
-> This chapter presents an example of how to do Bayesian inference using pure analytical mathematics without any approximations. Ultimately, we will not use the pure analytical approach for complex applications, but this chapter is important for two reasons. *First*, the relatively simple mathematics in this chapter nicely reveal the underlying concepts of Bayesian inference on a continuous parameter. The simple formulas show how the continuous allocation of credibility changes systematically as data accumulate. The examples provide an important conceptual foundation for subsequent approximation methods, because the examples give you a clear sense of what is being approximated. *Second*, the distributions introduced in this chapter, especially the beta distribution, will be used repeatedly in subsequent chapters. (p. 123, *emphasis* added)
+> This chapter presents an example of how to do Bayesian inference using pure analytical mathematics without any approximations. Ultimately, we will not use the pure analytical approach for complex applications, but this chapter is important for two reasons. *First*, the relatively simple mathematics in this chapter nicely reveal the underlying concepts of Bayesian inference on a continuous parameter. The simple formulas show how the continuous allocation of credibility changes systematically as data accumulate. The examples provide an important conceptual foundation for subsequent approximation methods, because the examples give you a clear sense of what is being approximated. *Second*, the distributions introduced in this chapter, especially the beta distribution, will be used repeatedly in subsequent chapters. [@kruschkeDoingBayesianData2015, 123, *emphasis* added]
 
 ## The likelihood function: The Bernoulli distribution
 
@@ -103,7 +106,7 @@ d %>%
   geom_line(aes(y = dbeta(x, shape1 = shape1, shape2 = shape2)),
             color = "grey50", size = 1.25) +
   scale_x_continuous(expression(theta), breaks = c(0, .5, 1)) +
-  coord_cartesian(ylim = 0:3) +
+  coord_cartesian(ylim = c(0, 3)) +
   ylab(expression(p(theta*"|"*a*", "*b))) +
   theme(panel.grid = element_blank()) +
   facet_grid(b~a)
@@ -111,7 +114,7 @@ d %>%
 
 > Notice that as $a$ gets bigger (left to right across columns of Figure 6.1), the bulk of the distribution moves rightward over higher values of $\theta$, but as $b$ gets bigger (top to bottom across rows of Figure 6.1), the bulk of the distribution moves leftward over lower values of $\theta$. Notice that as $a$ and $b$ get bigger together, the beta distribution gets narrower. (p. 127).
 
-We have a lot of practice with the beta distribution waiting for us in the chapters to come. But if you like informal tutorials, you might also check out [Karin Knudson](https://twitter.com/karinknudson)’s nice blog post, [*Beta distributions, Dirichlet distributions and Dirichlet processes*](https://karinknudson.com/dirichletprocesses.html). 
+We have a lot of practice with the beta distribution waiting for us in the chapters to come. But if you like informal tutorials, you might also check out [Karin Knudson](https://twitter.com/karinknudson)'s nice blog post, [*Beta distributions, Dirichlet distributions and Dirichlet processes*](https://karinknudson.com/dirichletprocesses.html). 
 
 ### Specifying a beta prior.
 
@@ -156,7 +159,7 @@ d %>%
             color = "grey50", size = 1.25) +
   scale_x_continuous(expression(theta), breaks = c(0, .8, 1)) +
   ylab(expression(p(theta*"|"*a*", "*b))) +
-  coord_cartesian(ylim = 0:5) +
+  coord_cartesian(ylim = c(0, 5)) +
   theme(panel.grid = element_blank()) +
   facet_grid(mu_omega~kappa)
 ```
@@ -252,7 +255,7 @@ hdi_of_icdf <- function(name, width = .95, tol = 1e-8, ... ) {
 }
 ```
 
-Recall it's based off of the `HDIofICDF()` function from Kruschke's `DBDA2E-utilities.R` file. I've altered Kruschke's formatting a little bit, but the guts of the code are unchanged. Our `hdi_of_icdf()` function will take the `name` of an "inverse cumulative density function" and its parameters and then return an HDI range, as defined by the `width` parameter. Since the prior at the top of Figure 6.3 is $\text{beta} (5, 5)$, we can use `hdi_of_icdf()` to calculate the HDI like so.
+Recall it's based off of the `HDIofICDF()` function from Kruschke's `DBDA2E-utilities.R` file. I've altered Kruschke's formatting a little bit, but the guts of the code are unchanged. Our `hdi_of_icdf()` function will take the `name` of an "inverse cumulative density function" and its parameters and then return an HDI range, as defined by the `width` parameter. Since the prior at the top of Figure 6.3 is $\operatorname{beta} (5, 5)$, we can use `hdi_of_icdf()` to calculate the HDI like so.
 
 ```{r}
 hdi_of_icdf(name = qbeta,
@@ -367,7 +370,7 @@ beta_param$a
 beta_param$b
 ```
 
-Confusingly, Kruschke switched from `dbeta(250, 250)` in the prose to `dbeta(100, 100)` in Figure 6.4.a, which he acknowledged in his [corrigenda](https://sites.google.com/site/doingbayesiandataanalysis/corrigenda). We'll stick with `dbeta(100, 100)`.
+Confusingly, Kruschke switched from `dbeta(250, 250)` in the prose to `dbeta(100, 100)` in Figure 6.4.a, which he acknowledged in his [Corrigenda](https://sites.google.com/site/doingbayesiandataanalysis/corrigenda). We'll stick with `dbeta(100, 100)`.
 
 ```{r, fig.width = 4.5, fig.height = 2}
 beta_param <- betaABfromModeKappa(mode = .5, kappa = 200)
@@ -394,7 +397,7 @@ ggplot(data = tibble(x = seq(from = 0, to = 1, by = .001)),
   labs(title = "Prior (beta)",
        x = expression(theta),
        y = expression(dbeta(theta*"|"*100*", "*100))) +
-  coord_cartesian(ylim = 0:12) +
+  coord_cartesian(ylim = c(0, 12)) +
   theme(panel.grid = element_blank())
 ```
 
@@ -884,7 +887,7 @@ d <-
   mutate(Prior      = Prior / sum(Prior),
          Likelihood = bernoulli_likelihood(theta = theta,        # (i.e., pDataGivenTheta)
                                            data  = trial_data)) %>%
-  mutate(evidence = sum(Likelihood * Prior)) %>%                # (i.e., pData)
+  mutate(evidence = sum(Likelihood * Prior)) %>%                 # (i.e., pData)
   mutate(Posterior = Likelihood * Prior / evidence)              # (i.e., pThetaGivenData)
   
 glimpse(d)
@@ -930,7 +933,7 @@ With our nice tibble in hand, we'll plot the prior, likelihood, and posterior on
  )
 ```
 
-Note how we saved each the plots as objects. There are many ways to combine multiple ggplots, such as stacking them one atop another like they're presented in Figure 6.5. One of the earliest methods I learned was the good old [`multiplot()` function](http://www.cookbook-r.com/Graphs/Multiple_graphs_on_one_page_(ggplot2)/). For a long time I relied on `grid.arrange()` from the [**gridExtra** package](https://cran.r-project.org/web/packages/gridExtra/index.html). But it’s hard to beat the elegant syntax from [Thomas Lin Pedersen](https://twitter.com/thomasp85)'s [**patchwork** package](https://cran.r-project.org/web/packages/gridExtra/index.html).
+Note how we saved each the plots as objects. There are many ways to combine multiple ggplots, such as stacking them one atop another like they're presented in Figure 6.5. One of the earliest methods I learned was the good old [`multiplot()` function](http://www.cookbook-r.com/Graphs/Multiple_graphs_on_one_page_(ggplot2)/). For a long time I relied on `grid.arrange()` from the [**gridExtra** package](https://CRAN.R-project.org/package=gridExtra) [@R-gridExtra]. But it's hard to beat the elegant syntax from [Thomas Lin Pedersen](https://twitter.com/thomasp85)'s [-@R-patchwork] [**patchwork** package](https://patchwork.data-imaginist.com/).
 
 ```{r, fig.width = 5, fig.height = 6, warning = F, message = F}
 library(patchwork)
@@ -938,7 +941,7 @@ library(patchwork)
 p1 / p2 / p3
 ```
 
-You can learn more about how to use **patchwork** [here](https://cran.r-project.org/web/packages/patchwork/vignettes/patchwork.html). Plus we'll have many more opportunities to practice as we progress through the chapters.
+You can learn more about how to use **patchwork** [here](https://patchwork.data-imaginist.com/articles/patchwork.html). Plus we'll have many more opportunities to practice as we progress through the chapters.
 
 ## Summary
 
@@ -947,10 +950,6 @@ You can learn more about how to use **patchwork** [here](https://cran.r-project.
 > Unfortunately, there are two severe limitations with this approach... Thus, although it is interesting and educational to see how Bayes' rule can be solved analytically, we will have to abandon exact mathematical solutions when doing complex applications. We will instead use Markov chain Monte Carlo (MCMC) methods. (p. 139)
 
 And if you're looking at this project, I imagine that's exactly what you're looking for. We want to use the power of a particular kind of MCMC, Hamiltonian Monte Carlo, through the interface of the [**brms** package](https://github.com/paul-buerkner/brms). Get excited. It's coming.
-
-## Reference {-}
-
-[Kruschke, J. K. (2015). *Doing Bayesian data analysis, Second Edition: A tutorial with R, JAGS, and Stan.* Burlington, MA: Academic Press/Elsevier.](https://sites.google.com/site/doingbayesiandataanalysis/)
 
 ## Session info {-}
 

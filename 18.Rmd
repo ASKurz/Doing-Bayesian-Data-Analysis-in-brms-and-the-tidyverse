@@ -12,7 +12,7 @@ knitr::opts_chunk$set(fig.align = "center")
 
 # Metric Predicted Variable with Multiple Metric Predictors
 
-> We will consider models in which the predicted variable is an additive combination of predictors, all of which have proportional influence on the prediction. This kind of model is called *multiple linear regression*. We will also consider nonadditive combinations of predictors, which are called *interactions*. (p. 509, *emphasis* in the original)
+> We will consider models in which the predicted variable is an additive combination of predictors, all of which have proportional influence on the prediction. This kind of model is called *multiple linear regression*. We will also consider nonadditive combinations of predictors, which are called *interactions*. [@kruschkeDoingBayesianData2015, p. 509, *emphasis* in the original]
 
 ## Multiple linear regression
 
@@ -47,12 +47,12 @@ theme_set(theme_grey() +
 d %>% 
   ggplot(aes(x = x_1, y = y)) +
   geom_point(alpha = 2/3) +
-  coord_cartesian(ylim = 0:50)
+  coord_cartesian(ylim = c(0, 50))
 
 d %>% 
   ggplot(aes(x = x_2, y = y)) +
   geom_point(alpha = 2/3) +
-  coord_cartesian(ylim = 0:50)
+  coord_cartesian(ylim = c(0, 50))
 
 d %>% 
   ggplot(aes(x = x_1, y = x_2)) +
@@ -63,7 +63,7 @@ d %>%
 
 As in previous chapters, I'm not aware that **ggplot2** allows for three-dimensional wireframe plots of the kind in the upper left panel. If you'd like to make one in base **R**, have at it. But with respect to the plots in the off-diagonal, I have no idea what Kruschke did with the compressed and diagonal grids. If you have that figured out, please [share your code](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues). 
 
-For Figure 18.2, the $x$ variables look to be multivariate normal with a correlation of about -.95. We can simulate such data with help from the **MASS** package.
+For Figure 18.2, the $x$ variables look to be multivariate normal with a correlation of about -.95. We can simulate such data with help from the [**MASS** package](https://CRAN.R-project.org/package=MASS) [@R-MASS; @MASS2002].
 
 Sven Hohenstein's [answer to this stats.stackexchange.com question](https://stats.stackexchange.com/questions/164471/generating-a-simulated-dataset-from-a-correlation-matrix-with-means-and-standard) provides the steps for simulating the data. First, we'll need to specify the desired means and standard deviations for our variables. Then we'll make a correlation matrix with 1s on the diagonal and the desired correlation coefficient, $\rho$ on the off-diagonal. Since the correlation matrix is symmetric, both off-diagonal positions are the same. Then we convert the correlation matrix to a covariance matrix.
 
@@ -105,15 +105,15 @@ p1 <-
   d %>% 
   ggplot(aes(x = x_1, y = y)) +
   geom_point(alpha = 2/3) +
-  coord_cartesian(xlim = 0:10,
-                  ylim = 0:50)
+  coord_cartesian(xlim = c(0, 10),
+                  ylim = c(0, 50))
 
 p2 <-
   d %>% 
   ggplot(aes(x = x_2, y = y)) +
   geom_point(alpha = 2/3) +
-  coord_cartesian(xlim = 0:10,
-                  ylim = 0:50)
+  coord_cartesian(xlim = c(0, 10),
+                  ylim = c(0, 50))
 
 p3 <-
   d %>% 
@@ -121,8 +121,8 @@ p3 <-
   geom_vline(xintercept = seq(from = 0, to = 10, by = .5), color = "grey98") +
   geom_hline(yintercept = seq(from = 0, to = 10, by = .5), color = "grey98") +
   geom_point(alpha = 2/3) +
-  coord_cartesian(xlim = 0:10,
-                  ylim = 0:10)
+  coord_cartesian(xlim = c(0, 10),
+                  ylim = c(0, 10))
 
 # bind them together with patchwork
 library(patchwork)
@@ -140,7 +140,7 @@ If you look closely at our simulation code from above, you'll see we have done s
 
 > Real data often have correlated predictors. For example, consider trying to predict a state's average high-school SAT score on the basis of the amount of money the state spends per pupil. If you plot only mean SAT against money spent, there is actually a *decreasing* trend... (p. 513, *emphasis* in the original)
 
-Before we remake Figure 18.3 to examine that decreasing trend, we'll need to load the data from [Guber (1999)](https://pdfs.semanticscholar.org/29c3/0e9dc77b56340faa5e6ad35e0741a5a83d49.pdf).
+Before we remake Figure 18.3 to examine that decreasing trend, we'll need to load the data from [@guber1999getting].
 
 ```{r, message = F}
 my_data <- read_csv("data.R/Guber1999data.csv")
@@ -155,14 +155,14 @@ p1 <-
   my_data %>% 
   ggplot(aes(x = Spend, y = SATT)) +
   geom_point(alpha = 2/3) +
-  coord_cartesian(ylim = 800:1120)
+  coord_cartesian(ylim = c(800, 1120))
 
 p2 <-
   my_data %>% 
   ggplot(aes(x = PrcntTake, y = SATT)) +
   geom_point(alpha = 2/3) +
   xlab("% Take") +
-  coord_cartesian(ylim = 800:1120)
+  coord_cartesian(ylim = c(800, 1120))
 
 p3 <-
   my_data %>% 
@@ -178,7 +178,7 @@ wrap_elements(grid::textGrob('No 3D wireframe plots for us')) +
   plot_annotation(title = "SATT ~ N(m,sd=31.5), m = 993.8 + −2.9 %Take + 12.3 Spend")
 ```
 
-You can learn more about how we added that title to our plot ensemble [here](https://patchwork.data-imaginist.com/articles/guides/annotation.html) and more about how we added that text in place of a wireframe plot [here](https://patchwork.data-imaginist.com/articles/guides/assembly.html).
+You can learn more about how we added that title to our plot ensemble from Pedersen's [-@Pedersen2020AddingAnnotation] vignette, [*Adding annotation and style*](https://patchwork.data-imaginist.com/articles/guides/annotation.html), and more about how we added that text in place of a wireframe plot from another of his [-@Pedersen2020PlotAssembly] vignettes, [*Plot assembly*](https://patchwork.data-imaginist.com/articles/guides/assembly.html).
 
 > The separate influences of the two predictors could be assessed in this example because the predictors had only mild correlation with each other. There was enough independent variation of the two predictors that their distinct relationships to the outcome variable could be detected. In some situations, however, the predictors are so tightly correlated that their distinct effects are difficult to tease apart. Correlation of predictors causes the estimates of their regression coefficients to trade-off, as we will see when we examine the posterior distribution. (p. 514)
 
@@ -206,7 +206,7 @@ library(brms)
 
 Now we're ready to fit the model. As Kruschke pointed out, the priors on the standardized predictors are set with
 
-> an arbitrary standard deviation of 2.0. This value was chosen because standardized regression coefficients are algebraically constrained to fall between −1 and +1 in least-squares regression, [[^1]] and therefore, the regression coefficients will not exceed those limits by much. A normal distribution with standard deviation of 2.0 is reasonably flat over the range from −1 to +1. (p. 516)
+> an arbitrary standard deviation of 2.0. This value was chosen because standardized regression coefficients are algebraically constrained to fall between −1 and +1 in least-squares regression, [[^2]] and therefore, the regression coefficients will not exceed those limits by much. A normal distribution with standard deviation of 2.0 is reasonably flat over the range from −1 to +1. (p. 516)
 
 With data like this, even a `prior(normal(0, 1), class = b)` would be only mildly regularizing.
 
@@ -339,7 +339,7 @@ The `brms::bayes_R2()` function makes it easy to compute a Bayesian $R^2$. Simpl
 bayes_R2(fit18.1)
 ```
 
-I'm not going to go into the technical details here, but you should be aware that the Bayeisan $R^2$ returned from the `bayes_R2()` function is not calculated the same as it is with OLS. If you want to dive in, check out the paper by [Gelman, Goodrich, Gabry, and Vehtari](https://stat.columbia.edu/~gelman/research/published/bayes_R2_v3.pdf). Anyway, if you'd like to view the Bayesian $R^2$ distribution rather than just get the summaries, specify `summary = F`, convert the output to a tibble, and plot as usual.
+I'm not going to go into the technical details here, but you should be aware that the Bayeisan $R^2$ returned from the `bayes_R2()` function is not calculated the same as it is with OLS. If you want to dive in, check out the paper by @gelmanRsquaredBayesianRegression2019, [*R-squared for Bayesian regression models*](https://stat.columbia.edu/~gelman/research/published/bayes_R2_v3.pdf). Anyway, if you'd like to view the Bayesian $R^2$ distribution rather than just get the summaries, specify `summary = F`, convert the output to a tibble, and plot as usual.
 
 ```{r, fig.width = 2, fig.height = 2}
 bayes_R2(fit18.1, summary = F) %>% 
@@ -499,7 +499,7 @@ post %>%
                 normalize = "xy") +
   labs(x = NULL, 
        y = NULL) +
-  coord_cartesian(xlim = -5:5) +
+  coord_cartesian(xlim = c(-5, 5)) +
   theme(axis.text.y = element_text(hjust = 0),
         axis.ticks.y = element_blank())
 ```
@@ -671,7 +671,7 @@ post %>%
 
 Kruschke was right. The posterior distributions are only slightly narrower than the priors for those two. With our combination of data and model, we learned virtually nothing beyond the knowledge we encoded in those priors.
 
-Kruschke mentioned SEM as a possible solution to multicollinearity. **brms** [isn't fully capable of SEM, at the moment](https://github.com/paul-buerkner/brms/issues/304), but its [multivariate syntax](https://cran.r-project.org/web/packages/brms/vignettes/brms_multivariate.html) does allow for [path analysis](http://www.imachordata.com/bayesian-sem-with-brms/) and [IRT models](https://github.com/paul-buerkner/brms/issues/203). However, you can currently fit a variety of Bayesian SEMs with the [**blavaan** package](https://cran.r-project.org/web/packages/blavaan/index.html). I'm not aware of any textbooks highlighting **blavaan**. If you know of any, [please share](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues).
+Kruschke mentioned SEM as a possible solution to multicollinearity. **brms** isn't fully capable of SEM, at the moment (see [issue #304](https://github.com/paul-buerkner/brms/issues/304)), but its [multivariate syntax](https://CRAN.R-project.org/package=brms/vignettes/brms_multivariate.html) [@Bürkner2020Multivariate] does allow for [path analysis](http://www.imachordata.com/2017/12/21/bayesian-sem-with-brms/) and [IRT models](https://github.com/paul-buerkner/brms/issues/203). However, you can currently fit a variety of Bayesian SEMs with the [**blavaan** package](https://CRAN.R-project.org/package=blavaan) [@Merkle2018blavaan; @R-blavaan]. I'm not aware of any textbooks highlighting **blavaan**. If you know of any, [please share](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues).
 
 ### Informative priors, sparse data, and correlated predictors.
 
@@ -693,7 +693,7 @@ From page 526:
     & = \beta_0 + \beta_1 x_1 + \underbrace{(\beta_2 + \beta_{1 \times 2} x_1)}_{\text{slope of } x_2} x_2.
 \end{align*}
 
-Figure 18.8 is out of our **ggplot2** repertoire. Even without it, we can still appreciate Kruschke's overall message that "Great care must be taken when interpreting the coefficients of a model that includes interaction terms ([Braumoeller, 2004](http://investigadores.cide.edu/crow/Clases/MetCuant12/Lectura/Braumoeller%20Interaction%20Terms.pdf)). In particular, low-order terms are especially difficult to interpret when higher-order interactions are present" (p. 526). When in doubt, plot.
+Figure 18.8 is out of our **ggplot2** repertoire. Even without it, we can still appreciate Kruschke's overall message that "Great care must be taken when interpreting the coefficients of a model that includes interaction terms [@braumoellerHypothesisTestingMultiplicative2004]. In particular, low-order terms are especially difficult to interpret when higher-order interactions are present" (p. 526). When in doubt, plot.
 
 ### An example.
 
@@ -1125,9 +1125,9 @@ post %>%
         axis.ticks.y = element_blank())
 ```
 
-With **brms**, we can fit something like the model Kruschke displayed in Figure 18.12 with the `horseshoe()` prior. From the `horseshoe` section of the [**brms** (version 2.11.1) reference manual](https://cran.r-project.org/web/packages/brms/brms.pdf):
+With **brms**, we can fit something like the model Kruschke displayed in Figure 18.12 with the `horseshoe()` prior. From the `horseshoe` section of the [**brms** reference manual](https://CRAN.R-project.org/package=brms/brms.pdf):
 
-> The horseshoe prior is a special shrinkage prior initially proposed by [Carvalho et al. (2009)](http://proceedings.mlr.press/v5/carvalho09a/carvalho09a.pdf). It is symmetric around zero with fat tails and an infinitely large spike at zero. This makes it ideal for sparse models that have many regression coefficients, although only a minority of them is non-zero. The horseshoe prior can be applied on all population-level effects at once (excluding the intercept) by using `set_prior("horseshoe(1)")`. The `1` implies that the student-t prior of the local shrinkage parameters has 1 degrees of freedom.
+> The horseshoe prior is a special shrinkage prior initially proposed by [@carvalho2009handling]. It is symmetric around zero with fat tails and an infinitely large spike at zero. This makes it ideal for sparse models that have many regression coefficients, although only a minority of them is non-zero. The horseshoe prior can be applied on all population-level effects at once (excluding the intercept) by using `set_prior("horseshoe(1)")`. The `1` implies that the student-t prior of the local shrinkage parameters has 1 degrees of freedom. [@brms2020RM, p. 93]
 
 Based on the quote, here's how to fit our horseshoe-prior model.
 
@@ -1389,13 +1389,13 @@ mw %>%
   theme(axis.ticks.y = element_blank())
 ```
 
-Based on this weighting scheme, almost all the weight went to the full model, `fit18.1`. But note, in the intro of their [vignette on the topic](https://cran.r-project.org/web/packages/loo/vignettes/loo2-weights.html), Vehtari and Gabry opined:
+Based on this weighting scheme, almost all the weight went to the full model, `fit18.1`. But note, in the intro of their [vignette on the topic](https://CRAN.R-project.org/package=loo/vignettes/loo2-weights.html), @vehtariBayesianStackingPseudoBMA opined:
 
-> Ideally, we would avoid the Bayesian model combination problem by extending the model to include the separate models as special cases, and preferably as a continuous expansion of the model space. For example, instead of model averaging over different covariate combinations, all potentially relevant covariates should be included in a predictive model (for causal analysis more care is needed) and a prior assumption that only some of the covariates are relevant can be presented with regularized horseshoe prior ([Piironen and Vehtari, 2017a](https://projecteuclid.org/euclid.ejs/1513306866)). For variable selection we recommend projective predictive variable selection (Piironen and Vehtari, 2017a; [projpred package](https://cran.r-project.org/web/packages/projpred/index.html)).
+> Ideally, we would avoid the Bayesian model combination problem by extending the model to include the separate models as special cases, and preferably as a continuous expansion of the model space. For example, instead of model averaging over different covariate combinations, all potentially relevant covariates should be included in a predictive model (for causal analysis more care is needed) and a prior assumption that only some of the covariates are relevant can be presented with regularized horseshoe prior [@piironenSparsityInformationRegularization2017]. For variable selection we recommend projective predictive variable selection (Piironen and Vehtari, 2017; [projpred package](https://CRAN.R-project.org/package=projpred)).
 
-Perhaps unsurprisingly, their thoughts on the topic are similar with the Gelman et al quotation Kruschke provided on page 536:
+Perhaps unsurprisingly, their thoughts on the topic are similar with the [Gelman et al](https://stat.columbia.edu/~gelman/book/) quotation Kruschke provided on page 536:
 
-> Some prominent authors eschew the variable-selection approach for typical applications in their fields. For example, [Gelman et al. (2013, p. 369)](http://www.stat.columbia.edu/~gelman/book/) said, "For the regressions we typically see, we do not believe any coefficients to be truly zero and we do not generally consider it a conceptual (as opposed to computational) advantage to get point estimates of zero—but regularized estimates such as obtained by lasso can be much better than those resulting from simple least squares and flat prior distributions ...we are not comfortable with an underlying model in which the coefficients can be exactly zero."
+> Some prominent authors eschew the variable-selection approach for typical applications in their fields. For example, [@gelman2013bayesian, p. 369] said, "For the regressions we typically see, we do not believe any coefficients to be truly zero and we do not generally consider it a conceptual (as opposed to computational) advantage to get point estimates of zero—but regularized estimates such as obtained by lasso can be much better than those resulting from simple least squares and flat prior distributions ...we are not comfortable with an underlying model in which the coefficients can be exactly zero."
 
 For more on some of these methods, check out Vehtari's GitHub repository, [Tutorial on model assessment, model selection and inference after model selection](https://github.com/avehtari/modelselection).
 
@@ -1520,7 +1520,7 @@ mw %>%
   
   ggplot(aes(x = value, y = reorder(key, value))) +
   geom_text(aes(label = value %>% round(3) %>% as.character())) +
-  coord_cartesian(xlim = 0:1) +
+  coord_cartesian(xlim = c(0, 1)) +
   labs(x = "Stacking weight",
        y = expression(paste("Models defined by Kruschke's ", delta, " notation"))) +
   theme(axis.ticks.y = element_blank()) +
@@ -1670,7 +1670,7 @@ tibble(x = seq(from = 0, to = 55, length.out = 1e3)) %>%
   geom_ribbon(size = 0, fill = "grey67") +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab("Our gamma prior") +
-  coord_cartesian(xlim = 0:50)
+  coord_cartesian(xlim = c(0, 50))
 ```
 
 We can code those values in with arbitrary precision with the `stanvar()` function.
@@ -1824,7 +1824,7 @@ mw %>%
   ggplot(aes(x = weight, y = reorder(fit, weight))) +
   geom_text(aes(label = weight %>% round(3) %>% as.character()),
             size = 3) +
-  coord_cartesian(xlim = 0:1) +
+  coord_cartesian(xlim = c(0, 1)) +
   labs(x = "Stacking weight",
        y = "fit18.[xxxx]") +
   theme(axis.ticks.y = element_blank())
@@ -2041,10 +2041,6 @@ Based on the weighted average across the models, the `PrcntTake_z` predictor was
 
 > When interaction terms are included in a model that also has hierarchical shrinkage on regression coefficients, the interaction coefficients should not be put under the same higher-level prior distribution as the individual component coefficients, because interaction coefficients are conceptually from a different class of variables than individual components. (pp. 548--549)
 
-## Reference {-}
-
-[Kruschke, J. K. (2015). *Doing Bayesian data analysis, Second Edition: A tutorial with R, JAGS, and Stan.* Burlington, MA: Academic Press/Elsevier.](https://sites.google.com/site/doingbayesiandataanalysis/)
-
 ## Session info {-}
 
 ```{r}
@@ -2064,7 +2060,5 @@ ggplot2::theme_set(ggplot2::theme_grey())
 bayesplot::color_scheme_set("blue")
 ```
 
-## Footnote {-}
-
-[^1]: In his [Corrigenda](https://sites.google.com/site/doingbayesiandataanalysis/corrigenda), Kruschke further clarified: "that is true only in case there is a single predictor, not for multiple predictors. The statement could have said that 'R^2 is algebraically constrained to fall between −1 and +1 in least-squares regression'. More relevantly, replace the statement with the following: 'In multiple linear regression, standardized regression coefficients tend to fall between -2 and +2 unless the predictors are very strongly correlated and have strongly opposing effects. If your data have strongly correlated predictors, consider widening the prior.'"
+[^2]: In his [Corrigenda](https://sites.google.com/site/doingbayesiandataanalysis/corrigenda), Kruschke further clarified: "that is true only in case there is a single predictor, not for multiple predictors. The statement could have said that 'R^2 is algebraically constrained to fall between −1 and +1 in least-squares regression'. More relevantly, replace the statement with the following: 'In multiple linear regression, standardized regression coefficients tend to fall between -2 and +2 unless the predictors are very strongly correlated and have strongly opposing effects. If your data have strongly correlated predictors, consider widening the prior.'"
 
