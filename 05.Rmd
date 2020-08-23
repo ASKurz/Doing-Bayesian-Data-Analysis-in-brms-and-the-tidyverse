@@ -13,11 +13,11 @@ knitr::opts_chunk$set(fig.align = "center")
 
 # Bayes' Rule
 
-"Bayes' rule is merely the mathematical relation between the prior allocation of credibility and the posterior reallocation of credibility conditional on data" (pp. 99--100).
+"Bayes' rule is merely the mathematical relation between the prior allocation of credibility and the posterior reallocation of credibility conditional on data" [@kruschkeDoingBayesianData2015, pp. 99--100].
 
 ## Bayes' rule
 
-> Thomas Bayes (1702–1761) was a mathematician and Presbyterian minister in England. His famous theorem was published posthumously in 1763, thanks to the extensive editorial efforts of his friend, Richard Price [@bayesLIIEssaySolving1763]. The simple rule has vast ramifications for statistical inference, and therefore as long as his name is attached to the rule, we'll continue to see his name in textbooks. But Bayes himself probably was not fully aware of these ramifications, and many historians argue that it is Bayes' successor, Pierre-Simon Laplace (1749–1827), whose name should really label this type of analysis, because it was Laplace who independently rediscovered and extensively developed the methods [e.g., @daleHistoryInverseProbability2012; @mcgrayneTheoryThatWould2011]. [@kruschkeDoingBayesianData2015, p. 100]
+> Thomas Bayes (1702–1761) was a mathematician and Presbyterian minister in England. His famous theorem was published posthumously in 1763, thanks to the extensive editorial efforts of his friend, Richard Price [@bayesLIIEssaySolving1763]. The simple rule has vast ramifications for statistical inference, and therefore as long as his name is attached to the rule, we'll continue to see his name in textbooks. But Bayes himself probably was not fully aware of these ramifications, and many historians argue that it is Bayes' successor, Pierre-Simon Laplace (1749–1827), whose name should really label this type of analysis, because it was Laplace who independently rediscovered and extensively developed the methods [e.g., @daleHistoryInverseProbability2012; @mcgrayneTheoryThatWould2011]. (p. 100)
 
 I do recommend checking out McGrayne's book It's an easy and entertaining read. For a sneak preview, why not [listen to her](https://www.youtube.com/watch?v=8oD6eBkjF9o) discuss the main themes she covered in the book?
 
@@ -69,7 +69,7 @@ tibble(theta = seq(from = 0, to = 1, by = .1),
   geom_linerange(size = 4, color = "grey50") +
   scale_x_continuous(expression(theta), breaks = seq(from = 0, to = 1, by = .2)) +
   labs(title = "Prior",
-       y = expression(paste("p(", theta, ")"))) +
+       y = expression(p(theta))) +
   theme(panel.grid = element_blank())
 ```
 
@@ -107,7 +107,7 @@ tibble(x = theta_sequence) %>%
   geom_col(width = .025, color = "grey50", fill = "grey50") +
   scale_x_continuous(expression(theta), breaks = seq(from = 0, to = 1, by = .2)) +
   labs(title = "Likelihood",
-       y = expression(paste("p(D|", theta, ")"))) +
+       y = expression(p(D*'|'*theta))) +
   theme(panel.grid = element_blank())
 ```
 
@@ -125,7 +125,7 @@ tibble(theta = theta_sequence,
   geom_col(width = .025, color = "grey50", fill = "grey50") +
   scale_x_continuous(expression(theta), breaks = seq(from = 0, to = 1, by = .2)) +
   labs(title = "Posterior",
-       y = expression(paste("p(", theta, "|D)"))) +
+       y = expression(p(theta*'|'*D))) +
   theme(panel.grid = element_blank())
 ```
 
@@ -175,12 +175,11 @@ We’ll follow the same procedure to make the right portion of Figure 5.2. The o
 ```{r, fig.width = 4, fig.height = 4}
 large_data <- rep(0:1, times = c(30, 10))
 
-tibble(theta =   seq(from = 0,     to = 1, by = .001),
-       Prior = c(seq(from = 0,     to = 1, length.out = 501),
+tibble(theta = seq(from = 0, to = 1, by = .001),
+       Prior = c(seq(from = 0, to = 1, length.out = 501),
                  seq(from = 0.998, to = 0, length.out = 500))) %>% 
   mutate(Prior      = Prior / sum(Prior),
-         Likelihood = bernoulli_likelihood(theta = theta,
-                                           data  = large_data)) %>% 
+         Likelihood = bernoulli_likelihood(theta = theta, data = large_data)) %>% 
   mutate(marginal_likelihood = sum(Prior * Likelihood)) %>% 
   mutate(Posterior = (Prior * Likelihood) / marginal_likelihood) %>% 
   select(theta, Prior, Likelihood, Posterior) %>% 
@@ -204,13 +203,12 @@ It's not immediately obvious how Kruschke made his prior distributions for Figur
 ```{r, fig.width = 4, fig.height = 4}
 small_data <- rep(0:1, times = c(3, 1))
 
-tibble(theta =   seq(from = 0,     to = 1, by = .001),
-       Prior = c(seq(from = 0,     to = 1, length.out = 501),
+tibble(theta = seq(from = 0, to = 1, by = .001),
+       Prior = c(seq(from = 0, to = 1, length.out = 501),
                  seq(from = 0.998, to = 0, length.out = 500))) %>% 
   # here's the important line of code
   mutate(Prior = Prior^0.1 / sum(Prior^0.1)) %>% 
-  mutate(Likelihood = bernoulli_likelihood(theta = theta,
-                                           data  = small_data)) %>% 
+  mutate(Likelihood = bernoulli_likelihood(theta = theta, data = small_data)) %>% 
   mutate(marginal_likelihood = sum(Prior * Likelihood)) %>% 
   mutate(Posterior = (Prior * Likelihood) / marginal_likelihood) %>% 
   select(theta, Prior, Likelihood, Posterior) %>% 
@@ -230,12 +228,11 @@ The trick is similar for the right half of Figure 5.3.
 ```{r, fig.width = 4.5, fig.height = 4}
 large_data <- rep(0:1, times = c(30, 10))
 
-tibble(theta =   seq(from = 0,     to = 1, by = .001),
-       Prior = c(seq(from = 0,     to = 1, length.out = 501),
+tibble(theta = seq(from = 0, to = 1, by = .001),
+       Prior = c(seq(from = 0, to = 1, length.out = 501),
                  seq(from = 0.998, to = 0, length.out = 500))) %>% 
   mutate(Prior      = Prior / sum(Prior),
-         Likelihood = bernoulli_likelihood(theta = theta,
-                                           data  = large_data)) %>% 
+         Likelihood = bernoulli_likelihood(theta = theta, data = large_data)) %>% 
   # here's the important line of code
   mutate(Prior = Prior^10) %>% 
   mutate(marginal_likelihood = sum(Prior * Likelihood)) %>% 
