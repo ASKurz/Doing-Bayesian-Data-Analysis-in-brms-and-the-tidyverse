@@ -28,11 +28,11 @@ As Kruschke put it, "There are many realistic situations that involve meaningful
 
 Recall from the last chapter that our likelihood is the Bernoulli distribution,
 
-$$y_i \sim \operatorname{Bernoulli} (\theta).$$
+$$y_i \sim \operatorname{Bernoulli}(\theta).$$
 
 We'll use the beta density for our prior distribution for $\theta$,
 
-$$\theta \sim \operatorname{beta} (\alpha, \beta).$$
+$$\theta \sim \operatorname{beta}(\alpha, \beta).$$
 
 And we can re-express $\alpha$ and $\beta$ in terms of the mode $\omega$ and concentration $\kappa$, such that
 
@@ -40,12 +40,13 @@ $$\alpha = \omega(\kappa - 2) + 1 \;\;\; \textrm{and} \;\;\; \beta = (1 - \omega
 
 As a consequence, we can re-express $\theta$ as
 
-$$\theta \sim \operatorname{beta} (\omega(\kappa - 2) + 1, (1 - \omega)(\kappa - 2) + 1).$$
+$$\theta \sim \operatorname{beta}(\omega(\kappa - 2) + 1, (1 - \omega)(\kappa - 2) + 1).$$
 
 On page 224, Kruschke wrote: "The value of $\kappa$ governs how near $\theta$ is to $\omega$, with larger values of $\kappa$ generating values of $\theta$ more concentrated near $\omega$." To give a sense of that, we'll simulate 20 beta distributions, all with $\omega = .25$ but with $\theta$ increasing from 10 to 200, by 10. We'll then plot them with a little help from the [**ggridges** package](https://CRAN.R-project.org/package=ggridges) [@R-ggridges].
 
 ```{r, fig.width = 5, fig.height = 5, message = F, warning = F}
 library(tidyverse)
+library(cowplot)
 library(ggridges)
 
 beta_by_k <- function(k) {
@@ -66,12 +67,12 @@ tibble(k = seq(from = 10, to = 200, by = 10)) %>%
   ggplot(aes(x = x, y = k,
              height = theta,
              group = k, fill = k)) +
-  geom_vline(xintercept = c(0, .25, .5), color = "grey85", size = 1/2) +
+  geom_vline(xintercept = .25, color = "grey85", size = 1/2) +
   geom_ridgeline(size = 1/5, color = "grey92", scale = 2) +
   scale_fill_viridis_c(expression(kappa), option = "A") +
   scale_y_continuous(expression(kappa), breaks = seq(from = 10, to = 200, by = 10)) +
   xlab(expression(theta)) +
-  theme(panel.grid = element_blank())
+  theme_minimal_hgrid()
 ```
 
 Holding $\omega$ constant, the density gets more concentrated around $\omega$ as $\kappa$ increases. But back to the text" "Now we make the essential expansion of our scenario into the realm of hierarchical models. Instead of thinking of $\omega$ as fixed by prior knowledge, we think of it as another parameter to be estimated" (p. 224).
@@ -93,7 +94,7 @@ That is, the mode of $\operatorname{beta} (2, 2)$ is $.5$.
 
 We won't be able to make the wireframe plots on the left of Figure 9.2, but we can make the others. We'll make the initial data following Kruschke's (p. 226) formulas.
 
-$$p(\theta, \omega) = p(\theta | \omega) \; p(\omega) = \operatorname{beta} (\theta | \omega (100 - 2) + 1, (1 - \omega) (100 - 2) + 1) \; \operatorname{beta} (\omega | 2, 2)$$
+$$p(\theta, \omega) = p(\theta | \omega) \; p(\omega) = \operatorname{beta} \big (\theta | \omega (100 - 2) + 1, (1 - \omega) (100 - 2) + 1 \big ) \; \operatorname{beta}(\omega | 2, 2)$$
 
 First, we'll make a custom function, `make_prior()` based on the formulas.
 
@@ -138,48 +139,121 @@ head(d)
 
 Now we're ready to plot the top middle panel of Figure 9.2.
 
-```{r, fig.height = 3}
+```{r, fig.height = 3, warning = F, message = F}
 d %>% 
   ggplot(aes(x = theta, y = omega, fill = prior)) +
   geom_raster(interpolate = T) +
   scale_fill_viridis_c(option = "A") +
   labs(x = expression(theta),
        y = expression(omega)) +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 1)) +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 1)) +
   coord_equal() +
-  theme(panel.grid = element_blank(),
-        legend.position = "none")
+  theme_minimal_grid() +
+  theme(legend.position = "none")
 ```
 
-Note, you could also make this with `geom_tile()`. But `geom_raster()` with the `interpolate = T` argument smooths the color transitions.
+You could also make this with `geom_tile()`, but `geom_raster()` with the `interpolate = T` argument smooths the color transitions. Since we are going to be making a lot of plots like this in this chapter, we should consider streamlining our plotting code. In [Chapter 17](https://ggplot2-book.org/programming.html) of Wichkam's [-@wickhamGgplot2ElegantGraphics2016] *ggplot2: Elegant graphics for data analysis*, we learn how to make a custom geom. Here we'll use those skills to wrap the bulk of the plot code from above into a single geom we'll call `geom_2dd()`, for 2D-density plots.
+
+```{r}
+geom_2dd <- function(...) {
+  
+  list(
+    geom_raster(interpolate = T),
+    scale_fill_viridis_c(option = "A"),
+    scale_x_continuous(expand = c(0, 0), limits = c(0, 1), breaks = 0:5 / 5),
+    scale_y_continuous(expand = c(0, 0), limits = c(0, 1), breaks = 0:5 / 5),
+    coord_equal(),
+    theme_minimal_grid(...),
+    theme(legend.position = "none")
+  )
+  
+}
+```
+
+Try it out.
+
+```{r, fig.height = 3, warning = F}
+d %>% 
+  ggplot(aes(x = theta, y = omega, fill = prior)) +
+  geom_2dd() +
+  labs(x = expression(theta),
+       y = expression(omega))
+```
 
 If we collapse "the joint prior across $\theta$" (i.e., `group_by(omega)` and then `sum(prior)`), we plot the marginal distribution for $p(\omega)$ as seen in the top right panel.
 
-```{r, fig.width = 3.5, fig.height = 3}
+```{r, fig.width = 3.5, fig.height = 3, warning = F, message = F}
+library(viridis)
+
+a_purple <- viridis_pal(option = "A")(9)[4]
+
 d %>%
   group_by(omega) %>% 
   summarise(prior = sum(prior)) %>% 
   
   ggplot(aes(x = omega, ymin = 0, ymax = prior)) +
-  geom_ribbon(fill = "grey67") +
+  geom_ribbon(fill = a_purple) +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 1), breaks = 0:5 / 5) +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 0.035)) +
   labs(x = expression(omega),
        y = expression(Marginal~p(omega))) +
-  coord_flip(ylim = c(0, .03)) +
-  theme(panel.grid = element_blank())
+  coord_flip() +
+  theme_cowplot() +
+  panel_border() +
+  theme(axis.line = element_blank())
+```
+
+Note how we loaded the [**viridis** package](https://github.com/sjmgarnier/viridis) [@R-viridis]. That gave us access to the `viridis_pal()` function, which will allow us to discretize the viridis palettes and save the color names as objects. In our case, we discretized the `"A"` palette into nine colors and saved the fourth as `a_purple`. Here's the color name.
+
+```{r}
+a_purple
+```
+
+We'll use that color in many of the plots to follow. It'll be something of a signature color for this chapter.
+
+Anyway, since we are going to be making a lot of plots like this in this chapter, we'll make another custom geom called `geom_marginal()`.
+
+```{r}
+geom_marginal <- function(ul, ...) {
+  
+  list(
+    geom_ribbon(fill = viridis_pal(option = "A")(9)[4]),
+    scale_x_continuous(expand = c(0, 0), limits = c(0, 1), breaks = 0:5 / 5),
+    scale_y_continuous(expand = c(0, 0), limits = c(0, ul)),
+    theme_cowplot(...),
+    panel_border(),
+    theme(axis.line = element_blank())
+  )
+  
+}
+```
+
+Try it out.
+
+```{r, fig.width = 3.5, fig.height = 3, message = F}
+d %>%
+  group_by(omega) %>% 
+  summarise(prior = sum(prior)) %>% 
+  
+  ggplot(aes(x = omega, ymin = 0, ymax = prior)) +
+  geom_marginal(ul = 0.035) +
+  labs(x = expression(omega),
+       y = expression(Marginal~p(omega))) +
+  coord_flip()
 ```
 
 We'll follow a similar procedure to get the marginal probability distribution for `theta`.
 
-```{r, fig.width = 3.5, fig.height = 3}
+```{r, fig.width = 3.5, fig.height = 3, message = F}
 d %>%
   group_by(theta) %>% 
   summarise(prior = sum(prior)) %>% 
   
   ggplot(aes(x = theta, ymin = 0, ymax = prior)) +
-  geom_ribbon(fill = "grey67") +
+  geom_marginal(ul = 0.035) +
   labs(x = expression(theta),
-       y = expression(Marginal~p(theta))) +
-  coord_cartesian(ylim = c(0, .03)) +
-  theme(panel.grid = element_blank())
+       y = expression(Marginal~p(theta)))
 ```
 
 We'll use the `filter()` function to take the two slices from the posterior grid. Since we're taking slices, we're no longer working with the joint probability distribution. As such, our two marginal prior distributions for `theta` no longer sum to 1, which means they're no longer in a probability metric. No worries. After we group by `omega`, we can simply divide `prior` by the `sum()` of `prior` which renormalizes the two slices "so that they are individually proper probability densities that sum to 1.0 over $\theta$" (p. 226).
@@ -189,19 +263,17 @@ d %>%
   filter(omega %in% c(.25, .75)) %>% 
   group_by(omega) %>% 
   mutate(prior = prior / sum(prior)) %>% 
-  mutate(label = factor(str_c("omega == ", omega), 
-                        levels = c("omega == 0.75", "omega == 0.25"))) %>% 
+  mutate(label = factor(str_c("omega==", omega), 
+                        levels = c("omega==0.75", "omega==0.25"))) %>% 
   
   ggplot(aes(x = theta, ymin = 0, ymax = prior)) +
-  geom_ribbon(fill = "grey67") +
+  geom_marginal(ul = 0.095) +
   labs(x = expression(theta),
        y = expression(p(theta*"|"*omega))) +
-  coord_cartesian() +
-  theme(panel.grid = element_blank()) +
   facet_wrap(~label, ncol = 1, labeller = label_parsed)
 ```
 
-As Kruschke pointed out at the top of page 228, these are indeed beta densities. Here’s proof.
+As Kruschke pointed out at the top of page 228, these are indeed beta densities. Here's proof.
 
 ```{r, fig.width = 3.5, fig.height = 1.75}
 # we'll want this for the annotation
@@ -222,13 +294,15 @@ tibble(theta = rep(parameter_space, times = 2),
   geom_ribbon(aes(ymin = 0, ymax = dbeta(x = theta, shape1 = alpha, shape2 = beta))) +
   geom_text(data = text,
             aes(y = y, label = label, color = omega)) +
-  scale_fill_viridis_d(option = "A", begin = .3, end = .7) +
-  scale_color_viridis_d(option = "A", begin = .3, end = .7) +
-  labs(x = expression(theta),
-       y = "density") +
-  coord_cartesian(ylim = c(0, 12)) +
-  theme(legend.position = "none",
-        panel.grid = element_blank())
+  scale_fill_viridis_d(option = "A", begin = 2/9, end = 6/9) +
+  scale_color_viridis_d(option = "A", begin = 2/9, end = 6/9) +
+  scale_x_continuous(expression(theta), expand = c(0, 0), limits = c(0, 1), 
+                     breaks = 0:5 / 5) +
+  scale_y_continuous("density", expand = c(0, 0), limits = c(0, 11)) +
+  theme_cowplot() +
+  panel_border() +
+  theme(axis.line = element_blank(),
+        legend.position = "none")
 ```
 
 But back on track, we need the Bernoulli likelihood function for the lower three rows of Figure 9.2.
@@ -244,7 +318,7 @@ bernoulli_likelihood <- function(theta, data) {
 
 Time to feed `theta` and our data into the `bernoulli_likelihood()` function, which will allow us to make the 2-dimensional density plot in the middle of Figure 9.2.
 
-```{r, fig.height = 3}
+```{r, fig.height = 3, warning = F}
 # define the data
 n <- 12
 z <- 9
@@ -260,13 +334,9 @@ d <-
 # plot
 d %>%
   ggplot(aes(x = theta, y = omega, fill = likelihood)) +
-  geom_raster(interpolate = T) +
-  scale_fill_viridis_c(option = "A") +
+  geom_2dd() +
   labs(x = expression(theta),
-       y = expression(omega)) +
-  coord_equal() +
-  theme(legend.position = "none",
-        panel.grid = element_blank())
+       y = expression(omega))
 ```
 
 Note how this plot demonstrates how the likelihood is solely dependent on $\theta$; it's orthogonal to $\omega$. This is the visual consequence of Kruschke's Formula 9.6,
@@ -282,38 +352,33 @@ From Formula 9.1, the posterior $p(\theta, \omega | D)$ is proportional to $p(D 
 
 Our first depiction will be the middle panel of the second row from the bottom.
 
-```{r, fig.height = 3}
+```{r, fig.height = 3, warning = F}
 d <-
   d %>% 
   mutate(posterior = (likelihood * prior) / sum(likelihood * prior)) 
 
 d %>% 
   ggplot(aes(x = theta, y = omega, fill = posterior)) +
-  geom_raster(interpolate = T) +
-  scale_fill_viridis_c(option = "A") +
+  geom_2dd() +
   labs(x = expression(theta),
-       y = expression(omega)) +
-  coord_equal() +
-  theme(legend.position = "none",
-        panel.grid = element_blank())
+       y = expression(omega))
 ```
 
 Although the likelihood was orthogonal to $\omega$, conditioning the prior for $\theta$ on $\omega$ resulted in a posterior that was conditioned on both $\theta$ and $\omega$.
 
 Making the marginal plots for `posterior` is much like when making them for `prior`, above.
 
-```{r, fig.width = 3.5, fig.height = 3}
+```{r, fig.width = 3.5, fig.height = 3, message = F}
 # for omega
 d %>%
   group_by(omega) %>% 
   summarise(posterior = sum(posterior)) %>% 
   
   ggplot(aes(x = omega, ymin = 0, ymax = posterior)) +
-  geom_ribbon(fill = "grey67") +
+  geom_marginal(ul = 0.035) +
   labs(x = expression(omega),
        y = expression(Marginal~p(omega*"|"*D))) +
-  coord_flip() +
-  theme(panel.grid = element_blank())
+  coord_flip()
 
 # for theta
 d %>%
@@ -321,11 +386,10 @@ d %>%
   summarise(posterior = sum(posterior)) %>% 
   
   ggplot(aes(x = theta, ymin = 0, ymax = posterior)) +
-  geom_ribbon(fill = "grey67") +
+  geom_marginal(ul = 0.035) +
   labs(x = expression(theta),
        y = expression(Marginal~p(theta*"|"*D))) +
-  coord_cartesian() +
-  theme(panel.grid = element_blank())
+  coord_cartesian()
 ```
 
 Note that after we slice with `filter()`, the next two wrangling lines renormalize those posterior slices into probability metrics. That is, when we take a slice through the joint posterior at a particular value of $\omega$, and renormalize by dividing the sum of discrete probability masses in that slice, we get the conditional distribution $p(\theta | \omega, D)$.
@@ -335,14 +399,13 @@ d %>%
   filter(omega %in% c(.25, .75)) %>% 
   group_by(omega) %>% 
   mutate(posterior = posterior / sum(posterior)) %>% 
-  mutate(label = factor(str_c("omega == ", omega),
-                        levels = c("omega == 0.75", "omega == 0.25"))) %>% 
+  mutate(label = factor(str_c("omega==", omega),
+                        levels = c("omega==0.75", "omega==0.25"))) %>% 
   
   ggplot(aes(x = theta, ymin = 0, ymax = posterior)) +
-  geom_ribbon(fill = "grey67") +
+  geom_marginal(ul = 0.1) +
   labs(x = expression(theta),
        y = expression(p(theta*"|"*omega))) +
-  theme(panel.grid = element_blank()) +
   facet_wrap(~label, ncol = 1, labeller = label_parsed, scales = "free")
 ```
 
@@ -358,32 +421,27 @@ d <-
 
 Here's the initial data and the 2-dimensional density plot for the prior, the middle plot in the top row of Figure 9.3.
 
-```{r, fig.height = 3}
+```{r, fig.height = 3, warning = F}
 d %>% 
   ggplot(aes(x = theta, y = omega, fill = prior)) +
-  geom_raster(interpolate = T) +
-  scale_fill_viridis_c(option = "A") +
+  geom_2dd() +
   labs(x = expression(theta),
-       y = expression(omega)) +
-  coord_equal() +
-  theme(legend.position = "none",
-        panel.grid = element_blank())
+       y = expression(omega))
 ```
 
 That higher certainty in $\omega$ resulted in a two-dimensional density plot where the values on the y-axis were concentrated near .5. This will have down-the-road consequences for the posterior. But before we get there, we'll average over `omega` and `theta` to plot their marginal prior distributions.
 
-```{r, fig.width = 3.5, fig.height = 3}
+```{r, fig.width = 3.5, fig.height = 3, message = F}
 # for omega
 d %>%
   group_by(omega) %>% 
   summarise(prior = sum(prior)) %>% 
   
   ggplot(aes(x = omega, ymin = 0, ymax = prior)) +
-  geom_ribbon(fill = "grey67") +
+  geom_marginal(ul = 0.052) +
   labs(x = expression(omega),
        y = expression(Marginal~p(omega))) +
-  coord_flip() +
-  theme(panel.grid = element_blank())
+  coord_flip()
 
 # for theta
 d %>%
@@ -391,11 +449,9 @@ d %>%
   summarise(prior = sum(prior)) %>% 
   
   ggplot(aes(x = theta, ymin = 0, ymax = prior)) +
-  geom_ribbon(fill = "grey67") +
+  geom_marginal(ul = 0.039) +
   labs(x = expression(theta),
-       y = expression(Marginal~p(theta))) +
-  coord_cartesian(ylim = c(0, .03)) +
-  theme(panel.grid = element_blank())
+       y = expression(Marginal~p(theta)))
 ```
 
 Here are the two short plots in the right panel of the second row from the top of Figure 9.3.
@@ -409,17 +465,15 @@ d %>%
                         levels = c("omega == 0.75", "omega == 0.25"))) %>%
   
   ggplot(aes(x = theta, ymin = 0, ymax = prior)) +
-  geom_ribbon(fill = "grey67") +
+  geom_marginal(ul = 0.039) +
   labs(x = expression(theta),
        y = expression(p(theta*"|"*omega))) +
-  coord_cartesian(ylim = c(0, .0375)) +
-  theme(panel.grid = element_blank()) +
   facet_wrap(~label, ncol = 1, labeller = label_parsed)
 ```
 
 Now we're ready for the likelihood.
 
-```{r, fig.height = 3}
+```{r, fig.height = 3, warning = F, message = F}
 # compute
 d <-
   d %>% 
@@ -429,18 +483,14 @@ d <-
 # plot
 d %>%
   ggplot(aes(x = theta, y = omega, fill = likelihood)) +
-  geom_raster(interpolate = T) +
-  scale_fill_viridis_c(option = "A") +
+  geom_2dd() +
   labs(x = expression(theta),
-       y = expression(omega)) +
-  coord_equal() +
-  theme(legend.position = "none",
-        panel.grid = element_blank())
+       y = expression(omega))
 ```
 
 Now on to the posterior. Our first depiction will be the middle panel of the second row from the bottom of Figure 9.3. This will be $p(\theta, \omega | y)$.
 
-```{r, fig.height = 3}
+```{r, fig.height = 3, warning = F}
 # compute the posterior
 d <-
   d %>% 
@@ -449,29 +499,24 @@ d <-
 # plot
 d %>% 
   ggplot(aes(x = theta, y = omega, fill = posterior)) +
-  geom_raster(interpolate = T) +
-  scale_fill_viridis_c(option = "A") +
+  geom_2dd() +
   labs(x = expression(theta),
-       y = expression(omega)) +
-  coord_equal() +
-  theme(legend.position = "none",
-        panel.grid = element_blank())
+       y = expression(omega))
 ```
 
 Here are the marginal plots for the two dimensions in our `posterior`.
 
-```{r, fig.width = 3.5, fig.height = 3}
+```{r, fig.width = 3.5, fig.height = 3, message = F}
 # for omega
 d %>%
   group_by(omega) %>% 
   summarise(posterior = sum(posterior)) %>% 
   
   ggplot(aes(x = omega, ymin = 0, ymax = posterior)) +
-  geom_ribbon(fill = "grey67") +
+  geom_marginal(ul = 0.052) +
   labs(x = expression(omega),
        y = expression(Marginal~p(omega*"|"*D))) +
-  coord_flip() +
-  theme(panel.grid = element_blank())
+  coord_flip()
 
 # for theta
 d %>%
@@ -479,11 +524,9 @@ d %>%
   summarise(posterior = sum(posterior)) %>% 
   
   ggplot(aes(x = theta, ymin = 0, ymax = posterior)) +
-  geom_ribbon(fill = "grey67") +
+  geom_marginal(ul = 0.039) +
   labs(x = expression(theta),
-       y = expression(Marginal~p(theta*"|"*D))) +
-  coord_cartesian() +
-  theme(panel.grid = element_blank())
+       y = expression(Marginal~p(theta*"|"*D)))
 ```
 
 And we'll finish off with the plots of Figure 9.3's lower right panel.
@@ -493,15 +536,13 @@ d %>%
   filter(omega %in% c(.25, .75)) %>% 
   group_by(omega) %>% 
   mutate(posterior = posterior / sum(posterior)) %>% 
-  mutate(label = factor(str_c("omega == ", omega),
-                        levels = c("omega == 0.75", "omega == 0.25"))) %>%
+  mutate(label = factor(str_c("omega==", omega),
+                        levels = c("omega==0.75", "omega==0.25"))) %>%
   
   ggplot(aes(x = theta, ymin = 0, ymax = posterior)) +
-  geom_ribbon(fill = "grey67") +
+  geom_marginal(ul = 0.039) +
   labs(x = expression(theta),
        y = expression(p(theta*"|"*omega))) +
-  coord_cartesian(ylim = c(0, .0375)) +
-  theme(panel.grid = element_blank()) +
   facet_wrap(~label, ncol = 1, labeller = label_parsed, scales = "free")
 ```
 
@@ -557,39 +598,34 @@ d <-
 glimpse(d)
 ```
 
-Unlike what Kruschke said in the text, we're not using a 3D data array. Rather, we're just using a tibble with which `prior` has been expanded across all possible dimensions of the three indexing variables: `theta_1`, `theta_2`, and `omega`. As you can see from the 'Observations' count, above, this makes for a very long tibble.
+Unlike what Kruschke said in the text, we're not using a 3D data array. Rather, we're just using a tibble with which `prior` has been expanded across all possible dimensions of the three indexing variables: `theta_1`, `theta_2`, and `omega`. As you can see from the 'Rows' count, above, this makes for a very long tibble.
 
 "Because the parameter space is 3D, a distribution on it cannot easily be displayed on a 2D page. Instead, Figure 9.5 shows various marginal distributions" (p. 234). The consequence of that is when we marginalize, we'll have to group by the two variables we'd like to retain for the plot. For example, the plots in the left and middle columns of the top row are the same save for their indices. So let's just do the plot for `theta_1`. In order to marginalize over `theta_2`, we'll need to `group_by(theta_1, omega)` and then `summarise(prior = sum(prior))`.
 
-```{r, fig.height = 3}
+```{r, fig.height = 3, message = F, warning = F}
 d %>% 
   group_by(theta_1, omega) %>% 
   summarise(prior = sum(prior)) %>% 
 
   ggplot(aes(x = theta_1, y = omega, fill = prior)) +
-  geom_raster(interpolate = T) +
-  scale_fill_viridis_c(option = "A") +
+  geom_2dd() +
   labs(x = expression(theta[1]),
-       y = expression(omega)) +
-  coord_equal() +
-  theme(legend.position = "none",
-        panel.grid = element_blank())
+       y = expression(omega))
 ```
 
 But we just have to average over `omega` and `theta_1` to plot their marginal prior distributions.
 
-```{r, fig.width = 3.5, fig.height = 3}
+```{r, fig.width = 3.5, fig.height = 3, message = F}
 # for omega
 d %>%
   group_by(omega) %>% 
   summarise(prior = sum(prior)) %>% 
   
   ggplot(aes(x = omega, ymin = 0, ymax = prior)) +
-  geom_ribbon(fill = "grey67") +
+  geom_marginal(ul = 0.041) +
   labs(x = expression(omega),
        y = expression(p(omega))) +
-  coord_flip(ylim = c(0, .04)) +
-  theme(panel.grid = element_blank())
+  coord_flip()
 
 # for theta
 d %>%
@@ -597,11 +633,9 @@ d %>%
   summarise(prior = sum(prior)) %>% 
 
   ggplot(aes(x = theta_1, ymin = 0, ymax = prior)) +
-  geom_ribbon(fill = "grey67") +
+  geom_marginal(ul = 0.041) +
   labs(x = expression(theta[1]),
-       y = expression(p(theta[1]))) +
-  coord_cartesian(ylim = c(0, .04)) +
-  theme(panel.grid = element_blank())
+       y = expression(p(theta[1])))
 ```
 
 Before we make the plots in the middle row of Figure 9.5, we need to add the likelihoods. Recall that we're presuming the coin flips contained in $D_1$ and $D_2$ are independent. Kruschke explained in Chapter 7, section 4.1, that
@@ -610,7 +644,7 @@ Before we make the plots in the middle row of Figure 9.5, we need to add the lik
 
 The likelihood function for our two series of coin flips is then
 
-$$p(D | \theta_1, \theta_2) = \Big ( \theta_1^{z_1} (1 - \theta_1) ^ {N_1 - z_1} \Big ) \Big ( \theta_2^{z_2} (1 - \theta_2) ^ {N_2 - z_2} \Big ).$$
+$$p(D | \theta_1, \theta_2) = \left ( \theta_1^{z_1} (1 - \theta_1) ^ {N_1 - z_1} \right ) \left ( \theta_2^{z_2} (1 - \theta_2) ^ {N_2 - z_2} \right ).$$
 
 The upshot is we can compute the likelihoods for $D_1$ and $D_2$ separately and just multiply them together.
 
@@ -628,10 +662,8 @@ z <- 4
 trial_data_2 <- rep(0:1, times = c(n - z, z))
 d <-
   d %>% 
-  mutate(likelihood_1 = bernoulli_likelihood(theta = theta_1, 
-                                             data  = trial_data_1),
-         likelihood_2 = bernoulli_likelihood(theta = theta_2, 
-                                             data  = trial_data_2)) %>% 
+  mutate(likelihood_1 = bernoulli_likelihood(theta = theta_1, data = trial_data_1),
+         likelihood_2 = bernoulli_likelihood(theta = theta_2, data = trial_data_2)) %>% 
   mutate(likelihood = likelihood_1 * likelihood_2)
 
 head(d)
@@ -639,20 +671,16 @@ head(d)
 
 Now after a little `group_by()` followed by `summarise()` we can plot the two marginal likelihoods, the two plots in the middle row of Figure 9.5.
 
-```{r, fig.height = 3}
+```{r, fig.height = 3, warning = F, message = F}
 # likelihood_1
 d %>%
   group_by(theta_1, omega) %>% 
   summarise(likelihood = sum(likelihood)) %>% 
   
   ggplot(aes(x = theta_1, y = omega, fill = likelihood)) +
-  geom_raster(interpolate = T) +
-  scale_fill_viridis_c(option = "A") +
+  geom_2dd() +
   labs(x = expression(theta[1]),
-       y = expression(omega)) +
-  coord_equal() +
-  theme(legend.position = "none",
-        panel.grid = element_blank())
+       y = expression(omega))
 
 # likelihood_2
 d %>%
@@ -660,18 +688,14 @@ d %>%
   summarise(likelihood = sum(likelihood)) %>% 
   
   ggplot(aes(x = theta_2, y = omega, fill = likelihood)) +
-  geom_raster(interpolate = T) +
-  scale_fill_viridis_c(option = "A") +
+  geom_2dd() +
   labs(x = expression(theta[2]),
-       y = expression(omega)) +
-  coord_equal() +
-  theme(legend.position = "none",
-        panel.grid = element_blank())
+       y = expression(omega))
 ```
 
-The likelihoods look good. Next we compute the posterior  in the same way we’ve done before: multiply the prior and the likelihood and then divide by their sum in order to convert the results to a probability metric.
+The likelihoods look good. Next we compute the posterior in the same way we’ve done before: multiply the prior and the likelihood and then divide by their sum in order to convert the results to a probability metric.
 
-```{r, fig.height = 3}
+```{r, fig.height = 3, warning = F, message = F}
 # compute
 d <-
   d %>% 
@@ -683,13 +707,9 @@ d %>%
   summarise(posterior = sum(posterior)) %>% 
   
   ggplot(aes(x = theta_1, y = omega, fill = posterior)) +
-  geom_raster(interpolate = T) +
-  scale_fill_viridis_c(option = "A") +
+  geom_2dd() +
   labs(x = expression(theta[1]),
-       y = expression(omega)) +
-  coord_equal() +
-  theme(legend.position = "none",
-        panel.grid = element_blank())
+       y = expression(omega))
 
 # posterior_2
 d %>% 
@@ -697,45 +717,38 @@ d %>%
   summarise(posterior = sum(posterior)) %>%
   
   ggplot(aes(x = theta_2, y = omega, fill = posterior)) +
-  geom_raster(interpolate = T) +
-  scale_fill_viridis_c(option = "A") +
+  geom_2dd() +
   labs(x = expression(theta[2]),
-       y = expression(omega)) +
-  coord_equal() +
-  theme(legend.position = "none",
-        panel.grid = element_blank())
+       y = expression(omega))
 ```
 
 Here's the right plot on the second row from the bottom, the posterior distribution for $\omega$.
 
-```{r, fig.width = 3.5, fig.height = 3}
+```{r, fig.width = 3.5, fig.height = 3, message = F}
 # for omega
 d %>%
   group_by(omega) %>% 
   summarise(posterior = sum(posterior)) %>%
   
   ggplot(aes(x = omega, ymin = 0, ymax = posterior)) +
-  geom_ribbon(fill = "grey67") +
+  geom_marginal(ul = 0.041) +
   labs(x = expression(omega),
        y = expression(p(omega*"|"*D))) +
-  coord_flip(ylim = c(0, .04)) +
-  theme(panel.grid = element_blank())
+  coord_flip()
 ```
 
 Now here are the marginal posterior plots on the bottom row of Figure 9.5.
 
-```{r, fig.width = 3.5, fig.height = 3}
+```{r, fig.width = 3.5, fig.height = 3, message = F}
 # for theta_1
 d %>%
   group_by(theta_1) %>% 
   summarise(posterior = sum(posterior)) %>% 
   
   ggplot(aes(x = theta_1, ymin = 0, ymax = posterior)) +
-  geom_ribbon(fill = "grey67") +
+  geom_marginal(ul = 0.041) +
   labs(x = expression(theta[1]),
-       y = expression(p(theta[1]*"|"*D))) +
-  coord_cartesian(ylim = c(0, .04)) +
-  theme(panel.grid = element_blank())
+       y = expression(p(theta[1]*"|"*D)))
 
 # for theta_2
 d %>%
@@ -743,11 +756,9 @@ d %>%
   summarise(posterior = sum(posterior)) %>% 
   
   ggplot(aes(x = theta_2, ymin = 0, ymax = posterior)) +
-  geom_ribbon(fill = "grey67") +
+  geom_marginal(ul = 0.041) +
   labs(x = expression(theta[2]),
-       y = expression(p(theta[2]*"|"*D))) +
-  coord_cartesian(ylim = c(0, .04)) +
-  theme(panel.grid = element_blank())
+       y = expression(p(theta[2]*"|"*D)))
 ```
 
 We'll do this dog and pony one more time for Figure 9.6, which uses different priors on the same data. First, we make our new data object, `d`.
@@ -763,36 +774,50 @@ d <-
 
 Note how the only thing we changed from the last time was increasing `kappa` to 75. Also like last time, the plots in the left and middle columns of the top row are the same save for their indices. But unlike last time, we'll make both in preparation for a grand plotting finale. You'll see.
 
-```{r, fig.height = 3, fig.width = 3.25}
+One more step: for the 2D density plots in this section, we'll omit the `coord_equal()` line from our custom `geom_2dd()` geom. This will help us with the formatting of our final plot.
+
+```{r}
+geom_2dd <- function(...) {
+  
+  list(
+    geom_raster(interpolate = T),
+    scale_fill_viridis_c(option = "A"),
+    scale_x_continuous(expand = c(0, 0), limits = c(0, 1), breaks = 0:5 / 5),
+    scale_y_continuous(expand = c(0, 0), limits = c(0, 1), breaks = 0:5 / 5),
+    # coord_equal(),
+    theme_minimal_grid(...),
+    theme(legend.position = "none")
+  )
+  
+}
+```
+
+Okay, here are our two 2D prior density plots.
+
+```{r, fig.height = 3, fig.width = 3.25, message = F, warning = F}
 p11 <-
   d %>% 
   group_by(theta_1, omega) %>% 
   summarise(prior = sum(prior)) %>% 
   ggplot(aes(x = theta_1, y = omega, fill = prior)) +
-  geom_raster(interpolate = T) +
+  geom_2dd(font_size = 10) +
   annotate(geom = "text", x = .05, y = .925, 
            label = "p(list(theta[1], omega))", 
-           parse = T, color = "grey92", hjust = 0) +
-  scale_fill_viridis_c(option = "A") +
+           parse = T, color = "white", hjust = 0) +
   labs(x = expression(theta[1]),
-       y = expression(omega)) +
-  theme(legend.position = "none",
-        panel.grid = element_blank())
+       y = expression(omega))
 
 p12 <-
   d %>% 
   group_by(theta_2, omega) %>% 
   summarise(prior = sum(prior)) %>% 
   ggplot(aes(x = theta_2, y = omega, fill = prior)) +
-  geom_raster(interpolate = T) +
+  geom_2dd(font_size = 10) +
   annotate(geom = "text", x = .05, y = .925, 
            label = "p(list(theta[2], omega))", 
-           parse = T, color = "grey92", hjust = 0) +
-  scale_fill_viridis_c(option = "A") +
+           parse = T, color = "white", hjust = 0) +
   labs(x = expression(theta[2]),
-       y = expression(omega)) +
-  theme(legend.position = "none",
-        panel.grid = element_blank())
+       y = expression(omega))
 
 p11
 p12
@@ -800,7 +825,7 @@ p12
 
 Now we'll average over `omega` and `theta` to plot their marginal prior distributions.
 
-```{r, fig.width = 3.5, fig.height = 3}
+```{r, fig.width = 3.5, fig.height = 3, message = F}
 # for omega
 p13 <-
   d %>%
@@ -808,11 +833,10 @@ p13 <-
   summarise(prior = sum(prior)) %>% 
   
   ggplot(aes(x = omega, ymin = 0, ymax = prior)) +
-  geom_ribbon(fill = "grey67") +
+  geom_marginal(ul = 0.041, font_size = 10) +
   labs(x = expression(omega),
        y = expression(p(omega))) +
-  coord_flip(ylim = c(0, .04)) +
-  theme(panel.grid = element_blank())
+  coord_flip()
 
 # for theta_1
 p21 <-
@@ -821,11 +845,9 @@ p21 <-
   summarise(prior = sum(prior)) %>% 
 
   ggplot(aes(x = theta_1, ymin = 0, ymax = prior)) +
-  geom_ribbon(fill = "grey67") +
+  geom_marginal(ul = 0.041, font_size = 10) +
   labs(x = expression(theta[1]),
-       y = expression(p(theta[1]))) +
-  coord_cartesian(ylim = c(0, .04)) +
-  theme(panel.grid = element_blank())
+       y = expression(p(theta[1])))
 
 # for theta_2
 p22 <-
@@ -834,11 +856,9 @@ p22 <-
   summarise(prior = sum(prior)) %>% 
 
   ggplot(aes(x = theta_2, ymin = 0, ymax = prior)) +
-  geom_ribbon(fill = "grey67") +
+  geom_marginal(ul = 0.041, font_size = 10) +
   labs(x = expression(theta[2]),
-       y = expression(p(theta[2]))) +
-  coord_cartesian(ylim = c(0, .04)) +
-  theme(panel.grid = element_blank())
+       y = expression(p(theta[2])))
 
 p13
 p21
@@ -847,7 +867,7 @@ p22
 
 Let's get those likelihoods in there and plot.
 
-```{r, fig.height = 3, fig.width = 3.25}
+```{r, fig.height = 3, fig.width = 3.25, warning = F, message = F}
 # D1: 3 heads, 12 tails
 n <- 15
 z <- 3
@@ -863,10 +883,8 @@ trial_data_2 <- rep(0:1, times = c(n - z, z))
 # compute the likelihoods
 d <-
   d %>% 
-  mutate(likelihood_1 = bernoulli_likelihood(theta = theta_1, 
-                                             data  = trial_data_1),
-         likelihood_2 = bernoulli_likelihood(theta = theta_2, 
-                                             data  = trial_data_2)) %>% 
+  mutate(likelihood_1 = bernoulli_likelihood(theta = theta_1, data = trial_data_1),
+         likelihood_2 = bernoulli_likelihood(theta = theta_2, data = trial_data_2)) %>% 
   mutate(likelihood = likelihood_1 * likelihood_2)
 
 # plot likelihood_1
@@ -876,12 +894,9 @@ p31 <-
   summarise(likelihood = sum(likelihood)) %>% 
   
   ggplot(aes(x = theta_1, y = omega, fill = likelihood)) +
-  geom_raster(interpolate = T) +
-  scale_fill_viridis_c(option = "A") +
+  geom_2dd(font_size = 10) +
   labs(x = expression(theta[1]),
-       y = expression(omega)) +
-  theme(legend.position = "none",
-        panel.grid = element_blank())
+       y = expression(omega))
 
 # plot likelihood_2
 p32 <-
@@ -890,12 +905,9 @@ p32 <-
   summarise(likelihood = sum(likelihood)) %>% 
   
   ggplot(aes(x = theta_2, y = omega, fill = likelihood)) +
-  geom_raster(interpolate = T) +
-  scale_fill_viridis_c(option = "A") +
+  geom_2dd(font_size = 10) +
   labs(x = expression(theta[2]),
-       y = expression(omega)) +
-  theme(legend.position = "none",
-        panel.grid = element_blank())
+       y = expression(omega))
 
 p31
 p32
@@ -915,15 +927,12 @@ p41 <-
   summarise(posterior = sum(posterior)) %>% 
   
   ggplot(aes(x = theta_1, y = omega, fill = posterior)) +
-  geom_raster(interpolate = T) +
+  geom_2dd(font_size = 10) +
   annotate(geom = "text", x = .05, y = .925, 
            label = expression(p(list(theta[1], omega)*"|"*D)), 
-           parse = T, color = "grey92", hjust = 0) +
-  scale_fill_viridis_c(option = "A") +
+           parse = T, color = "white", hjust = 0) +
   labs(x = expression(theta[1]),
-       y = expression(omega)) +
-  theme(legend.position = "none",
-        panel.grid = element_blank())
+       y = expression(omega))
 
 # posterior_2
 p42 <-
@@ -932,15 +941,12 @@ p42 <-
   summarise(posterior = sum(posterior)) %>%
   
   ggplot(aes(x = theta_2, y = omega, fill = posterior)) +
-  geom_raster(interpolate = T) +
+  geom_2dd(font_size = 10) +
   annotate(geom = "text", x = .05, y = .925, 
            label = expression(p(list(theta[2], omega)*"|"*D)), 
-           parse = T, color = "grey92", hjust = 0) +
-  scale_fill_viridis_c(option = "A") +
+           parse = T, color = "white", hjust = 0) +
   labs(x = expression(theta[2]),
-       y = expression(omega)) +
-  theme(legend.position = "none",
-        panel.grid = element_blank())
+       y = expression(omega))
 
 p41
 p42
@@ -948,7 +954,7 @@ p42
 
 Here's the right plot on the same row, the posterior distribution for $\omega$.
 
-```{r, fig.width = 3.5, fig.height = 3}
+```{r, fig.width = 3.5, fig.height = 3, message = F}
 # for omega
 p43 <-
   d %>%
@@ -956,18 +962,17 @@ p43 <-
   summarise(posterior = sum(posterior)) %>% 
   
   ggplot(aes(x = omega, ymin = 0, ymax = posterior)) +
-  geom_ribbon(fill = "grey67") +
+  geom_marginal(ul = 0.041, font_size = 10) +
   labs(x = expression(omega),
        y = expression(p(omega*"|"*D))) +
-  coord_flip(ylim = c(0, .04)) +
-  theme(panel.grid = element_blank())
+  coord_flip()
 
 p43
 ```
 
 Finally, here are the marginal posterior plots on the bottom row of Figure 9.6.
 
-```{r, fig.width = 3.5, fig.height = 3}
+```{r, fig.width = 3.5, fig.height = 3, message = F}
 # for theta_1
 p51 <-
   d %>%
@@ -975,11 +980,9 @@ p51 <-
   summarise(posterior = sum(posterior)) %>% 
   
   ggplot(aes(x = theta_1, ymin = 0, ymax = posterior)) +
-  geom_ribbon(fill = "grey67") +
+  geom_marginal(ul = 0.041, font_size = 10) +
   labs(x = expression(theta[1]),
-       y = expression(p(theta[1]*"|"*D))) +
-  coord_cartesian(ylim = c(0, .04)) +
-  theme(panel.grid = element_blank())
+       y = expression(p(theta[1]*"|"*D)))
 
 # for theta_2
 p52 <-
@@ -988,11 +991,9 @@ p52 <-
   summarise(posterior = sum(posterior)) %>% 
   
   ggplot(aes(x = theta_2, ymin = 0, ymax = posterior)) +
-  geom_ribbon(fill = "grey67") +
+  geom_marginal(ul = 0.041, font_size = 10) +
   labs(x = expression(theta[2]),
-       y = expression(p(theta[2]*"|"*D))) +
-  coord_cartesian(ylim = c(0, .04)) +
-  theme(panel.grid = element_blank())
+       y = expression(p(theta[2]*"|"*D)))
 
 p51
 p52
@@ -1015,9 +1016,10 @@ p23 <-
   scale_size_continuous(range = c(3.5, 5.5)) +
   coord_cartesian(xlim = c(1, 2),
                   ylim = c(4, 11)) +
-  theme(axis.text = element_text(color = "white"),
+  theme_cowplot(font_size = 10) +
+  theme(axis.line = element_blank(),
+        axis.text = element_text(color = "white"),
         axis.ticks = element_blank(),
-        panel.grid = element_blank(),
         text = element_text(color = "white"))
 
 text <-
@@ -1034,9 +1036,10 @@ p33 <-
   scale_size_continuous(range = c(3.5, 5.5)) +
   coord_cartesian(xlim = c(1, 2),
                   ylim = c(4, 11)) +
-  theme(axis.text = element_text(color = "white"),
+  theme_cowplot(font_size = 10) +
+  theme(axis.line = element_blank(),
+        axis.text = element_text(color = "white"),
         axis.ticks = element_blank(),
-        panel.grid = element_blank(),
         text = element_text(color = "white"))
 
 p53 <-
@@ -1045,11 +1048,13 @@ p53 <-
            label = "Posterior", size = 6, hjust = 0) +
   coord_cartesian(xlim = c(1, 2),
                   ylim = c(3, 11)) +
-  theme(axis.text = element_text(color = "white"),
+  theme_cowplot(font_size = 10) +
+  theme(axis.line = element_blank(),
+        axis.text = element_text(color = "white"),
         axis.ticks = element_blank(),
-        panel.grid = element_blank(),
         text = element_text(color = "white"))
 ```
+
 
 Okay, let's make the full version of Figure 9.6.
 
@@ -1071,7 +1076,7 @@ In case you didn't catch it, we used different numbers of points to evaluate eac
 
 ```{r, fig.width = 6, fig.height = 5}
 # how many points do you want in your sequence of x values?
-length <- 100
+length <- 150
 
 # wrangle
 tibble(shape = c(.01, 1.56, 1, 6.25),
@@ -1081,18 +1086,20 @@ tibble(shape = c(.01, 1.56, 1, 6.25),
   mutate(mean = shape * 1 / rate,
          sd   = sqrt(shape * (1 / rate)^2)) %>% 
   mutate(label = str_c("shape = ", shape, ", rate = ", rate, 
-                       "\nmean = ", mean, ", sd = ", sd)) %>% 
+                       "\nmean = ", mean, ", sd = ", ifelse(sd > 40 & sd < 41, round(sd, 4), sd))) %>% 
   
   # plot
   ggplot(aes(x = x, 
              ymin = 0, 
              ymax = dgamma(x = x, shape = shape, rate = rate))) +
-  geom_ribbon(fill = "grey67") +
-  scale_y_continuous(breaks = c(0, .01, .02)) +
+  geom_ribbon(aes(fill = label)) +
+  scale_fill_viridis_d(option = "A", end = .9, breaks = NULL) +
+  scale_x_continuous(expression(kappa), expand = expansion(mult = c(0, 0.05))) +
+  scale_y_continuous(expression(p(kappa*"|"*s*","*r)), breaks = c(0, .01, .02),
+                     expand = expansion(mult = c(0, 0.05))) +
   coord_cartesian(xlim = c(0, 150)) +
-  labs(x = expression(kappa),
-       y = expression(p(kappa*"|"*s*","*r))) +
-  theme(panel.grid = element_blank()) +
+  theme_cowplot(line_size = 0) +
+  panel_border() +
   facet_wrap(~label)
 ```
 
@@ -1154,36 +1161,34 @@ my_data <- read_csv("data.R/TherapeuticTouchData.csv")
 glimpse(my_data)
 ```
 
-Here are what the data look like:
+Here are what the data look like.
 
 ```{r, fig.width = 10, fig.height = 4}
 my_data %>% 
   mutate(y = y %>% as.character()) %>% 
   
-  ggplot(aes(x = y)) +
+  ggplot(aes(y = y)) +
   geom_bar(aes(fill = stat(count))) +
-  scale_y_continuous(breaks = seq(from = 0, to = 9, by = 3)) +
-  scale_fill_viridis_c(option = "A", end = .7) +
-  coord_flip() +
-  theme(legend.position = "none",
-        panel.grid = element_blank()) +
+  scale_fill_viridis_c(option = "A", end = .7, breaks = NULL) +
+  scale_x_continuous(breaks = 0:4 * 2, expand = c(0, NA), limits = c(0, 9)) +
+  theme_minimal_vgrid() +
+  panel_border() +
   facet_wrap(~s, ncol = 7)
 ```
 
 And here's our Figure 9.9.
 
-```{r, fig.width = 4, fig.height = 3.25}
+```{r, fig.width = 4, fig.height = 3.25, message = F, warning = F}
 my_data %>% 
   group_by(s) %>% 
   summarize(mean = mean(y)) %>%
   
   ggplot(aes(x = mean)) +
-  geom_histogram(color = "grey92", fill = "grey67",
+  geom_histogram(color = "white", fill = a_purple,
                  size = .2, binwidth = .1) +
-  coord_cartesian(xlim = c(0, 1)) +
-  labs(x = "Proportion Correct",
-       y = "# Practitioners") +
-  theme(panel.grid = element_blank())
+  scale_x_continuous("Proportion Correct", limits = c(0, 1)) +
+  scale_y_continuous("# Practitioners", expand = c(0, NA)) +
+  theme_minimal_hgrid()
 ```
 
 Let's open **brms**.
@@ -1198,7 +1203,7 @@ Note the `family = bernoulli(link = logit)` argument. In work-a-day regression w
 
 In case you're curious, the logit of $\theta$ follows the formula
 
-$$\operatorname{logit} (\theta) = \log \big (\theta/(1 - \theta) \big ).$$
+$$\operatorname{logit}(\theta) = \log \big (\theta/(1 - \theta) \big ).$$
 
 But anyway, we'll be doing logistic regression using the logit link. Kruschke will cover this in detail in Chapter 21.
 
@@ -1232,29 +1237,22 @@ post <- posterior_samples(fit9.1, add_chain = T)
 library(bayesplot)
 ```
 
-One of the nice things about **bayesplot** is it returns **ggplot2** objects. As such, we can amend their theme settings to be consistent with our other **ggplot2** plots. The `theme_set()` function will make that particularly easy. And since I prefer to plot without gridlines, we'll slip in a line on `panel.grid` to suppress them by default for the remainder of this chapter.
-
-```{r}
-theme_set(theme_grey() +
-            theme(panel.grid = element_blank()))
-```
-
-Now we're ready for `bayesplot::mcmc_acf()`.
+One of the nice things about **bayesplot** is it returns **ggplot2** objects. As such, we can amend their theme settings to be consistent with our other **ggplot2** plots. Here we'll amend `bayesplot::mcmc_acf()` to the `theme_cowplot()` theme.
 
 ```{r, fig.width = 6, fig.height = 4, warning = F, message = F}
-mcmc_acf(post, pars = c("b_Intercept", "sd_s__Intercept"), lags = 10)
+mcmc_acf(post, pars = c("b_Intercept", "sd_s__Intercept"), lags = 10) +
+  theme_cowplot()
 ```
 
 It appears `fit9.1` had very low autocorrelations. Here we'll examine the $N_{eff}/N$ ratio.
 
 ```{r, fig.width = 6, fig.height = 3.5}
 neff_ratio(fit9.1) %>% 
-  mcmc_neff()
+  mcmc_neff() +
+  theme_cowplot()
 ```
 
-The $N_{eff}/N$ ratio values for our model parameters were excellent. And if you really wanted them, you could get the parameter labels on the y-axis by tacking `+ yaxis_text()` on at the end of the plot block.
-
-Here's a numeric summary of the model.
+The $N_{eff}/N$ ratio values for our model parameters were excellent. Here's a numeric summary of the model.
 
 ```{r}
 print(fit9.1)
@@ -1284,11 +1282,11 @@ post_small %>%
                                       "theta[1] - theta[14]", "theta[1] - theta[28]", "theta[14] - theta[28]"))) %>% 
 
   ggplot(aes(x = value, y = 0)) +
-  stat_histintervalh(point_interval = mode_hdi, .width = .95,
-                     fill = "grey67", slab_color = "grey92",
-                     breaks = 40, slab_size = .25, outline_bars = T,
-                     normalize = "panels") +
+  stat_histinterval(point_interval = mode_hdi, .width = .95,
+                    fill = a_purple, breaks = 40, normalize = "panels") +
+  scale_y_continuous(NULL, breaks = NULL) +
   xlab(NULL) +
+  theme_minimal_hgrid() +
   facet_wrap(~key, scales = "free", ncol = 3)
 ```
 
@@ -1308,24 +1306,25 @@ And here are the Figure 9.10 scatter plots.
 p1 <-
   post_small %>% 
   ggplot(aes(x = `theta[1]`, y = `theta[14]`)) +
-  geom_abline(linetype = 1, color = "white") +
-  geom_point(color = "grey50", size = 1/8, alpha = 1/8)
+  geom_abline(linetype = 2) +
+  geom_point(color = a_purple, size = 1/8, alpha = 1/8)
 
 p2 <-
   post_small %>% 
   ggplot(aes(x = `theta[1]`, y = `theta[28]`)) +
-  geom_abline(linetype = 1, color = "white") +
-  geom_point(color = "grey50", size = 1/8, alpha = 1/8)
+  geom_abline(linetype = 2) +
+  geom_point(color = a_purple, size = 1/8, alpha = 1/8)
 
 p3 <-
   post_small %>% 
   ggplot(aes(x = `theta[14]`, y = `theta[28]`)) +
-  geom_abline(linetype = 1, color = "white") +
-  geom_point(color = "grey50", size = 1/8, alpha = 1/8)
+  geom_abline(linetype = 2) +
+  geom_point(color = a_purple, size = 1/8, alpha = 1/8)
 
 (p1 + p2 + p3) &
   coord_cartesian(xlim = c(0, 1),
-                  ylim = c(0, 1))
+                  ylim = c(0, 1)) & 
+  theme_minimal_grid()
 ```
 
 This is posterior distribution for the population estimate for $\theta$, which roughly corresponds to the upper right histogram of $\omega$ in Figure 9.10.
@@ -1345,18 +1344,18 @@ post %>%
   mutate(theta = b_Intercept %>% inv_logit_scaled()) %>% 
 
   ggplot(aes(x = theta, y = 0)) +
-  stat_histintervalh(point_interval = mode_hdi, .width = .95,
-                     fill = "grey67", slab_color = "grey92",
-                     breaks = 40, slab_size = .25, outline_bars = T) +
+  stat_histinterval(point_interval = mode_hdi, .width = .95,
+                    fill = a_purple, breaks = 40) +
   scale_x_continuous(expression(theta), 
                      breaks = labels$value,
                      labels = labels$label) +  
-  scale_y_continuous(NULL, breaks = NULL)
+  scale_y_continuous(NULL, breaks = NULL) +
+  theme_minimal_hgrid()
 ```
 
 I'm not aware there's a straight conversion to get $\sigma$ in a probability metric. As far as I can tell, you have to first use `coef()` to "extract [the] model coefficients, which are the sum of population-level effects and corresponding group-level effects" [@brms2020RM, p. 46]. With the model coefficient draws in hand, you can index them by posterior iteration, group them by that index, compute the iteration-level $SD$s, and then plot the distribution of the $SD$s.
 
-```{r, fig.width = 3.25, fig.height = 2.5, warning = F}
+```{r, fig.width = 3.25, fig.height = 2.5, warning = F, message = F}
 # the tibble of the primary data
 sigmas <-
   coef(fit9.1, summary = F)$s %>% 
@@ -1379,20 +1378,21 @@ labels <-
 # the plot
 sigmas %>% 
   ggplot(aes(x = sd, y = 0)) +
-  stat_histintervalh(point_interval = mode_hdi, .width = .95,
-                     fill = "grey67", slab_color = "grey92",
-                     breaks = 40, slab_size = .25, outline_bars = T) +
+  stat_histinterval(point_interval = mode_hdi, .width = .95,
+                    fill = a_purple, breaks = 40) +
   scale_x_continuous(expression(paste(sigma, " of ", theta, " in a probability metric")),
                      breaks = labels$value,
                      labels = labels$label) +  
-  scale_y_continuous(NULL, breaks = NULL)
+  scale_y_continuous(NULL, breaks = NULL) +
+  theme_minimal_hgrid()
 ```
 
 And now you have a sense of how to do all those by hand, `bayesplot::mcmc_pairs()` offers a fairly quick way to get a good portion of Figure 9.10. 
 
 ```{r, fig.width = 5.5, fig.height = 5, warning = F, message = F}
-color_scheme_set("gray")
- 
+color_scheme_set("purple")
+bayesplot_theme_set(theme_default() + theme_minimal_grid())
+
 coef(fit9.1, summary = F)$s %>% 
   inv_logit_scaled() %>% 
   as_tibble() %>% 
@@ -1404,20 +1404,22 @@ coef(fit9.1, summary = F)$s %>%
   mcmc_pairs(off_diag_args = list(size = 1/8, alpha = 1/8))
 ```
 
-Did you see how we slipped in that `color_scheme_set("gray")` line? When we used `theme_set()`, earlier, that changed the global theme settings for our **ggplot2** plots. The `color_scheme_set()` function is specific to **bayesplot** plots and it sets the color palette within them. Setting the color palette "gray" changed the colors depicted in the dots and bars of the `mcmc_pairs()`-based scatter plots and histograms, respectively. 
+Did you see how we slipped in the `color_scheme_set()` and `bayesplot_theme_set()` lines at the top? Usually, the plots made with **bayesplot** are easy to modify with **ggplot2** syntax. Plots made with `mcmc_pairs()` function are one notable exception. On the back end, these made by combining multiple **ggplot** into a grid, a down-the-line result of which is they are difficult to modify. Happily, one can make some modifications beforehand by altering the global settings with the `color_scheme_set()` and `bayesplot_theme_set()` functions. You can learn more in the discussion on [issue #128](https://github.com/stan-dev/bayesplot/issues/128) on the **bayesplot** GitHub repo.
 
-Kruschke used a $\operatorname{Beta} (1, 1)$ prior for $\omega$. If you randomly draw from that prior and plot a histogram, you’ll see it was flat.
+Kruschke used a $\operatorname{Beta}(1, 1)$ prior for $\omega$. If you randomly draw from that prior and plot a histogram, you’ll see it was flat.
 
 ```{r, fig.width = 3.5, fig.height = 3}
+theme_set(theme_grey())
+
 set.seed(1)
 tibble(prior = rbeta(n = 1e5, 1, 1)) %>% 
   ggplot(aes(x = prior)) +
-  geom_histogram(color = "grey92", fill = "grey67", size = .2,
-                 binwidth = .05, boundary = 0) +
+  geom_histogram(fill = a_purple, color = "white", 
+                 size = .2, binwidth = .05, boundary = 0) +
   scale_x_continuous(expression(omega), labels = c("0", ".25", ".5", ".75", "1")) +
   scale_y_continuous(NULL, breaks = NULL) +
   coord_cartesian(xlim = c(0, 1)) +
-  theme(legend.position = "none")
+  theme_minimal_hgrid()
 ```
 
 You'll note that plot corresponds to the upper right panel of Figure 9.11. 
@@ -1444,11 +1446,13 @@ tibble(sd = seq(from = .25, to = 3, by = .25)) %>%
   
   # plot!
   ggplot(aes(x = prior)) +
-  geom_histogram(fill = "grey67", color = "grey92", size = .2,
+  geom_histogram(fill = a_purple, color = "white", size = .2,
                  binwidth = .05, boundary = 0) +
   scale_x_continuous(labels = c("0", ".25", ".5", ".75", "1")) +
   scale_y_continuous(NULL, breaks = NULL) +
   coord_cartesian(xlim = c(0, 1)) +
+  theme_minimal_hgrid() +
+  panel_border() +
   facet_wrap(~sd)
 ```
 
@@ -1499,11 +1503,13 @@ prior_samples %>%
   gather() %>% 
   
   ggplot(aes(x = value)) +
-  geom_histogram(fill = "grey67", color = "grey92", size = .2,
-                binwidth = .05, boundary = 0) +
+  geom_histogram(fill = a_purple, color = "white", size = .2,
+                 binwidth = .05, boundary = 0) +
   scale_x_continuous(labels = c("0", ".25", ".5", ".75", "1")) +
   scale_y_continuous(NULL, breaks = NULL) +
   coord_cartesian(xlim = c(0, 1)) +
+  theme_minimal_hgrid() +
+  panel_border() +
   facet_wrap(~key)
 ```
 
@@ -1517,9 +1523,11 @@ prior_samples %>%
   gather() %>% 
 
   ggplot(aes(x = value)) +
-  geom_histogram(fill = "grey67", color = "grey92", size = .2,
-                binwidth = .05, boundary = 0) +
+  geom_histogram(fill = a_purple, color = "white", size = .2,
+                 binwidth = .05, boundary = 0) +
   scale_y_continuous(NULL, breaks = NULL) +
+  theme_minimal_hgrid() +
+  panel_border() +
   facet_wrap(~key)
 ```
 
@@ -1531,22 +1539,23 @@ Finally, here are the plots for the lower triangle in Figure 9.11.
 p1 <-
   prior_samples %>% 
   ggplot(aes(x = `theta[1]`, y = `theta[14]`)) +
-  geom_point(color = "grey50", size = 1/8, alpha = 1/8)
+  geom_point(color = a_purple, size = 1/8, alpha = 1/8)
 
 p2 <-
   prior_samples %>% 
   ggplot(aes(x = `theta[1]`, y = `theta[28]`)) +
-  geom_point(color = "grey50", size = 1/8, alpha = 1/8)
+  geom_point(color = a_purple, size = 1/8, alpha = 1/8)
 
 p3 <-
   prior_samples %>% 
   ggplot(aes(x = `theta[14]`, y = `theta[28]`)) +
-  geom_point(color = "grey50", size = 1/8, alpha = 1/8)
+  geom_point(color = a_purple, size = 1/8, alpha = 1/8)
 
 (p1 + p2 + p3) &
-  geom_abline(linetype = 1, color = "white") &
+  geom_abline(linetype = 2) &
   coord_cartesian(xlim = c(0, 1),
-                  ylim = c(0, 1))
+                  ylim = c(0, 1)) &
+  theme_minimal_grid()
 ```
 
 In case you were curious, here are the Pearson's correlation coefficients among the priors.
@@ -1565,7 +1574,7 @@ Further,
 
 Recall Formula 9.4 from page 223,
 
-$$\theta \sim \operatorname{beta} (\omega(\kappa - 2) + 1), (1 - \omega)(\kappa - 2) + 1).$$
+$$\theta \sim \operatorname{beta} \big(\omega(\kappa - 2) + 1 \big ), (1 - \omega)(\kappa - 2) + 1).$$
 
 With that formula, we can express `dbeta()`'s `shape1` and `shape2` in terms of $\omega$ and $\kappa$ and make the shapes in Figure 9.12.
 
@@ -1575,20 +1584,22 @@ kappa1 <- 2.1
 kappa2 <- 15.8
 
 tibble(x = seq(from = 0, to = 1, by = .001)) %>%
-  mutate(`kappa = 2.1` = dbeta(x = x, 
-                               shape1 = omega * (kappa1 - 2) + 1, 
-                               shape2 = (1 - omega) * (kappa1 - 2) + 1),
-         `kappa = 15.8` = dbeta(x = x, 
-                                shape1 = omega * (kappa2 - 2) + 1, 
-                                shape2 = (1 - omega) * (kappa2 - 2) + 1)) %>% 
+  mutate(`kappa==2.1` = dbeta(x = x, 
+                              shape1 = omega * (kappa1 - 2) + 1, 
+                              shape2 = (1 - omega) * (kappa1 - 2) + 1),
+         `kappa==15.8` = dbeta(x = x, 
+                               shape1 = omega * (kappa2 - 2) + 1, 
+                               shape2 = (1 - omega) * (kappa2 - 2) + 1)) %>% 
   gather(key, value, - x) %>% 
-  mutate(key = factor(key, levels = c("kappa = 2.1", "kappa = 15.8"))) %>% 
+  mutate(key = factor(key, levels = c("kappa==2.1", "kappa==15.8"))) %>% 
   
   ggplot(aes(x = x, ymin = 0, ymax = value)) +
-  geom_ribbon(fill = "grey67") +
-  labs(x = expression(Data~Proportion~or~theta~value),
-       y = expression(dbeta(theta*"|"*omega*", "*kappa))) +
-  facet_wrap(~key)
+  geom_ribbon(fill = a_purple) +
+  scale_y_continuous(expression(dbeta(theta*"|"*omega*", "*kappa)), breaks = NULL) +
+  xlab(expression(Data~Proportion~or~theta~value)) +
+  theme_minimal_hgrid() +
+  panel_border() +
+  facet_wrap(~key, labeller = label_parsed)
 ```
 
 ## Speeding up ~~JAGS~~ brms
@@ -1661,7 +1672,7 @@ glimpse(my_data)
 
 In his footnote #6, Kruschke indicated he retrieved the data from [http://www.baseball-reference.com/leagues/MLB/2012-standard-batting.shtml](http://www.baseball-reference.com/leagues/MLB/2012-standard-batting.shtml) on December of 2012. To give a sense of the data, here are the number of occasions by primary position, `PriPos`, with their median at bat, `AtBats`, values.
 
-```{r}
+```{r, message = F}
 my_data %>% 
   group_by(PriPos) %>% 
   summarise(n      = n(),
@@ -1689,10 +1700,10 @@ fit9.2 <-
 The chains look good.
 
 ```{r, fig.width = 10, fig.height = 4}
-color_scheme_set("blue")
-
 plot(fit9.2)
 ```
+
+Note how our `color_scheme_set("purple")` line from back up in the `mcmc_pairs()` has effected the color scheme of `brms::plot()`.
 
 We might examine the autocorrelations within the chains.
 
@@ -1701,7 +1712,8 @@ post <- posterior_samples(fit9.2, add_chain = T)
 
 mcmc_acf(post, pars = c("b_Intercept", 
                         "sd_PriPos__Intercept", 
-                        "sd_PriPos:Player__Intercept"), lags = 8)
+                        "sd_PriPos:Player__Intercept"), lags = 8) +
+  theme_minimal_hgrid()
 ```
 
 Here's a histogram of the $N_{eff}/N$ ratios.
@@ -1710,7 +1722,8 @@ Here's a histogram of the $N_{eff}/N$ ratios.
 fit9.2 %>% 
   neff_ratio() %>% 
   mcmc_neff_hist(binwidth = .1) +
-  yaxis_text()
+  yaxis_text() +
+  theme_minimal_hgrid()
 ```
 
 Happily, most have a very favorable ratio. Here's a numeric summary of the primary model parameters.
@@ -1751,15 +1764,17 @@ If you take a glance at Figures 9.14 through 9.16 in the text, we'll be making a
 make_histogram <- function(data, mapping, title, xlim, ...) {
   
   ggplot(data, mapping) +
-  geom_histogram(fill = "grey67", color = "grey92", size = .2,
-                bins = 30) +
-  stat_pointintervalh(aes(y = 0), 
-                      point_interval = mode_hdi, .width = .95) +
-  scale_y_continuous(NULL, breaks = NULL) +
-  labs(title = title,
-       x = expression(theta)) +
-  coord_cartesian(xlim = xlim) +
-  theme(legend.position = "none")
+    geom_histogram(fill = viridis::viridis_pal(option = "A")(9)[4], 
+                   color = "white", size = .2,
+                   bins = 30) +
+    stat_pointinterval(aes(y = 0), 
+                       point_interval = mode_hdi, .width = .95) +
+    scale_y_continuous(NULL, breaks = NULL) +
+    labs(title = title,
+         x = expression(theta)) +
+    coord_cartesian(xlim = xlim) +
+    theme_minimal_hgrid() +
+    panel_border()
   
 }
 ```
@@ -1770,10 +1785,13 @@ We'll do the same thing for the correlation plots.
 make_point <- function(data, mapping, limits, ...) {
   
   ggplot(data, mapping) +
-  geom_abline(color = "white") +
-  geom_point(color = "grey50", size = 1/10, alpha = 1/20) +
-  coord_cartesian(xlim = limits,
-                  ylim = limits)
+    geom_abline(linetype = 3, color = "grey50") +
+    geom_point(color = viridis::viridis_pal(option = "A")(9)[4], 
+               size = 1/10, alpha = 1/20) +
+    coord_cartesian(xlim = limits,
+                    ylim = limits) +
+    theme_minimal_grid(line_size = 0) +
+    panel_border()
   
 }
 ```
@@ -1805,8 +1823,6 @@ p4 <-
                  aes(x = Catcher), 
                  title = "Catcher", 
                  xlim = c(.1, .25))
-
-library(patchwork)
 
 p1 + p2 + p3 + p4
 ```
@@ -2058,7 +2074,7 @@ To make our version of Figure 19.7, we'll have to switch gears from player-speci
 
 Another consideration is if we'd like to use `fitted()` to average across one of the hierarchical grouping parameters (i.e., `(1 | PriPos:Player)`), we'll need to employ the `re_formula` argument. With the line `re_formula = ~ (1 | PriPos)`, we'll instruct `fitted()` to return the `PriPos`-specific effects after averaging across levels of `Player`. The rest is quire similar to our method from above.
 
-```{r}
+```{r, message = F}
 nd <-
   my_data %>% 
   group_by(PriPos) %>% 
@@ -2091,14 +2107,15 @@ p1 <-
                                   "3rd Base", "Left Field", "Shortstop"))) %>% 
   
   ggplot(aes(x = theta)) +
-  geom_histogram(fill = "grey67", color = "grey92", size = .1,
-                binwidth = .0025) +
-  stat_pointintervalh(aes(y = 0), 
-                      point_interval = mode_hdi, .width = .95) +
+  geom_histogram(fill = a_purple, color = "white", 
+                 size = .1, binwidth = .0025) +
+  stat_pointinterval(aes(y = 0), 
+                     point_interval = mode_hdi, .width = .95, size = 1) +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(expression(theta)) +
   coord_cartesian(xlim = c(.1, .28)) +
-  theme(legend.position = "none") +
+  theme_minimal_hgrid() +
+  panel_border() +
   facet_wrap(~name, nrow = 3, scales = "free_y")
 ```
 
@@ -2112,15 +2129,16 @@ p2 <-
             name = "Overall") %>% 
   
   ggplot(aes(x = theta)) +
-  geom_histogram(fill = "grey67", color = "grey92", size = .2,
-                binwidth = .005) +
-  stat_pointintervalh(aes(y = 0), 
-                      point_interval = mode_hdi, .width = .95) +
+  geom_histogram(fill = a_purple, color = "white", 
+                 size = .2, binwidth = .005) +
+  stat_pointinterval(aes(y = 0), 
+                    point_interval = mode_hdi, .width = .95) +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(expression(theta)) +
   coord_cartesian(xlim = c(.1, .28)) +
-  theme(legend.position = "none") +
-  facet_wrap(~name, nrow = 3, scales = "free_y")
+  theme_minimal_hgrid() +
+  panel_border() +
+  facet_wrap(~name)
 ```
 
 Now combine the plots with a little **patchwork** magic.
@@ -2144,14 +2162,12 @@ sessionInfo()
 
 ```{r, echo = F}
 # remove our objects
-rm(beta_by_k, alpha, beta, make_prior, p11, p12, p13, p21, p22, p23, p31, p32, p33, p41, p42, p43, p51, p52, p53, trial_data_1, trial_data_2, parameter_space, d, text, bernoulli_likelihood, z, trial_data, length, gamma_s_and_r_from_mean_sd, gamma_s_and_r_from_mode_sd, gamma_param, my_data, fit9.1, post, post_small, p1, p2, p3, labels, sigmas, r_norm, fit9.1_prior, prior, n, prior_samples, omega, kappa1, kappa2, stop_time_bernoulli, start_time_bernoulli, stop_time_binomial, start_time_binomial, fit9.2, make_histogram, make_point, p4, coef_primary_position, coef_small, name_list, nd, fitted_players, fitted_positions)
+rm(beta_by_k, alpha, beta, make_prior, parameter_space, d, geom_2dd, geom_marginal, text, bernoulli_likelihood, n, z, trial_data, trial_data_1, trial_data_2, p11, p12, p13, p21, p22, p23, p31, p32, p33, p41, p42, p43, p51, p52, p53, length, gamma_s_and_r_from_mean_sd, gamma_s_and_r_from_mode_sd, gamma_param, my_data, fit9.1, post, post_small, p1, p2, p3, labels, sigmas, r_norm, fit9.1_prior, prior, prior_samples, omega, kappa1, kappa2, stop_time_bernoulli, start_time_bernoulli, stop_time_binomial, start_time_binomial, fit9.2, make_histogram, make_point, p4, coef_primary_position, coef_small, name_list, nd, fitted_players, fitted_positions)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
-pacman::p_unload(pacman::p_loaded(), character.only = TRUE)
-
 ggplot2::theme_set(ggplot2::theme_grey())
-
 bayesplot::color_scheme_set("blue")
+pacman::p_unload(pacman::p_loaded(), character.only = TRUE)
 ```
 
