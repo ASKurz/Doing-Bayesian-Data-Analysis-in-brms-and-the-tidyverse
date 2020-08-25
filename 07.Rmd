@@ -78,18 +78,15 @@ tibble(theta = seq(from = 0, to = 1, length.out = 100)) %>%
              size = 1.5, shape = 19) +
   annotate(geom = "text", x = .675, y = .4, 
            label = "95% HDI", color = "white") +
-  scale_x_continuous(breaks = c(0, h, omega, 1),
+  scale_x_continuous(expression(theta), 
+                     breaks = c(0, h, omega, 1),
                      labels = c("0", h %>% round(2), omega, "1")) +
-  labs(title = "Exact distribution",
-       x = expression(theta),
-       y = expression(p(theta))) +
-  coord_cartesian(ylim = c(-.125, 4)) +
+  ggtitle("Exact distribution") +
+  ylab(expression(p(theta))) +
   theme_cowplot()
 ```
 
-Note how we loaded the [**cowplot** package](https://wilkelab.org/cowplot) [@R-cowplot]. We played around a bit with plotting conventions in the previous chapters. From this chapter onward we’ll explore plotting conventions in a more deliberate fashion. One quick way to alter the look and feel of a plot is by altering its theme. The **cowplot** package includes several theme options. In this chapter, we’ll focus on making simple and conventional looking plots with `theme_cowplot()`.
-
-Anyway, the remaining panels in Figure 7.1 require we simulate the data.
+Note how we're continuing to use `theme_cowplot()`, which we introduced in the last chapter. Anyway, the remaining panels in Figure 7.1 require we simulate the data.
 
 ```{r}
 set.seed(7)
@@ -217,8 +214,11 @@ tibble(theta = positions) %>%
   ggplot(aes(x = theta)) +
   geom_bar(fill = "steelblue") +
   scale_x_continuous(expression(theta), breaks = 1:7) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.05))) +
   theme_cowplot()
 ```
+
+Did you notice that `scale_y_continuous()` line in the code? Claus Wilke, the author of the **cowplot** package, has a lot of thoughts on data visualization. He even wrote a [-@wilkeFundamentalsDataVisualization2019] book on it: [*Fundamentals of data visualization*](https://clauswilke.com/dataviz/). In his [-@Wilke2019Themes] [*Themes*](https://wilkelab.org/cowplot/articles/themes.html) vignette, Wilke recommended against allowing for space between the bottoms of the bars in a bar plot and the $x$-axis line. The **ggplot2** default is to allow for such a space. Here we followed Wilke and suppressed that space with `expand = expansion(mult = c(0, 0.05))`. You can learn more about the `ggplot2::expansion()` function [here](https://ggplot2.tidyverse.org/reference/expansion.html).
 
 Here's the middle portion of Figure 7.2.
 
@@ -244,7 +244,7 @@ tibble(x = 1:7,
   ggplot(aes(x = x, y = y)) +
   geom_col(width = .2, fill = "steelblue") +
   scale_x_continuous(expression(theta), breaks = 1:7) +
-  ylab(expression(p(theta))) +
+  scale_y_continuous(expression(p(theta)), expand = expansion(mult = c(0, 0.05))) +
   theme_cowplot()
 ```
 
@@ -332,11 +332,10 @@ p %>%
   # plot!
   ggplot(aes(x = position, y = prob, fill = facet == "target")) +
   geom_col(width = .2) +
-  scale_fill_manual(values = c("steelblue", "goldenrod2")) +
+  scale_fill_manual(values = c("steelblue", "goldenrod2"), breaks = NULL) +
   scale_x_continuous(expression(theta), breaks = 1:7) +
-  ylab(expression(italic(p)(theta))) +
+  scale_y_continuous(expression(italic(p)(theta)), expand = expansion(mult = c(0, 0.05))) +
   theme_cowplot() +
-  theme(legend.position = "none") +
   facet_wrap(~facet, scales = "free_y", labeller = label_parsed)
 ```
 
@@ -635,7 +634,7 @@ betas %>%
   theme_cowplot()
 ```
 
-With careful use of `dbeta()`, we can be more precise.
+Remember how we talked about suppressing the unsightly white space between the bottom of bar-plot bars and the $x$-axis? Well, look at all that unsightly white space between the axes and the boundaries of the parameter space in our bivariate Beta plot. We can further flex our `expansion()` skills to get rid of those in the next plot. Speaking of which, we might make a more precise version of that plot with careful use of `dbeta()`.
 
 ```{r, fig.height = 3}
 theta_sequence <- seq(from = 0, to = 1, by = .01)
@@ -651,13 +650,13 @@ tibble(theta_1 = theta_sequence,
   ggplot(aes(x = theta_1, y = theta_2, fill = prior_1 * prior_2)) +
   geom_tile() +
   scale_fill_viridis_c("joint prior density", option = "A") +
-  labs(x = expression(theta[1]),
-       y = expression(theta[2])) +
+  scale_x_continuous(expression(theta[1]), expand = expansion(mult = 0)) +
+  scale_y_continuous(expression(theta[2]), expand = expansion(mult = 0)) +
   coord_equal() +
   theme_cowplot()
 ```
 
-We'll need the `bernoulli_likelihood()` function from back in Chapter 6 for the middle right of Figure 7.5.
+Look at that--no more unsightly white space! We'll need the `bernoulli_likelihood()` function from back in Chapter 6 for the middle right of Figure 7.5.
 
 ```{r}
 bernoulli_likelihood <- function(theta, data) {
@@ -689,8 +688,8 @@ tibble(theta_1 = theta_sequence,
   ggplot(aes(x = theta_1, y = theta_2, fill = likelihood_1 * likelihood_2)) +
   geom_tile() +
   scale_fill_viridis_c("joint likelihood", option = "A") +
-  labs(x = expression(theta[1]),
-       y = expression(theta[2])) +
+  scale_x_continuous(expression(theta[1]), expand = expansion(mult = 0)) +
+  scale_y_continuous(expression(theta[2]), expand = expansion(mult = 0)) +
   coord_equal() +
   theme_cowplot()
 ```
@@ -733,8 +732,8 @@ d_prior %>%
   ggplot(aes(x = theta_1, y = theta_2, fill = posterior)) +
   geom_tile() +
   scale_fill_viridis_c(option = "A") +
-  labs(x = expression(theta[1]),
-       y = expression(theta[2])) +
+  scale_x_continuous(expression(theta[1]), expand = expansion(mult = 0)) +
+  scale_y_continuous(expression(theta[2]), expand = expansion(mult = 0)) +
   coord_equal() +
   theme_cowplot()
 ```
@@ -816,10 +815,9 @@ post %>%
   ggplot(aes(x = theta_1, y = theta_2)) +
   geom_point(alpha = 1/4, color = "steelblue") +
   geom_path(size = 1/10, alpha = 1/2, color = "steelblue") +
-  labs(x = expression(theta[1]),
-       y = expression(theta[2])) +
-  coord_equal(xlim = c(0, 1),
-              ylim = c(0, 1)) +
+  scale_x_continuous(expression(theta[1]), expand = expansion(mult = 0), limits = c(0, 1)) +
+  scale_y_continuous(expression(theta[2]), expand = expansion(mult = 0), limits = c(0, 1)) +
+  coord_equal() +
   theme_cowplot()
 ```
 
@@ -833,7 +831,22 @@ post %>%
   
   ggplot(aes(x = value, y = name)) +
   stat_halfeye(point_interval = mode_hdi, .width = c(.5, .95), fill = "steelblue") +
-  scale_y_discrete(NULL, labels = ggplot2:::parse_safe) +
+  scale_y_discrete(NULL, labels = ggplot2:::parse_safe, expand = expansion(mult = 0)) +
+  xlab("posterior") +
+  theme_cowplot()
+```
+
+Did you see how our use of `expand = expansion(mult = 0)` didn't work so well with this plot. The problem is the mode dot and HDI lines at the base of the lower density gets cut off when you remove all of the white space underneath the density. A partial solution is to adjust the value within `expansion()` to be small, but just large enough to let the mode and HDI marks breathe.
+
+```{r, fig.height = 2, fig.width = 4}
+post %>% 
+  mutate(`theta[1]` = b_z1_Intercept %>% inv_logit_scaled(), 
+         `theta[2]` = b_z2_Intercept %>% inv_logit_scaled()) %>% 
+  pivot_longer(`theta[1]`:`theta[2]`) %>% 
+  
+  ggplot(aes(x = value, y = name)) +
+  stat_halfeye(point_interval = mode_hdi, .width = c(.5, .95), fill = "steelblue") +
+  scale_y_discrete(NULL, labels = ggplot2:::parse_safe, expand = expansion(mult = 0.05)) +
   xlab("posterior") +
   theme_cowplot()
 ```
@@ -1060,6 +1073,7 @@ post %>%
   stat_halfeye(point_interval = mode_hdi,
                 .width = .95) +
   scale_fill_brewer(direction = -1) +
+  scale_y_discrete(expand = expansion(mult = 0.025)) +
   theme_cowplot() +
   theme(legend.position = "none")
 ```
@@ -1173,7 +1187,7 @@ library(psych)
 
 lagged_post_wide %>% 
   select(-iter) %>% 
-  filter(!is.na(lag_10)) %>% 
+  filter(!is.na(lag_10)) %>%
   
   lowerCor(digits = 3)
 ```
