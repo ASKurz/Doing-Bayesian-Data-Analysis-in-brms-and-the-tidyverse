@@ -37,11 +37,11 @@ devtools::install_github("paul-buerkner/brms")
 
 We express the likelihood for our coin toss example as
 
-$$y_{i} \sim \operatorname{Bernoulli} (\theta).$$
+$$y_{i} \sim \operatorname{Bernoulli}(\theta).$$
 
 Our prior will be
 
-$$\theta \sim \operatorname{Beta} (\alpha, \beta).$$
+$$\theta \sim \operatorname{Beta}(\alpha, \beta).$$
 
 ### Load data.
 
@@ -63,16 +63,21 @@ head(my_data)
 
 We might visualize them in a bar plot.
 
-```{r, fig.width = 3, fig.height = 3}
+```{r, fig.width = 3, fig.height = 3, warning = F, message = F}
+library(cowplot)
+
 my_data %>% 
   mutate(y = y %>% as.character()) %>% 
   
   ggplot(aes(x = y)) +
   geom_bar() +
-  theme(panel.grid = element_blank())
+  scale_y_continuous(expand = expansion(mult = c(0, 0.05))) +
+  theme_minimal_hgrid()
 ```
 
-If you wanted to compute "Ntotal", the number of rows in our tibble, one way is with `count()`.
+For the past couple chapters, we've been using the `cowplot::theme_cowplot()` theme for our plots. The **cowplot** package, however, includes a few more. The `theme_minimal_grid()` is similar, but subtracts the axis lines and adds in minimalistic grid lines. In his [-@Wilke2019Themes] [Themes vignette], however, Wilke explained that vertical gridlines are often unsightly in bar plots. To avoid offending Wilke with our grid lines, we used the `theme_minimal_hgrid()` theme, which only added horizontal grid lines.
+
+Anyway, if you wanted to compute "Ntotal", the number of rows in our tibble, one way is with `count()`.
 
 ```{r}
 my_data %>% 
@@ -152,22 +157,23 @@ Note the `add_chain = T` argument, which will allow us to differentiate the draw
 
 ```{r, fig.width = 4, fig.height = 2, message = F, warning = F}
 mcmc_dens_overlay(post, pars = c("b_Intercept")) +
-  theme(panel.grid = element_blank())
+  theme_minimal_hgrid()
 ```
 
 The `bayesplot::mcmc_acf()` function will give us the autocorrelation plots.
 
 ```{r, fig.width = 4, fig.height = 4}
-mcmc_acf(post, pars = "b_Intercept", lags = 35)
+mcmc_acf(post, pars = "b_Intercept", lags = 35) +
+  theme_minimal_hgrid()
 ```
 
-With **brms** functions, we get a sole $\hat R$ value for each parameter rather than a running vector.
+With **brms** functions, we get a sole $\widehat R$ value for each parameter rather than a running vector.
 
 ```{r}
 rhat(fit8.1)["b_Intercept"]
 ```
 
-We'll have to employ `brms::as.mcmc()` and `coda::gelman.plot()` to make our running $\hat R$ plot.
+We'll have to employ `brms::as.mcmc()` and `coda::gelman.plot()` to make our running $\widehat R$ plot.
 
 ```{r, fig.width = 4, fig.height = 3}
 fit8.1_c <- as.mcmc(fit8.1)
@@ -216,15 +222,15 @@ post %>%
   ggplot(aes(x = b_Intercept)) +
   geom_histogram(color = "grey92", fill = "grey67",
                  size = .2) +
-  scale_y_continuous(NULL, breaks = NULL) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.05))) +
   labs(title = "Theta via ggplot2::geom_histogram()",
        x = expression(theta)) +
-  theme(panel.grid = element_blank())
+  theme_minimal_hgrid()
 ```
 
 The `bayesplot::mcmc_areas()` function offers a nice way to depict the posterior densities, along with their percentile-based 50% and 95% ranges.
 
-```{r, fig.width = 4, fig.height = 2.5, message = F}
+```{r, fig.width = 4, fig.height = 2.5, message = F, warning = F}
 mcmc_areas(
   post, 
   pars = c("b_Intercept"),
@@ -232,29 +238,37 @@ mcmc_areas(
   prob_outer = 0.95,
   point_est = "mean"
 ) +
-  scale_y_discrete(NULL, breaks = NULL) +
+  scale_y_discrete(expand = expansion(mult = c(0, 0.05))) +
   labs(title = "Theta via bayesplot::mcmc_areas()",
        x = expression(theta)) +
-  theme(panel.grid = element_blank())
+  theme_minimal_hgrid()
 ```
 
-**brms** doesn't have a convenient way to compute the posterior mode or HDIs. Base **R** is no help, either. But Matthew Kay's **tidybayes** package makes it easy to compute posterior modes and HDIs with the handy `geom_halfeyeh()` function.
+**brms** doesn't have a convenient way to compute the posterior mode or HDIs. Base **R** is no help, either. But Matthew Kay's **tidybayes** package makes it easy to compute posterior modes and HDIs with handy functions like `stat_halfeye()` and `stat_histinterval()`.
 
 ```{r, fig.width = 4, fig.height = 2.5, warning = F, message = F}
 library(tidybayes)
 
 post %>% 
   ggplot(aes(x = b_Intercept, y = 0)) +
-  geom_halfeyeh(point_interval = mode_hdi, .width = c(.95, .5)) +
+  stat_halfeye(point_interval = mode_hdi, .width = c(.95, .5)) +
   scale_y_continuous(NULL, breaks = NULL) +
-  labs(title = "Theta via tidybayes::geom_halfeyeh()",
+  labs(title = "Theta via tidybayes::stat_halfeye()",
        x = expression(theta)) +
-  theme(panel.grid = element_blank())
+  theme_minimal_hgrid()
+
+post %>% 
+  ggplot(aes(x = b_Intercept, y = 0)) +
+  stat_histinterval(point_interval = mode_hdi, .width = c(.95, .5)) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  labs(title = "Theta via tidybayes::stat_histinterval()",
+       x = expression(theta)) +
+  theme_minimal_hgrid()
 ```
 
-The `tidybayes::geom_halfeyeh()` function returns a density with a measure of the posterior's central tendency in a dot and one or multiple interval bands as horizontal lines at the base of the density. Using the `point_interval = mode_hdi` argument, we asked for the mode to be our measure of central tendency and the highest posterior density intervals to be our type intervals. With `.width = c(.95, .5)`, we requested our HDIs be at both the 95% and 50% levels.
+The `tidybayes::stat_halfeye()` function returns a density with a measure of the posterior's central tendency in a dot and one or multiple interval bands as horizontal lines at the base of the density. The `stat_histinterval()` function returns much the same, but replaces the density with a histogram. For both functions, the `point_interval = mode_hdi` argument allowed us to request the mode to be our measure of central tendency and the highest posterior density intervals to be our type intervals. With `.width = c(.95, .5)`, we requested our HDIs be at both the 95% and 50% levels.
 
-To be more congruent with Kruschke's plotting sensibilities, we can use `tidybayes::stat_histintervalh()`. 
+If we wanted to be more congruent with Kruschke's plotting sensibilities, we could further modify `tidybayes::stat_histinterval()`. 
 
 ```{r, fig.width = 4, fig.height = 2.5, warning = F, message = F}
 # this is unnecessary, but makes for nicer x-axis breaks
@@ -266,36 +280,37 @@ my_breaks <-
 # here's the main plot code
 post %>% 
   ggplot(aes(x = b_Intercept, y = 0)) +
-  stat_histintervalh(point_interval = mode_hdi, .width = .95,
-                     fill = "grey67", slab_color = "grey92",
-                     breaks = 40, slab_size = .25, outline_bars = T) +
+  stat_histinterval(point_interval = mode_hdi, .width = .95,
+                    fill = "steelblue", slab_color = "white",
+                    breaks = 40, slab_size = .25, outline_bars = T) +
   scale_x_continuous(breaks = my_breaks$breaks,
                      labels = my_breaks$labels) +
   scale_y_continuous(NULL, breaks = NULL) +
-  labs(title = "Theta via tidybayes::stat_histintervalh()",
+  labs(title = "tidybayes::stat_histinterval() all gussied up",
        x = expression(theta)) +
-  theme(panel.grid = element_blank())
+  theme_minimal_hgrid()
 ```
 
-With the `point_interval` argument within the `stat_histintervalh()` function, we can request different combinations of measures of central tendency (i.e., mean, median, mode) and interval types (i.e., percentile-based and HDIs). Although all of these are legitimate ways to summarize a posterior, they can yield somewhat different results. For example, here we'll contrast our mode + HDI summary with a median + percentile-based interval summary using `tidybayes::stat_pointintervalh().
+With the `point_interval` argument within `stat_histinterval()` and related functions, we can request different combinations of measures of central tendency (i.e., mean, median, mode) and interval types (i.e., percentile-based and HDIs). Although all of these are legitimate ways to summarize a posterior, they can yield somewhat different results. For example, here we'll contrast our mode + HDI summary with a median + percentile-based interval summary using `tidybayes::stat_pointinterval()`.
 
 ```{r, fig.width = 4, fig.height = 1.5}
 post %>% 
   ggplot(aes(x = b_Intercept)) +
-  stat_pointintervalh(aes(y = 1), point_interval = median_qi, .width = c(.95, .5)) +
-  stat_pointintervalh(aes(y = 2), point_interval = mode_hdi,  .width = c(.95, .5)) +
+  stat_pointinterval(aes(y = 1), point_interval = median_qi, .width = c(.95, .5)) +
+  stat_pointinterval(aes(y = 2), point_interval = mode_hdi,  .width = c(.95, .5)) +
   scale_y_continuous(NULL, breaks = 1:2,
                      labels = c("median_qi", "mode_hdi")) +
   coord_cartesian(ylim = c(0, 3)) +
-  labs(title = "Theta via tidybayes::stat_pointintervalh()",
+  labs(title = "Theta via tidybayes::stat_pointinterval()",
        x = expression(theta)) +
-  theme(axis.text.y = element_text(hjust = 0),
+  theme_minimal_vgrid() +
+  theme(axis.line.y.left = element_blank(),
+        axis.text.y = element_text(hjust = 0),
         axis.ticks.y = element_blank(),
-        panel.grid = element_blank(),
         title = element_text(size = 10.5))
 ```
 
-Similar, yet distinct. To get a sense of the full variety of ways **tidybayes** allows users to summarize and plot the results of a Bayesian model, check out Kay's [-@kaySlabIntervalStats2020] vignette, [*Slab + interval stats and geoms*](https://mjskay.github.io/tidybayes/articles/slabinterval.html).
+Similar, yet distinct. To get a sense of the full variety of ways **tidybayes** allows users to summarize and plot the results of a Bayesian model, check out Kay's [-@kaySlabIntervalStats2020] vignette, [*Slab + interval stats and geoms*](https://mjskay.github.io/tidybayes/articles/slabinterval.html). Also, did you notice how we switched to `theme_minimal_vgrid()`? That's how we added the vertical grid lines in the absence of horizontal grid lines.
 
 ## Simplified scripts for frequently used analyses
 
@@ -313,17 +328,23 @@ glimpse(my_data)
 
 They look like this.
 
-```{r, fig.width = 5, fig.height = 3}
+```{r, fig.width = 5, fig.height = 3, warning = F, message = F}
+library(ggthemes)
+
 my_data %>% 
   mutate(y = y %>% as.character()) %>% 
   
-  ggplot(aes(x = y)) +
-  geom_bar() +
-  theme(panel.grid = element_blank()) +
+  ggplot(aes(x = y, fill = s)) +
+  geom_bar(show.legend = F) +
+  scale_fill_colorblind() +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.05))) +
+  theme_minimal_hgrid() +
   facet_wrap(~s)
 ```
 
-Here we fit the model with `brms::brm()`.
+Note our use of `ggthemes::scale_fill_colorblind()`. When you want to use color to emphasize different factor levels, such as `s`, it's a good idea to make sure those colors can be distinguished by folks who are colorblind. The `scale_fill_colorblind()` function provides a discrete palette of eight colorblind safe colors. If you'd prefer to use a different palette, but wand to make sure its accessible to folks with colorblindness, check out the [**colorblindr** package](https://github.com/clauswilke/colorblindr) [@R-colorblindr].
+
+Anyway, here we fit the model with `brms::brm()`.
 
 ```{r fit8.2}
 fit8.2 <-
@@ -385,17 +406,19 @@ gathered_post <-
   mutate(key = factor(key, levels = c("theta_Reginald", "theta_Tony", "theta_Reginald - theta_Tony"))) 
   
 gathered_post %>% 
-  ggplot(aes(x = value, y = 0)) +
-  stat_histintervalh(point_interval = mode_hdi, .width = .95,
-                     fill = "grey67", slab_color = "grey92",
-                     breaks = 30, slab_size = .25, outline_bars = T,
-                     normalize = "panels") +
+  ggplot(aes(x = value, y = 0, fill = key)) +
+  stat_histinterval(point_interval = mode_hdi, .width = .95,
+                    slab_color = "white", outline_bars = T,
+                    normalize = "panels") +
+  scale_fill_manual(values = colorblind_pal()(8)[2:4], breaks = NULL) +
   scale_y_continuous(NULL, breaks = NULL) +
-  theme(panel.grid = element_blank()) +
+  theme_minimal_hgrid() +
   facet_wrap(~key, scales = "free")
 ```
 
-Here's a way to get the numeric summaries out of `post`.
+Note how this time we used the `colorblind_pal()` function within `scale_fill_manual()` to manually select three of the of the `scale_fill_colorblind()` colors.
+
+Anyway, here's a way to get the numeric summaries out of `post`.
 
 ```{r}
 gathered_post %>% 
@@ -449,19 +472,18 @@ prior %>%
   mutate(key = factor(key, levels = c("theta_Reginald", "theta_Tony", "theta_Reginald - theta_Tony"))) %>%
   
   ggplot(aes(x = value, y = 0)) +
-  geom_vline(data = d_line, aes(xintercept = value), 
-             color = "white", size = 1) +
-  stat_histintervalh(point_interval = mode_hdi, .width = .95,
-                     fill = "grey67", slab_color = "grey92",
-                     breaks = 35, slab_size = .25, outline_bars = T,
-                     normalize = "panels") +
+  stat_histinterval(point_interval = mode_hdi, .width = .95,
+                    fill = colorblind_pal()(8)[5], normalize = "panels") +
+  geom_vline(data = d_line, 
+             aes(xintercept = value), 
+             linetype = 2) +
   scale_y_continuous(NULL, breaks = NULL) +
-  theme_grey() +
-  theme(panel.grid = element_blank()) +
+  labs(subtitle = expression("The dashed vertical lines mark off "*italic(z[s])/italic(N[s]))) +
+  theme_cowplot() +
   facet_wrap(~key, scales = "free")
 ```
 
-Here's how to make the scatter plot.
+Here's how you might make the scatter plot.
 
 ```{r, fig.width = 3, fig.height = 3}
 prior %>% 
@@ -469,14 +491,14 @@ prior %>%
          theta_Tony     = b_sTony) %>% 
   
   ggplot(aes(x = theta_Reginald, y = theta_Tony)) +
-  geom_point(alpha = 1/4, color = "grey50") +
+  geom_point(alpha = 1/4, color = colorblind_pal()(8)[6]) +
   coord_equal() +
-  theme(panel.grid = element_blank())
+  theme_minimal_grid()
 ```
 
 Or you could always use a two-dimensional density plot with `stat_density_2d()`.
 
-```{r, fig.width = 3, fig.height = 3}
+```{r, fig.width = 3, fig.height = 3, warning = F}
 prior %>% 
   rename(theta_Reginald = b_sReginald,
          theta_Tony     = b_sTony) %>% 
@@ -484,13 +506,18 @@ prior %>%
   ggplot(aes(x = theta_Reginald, y = theta_Tony)) +
   stat_density_2d(aes(fill = stat(density)), 
                   geom = "raster", contour = F) +
-  scale_fill_viridis_c(option = "B") +
-  labs(x = expression(theta[1]),
-       y = expression(theta[2])) +
+  scale_fill_viridis_c(option = "B", breaks = NULL) +
+  scale_x_continuous(expression(theta[1]), 
+                     expand = c(0, 0), limits = c(0, 1),
+                     breaks = 0:4 / 4, labels = c("0", ".25", ".5", ".75", "1")) +
+  scale_y_continuous(expression(theta[2]), 
+                     expand = c(0, 0), limits = c(0, 1),
+                     breaks = 0:4 / 4, labels = c("0", ".25", ".5", ".75", "1")) +
   coord_equal() +
-  theme(panel.grid = element_blank(),
-        legend.position = "none")
+  theme_minimal_grid()
 ```
+
+The viridis color palettes in functions like `scale_fill_viridis_c()` and `scale_fill_viridis_d()` are designed to be colorblind safe, too [@R-viridis].
 
 ## Probability distributions available in ~~JAGS~~  brms
 
@@ -539,9 +566,5 @@ rm(my_data, fit8.1, post, estimate_mode, my_breaks, fit8.2, gathered_post, prior
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
 pacman::p_unload(pacman::p_loaded(), character.only = TRUE)
-
-ggplot2::theme_set(ggplot2::theme_grey())
-
-bayesplot::color_scheme_set("blue")
 ```
 
