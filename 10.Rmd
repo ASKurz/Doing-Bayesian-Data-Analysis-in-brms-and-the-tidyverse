@@ -60,7 +60,55 @@ d %>%
   knitr::kable()
 ```
 
-Thus given $\omega_1 = .25$, $\omega_2 = .75$ and $\kappa = 12$, we can describe the bias of the two coin factories as $\operatorname{beta} (\theta_{[m = 1]} | 3.5, 8.5)$ and $\operatorname{beta} (\theta_{[m = 2]} | 8.5, 3.5)$. With a little wrangling, we canuse our `d` tibble to make the densities of Figure 10.2.
+Thus given $\omega_1 = .25$, $\omega_2 = .75$ and $\kappa = 12$, we can describe the bias of the two coin factories as $\operatorname{beta}(\theta_{[m = 1]} | 3.5, 8.5)$ and $\operatorname{beta}(\theta_{[m = 2]} | 8.5, 3.5)$. With a little wrangling, we can use our `d` tibble to make the densities of Figure 10.2. But before we do, we should discuss plotting.
+
+In the past few chapters, we have explored different plotting conventions using themes from Wilke's [**cowplot** package](https://wilkelab.org/cowplot), such as `theme_cowplot()` and `theme_minimal_grid()`. We also modified some of our plots using principles from Wilke's [-@wilkeFundamentalsDataVisualization2019] text, [*Fundamentals of data visualization*](https://clauswilke.com/dataviz/), and his [-@Wilke2019Themes] [*Themes*](https://wilkelab.org/cowplot/articles/themes.html) vignette. To further build on those principles, each chapter from here onward will have its own color scheme. The scheme in this chapter is based on Katsushika Hokusai's [-@HokusaiGreatWaveOffKanagawa1820] woodblock print, [*The great wave off Kanagawa*](https://artsandculture.google.com/asset/the-great-wave-off-kanagawa/MgHm0BHMRIT73g). We can get a prearranged color palette based on *The great wave off Kanagawa* from  [Tyler Littlefield](https://twitter.com/tyluRp)'s [**lisa** package](https://github.com/tyluRp/lisa). The 
+
+```{r, warning = F, message = F, fig.width = 3, fig.height = 1}
+# install.packages("lisa")
+
+library(lisa)
+
+lisa_palette("KatsushikaHokusai")
+plot(lisa_palette("KatsushikaHokusai"))
+```
+
+The `"KatsushikaHokusai"` palette comes out of the box with five colors. However, we can use the `lisa_palette()` function to expand the palette by setting `type = "continuous"` and then increasing the `n` argument to a value larger than five. Here's what happens when you set `n = 9` and `n = 1000`.
+
+```{r, fig.width = 3, fig.height = 1}
+plot(lisa_palette("KatsushikaHokusai", n = 9, type = "continuous"))
+plot(lisa_palette("KatsushikaHokusai", n = 1000, type = "continuous"))
+```
+
+Next, we will use the five base colors from `"KatsushikaHokusai"` to adjust the global theme default for all ggplots in this chapter. We can accomplish this with the `ggplot2::theme_set()` function. First, we start with the default `theme_grey()` as our base and then modify several of the settings with arguments within the `theme()` function.
+
+```{r}
+theme_set(
+  theme_grey() +
+    theme(text = element_text(color = lisa_palette("KatsushikaHokusai")[1]),
+          axis.text = element_text(color = lisa_palette("KatsushikaHokusai")[1]),
+          axis.ticks = element_line(color = lisa_palette("KatsushikaHokusai")[1]),
+          legend.background = element_blank(),
+          legend.box.background = element_blank(),
+          legend.key = element_rect(fill = lisa_palette("KatsushikaHokusai")[5]),
+          panel.background = element_rect(fill = lisa_palette("KatsushikaHokusai")[5],
+                                          color = lisa_palette("KatsushikaHokusai")[1]),
+          panel.grid = element_blank(),
+          plot.background = element_rect(fill = lisa_palette("KatsushikaHokusai")[5],
+                                          color = lisa_palette("KatsushikaHokusai")[5]),
+          strip.background = element_rect(fill = lisa_palette("KatsushikaHokusai")[4]),
+          strip.text = element_text(color = lisa_palette("KatsushikaHokusai")[1]))
+)
+```
+
+You can undo this by executing `theme_set(theme_grey())`. Next we'll save the color names from a 9-color version of "KatsushikaHokusai" as a conveniently-named object, `kh`. We'll use `kh` to adjust the `fill` and `color` settings within our plots on the fly.
+
+```{r}
+kh <- lisa_palette("KatsushikaHokusai", 9, "continuous")
+kh
+```
+
+Okay, it's time to get a sense of what we've done by making our version of Figure 10.2.
 
 ```{r, fig.width = 6, fig.height = 2}
 length <- 101
@@ -73,25 +121,20 @@ d %>%
   ggplot(aes(x = theta, 
              ymin = 0, 
              ymax = dbeta(x = theta, shape1 = alpha, shape2 = beta))) +
-  geom_ribbon(fill = "grey67") +
-  scale_y_continuous(NULL, breaks = NULL) +
+  geom_ribbon(fill = kh[6]) +
+  scale_y_continuous(NULL, breaks = NULL,
+                     expand = expansion(mult = c(0, 0.05))) +
   xlab(expression(theta)) +
-  theme(panel.grid = element_blank()) +
   facet_wrap(~label)
 ```
 
 We might recreate the top panel with `geom_col()`.
 
 ```{r, fig.width = 3, fig.height = 2}
-tibble(Model = c("1", "2"),
-       y     = 1) %>% 
-  
+tibble(Model = c("1", "2"), y = 1) %>% 
   ggplot(aes(x = Model, y = y)) +
-  geom_col(width = .75, fill = "grey50") +
-  scale_y_continuous(NULL, breaks = NULL) +
-  ggtitle(expression(paste(italic(P)[italic(m)]))) +
-  theme(axis.ticks.x = element_blank(),
-        panel.grid = element_blank())
+  geom_col(width = .75, fill = kh[5]) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.05)))
 ```
 
 Consider the Bernoulli bar plots in the bottom panels of Figure 10.2. The heights of the bars are arbitrary and just intended to give a sense of the Bernoulli distribution. If we wanted the heights to correspond to the Beta distributions above them, we might do so like this.
@@ -102,8 +145,9 @@ crossing(factory = str_c("factory ", 1:2),
   mutate(prob = c(.75, .25, .25, .75)) %>% 
   
   ggplot(aes(x = flip, y = prob)) +
-  geom_col(width = .75, fill = "grey50") +
-  scale_y_continuous(NULL, breaks = NULL) +
+  geom_col(width = .75, fill = kh[4]) +
+  scale_y_continuous(NULL, breaks = NULL,
+                     expand = expansion(mult = c(0, 0.05))) +
   xlab(NULL) +
   theme(axis.ticks.x = element_blank(),
         panel.grid = element_blank()) +
@@ -209,17 +253,17 @@ Given the data, the two models and the prior assumption they were equally credib
 
 We won't be able to make the wireframe plots on the left of Figure 10.3, but we can do some of the others. Here's the upper right panel.
 
-```{r, fig.width = 3.5, fig.height = 3}
+```{r, fig.width = 3.5, fig.height = 3, warning = F, message = F}
 tibble(omega = seq(from = 0, to = 1, length.out = length)) %>% 
   mutate(m_p = ifelse(omega %in% c(.25, .75), 15, 0)) %>% 
   
-  ggplot(aes(x = omega, ymin = 0, ymax = m_p)) +
-  geom_ribbon(fill = "grey67", color = "grey67") +
+  ggplot(aes(xmin = 0, xmax = m_p, y = omega)) +
+  geom_ribbon(fill = kh[4], color = kh[4]) +
+  scale_x_continuous(expand = expansion(mult = c(0.0025, 0.05)), limits = c(0, 25)) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0))) +
   labs(subtitle = "Remember, the scale on the x is arbitrary.",
-       x = expression(omega),
-       y = expression(Marginal~p(omega))) +
-  coord_flip(ylim = c(0, 25)) +
-  theme(panel.grid = element_blank())
+       x = expression(Marginal~p(omega)),
+       y = expression(omega))
 ```
 
 Building on that, here's the upper middle panel of the "two [prior] dorsal fins" (p. 271).
@@ -234,12 +278,10 @@ d <-
 d %>% 
   ggplot(aes(x = theta, y = omega, fill = prior)) +
   geom_raster(interpolate = T) +
-  scale_fill_viridis_c(option = "A") +
-  labs(x = expression(theta),
-       y = expression(omega)) +
-  coord_equal() +
-  theme(panel.grid = element_blank(),
-        legend.position = "none")
+  scale_fill_gradient(low = kh[1], high = kh[9], breaks = NULL) +
+  scale_x_continuous(expression(theta), breaks = 0:5 / 5, expand = c(0, 0)) +
+  scale_y_continuous(expression(omega), breaks = 0:5 / 5, expand = c(0, 0)) +
+  coord_equal()
 ```
 
 This time we'll separate $p_{m = 1}(\theta)$ and $p_{m = 2}(\theta)$ into the two short plots on the right of the next row down.
@@ -250,20 +292,18 @@ p1 <-
   filter(omega == .75) %>% 
   
   ggplot(aes(x = theta, ymin = 0, ymax = prior)) +
-  geom_ribbon(fill = "grey67") +
-  labs(x = expression(theta),
-       y = expression(p(theta*"|"*omega==.75))) +
-   theme(panel.grid = element_blank())
+  geom_ribbon(fill = kh[4]) +
+  scale_x_continuous(expression(theta), breaks = 0:5 / 5, expand = expansion(mult = c(0, 0))) +
+  scale_y_continuous(expression(p(theta*"|"*omega==.75)), expand = expansion(mult = c(0, 0.05)))
 
 p2 <-
   d %>% 
   filter(omega == .25) %>% 
   
   ggplot(aes(x = theta, ymin = 0, ymax = prior)) +
-  geom_ribbon(fill = "grey67") +
-  labs(x = expression(theta),
-       y = expression(p(theta*"|"*omega==.25))) +
-  theme(panel.grid = element_blank())
+  geom_ribbon(fill = kh[4]) +
+  scale_x_continuous(expression(theta), breaks = 0:5 / 5, expand = expansion(mult = c(0, 0))) +
+  scale_y_continuous(expression(p(theta*"|"*omega==.25)), expand = expansion(mult = c(0, 0.05)))
 
 # we'll put them together with help from patchwork
 library(patchwork)
@@ -280,11 +320,11 @@ tibble(theta = seq(from = 0, to = 1, length.out = length)) %>%
   mutate(mean_prior = (d_75 + d_25) / 2) %>% 
 
   ggplot(aes(x = theta, ymin = 0, ymax = mean_prior)) +
-  geom_ribbon(fill = "grey67") +
-  coord_cartesian(ylim = c(0, 3)) +
-  labs(x = expression(theta),
-       y = expression(Marginal~p(theta))) +
-  theme(panel.grid = element_blank())
+  geom_ribbon(fill = kh[4]) +
+  scale_x_continuous(expression(theta), breaks = 0:5 / 5, 
+                     expand = expansion(mult = c(0, 0))) +
+  scale_y_continuous(expression(Marginal~p(theta)), 
+                     expand = expansion(mult = c(0, 0.05)), limits = c(0, 3))
 ```
 
 We need the Bernoulli likelihood function for the next step.
@@ -315,12 +355,10 @@ d <-
 d %>%
   ggplot(aes(x = theta, y = omega, fill = likelihood)) +
   geom_raster(interpolate = T) +
-  scale_fill_viridis_c(option = "A") +
-  labs(x = expression(theta),
-       y = expression(omega)) +
-  coord_equal() +
-  theme(panel.grid = element_blank(),
-        legend.position = "none")
+  scale_fill_gradient(low = kh[1], high = kh[9], breaks = NULL) +
+  scale_x_continuous(expression(theta), breaks = 0:5 / 5, expand = c(0, 0)) +
+  scale_y_continuous(expression(omega), breaks = 0:5 / 5, expand = c(0, 0)) +
+  coord_equal()
 ```
 
 Now we just need the marginal likelihood, $p(D)$, to compute the posterior. Our first depiction will be the middle panel of the second row from the bottom--the panel with the uneven dolphin fins.
@@ -334,41 +372,43 @@ d <-
 d %>% 
   ggplot(aes(x = theta, y = omega, fill = posterior)) +
   geom_raster(interpolate = T) +
-  scale_fill_viridis_c(option = "A") +
-  labs(x = expression(theta),
-       y = expression(omega)) +
-  coord_equal() +
-  theme(panel.grid = element_blank(),
-        legend.position = "none")
+  scale_fill_gradient(low = kh[1], high = kh[9], breaks = NULL) +
+  scale_x_continuous(expression(theta), breaks = 0:5 / 5, expand = c(0, 0)) +
+  scale_y_continuous(expression(omega), breaks = 0:5 / 5, expand = c(0, 0)) +
+  coord_equal()
 ```
 
 Here, then, is a way to get the panel in on the right of the second row from the bottom.
 
+scale_x_continuous(expand = expansion(mult = c(0.0025, 0.05)), limits = c(0, 25)) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0))) +
+  
+  
 ```{r, fig.width = 3.5, fig.height = 3}
 d %>% 
   mutate(marginal = (posterior / max(posterior)) * 25) %>% 
 
-  ggplot(aes(x = omega, ymin = 0, ymax = marginal)) +
-  geom_ribbon(fill = "grey67", color = "grey67") +
-  coord_flip(ylim = c(0, 25)) +
-  labs(subtitle = "Remember, the scale on the x is arbitrary.",
-       x = expression(omega),
-       y = expression(Marginal~p(omega*"|"*D))) +
-  theme(panel.grid = element_blank())
+  ggplot(aes(xmin = 0, xmax = marginal, y = omega)) +
+  geom_ribbon(fill = kh[6], color = kh[6]) +
+  scale_x_continuous(expression(omega), 
+                     expand = expansion(mult = c(0.0025, 0.05)), limits = c(0, 25)) +
+  scale_y_continuous(expression(Marginal~p(omega*"|"*D)),
+                     expand = expansion(mult = c(0, 0)))
 ```
 
 To make the middle bottom panel of Figure 10.3, we have to average the posterior values of $\theta$ over the grid of $\omega$ values. That is, we have to marginalize.
 
-```{r, fig.width = 3.5, fig.height = 3}
+```{r, fig.width = 3.5, fig.height = 3, message = F}
  d %>%
   group_by(theta) %>% 
   summarise(marginal_theta = mean(posterior)) %>% 
   
   ggplot(aes(x = theta, ymin = 0, ymax = marginal_theta)) +
-  geom_ribbon(fill = "grey67") + 
-  labs(x = expression(theta),
-       y = expression(Marginal~p(theta*"|"*D))) +
-  theme(panel.grid = element_blank())
+  geom_ribbon(fill = kh[6]) +
+  scale_x_continuous(expression(theta), breaks = 0:5 / 5, 
+                     expand = expansion(mult = c(0, 0))) +
+  scale_y_continuous(expression(Marginal~p(theta*"|"*D)), 
+                     expand = expansion(mult = c(0, 0.05)), limits = c(0, NA))
 ```
 
 For the lower right panel of Figure 10.3, we'll `filter()` to our two focal values of $\omega$ and then facet by them.
@@ -379,10 +419,11 @@ d %>%
   mutate(omega = str_c("omega == ", omega)) %>%
 
   ggplot(aes(x = theta, ymin = 0, ymax = posterior)) +
-  geom_ribbon(fill = "grey67") + 
-  labs(x = expression(theta),
-       y = expression(Marginal~p(theta*"|"*omega))) +
-  theme(panel.grid = element_blank()) +
+  geom_ribbon(fill = kh[6]) +
+  scale_x_continuous(expression(theta), breaks = 0:5 / 5, 
+                     expand = expansion(mult = c(0, 0))) +
+  scale_y_continuous(expression(Marginal~p(theta*"|"*omega)), 
+                     expand = expansion(mult = c(0, 0.05)), limits = c(0, NA)) + 
   facet_wrap(~omega, ncol = 1, scales = "free", labeller = label_parsed)
 ```
 
@@ -394,10 +435,11 @@ d %>%
   mutate(omega = str_c("omega == ", omega)) %>%
 
   ggplot(aes(x = theta, ymin = 0, ymax = posterior)) +
-  geom_ribbon(fill = "grey67") + 
-  labs(x = expression(theta),
-       y = expression(Marginal~p(theta*"|"*omega))) +
-  theme(panel.grid = element_blank()) +
+  geom_ribbon(fill = kh[6]) + 
+  scale_x_continuous(expression(theta), breaks = 0:5 / 5, 
+                     expand = expansion(mult = c(0, 0))) +
+  scale_y_continuous(expression(Marginal~p(theta*"|"*omega)), 
+                     expand = expansion(mult = c(0, 0.05)), limits = c(0, NA)) + 
   facet_wrap(~omega, ncol = 1, labeller = label_parsed)
 ```
 
@@ -405,7 +447,7 @@ Hopefully that helps build the intuition of what Kruschke meant when he wrote "*
 
 Using the grid, you might compute that BF like this.
 
-```{r}
+```{r, message = F}
 d %>% 
   filter(omega %in% c(.25, .75)) %>% 
   group_by(omega) %>% 
@@ -638,12 +680,27 @@ Since we didn't use Kruschke's method from the last subsection, we don't have th
 ```{r, fig.width = 4, fig.height = 4, message = F, warning = F}
 library(bayesplot)
 
+color_scheme_set(scheme = c(lisa_palette("KatsushikaHokusai", n = 9, type = "continuous")[6:1]))
+
 mcmc_acf(posterior_samples(fit10.1, add_chain = T), 
          pars = "b_Intercept",
          lags = 35)
 ```
 
-Our autocorrelations were a little high for HMC, but nowhere near pathological. The results for `fit10.2` were similar. As you might imagine from the moderate autocorrelations, the $N_{eff}/N$ ratio for `b_Intercept` wasn't great.
+Our autocorrelations were a little high for HMC, but nowhere near pathological. The results for `fit10.2` were similar. Before we move on, note our use of `bayesplot::color_scheme_set()`, which allowed us to customize the color scheme **bayesplot** used within the plot. Based on that code, here is our new color scheme for all plots made by **bayesplot**.
+
+```{r, fig.height = 2.75}
+color_scheme_view()
+color_scheme_get()
+```
+
+In case you were curious, here is the default.
+
+```{r, fig.height = 2.75}
+color_scheme_view(scheme = "blue")
+```
+
+Anyway, as you might imagine from the moderate autocorrelations, the $N_{eff}/N$ ratio for `b_Intercept` wasn't great.
 
 ```{r, fig.width = 6, fig.height = 1.25}
 neff_ratio(fit10.1)[1] %>% 
@@ -698,9 +755,10 @@ The resulting data look like this.
 ```{r, fig.width = 3.5, fig.height = 2.5}
 d %>% 
   ggplot(aes(x = y)) +
-  geom_histogram(color = "grey92", fill = "grey67",
+  geom_histogram(color = kh[9], fill = kh[3],
                  size = .2, bins = 30) +
-  scale_y_continuous(NULL, breaks = NULL) +
+  scale_y_continuous(NULL, breaks = NULL,
+                     expand = expansion(mult = c(0, 0.05))) +
   theme(panel.grid = element_blank())
 ```
 
@@ -734,14 +792,13 @@ fit10.4 <-
 In case you were curious, here's what that default `gamma(2, 0.1)` prior on `nu` looks like.
 
 ```{r, fig.width = 4, fig.height = 2}
-tibble(x = seq(from = 0, to = 110, by = 1)) %>% 
+tibble(x = seq(from = 0, to = 100, by = 1)) %>% 
   ggplot(aes(x = x, ymin = 0,
              ymax = dgamma(x, 2, 0.1))) +
-  geom_ribbon(size = 0, fill = "grey67") +
-  scale_y_continuous(NULL, breaks = NULL) +
-  xlab(expression(italic(p)(nu))) +
-  coord_cartesian(xlim = c(0, 100)) +
-  theme(panel.grid = element_blank())
+  geom_ribbon(size = 0, fill = kh[5]) +
+  scale_y_continuous(NULL, breaks = NULL,
+                     expand = expansion(mult = c(0, 0.05))) +
+  scale_x_continuous(expression(italic(p)(nu)), expand = expansion(mult = c(0, 0.01)))
 ```
 
 That prior puts most of the probability mass below 50, but the right tail gently fades off into the triple digits, allowing for the possibility of larger estimates.
@@ -770,18 +827,19 @@ model_weights(fit10.3, fit10.4)
 
 Virtually all of the stacking weight was placed on the Student's-$t$ model, `fit10.4`. 
 
-Remember what that $p(\nu)$ looked like? Here’s our posterior distribution for $\nu$.
+Remember what that $p(\nu)$ looked like? Here's our posterior distribution for $\nu$.
 
 ```{r, fig.width = 3.5, fig.height = 2.5}
 posterior_samples(fit10.4) %>% 
   ggplot(aes(x = nu)) +
-  geom_histogram(color = "grey92", fill = "grey67",
+  geom_histogram(color = kh[9], fill = kh[3],
                  size = .2, bins = 30) +
-  scale_y_continuous(NULL, breaks = NULL) +
-  coord_cartesian(xlim = c(0, 20)) +
-  labs(subtitle = expression("Recall that for the Gaussian, "*nu==infinity.),
-       x = expression(italic(p)(nu*"|"*italic(D)))) +
-  theme(panel.grid = element_blank())
+  scale_x_continuous(expression(italic(p)(nu*"|"*italic(D))), 
+                     expand = c(0, 0)) +
+  scale_y_continuous(NULL, breaks = NULL,
+                     expand = expansion(mult = c(0, 0.05))) +
+  coord_cartesian(xlim = c(0, 21)) +
+  labs(subtitle = expression("Recall that for the Gaussian, "*nu==infinity.))
 ```
 
 Even though our prior for $\nu$ was relatively weak, the posterior ended up concentrated on values in the middle-single-digit range. Recall the data-generating value was 7.
@@ -789,23 +847,23 @@ Even though our prior for $\nu$ was relatively weak, the posterior ended up conc
 We can also compare the models using posterior-predictive checks. There are a variety of ways we might do this, but the most convenient way is with `brms::pp_check()`, which is itself a wrapper for the family of `ppc` functions from the **bayesplot** package.
 
 ```{r, fig.width = 4, fig.height = 2, message = F}
-pp_check(fit10.3)
-pp_check(fit10.4)
+pp_check(fit10.3, nsamples = 50)
+pp_check(fit10.4, nsamples = 50)
 ```
 
-The default `pp_check()` setting allows us to compare the density of the data $y$ (i.e., the dark blue) with 10 density’s simulated from the posterior $y_\text{rep}$ (i.e., the light blue). We prefer models that produce $y_\text{rep}$ distributions resembling $y$. Though the results from both models were similar, the simulated distributions from `fit10.4` mimicked the original data a little more convincingly. To learn more about this approach to posterior predictive checks, check out Gabry's [-@gabryGraphicalPosteriorPredictive2019] vignette, [*Graphical posterior predictive checks using the bayesplot package*](https://CRAN.R-project.org/package=bayesplot/vignettes/graphical-ppcs.html).
+The default `pp_check()` setting allows us to compare the density of the data $y$ (i.e., the dark blue) with 10 densities simulated from the posterior $y_\text{rep}$ (i.e., the light blue). By `nsamples = 50`, we adjusted that default to 50 simulated densities. We prefer models that produce $y_\text{rep}$ distributions resembling $y$. Though the results from both models were similar, the simulated distributions from `fit10.4` mimicked the original data a little more convincingly. To learn more about this approach to posterior predictive checks, check out Gabry's [-@gabryGraphicalPosteriorPredictive2019] vignette, [*Graphical posterior predictive checks using the bayesplot package*](https://CRAN.R-project.org/package=bayesplot/vignettes/graphical-ppcs.html).
 
 ## Prediction: Model averaging
 
 > In many applications of model comparison, the analyst wants to identify the best model and then base predictions of future data on that single best model, denoted with index $b$. In this case, predictions of future $\hat{y}$ are based exclusively on the likelihood function $p_b(\hat{y} | \theta_b, m = b)$ and the posterior distribution $p_b(\theta_b | D, m = b)$ of the winning model:
 >
-> $$p_b(\hat y | D, m = b) = \int \text d \theta_b p_b (\hat{y} | \theta_b, m = b) p_b(\theta_b | D, m = b)$$
+> $$p_b(\hat y | D, m = b) = \int \text d \theta_b p_b (\hat y | \theta_b, m = b) p_b(\theta_b | D, m = b)$$
 >
 > But the full model of the data is actually the complete hierarchical structure that spans all the models being compared, as indicated in Figure 10.1 (p. 267). Therefore, if the hierarchical structure really expresses our prior beliefs, then the most complete prediction of future data takes into account all the models, weighted by their posterior credibilities. In other words, we take a weighted average across the models, with the weights being the posterior probabilities of the models. Instead of conditionalizing on the winning model, we have
 >
 > \begin{align*}
 > p (\hat y | D) & = \sum_m p (\hat y | D, m) p (m | D) \\
-> & = \sum_m \int \text d \theta_m p_m (\hat{y} | \theta_m, m) p_m(\theta_m | D, m) p (m | D)
+> & = \sum_m \int \text d \theta_m p_m (\hat y | \theta_m, m) p_m(\theta_m | D, m) p (m | D)
 > \end{align*}
 >
 > This is called model averaging. (p. 289)
@@ -821,14 +879,15 @@ library(tidybayes)
 
 posterior_samples(fit10.1) %>% 
   ggplot(aes(x = b_Intercept, y = 0)) +
-  stat_histintervalh(point_interval = mode_hdi, .width = c(.95, .5),
-                     fill = "grey67", slab_color = "grey92",
-                     breaks = 40, slab_size = .25, outline_bars = T) +
-  scale_y_continuous(NULL, breaks = NULL) +
-  labs(subtitle = "The posterior for the probability, given fit10.1",
-       x = expression(italic(p)(theta*"|"*italic(D)*", "*omega==.75))) +
-  xlim(0, 1) +
-  theme(panel.grid = element_blank())
+  stat_histinterval(point_interval = mode_hdi, .width = c(.95, .5),
+                    fill = kh[6], slab_color = kh[5], color = kh[2],
+                    breaks = 40, slab_size = .25, outline_bars = T) +
+  scale_x_continuous(expression(italic(p)(theta*"|"*italic(D)*", "*omega==.75)), 
+                     expand = expansion(mult = c(0, 0)), 
+                     breaks = 0:5 / 5, limits = c(0, 1)) +
+  scale_y_continuous(NULL, breaks = NULL,
+                     expand = expansion(mult = c(0.01, 0.05))) +
+  labs(subtitle = "The posterior for the probability, given fit10.1") 
 ```
 
 > But the overall model included $\omega = 0.75$, and if we use the overall model, then the predicted value of future data should be based on the complete posterior summed across values of $\omega$. The complete posterior distribution [is] $p(\theta | D)$ (p. 289).
@@ -857,14 +916,15 @@ We can plot our model-averaged $\theta$ with a little help from good old `tidyba
 ```{r, fig.width = 3.5, fig.height = 3}
 pp_a %>% 
   ggplot(aes(x = theta, y = 0)) +
-  stat_histintervalh(point_interval = mode_hdi, .width = c(.95, .5),
-                     fill = "grey67", slab_color = "grey92",
-                     breaks = 30, slab_size = .4, outline_bars = T) +
-  scale_y_continuous(NULL, breaks = NULL) +
-  labs(subtitle = "The posterior for the probability, given the\nweighted combination of fit10.1 and fit10.2",
-       x = expression(italic(p)(theta*"|"*italic(D)))) +
-  coord_cartesian(xlim = c(0, 1)) +
-  theme(panel.grid = element_blank())
+  stat_histinterval(point_interval = mode_hdi, .width = c(.95, .5),
+                    fill = kh[6], slab_color = kh[5], color = kh[2],
+                    breaks = 40, slab_size = .25, outline_bars = T) +
+  scale_x_continuous(expression(italic(p)(theta*"|"*italic(D))), 
+                     expand = expansion(mult = c(0, 0)), 
+                     breaks = 0:5 / 5, limits = c(0, 1)) +
+  scale_y_continuous(NULL, breaks = NULL,
+                     expand = expansion(mult = c(0.01, 0.05))) +
+  labs(subtitle = "The posterior for the probability, given the\nweighted combination of fit10.1 and fit10.2")
 ```
 
 As Kruschke concluded, "you can see the contribution of $p(\theta | D, \omega = 0.25)$ as the extended leftward tail" (p. 289). Interestingly enough, that looks a lot like the density we made with grid approximation in Figure 10.3, doesn't it?
@@ -898,11 +958,13 @@ tibble(omega = .5,
   
   # plot
   ggplot(aes(x = theta, ymin = 0, ymax = density)) +
-  geom_ribbon(fill = "grey67") + 
-  scale_y_continuous(NULL, breaks = NULL) +
-  labs(subtitle = "Note that in this case, their y-axes are on the same scale.",
-       x = expression(theta)) +
-  theme(panel.grid = element_blank()) +
+  geom_ribbon(fill = kh[5]) + 
+  scale_x_continuous(expression(theta), expand = expansion(mult = c(0, 0)), 
+                     breaks = 0:5 / 5, labels = c("0", ".2", ".4", ".6", ".8", "1"),
+                     limits = c(0, 1)) +
+  scale_y_continuous(NULL, breaks = NULL,
+                     expand = expansion(mult = c(0, 0.05))) +
+  labs(subtitle = "Note that in this case, their y-axes are on the same scale.") +
   facet_wrap(~model)
 ```
 
@@ -1044,12 +1106,14 @@ tibble(alpha = c(1, .01),
   
   # plot
   ggplot(aes(x = theta, ymin = 0, ymax = density)) +
-  geom_ribbon(fill = "grey67") + 
-  scale_y_continuous(NULL, breaks = NULL) +
+  geom_ribbon(fill = kh[3]) + 
+  scale_x_continuous(expression(theta), expand = expansion(mult = c(0, 0)), 
+                     breaks = 0:5 / 5, labels = c("0", ".2", ".4", ".6", ".8", "1"),
+                     limits = c(0, 1)) +
+  scale_y_continuous(NULL, breaks = NULL,
+                     expand = expansion(mult = c(0, 0.05))) +
   labs(title = "We have two anything’s-possible models.",
-       subtitle = "These y-axes are on the same scale.",
-       x = expression(theta)) +
-  theme(panel.grid = element_blank()) +
+       subtitle = "These y-axes are on the same scale.") +
   facet_wrap(~model)
 ```
 
@@ -1118,13 +1182,14 @@ Let's compare those HDIs in a plot.
 d %>% 
   ggplot(aes(x = ll,    xend = ul,
              y = model, yend = model)) +
-  geom_segment(size = .75) +
-  scale_x_continuous(expression(theta), limits = c(0, 1)) +
+  geom_segment(size = 1, color = kh[2]) +
+  scale_x_continuous(expression(theta), expand = expansion(mult = c(0, 0)), 
+                     breaks = 0:5 / 5, labels = c("0", ".2", ".4", ".6", ".8", "1"),
+                     limits = c(0, 1)) +
   labs(subtitle = "Those two sets of HDIs are quite similar.\nIt almost seems silly their respective BFs\nare so different.",
        y = NULL) +
   theme(axis.text.y = element_text(hjust = 0),
-        axis.ticks.y = element_blank(),
-        panel.grid = element_blank())
+        axis.ticks.y = element_blank())
 ```
 
 "The HDIs are virtually identical. In particular, for either prior, the posterior distribution rules out $\theta = 0.5$, which is to say that the must-be-fair hypothesis is not among the credible values" (p. 294).
@@ -1230,14 +1295,15 @@ pp_average(fit10.6, fit10.7, fit10.8,
   as_tibble() %>%
   
   ggplot(aes(x = V1, y = 0)) +
-  stat_histintervalh(point_interval = mode_hdi, .width = c(.95, .5),
-                     fill = "grey67", slab_color = "grey92",
-                     breaks = 30, slab_size = .25, outline_bars = T) +
-  scale_y_continuous(NULL, breaks = NULL) +
-  labs(subtitle = "The posterior for the probability, given the weighted\ncombination of fit10.6, fit10.7, and fit10.8",
-       x = expression(italic(p)(theta*"|"*italic(D)))) +
-  coord_cartesian(xlim = c(0, 1)) +
-  theme(panel.grid = element_blank())
+  stat_histinterval(point_interval = mode_hdi, .width = c(.95, .5),
+                    fill = kh[6], slab_color = kh[5], color = kh[2],
+                    breaks = 40, slab_size = .25, outline_bars = T) +
+  scale_x_continuous(expression(italic(p)(theta*"|"*italic(D))), expand = c(0, 0), 
+                     breaks = 0:5 / 5, labels = c("0", ".2", ".4", ".6", ".8", "1"),
+                     limits = c(0, 1)) +
+  scale_y_continuous(NULL, breaks = NULL,
+                     expand = expansion(mult = c(0.01, 0.05))) +
+  labs(subtitle = "The posterior for the probability, given the weighted\ncombination of fit10.6, fit10.7, and fit10.8")
 ```
 
 Did you notice the `weights = mw` argument, there? From the `pp_average.brmsfit` section of the [**brms** reference manual](https://CRAN.R-project.org/package=brms/brms.pdf) [@brms2020RM, p. 155], we read "`weights` may also be be a numeric vector of pre-specified weights." Since we saved the results of `model_weights()` as an object `mw`, we were able to capitalize on that feature. If you leave out that argument, you'll have to wait a bit for **brms** to compute those weights again from scratch.
@@ -1262,20 +1328,17 @@ p3 <-
 
 ((p1 + p2 + p3) & 
     scale_x_continuous(breaks = 0:1) &
-    ylim(0, 80) &
-    theme_grey() &
-    theme(panel.grid = element_blank())) + 
+    scale_y_continuous(expand = expansion(mult = c(0, 0.05)),
+                       limits = c(0, 80))) +
   plot_layout(guides = 'collect')
 ```
 
-Instead of the default 10, this time we used 1,000 posterior simulations from each fit, which we summarized with dot and error bars. This method did a great job showing how little `fit10.6` learned from the data. Another nice thing about this method is it reveals how similar the results are between `fit10.7` and `fit10.8`, the two alternate versions of the anything's-possible model. Also, did you notice how we used `ylim(0, 80)` when combining the plots with **patchwork**? Holding the scale of the axes constant makes it easier to compare results across plots.
+Instead of the default 10, this time we used 1,000 posterior simulations from each fit, which we summarized with dot and error bars. This method did a great job showing how little `fit10.6` learned from the data. Another nice thing about this method is it reveals how similar the results are between `fit10.7` and `fit10.8`, the two alternate versions of the anything's-possible model. Also, did you notice how we used `limits = c(0, 80)` when combining the plots with **patchwork**? Holding the scale of the $y$-axis constant makes it easier to compare results across plots.
 
 ## Bonus: There's danger ahead
 
 If you're new to model comparison with Bayes factors, information criteria, model stacking and so on, you should know these methods are still subject to spirited debate amongst scholars. For a recent example, see Gronau and Wagenmakers' [-@gronauLimitationsBayesianLeaveoneout2019] [*Limitations of Bayesian leave-one-out cross-validation for model selection*](https://doi.org/10.1007/s42113-018-0011-7), which criticized the LOO. Their paper was commented on by
 @navarroDevilDeepBlue2019, @chandramouliCommentaryGronauWagenmakers2019, and @vehtariLimitationsLimitationsBayesian2019. You can find Gronau and Wagenmakers' [-@gronauRejoinderMoreLimitations2019] rejoinder [here](https://doi.org/10.1007/s42113-018-0022-4).
-
-And if you love those hot scholarly twitter discussions, these topics seem to spawn one every few months or so (e.g., [here](https://twitter.com/dan_p_simpson/status/1040885250832969728)).
 
 ## Session info {-}
 
@@ -1289,10 +1352,8 @@ rm(length, p_d, p_d_1, p_d_2, odds, d, p1, p2, bernoulli_likelihood, n, z, trial
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
-pacman::p_unload(pacman::p_loaded(), character.only = TRUE)
-
 ggplot2::theme_set(ggplot2::theme_grey())
-
 bayesplot::color_scheme_set("blue")
+pacman::p_unload(pacman::p_loaded(), character.only = TRUE)
 ```
 
