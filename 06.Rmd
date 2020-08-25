@@ -57,7 +57,7 @@ When we want a conjugate prior for $\theta$ of the Bernoulli likelihood, the *be
 
 \begin{align*}
 p(\theta | a, b) & = \operatorname{beta} (\theta | a, b) \\
-& = \frac{\theta^{(a - 1)} (1 - \theta)^{(b - 1)}}{B(a, b)},
+                 & = \frac{\theta^{(a - 1)} (1 - \theta)^{(b - 1)}}{B(a, b)},
 \end{align*}
 
 where $B(a, b)$ is a normalizing constant, keeping the results in a probability metric, and $B(.)$ is the Beta function. Kruschke then clarified that the beta distribution and the Beta function are not the same. In **R**, we use the beta density with the `dbeta()` function, whereas we use the Beta function with `beta()`. In this project, we'll primarily use `dbeta()`. But to give a sense, notice that when given the same input for $a$ and $b$, the two functions return very different values.
@@ -123,7 +123,7 @@ We have a lot of practice with the beta distribution waiting for us in the chapt
 
 As such, if you'd like to specify a beta distribution in terms of $\omega$ and $\kappa$, it'd follow the form
 
-$$\operatorname{beta} (\alpha = \omega (\kappa - 2) + 1, \beta = (1 - \omega) \cdot (\kappa - 2) + 1),$$
+$$\operatorname{beta} \big (\alpha = \omega (\kappa - 2) + 1, \beta = (1 - \omega) \cdot (\kappa - 2) + 1 \big ),$$
 
 as long as $\kappa > 2$. Kruschke further clarified:
 
@@ -141,10 +141,11 @@ d <-
          shape2 = c(1.4, 4.4, 2, 5)) %>% 
   mutate(a        = str_c("a = ", shape1),
          b        = str_c("b = ", shape2),
-         kappa    = rep(c("kappa = 7", "kappa = 22"), times = 2),
-         mu_omega = rep(c("mu = 0.8", "omega = 0.8"), each = 2)) %>% 
-  mutate(kappa = factor(kappa, levels = c("kappa = 7", "kappa = 22"))) %>% 
-  expand(nesting(shape1, shape2, a, b, kappa, mu_omega), 
+         kappa    = rep(c("kappa==7", "kappa==22"), times = 2),
+         mu_omega = rep(c("mu==0.8", "omega==0.8"), each = 2)) %>% 
+  mutate(kappa = factor(kappa, levels = c("kappa==7", "kappa==22")),
+         label = str_c(a, ", ", b)) %>% 
+  expand(nesting(shape1, shape2, a, b, label, kappa, mu_omega), 
          x = seq(from = 0, to = 1, length.out = length))
 
 head(d)
@@ -158,11 +159,16 @@ d %>%
   geom_vline(xintercept = .8, color = "white") +
   geom_line(aes(y = dbeta(x, shape1 = shape1, shape2 = shape2)),
             color = "grey50", size = 1.25) +
+  
+  geom_text(data = . %>% group_by(label) %>% slice(1),
+            aes(x = .025, y = 4.75, label = label),
+            hjust = 0, size = 3) +
+  
   scale_x_continuous(expression(theta), breaks = c(0, .8, 1)) +
   ylab(expression(p(theta*"|"*a*", "*b))) +
   coord_cartesian(ylim = c(0, 5)) +
   theme(panel.grid = element_blank()) +
-  facet_grid(mu_omega~kappa)
+  facet_grid(mu_omega~kappa, labeller = label_parsed)
 ```
 
 In lines 264 to 290 in his `DBDA2E-utilities.R` file, Kruschke provided a series of `betaABfrom...()` functions that will allow us to compute the $a$ and $b$ parameters from measures of central tendency (i.e., mean and mode) and of spread (i.e., $\kappa$ and $\sigma$). Here are those bits of his code.
@@ -329,7 +335,9 @@ text <-
 
 Finally, here's our Figure 6.3.
 
-```{r, fig.width = 6, fig.height = 5}
+```{r, warning = F, message = F, fig.width = 6, fig.height = 5}
+library(cowplot)
+
 d %>% 
   gather(key, value, -theta) %>% 
   mutate(key = factor(key, levels = c("Prior (beta)", "Likelihood (Bernoulli)", "Posterior (beta)"))) %>% 
@@ -337,26 +345,28 @@ d %>%
   ggplot(aes(x = theta, y = value, )) +
   # densities
   geom_ribbon(aes(ymin = 0, ymax = value),
-              fill = "grey67") +
+              fill = "steelblue") +
   # dashed vertical lines
   geom_vline(data = line,
              aes(xintercept = xintercept), 
-             linetype = 2, color = "grey92") +
+             linetype = 2, color = "white") +
   # arrows
   geom_line(data = line,
             arrow = arrow(length = unit(.15,"cm"), 
                           ends = "both", 
                           type = "closed"),
-            color = "grey92") +
+            color = "white") +
   # text
   geom_text(data = text,
             aes(label = label),
-            color = "grey92") +
+            color = "white") +
   labs(x = expression(theta),
        y = NULL) +
   facet_wrap(~key, scales = "free_y", ncol = 1) +
-  theme(panel.grid = element_blank())
+  theme_cowplot()
 ```
+
+Note how we loaded the [**cowplot** package](https://wilkelab.org/cowplot) [@R-cowplot]. We played around a bit with plotting conventions in the previous chapters. From this chapter onward we'll explore plotting conventions in a more deliberate fashion. One quick way to alter the look and feel of a plot is by altering its theme. The **cowplot** package includes several theme options. In this chapter, we'll focus on making simple and conventional looking plots with `theme_cowplot()`.
 
 ## Examples
 
@@ -383,23 +393,23 @@ ggplot(data = tibble(x = seq(from = 0, to = 1, by = .001)),
        aes(x = x, ymin = 0, ymax = dbeta(x, 
                                          shape1 = beta_param$a, 
                                          shape2 = beta_param$b))) +
-  geom_ribbon(fill = "grey75") +
+  geom_ribbon(fill = "steelblue", alpha = 1/2) +
   geom_ribbon(data = tibble(x = seq(from = .5 - .069, to = .5 + .069, by = .001)),
-              fill = "grey67") +
+              fill = "steelblue") +
   geom_line(data = tibble(x = c(.5 - .069 + .005, .5 + .069 - .005),
                           y = 1.7),
             aes(y = y),
             arrow = arrow(length = unit(.15,"cm"), 
                           ends = "both", 
                           type = "closed"),
-            color = "grey92") +
+            color = "white") +
   annotate(geom = "text", x = .5, y = 3.5, 
-           label = "95% HDI", color = "grey0") +
+           label = "95% HDI", color = "white") +
   labs(title = "Prior (beta)",
        x = expression(theta),
        y = expression(dbeta(theta*"|"*100*", "*100))) +
   coord_cartesian(ylim = c(0, 12)) +
-  theme(panel.grid = element_blank())
+  theme_cowplot()
 ```
 
 Here are those HDI values.
@@ -427,23 +437,23 @@ ggplot(data = tibble(x = seq(from = 0, to = 1, by = .001)),
        aes(x = x, ymin = 0, ymax = dbeta(x, 
                                          shape1 = beta_param$a, 
                                          shape2 = beta_param$b))) +
-  geom_ribbon(fill = "grey75") +
+  geom_ribbon(fill = "steelblue", alpha = 1/2) +
   geom_ribbon(data = tibble(x = seq(from = .558, to = .892, by = .001)),
-              fill = "grey67") +
+              fill = "steelblue") +
   geom_line(data = tibble(x = c(.558 + .005, .892 - .005),
                           y = .75),
             aes(y = y),
             arrow = arrow(length = unit(.15,"cm"), 
                           ends = "both", 
                           type = "closed"),
-            color = "grey92") +
+            color = "white") +
   annotate(geom = "text", x = .73, y = 1.5, 
-           label = "95% HDI", color = "grey92") +
+           label = "95% HDI", color = "white") +
   ylim(0, 6) +
   labs(title = "Prior (beta)",
        x = expression(theta),
        y = expression(dbeta(theta*"|"*18.25*", "*6.75))) +
-  theme(panel.grid = element_blank())
+  theme_cowplot()
 ```
 
 Here are those HDI values.
@@ -486,23 +496,23 @@ tibble(theta = seq(from = 0, to = 1, length.out = 100) %>% rep(., times = 3),
   # finally, the plot code!
   ggplot(aes(x = theta)) +
   geom_ribbon(aes(ymin = 0, ymax = density),
-              size = 0, fill = "grey67") +
+              size = 0, fill = "steelblue") +
   geom_vline(data = line,
              aes(xintercept = xintercept), 
-             linetype = 2, color = "grey92") +
+             linetype = 2, color = "white") +
   geom_line(data = line,
             aes(y = value),
             arrow = arrow(length = unit(.15,"cm"), 
                           ends = "both", 
                           type = "closed"),
-            color = "grey92") +
+            color = "white") +
   geom_text(data = text,
             aes(y = value, label = label),
-            color = "grey0") +
+            color = "white") +
   labs(title = "Prior (beta)", 
        x = expression(theta), 
        y = expression(p(D*"|"*theta))) +
-  theme(panel.grid = element_blank()) +
+  theme_cowplot() +
   facet_wrap(~exemplar, scales = "free_y", ncol = 3)
 ```
 
@@ -518,13 +528,12 @@ tibble(theta = seq(from = 0, to = 1, length.out = 100)) %>%
   mutate(likelihood = bernoulli_likelihood(theta = theta, data = trial_data)) %>% 
   
   ggplot(aes(x = theta, ymin = 0, ymax = likelihood)) +
-  geom_ribbon(size = 0, fill = "grey67") +
+  geom_ribbon(size = 0, fill = "steelblue") +
   labs(title = "Likelihood (Bernoulli)",
        subtitle = "This is the same for all 3 exemplars, so\nthere's no need to plot this thrice.",
        x = expression(theta),
        y = expression(p(D*"|"*theta))) +
-  theme(panel.grid = element_blank())
-
+  theme_cowplot()
 ```
 
 The bottom row:
@@ -562,23 +571,23 @@ tibble(theta = seq(from = 0, to = 1, length.out = 100) %>% rep(., times = 3),
   # the plot
   ggplot(aes(x = theta)) +
   geom_ribbon(aes(ymin = 0, ymax = density),
-              size = 0, fill = "grey67") +
+              size = 0, fill = "steelblue") +
   geom_vline(data = line,
              aes(xintercept = xintercept), 
-             linetype = 2, color = "grey92") +
+             linetype = 2, color = "white") +
   geom_line(data = line,
             aes(y = value),
             arrow = arrow(length = unit(.15,"cm"), 
                           ends = "both", 
                           type = "closed"),
-            color = "grey92") +
+            color = "white") +
   geom_text(data = text,
             aes(y = value, label = label),
-            color = "grey0") +
+            color = "white") +
   labs(title = "Posterior (beta)", 
        x = expression(theta), 
        y = expression(p(theta*"|"*D))) +
-  theme(panel.grid = element_blank()) +
+  theme_cowplot() +
   facet_wrap(~exemplar, scales = "free_y", ncol = 3)
 ```
 
@@ -902,11 +911,11 @@ With our nice tibble in hand, we'll plot the prior, likelihood, and posterior on
   d %>% 
   ggplot(aes(x = theta)) +
   geom_ribbon(aes(ymin = 0, ymax = Prior),
-              fill = "grey50") +
+              fill = "steelblue") +
   labs(title = "Prior",
        x = expression(theta),
        y = expression(p(theta))) +
-  theme(panel.grid = element_blank())
+  theme_cowplot()
  )
 
 # likelihood
@@ -914,11 +923,11 @@ With our nice tibble in hand, we'll plot the prior, likelihood, and posterior on
   d %>% 
   ggplot(aes(x = theta)) +
   geom_ribbon(aes(ymin = 0, ymax = Likelihood),
-              fill = "grey50") +
+              fill = "steelblue") +
   labs(title = "Likelihood",
        x = expression(theta),
        y = expression(p(D*"|"*theta))) +
-  theme(panel.grid = element_blank())
+  theme_cowplot()
  )
 
 # posterior
@@ -926,11 +935,11 @@ With our nice tibble in hand, we'll plot the prior, likelihood, and posterior on
   d %>% 
   ggplot(aes(x = theta)) +
   geom_ribbon(aes(ymin = 0, ymax = Posterior),
-              fill = "grey50") +
+              fill = "steelblue") +
   labs(title = "Posterior",
        x = expression(theta),
        y = expression(p(theta*"|"*D))) +
-  theme(panel.grid = element_blank())
+  theme_cowplot()
  )
 ```
 
@@ -964,9 +973,5 @@ rm(length, bernoulli_likelihood, theta, a, b, betaABfromMeanKappa, betaABfromMod
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
 pacman::p_unload(pacman::p_loaded(), character.only = TRUE)
-
-ggplot2::theme_set(ggplot2::theme_grey())
-
-bayesplot::color_scheme_set("blue")
 ```
 
