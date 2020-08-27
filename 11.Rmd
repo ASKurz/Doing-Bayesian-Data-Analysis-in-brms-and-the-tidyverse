@@ -53,17 +53,49 @@ set.seed(115)
 sample(c("H", "T"), size = 24, replace = T)
 ```
 
-The sequence isn't in the exact order as the data from page 300, but they do have the crucial ratio of heads to tails.
+The sequence isn't in the exact order as the data from page 300, but they do have the crucial ratio of heads to tails. We'll plot that in a moment.
+
+Before we plot, let's talk theme and color scheme. In the last chapter, we experimented with making global alterations to the default **ggplot2** theme using the `theme_set()` function and based our new color settings on an iconic woodblock print of the see. We'll extend that nautical theme in this chapter by basing our color scheme on [*RIFT SCULL*](https://www.jamesjean.com/riftscull) by contemporary artist, [James Jean](https://www.jamesjean.com/about-1). We can get a prearranged color palette based on *RIFT SCULL* from the [**lisa** package](https://github.com/tyluRp/lisa).
+
+```{r, warning = F, message = F, fig.width = 3, fig.height = 1}
+library(lisa)
+
+plot(lisa_palette("JamesJean"))
+```
+
+Use `lisa_palette("JamesJean")` to customize our global settings.
+
+```{r}
+theme_set(
+  theme_grey() +
+    theme(text = element_text(color = "lemonchiffon"),
+          axis.text = element_text(color = "lemonchiffon"),
+          axis.ticks = element_line(color = "lemonchiffon"),
+          legend.background = element_blank(),
+          legend.box.background = element_blank(),
+          legend.key = element_rect(fill = lisa_palette("JamesJean")[4]),
+          panel.background = element_rect(fill = lisa_palette("JamesJean")[4],
+                                          color = "lemonchiffon"),
+          panel.grid = element_blank(),
+          plot.background = element_rect(fill = lisa_palette("JamesJean")[4],
+                                          color = lisa_palette("JamesJean")[4]))
+)
+
+jj <- lisa_palette("JamesJean")
+
+jj
+```
+
+You can undo the above with `ggplot2::theme_set(ggplot2::theme_grey())`. Here's the bar plot.
 
 ```{r, fig.width = 3.5, fig.height = 3}
 set.seed(115)
 tibble(flips = sample(c("H", "T"), size = 24, replace = T)) %>% 
   
   ggplot(aes(x = flips)) +
-  geom_bar() +
-  scale_y_continuous(breaks = c(0, 7, 17)) +
-  theme(panel.grid.major.x = element_blank(),
-        panel.grid.minor.y = element_blank())
+  geom_hline(yintercept = c(7, 17), color = jj[2]) +
+  geom_bar(fill = jj[1]) +
+  scale_y_continuous(breaks = c(0, 7, 17), expand = expansion(mult = c(0, 0.05)))
 ```
 
 ### Definition of $p$ value.
@@ -122,11 +154,10 @@ flips %>%
   ggplot(aes(x = `Sample Proportion z/N`, y = `p(z/N)`,
              fill = z <= 7, color = z <= 7)) +
   geom_col(width = .025) +
-  scale_fill_viridis_d(option = "B", end = .6) +
-  scale_color_viridis_d(option = "B", end = .6) +
-  ggtitle("Implied Sampling Distribution") +
-  theme(legend.position = "none",
-        panel.grid = element_blank())
+  scale_fill_manual(values = jj[1:2]) +
+  scale_color_manual(values = jj[1:2]) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.05))) +
+  ggtitle("Implied Sampling Distribution")
 ```
 
 We can get the one-sided $p$-value with a quick `filter()` and `summarise()`.
@@ -144,8 +175,8 @@ tibble(y = factor(c("tail", "head"), levels = c("tail", "head")),
        `p(y)` = .5) %>% 
   
   ggplot(aes(x = y, y = `p(y)`)) +
-  geom_col() +
-  coord_cartesian(ylim = c(0, 1)) +
+  geom_col(fill = jj[1]) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0)), limits = c(0, 1)) +
   labs(title = "Hypothetical Population",
        subtitle = expression(theta==".5")) +
   theme(axis.ticks.x = element_blank(),
@@ -213,11 +244,11 @@ flips %>%
   ggplot(aes(x = `Sample Proportion z/N`, y = `p(N|z,theta)`,
              fill = n >= 24, color = n >= 24)) +
   geom_col(width = .005) +
-  scale_fill_viridis_d(option = "B", end = .6) +
-  scale_color_viridis_d(option = "B", end = .6) +
+  scale_fill_manual(values = jj[1:2]) +
+  scale_color_manual(values = jj[1:2]) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.05))) +
   ggtitle("Implied Sampling Distribution") +
-  theme(legend.position = "none",
-        panel.grid = element_blank())
+  theme(legend.position = "none")
 ```
 
 Our Figure 11.4.a is the same as Figure 11.3.a, above. I won't repeat it, here.
@@ -251,11 +282,10 @@ tibble(x = 1:50) %>%
   ggplot(aes(x = x, y = y,
              fill = x == 24, color = x == 24)) +
   geom_col(width = .5) +
-  scale_fill_viridis_d(option = "B", end = .75) +
-  scale_color_viridis_d(option = "B", end = .75) +
-  scale_y_continuous(NULL, breaks = NULL) +
-  theme(legend.position = "none",
-        panel.grid = element_blank())
+  scale_fill_manual(values = jj[1:2]) +
+  scale_color_manual(values = jj[1:2]) +
+  scale_y_continuous(NULL, breaks = NULL, expand = expansion(mult = c(0, 0.05))) +
+  theme(legend.position = "none")
 ```
 
 In the note for Figure 11.5, Kruschke explained the "sample sizes are drawn randomly from a Poisson distribution with mean $\lambda$". Earlier in the prose he explained "$\lambda$ was set to 24 merely to match $N$ and make the example most comparable to the preceding examples" (p. 309). To do such a simulation, one must choose how many draws to take from $\operatorname{Poisson}(24)$. Here's an example where we take just one.
@@ -284,10 +314,10 @@ flips %>%
   ggplot(aes(x = `Sample Proportion z/N`, y = `p(z/N)`,
              fill = z <= 7, color = z <= 7)) +
   geom_col(width = .01) +
-  scale_fill_viridis_d(option = "B", end = .6) +
-  scale_color_viridis_d(option = "B", end = .6) +
-  theme(legend.position = "none",
-        panel.grid = element_blank())
+  scale_fill_manual(values = jj[1:2]) +
+  scale_color_manual(values = jj[1:2]) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.05))) +
+  theme(legend.position = "none")
 ```
 
 Instead we have to take many draws to take from $\operatorname{Poisson}(24)$. Here's what it looks like when we take 10,000.
@@ -310,11 +340,11 @@ flips %>%
   ggplot(aes(x = `Sample Proportion z/N`, y = `p(z/N)`,
              fill = z <= 7, color = z <= 7)) +
   geom_col(width = .003, size = 1/15) +
-  scale_fill_viridis_d(option = "B", end = .6) +
-  scale_color_viridis_d(option = "B", end = .6) +
+  scale_fill_manual(values = jj[1:2]) +
+  scale_color_manual(values = jj[1:2]) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.05))) +
   coord_cartesian(ylim = c(0, 0.03)) +
-  theme(legend.position = "none",
-        panel.grid = element_blank())
+  theme(legend.position = "none")
 ```
 
 I played around with the simulation a bit, and this is about as good as I've gotten. If you have a solution that more faithfully reproduces what Kruschke did, please share your code in my [GitHub issue #16](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues/16).
@@ -352,11 +382,11 @@ flips %>%
   ggplot(aes(x = `Sample Proportion z/N`, y = `p(z/N)`,
              fill = z <= 7, color = z <= 7)) +
   geom_col(width = .01) +
-  scale_fill_viridis_d(option = "B", end = .6) +
-  scale_color_viridis_d(option = "B", end = .6) +
+  scale_fill_manual(values = jj[1:2]) +
+  scale_color_manual(values = jj[1:2]) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.05))) +
   ggtitle("Implied Sampling Distribution") +
-  theme(legend.position = "none",
-        panel.grid = element_blank())
+  theme(legend.position = "none")
 ```
 
 If you know how to do the simulation properly, please share your code in my [GitHub issue #17](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues/17).
@@ -419,8 +449,9 @@ p1 <-
   d_nail %>% 
   ggplot(aes(x = theta)) +
   geom_ribbon(aes(ymin = 0, ymax = Prior),
-              fill = "grey50") +
-  scale_y_continuous(breaks = NULL) +
+              fill = jj[1]) +
+  scale_x_continuous(expand = expansion(mult = 0)) +
+  scale_y_continuous(breaks = NULL, expand = expansion(mult = c(0, 0.05))) +
   labs(title = "Prior (beta)",
        x = expression(theta),
        y = expression(dbeta(theta*"|"*2*", "*20)))
@@ -429,8 +460,9 @@ p2 <-
   d_nail %>% 
   ggplot(aes(x = theta)) +
   geom_ribbon(aes(ymin = 0, ymax = Likelihood),
-              fill = "grey50") +
-  scale_y_continuous(breaks = NULL) +
+              fill = jj[5]) +
+  scale_x_continuous(expand = expansion(mult = 0)) +
+  scale_y_continuous(breaks = NULL, expand = expansion(mult = c(0, 0.05))) +
   labs(title = "Likelihood (Bernoulli)",
        x = expression(theta),
        y = expression(p(D*"|"*theta)))
@@ -439,8 +471,9 @@ p3 <-
   d_nail %>% 
   ggplot(aes(x = theta)) +
   geom_ribbon(aes(ymin = 0, ymax = Posterior),
-              fill = "grey50") +
-  scale_y_continuous(breaks = NULL) +
+              fill = jj[2]) +
+  scale_x_continuous(expand = expansion(mult = 0)) +
+  scale_y_continuous(breaks = NULL, expand = expansion(mult = c(0, 0.05))) +
   labs(title = "Posterior (beta)",
        x = expression(theta),
        y = expression(dbeta(theta*"|"*9*", "*37)))
@@ -482,7 +515,7 @@ hdi_of_icdf(shape1 = 2 + z,
             shape2 = 20 + (n - z))
 ```
 
-To get the left column of Figure 11.7, we have to update the data with our new prior, $\operatorname{beta} (11, 11)$.
+To get the left column of Figure 11.7, we have to update the data with our new prior, $\operatorname{beta}(11, 11)$.
 
 ```{r, fig.width = 4, fig.height = 6, warning = F, message = F}
 # here are the data based on our updated beta(11, 11) prior
@@ -498,7 +531,7 @@ p1 <-
   d_coin %>% 
   ggplot(aes(x = theta)) +
   geom_ribbon(aes(ymin = 0, ymax = Prior),
-              fill = "grey50") +
+              fill = jj[1]) +
   labs(title = "Prior (beta)",
        x = expression(theta),
        y = expression(dbeta(theta*"|"*11*", "*11)))
@@ -507,7 +540,7 @@ p2 <-
   d_coin %>% 
   ggplot(aes(x = theta)) +
   geom_ribbon(aes(ymin = 0, ymax = Likelihood),
-              fill = "grey50") +
+              fill = jj[5]) +
   labs(title = "Likelihood (Bernoulli)",
        x = expression(theta),
        y = expression(p(D*"|"*theta)))
@@ -516,17 +549,18 @@ p3 <-
   d_coin %>% 
   ggplot(aes(x = theta)) +
   geom_ribbon(aes(ymin = 0, ymax = Posterior),
-              fill = "grey50") +
+              fill = jj[2]) +
   labs(title = "Posterior (beta)",
        x = expression(theta),
        y = expression(dbeta(theta*"|"*18*", "*28)))
 
 (p1 / p2 / p3) & 
-  scale_y_continuous(breaks = NULL) &
+  scale_x_continuous(expand = expansion(mult = 0)) &
+  scale_y_continuous(breaks = NULL, expand = expansion(mult = c(0, 0.05))) &
   theme(panel.grid = element_blank())
 ```
 
-Here are the corresponding HDIs for $\operatorname{beta} (11, 11)$ and $\operatorname{beta} (11 + 7, 11 + 24 - 7)$.
+Here are the corresponding HDIs for $\operatorname{beta}(11, 11)$ and $\operatorname{beta}(11 + 7, 11 + 24 - 7)$.
 
 ```{r}
 hdi_of_icdf(shape1 = 11,
@@ -558,7 +592,7 @@ p1 <-
          `p(y)` = c(1 - .126, .126)) %>% 
   
   ggplot(aes(x = y, y = `p(y)`)) +
-  geom_col() +
+  geom_col(fill = jj[1]) +
   labs(title = "Hypothetical Population",
        subtitle = expression(theta==".126"))
 
@@ -567,12 +601,12 @@ p2 <-
          `p(y)` = c(1 - .511, .511)) %>% 
   
   ggplot(aes(x = y, y = `p(y)`)) +
-  geom_col() +
+  geom_col(fill = jj[1]) +
   labs(title = "Hypothetical Population",
        subtitle = expression(theta==".511"))
 
 (p1 / p2) &
-  coord_cartesian(ylim = c(0, 1)) &
+  scale_y_continuous(expand = expansion(mult = 0), limits = c(0, 1)) &
   theme(title = element_text(size = 10),
         axis.ticks.x = element_blank(),
         panel.grid = element_blank())
@@ -601,9 +635,10 @@ p2 <-
   labs(title = "Implied Sampling Distribution",
        x = "Sample Proportion z/N",
        y = "p(z/N)") &
-  scale_fill_viridis_d(option = "B", end = .6) &
-  theme(legend.position = "none",
-        panel.grid = element_blank())
+  scale_fill_manual(values = jj[1:2]) &
+  scale_y_continuous(expand = expansion(mult = c(0, 0.05))) &
+  coord_cartesian(xlim = c(0, 1)) &
+  theme(legend.position = "none")
 ```
 
 We'll continue to develop our **patchwork** skills by plotting Figure 11.9 all at once. But before the big reveal, we'll make the subplots in two phases. Here are the two on the left.
@@ -614,13 +649,12 @@ p1 <-
          `p(y)` = c(1 - .126, .126)) %>% 
   
   ggplot(aes(x = y, y = `p(y)`)) +
-  geom_col() +
+  geom_col(fill = jj[1]) +
   labs(title = "Hypothetical Population",
        subtitle = expression(theta==".126")) +
-  coord_cartesian(ylim = c(0, 1)) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.05)), limits = c(0, 1)) +
   theme(title = element_text(size = 10),
-        axis.ticks.x = element_blank(),
-        panel.grid = element_blank())
+        axis.ticks.x = element_blank())
 
 
 p2 <-
@@ -628,13 +662,12 @@ p2 <-
          `p(y)` = c(1 - .484, .484)) %>% 
   
   ggplot(aes(x = y, y = `p(y)`)) +
-  geom_col() +
+  geom_col(fill = jj[1]) +
   labs(title = "Hypothetical Population",
        subtitle = expression(theta==".484")) +
-  coord_cartesian(ylim = c(0, 1)) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.05)), limits = c(0, 1)) +
   theme(title = element_text(size = 10),
-        axis.ticks.x = element_blank(),
-        panel.grid = element_blank())
+        axis.ticks.x = element_blank())
 ```
 
 Now make the two on the right.
@@ -654,12 +687,12 @@ p3 <-
   ggplot(aes(x = `Sample Proportion z/N`, y = `p(N|z,theta)`,
              fill = n <= 24, color = n <= 24)) +
   geom_col(width = .005) +
-  scale_fill_viridis_d(option = "B", end = .6) +
-  scale_color_viridis_d(option = "B", end = .6) +
+  scale_fill_manual(values = jj[1:2]) +
+  scale_color_manual(values = jj[1:2]) +
   scale_x_continuous(breaks = 0:5 * 0.2, limits = c(0, 1)) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.05))) +
   ggtitle("Implied Sampling Distribution") +
-  theme(legend.position = "none",
-        panel.grid = element_blank())
+  theme(legend.position = "none")
 
 theta <- .484
 
@@ -675,12 +708,12 @@ p4 <-
   ggplot(aes(x = `Sample Proportion z/N`, y = `p(N|z,theta)`,
              fill = n >= 24, color = n >= 24)) +
   geom_col(width = .005) +
-  scale_fill_viridis_d(option = "B", end = .6) +
-  scale_color_viridis_d(option = "B", end = .6) +
+  scale_fill_manual(values = jj[1:2]) +
+  scale_color_manual(values = jj[1:2]) +
   scale_x_continuous(breaks = 0:5 * 0.2, limits = c(0, 1)) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.05))) +
   ggtitle("Implied Sampling Distribution") +
-  theme(legend.position = "none",
-        panel.grid = element_blank())
+  theme(legend.position = "none")
 ```
 
 Here we arrange all four of the Figure 11.9 subplots.
@@ -688,7 +721,6 @@ Here we arrange all four of the Figure 11.9 subplots.
 ```{r, fig.width = 7, fig.height = 6, message = F, warning = F}
 (p1 + p3 + p2 + p4) + plot_layout(widths = c(2, 4))
 ```
-
 
 We'll follow the same procedure for Figure 11.10. Here are the subplots on the left.
 
@@ -698,26 +730,25 @@ p1 <-
          `p(y)` = c(1 - .135, .135)) %>% 
   
   ggplot(aes(x = y, y = `p(y)`)) +
-  geom_col() +
+  geom_col(fill = jj[1]) +
+  scale_y_continuous(expand = expansion(mult = 0), limits = c(0, 1)) +
   labs(title = "Hypothetical Population",
        subtitle = expression(theta==".135")) +
   coord_cartesian(ylim = c(0, 1)) +
-  theme(axis.ticks.x = element_blank(),
-        panel.grid = element_blank())
+  theme(axis.ticks.x = element_blank())
 
 p2 <-
   tibble(y      = factor(c("tail", "head"), levels = c("tail", "head")),
          `p(y)` = c(1 - .497, .497)) %>% 
   
   ggplot(aes(x = y, y = `p(y)`)) +
-  geom_col() +
+  geom_col(fill = jj[1]) +
+  scale_y_continuous(expand = expansion(mult = 0), limits = c(0, 1)) +
   labs(title = "Hypothetical Population",
        subtitle = expression(theta==".497")) +
   coord_cartesian(ylim = c(0, 1)) +
-  theme(axis.ticks.x = element_blank(),
-        panel.grid = element_blank())
+  theme(axis.ticks.x = element_blank())
 ```
-
 
 Like with Figure 11.5.b, my attempts for the right panels of Figure 11.10 just aren't quite right. If you understand where I'm going wrong with the simulation, please share your code in my [GitHub issue #18](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues/18).
 
@@ -744,10 +775,10 @@ p3 <-
   ggplot(aes(x = `Sample Proportion z/N`, y = `p(N|z,theta)`,
              fill = `Sample Proportion z/N` >= 7 / 24)) +
   geom_col(width = .004) +
-  scale_fill_viridis_d(option = "B", end = .6) +
+  scale_fill_manual(values = jj[1:2]) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.05))) +
   ggtitle("Implied Sampling Distribution") +
-  theme(legend.position = "none",
-        panel.grid = element_blank())
+  theme(legend.position = "none")
 
 theta <- .497
 
@@ -765,10 +796,10 @@ p4 <-
   ggplot(aes(x = `Sample Proportion z/N`, y = `p(N|z,theta)`,
              fill = `Sample Proportion z/N` <= 7 / 24)) +
   geom_col(width = .004) +
-  scale_fill_viridis_d(option = "B", end = .6) +
+  scale_fill_manual(values = jj[1:2]) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.05))) +
   ggtitle("Implied Sampling Distribution") +
-  theme(legend.position = "none",
-        panel.grid = element_blank())
+  theme(legend.position = "none")
 
 (p1 + p3 + p2 + p4) + plot_layout(widths = c(2, 4))
 ```
@@ -803,7 +834,8 @@ p1 <-
          `p(y)` = c(1 - .11, .11)) %>% 
   
   ggplot(aes(x = y, y = `p(y)`)) +
-  geom_col() +
+  geom_col(fill = jj[1]) +
+  scale_y_continuous(expand = expansion(mult = 0), limits = c(0, 1)) +
   coord_cartesian(ylim = c(0, 1)) +
   labs(title = "Hypothetical Population",
        subtitle = expression(theta[1]==".11;"*~theta[2]==".11"))
@@ -813,7 +845,8 @@ p2 <-
          `p(y)` = c(1 - .539, .539)) %>% 
   
   ggplot(aes(x = y, y = `p(y)`)) +
-  geom_col() +
+  geom_col(fill = jj[1]) +
+  scale_y_continuous(expand = expansion(mult = 0), limits = c(0, 1)) +
   coord_cartesian(ylim = c(0, 1)) +
   labs(title = "Hypothetical Population",
        subtitle = expression(theta[1]==".539;"*~theta[2]==".539"))
@@ -821,8 +854,7 @@ p2 <-
 (p1 / p2) &
   coord_cartesian(ylim = c(0, 1)) &
   theme(title = element_text(size = 10),
-        axis.ticks.x = element_blank(),
-        panel.grid = element_blank())
+        axis.ticks.x = element_blank())
 ```
 
 Much like with Figure 11.6, I don't understand how to do the simulation properly for the right panels of Figure 11.11. If you've got it, please share your code in my [GitHub issue #19](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues/19).
@@ -837,7 +869,7 @@ Much like with Figure 11.6, I don't understand how to do the simulation properly
 
 "The 95% HDI consists of those values of $\theta$ that have at least some minimal level of posterior credibility, such that the total probability of all such $\theta$ values is 95%" (p. 324).
 
-Once again, here's how to analytically compute the 95% HDIs for our example of $z = 7, N = 24$ and the prior of $\operatorname{beta} (11, 11)$.
+Once again, here's how to analytically compute the 95% HDIs for our example of $z = 7, N = 24$ and the prior of $\operatorname{beta}(11, 11)$.
 
 ```{r}
 hdi_of_icdf(shape1 = 11 + z,
@@ -876,7 +908,7 @@ tibble(c = 1:100) %>%
   gather(key, probability, -c) %>% 
   
   ggplot(aes(x = c, y = probability, color = key)) +
-  geom_line(size = 1.1) +
+  geom_line(size = 1.2) +
   geom_text(data = tibble(
     c           = c(85, 75, 70),
     probability = c(.08, .9, .82),
@@ -886,10 +918,11 @@ tibble(c = 1:100) %>%
     key         = c("p1", "p2", "p2")
   ),
   aes(label = label)) +
-  scale_color_viridis_d(option = "D", end = .4) +
+  scale_color_manual(values = jj[1:2]) +
+  scale_x_continuous(expand = expansion(mult = c(0, 0.05)), limits = c(0, NA)) +
+  scale_y_continuous(expand = expansion(mult = 0), limits = c(0, 1)) +
   xlab("the number of independent tests, c") +
-  theme(panel.grid = element_blank(),
-        legend.position = "none")
+  theme(legend.position = "none")
 ```
 
 One way to keep the experimentwise false alarm rate down to 5% is by reducing the
@@ -914,7 +947,9 @@ tibble(c = 1:100) %>%
   mutate(a_ew = alpha_pc^c) %>% 
   
   ggplot(aes(x = c, y = a_ew)) +
-  geom_line(size = 1.1) +
+  geom_line(color = jj[2], size = 1.2) +
+  scale_x_continuous(expand = expansion(mult = c(0, 0.05)), limits = c(0, NA)) +
+  scale_y_continuous(expand = expansion(mult = c(0.0015, 0)), limits = c(0, .05)) +
   xlab("the number of independent tests, c") +
   theme(panel.grid = element_blank())
 ```
@@ -926,13 +961,14 @@ tibble(c = 1:100) %>%
   mutate(a_ew = alpha_pc^c) %>% 
   
   ggplot(aes(x = c, y = a_ew)) +
-  geom_line(size = 1.1) +
+  geom_line(color = jj[1], size = 1.2) +
   scale_y_log10() +
+  scale_x_continuous(expand = expansion(mult = c(0, 0.05)), limits = c(0, NA)) +
   xlab("the number of independent tests, c") +
   theme(panel.grid = element_blank())
 ```
 
-But just look at how low the values on the y-axis get.
+But just look at how low the values on the $y$-axis get.
 
 ### Just one Bayesian posterior no matter how you look at it.
 
@@ -952,7 +988,7 @@ Gelman touched on these sensibilities in a [recent blog post](http://andrewgelma
 
 ### Exploring model predictions (posterior predictive check).
 
-There's no shortage of ppc talk on Gelman's blog (e.g., [here](http://andrewgelman.com/2017/09/07/touch-want-feel-data/) or [here](http://andrewgelman.com/2014/08/11/discussion-sander-greenland-posterior-predictive-checks/) or [here](http://andrewgelman.com/2009/02/07/confusions_abou/)).
+There's no shortage of PPC talk on Gelman's blog (e.g., [here](http://andrewgelman.com/2017/09/07/touch-want-feel-data/) or [here](http://andrewgelman.com/2014/08/11/discussion-sander-greenland-posterior-predictive-checks/) or [here](http://andrewgelman.com/2009/02/07/confusions_abou/)).
 
 ## Session info {-}
 
@@ -962,14 +998,12 @@ sessionInfo()
 
 ```{r, message = F, warning = F, echo = F}
 # Here we'll remove our objects
-rm(h_counter, coins, n, z, n_choose_z, flips, highest_n, bernoulli_likelihood, trial_data, d_nail, d_coin, p1, p2, p3, p4, hdi_of_icdf, theta, alpha_pc, c, z_maker, n_iter)
+rm(h_counter, coins, jj, n, z, n_choose_z, flips, highest_n, bernoulli_likelihood, trial_data, d_nail, d_coin, p1, p2, p3, p4, hdi_of_icdf, theta, alpha_pc, c, z_maker, n_iter)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
-pacman::p_unload(pacman::p_loaded(), character.only = TRUE)
-
 ggplot2::theme_set(ggplot2::theme_grey())
-
 bayesplot::color_scheme_set("blue")
+pacman::p_unload(pacman::p_loaded(), character.only = TRUE)
 ```
 
