@@ -24,24 +24,49 @@ options(width = 100)
 
 Kruschke began: "A *region of practical equivalence* (ROPE) indicates a small range of parameter values that are considered to be practically equivalent to the null value for purposes of the particular application" (p. 336, *emphasis* in the original)
 
-Here's a plot of Kruschke's initial coin flip ROPE.
+Before we get to plotting, let's talk about themes and color. For the plots in this chapter, we'll take our color palette from the [**fishualize** package](https://CRAN.R-project.org/package=fishualize) [@R-fishualize], which provides a range of color palettes based on fish species. Our palette will be `"Ostorhinchus_angustatus"`, which is based on [Ostorhinchus angustatus](https://www.fishbase.se/summary/Ostorhinchus-angustatus.html).
+
+```{r, warning = F, message = F, fig.width = 3, fig.height = 1}
+# install.packages("fishualize", dependencies = T)
+
+library(fishualize)
+
+fishualize("Ostorhinchus_angustatus")
+```
+
+We'll base our overall global plot theme on `cowplot::theme_cowplot()`, and use `theme()` to make a few color changes based on `"Ostorhinchus_angustatus"`.
+
+```{r, warning = F, message = F}
+library(tidyverse)
+library(cowplot)
+
+oa <- fish(n = 5, option = "Ostorhinchus_angustatus")
+
+theme_set(
+  theme_cowplot() +
+  theme(panel.background = element_rect(fill = oa[1], color = oa[1]),
+        strip.background = element_rect(fill = oa[3]),
+        strip.text = element_text(color = oa[5]))
+)
+
+oa
+```
+
+You can undo the above with `ggplot2::theme_set(ggplot2::theme_grey())`. Here's a plot of Kruschke's initial coin flip ROPE.
 
 ```{r, fig.width = 6, fig.height = 1.125, warning = F, message = F}
-library(tidyverse)
-
 tibble(xmin = .45,
        xmax = .55) %>% 
 ggplot() +
   geom_rect(aes(xmin = xmin, xmax = xmax,
                 ymin = -Inf, ymax = Inf),
-            color = "transparent", fill = "white") +
+            color = "transparent", fill = oa[2]) +
   annotate(geom = "text", x = .5, y = .5, 
-           label = "ROPE", color = "grey67") +
+           label = "ROPE", color = oa[5]) +
+  scale_x_continuous(breaks = 0:5 / 5, expand = expansion(mult = 0), limits = c(0, 1)) +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(title = "Kruschke's coin flip ROPE",
-       x = expression(theta)) +
-  coord_cartesian(0:1) +
-  theme(panel.grid.minor = element_blank())
+       x = expression(theta))
 ```
 
 In the first example (p. 336), we have $z = 325$ heads out of $N = 500$ coin flips. To visualize the analysis, we'll need the Bernoulli likelihood.
@@ -83,15 +108,15 @@ Now we can plot the results.
 ggplot(data = d) +
   geom_rect(xmin = .45,  xmax = .55,
             ymin = -Inf, ymax = Inf,
-            color = "transparent", fill = "white") +
+            color = "transparent", fill = oa[2]) +
   geom_ribbon(aes(x = theta, ymin = 0, ymax = posterior),
-              fill = "grey67") +
+              fill = oa[4]) +
   annotate(geom = "text", x = .5, y = .01, 
-           label = "ROPE", color = "grey67") +
-  scale_y_continuous(NULL, breaks = NULL) +
+           label = "ROPE", color = oa[5]) +
+  scale_x_continuous(breaks = 0:5 / 5, expand = expansion(mult = 0), limits = c(0, 1)) +
+  scale_y_continuous(NULL, breaks = NULL, expand = expansion(mult = c(0, 0.05))) +
   labs(title = "Nope, that density ain't in that ROPE.",
-       x = expression(theta)) +
-  theme(panel.grid = element_blank())
+       x = expression(theta)) 
 ```
 
 With the formula by $\operatorname{beta} (\theta | z + \alpha, N - z + \beta)$, we can analytically compute the Beta parameters for the posterior.
@@ -140,20 +165,20 @@ tibble(theta = seq(from = 0, to = 1, length.out = 1e3)) %>%
   ggplot() +
   geom_rect(xmin = .45,  xmax = .55,
             ymin = -Inf, ymax = Inf,
-            color = "transparent", fill = "white") +
+            color = "transparent", fill = oa[2]) +
   geom_ribbon(aes(x = theta, 
                   ymin = 0, ymax = dbeta(theta, shape1 = alpha, shape2 = beta)),
-              fill = "grey67", size = 0) +
+              fill = oa[4], size = 0) +
   geom_segment(x = h[1], xend = h[2],
                y = 0, yend = 0,
-               size = 3/4) +
+               size = 1, color = oa[3]) +
   annotate(geom = "text", x = .5, y = 17.5, 
-           label = "ROPE", color = "grey67") +
-  annotate(geom = "text", x = .65, y = 4, label = "95%\nHDI") +
-  scale_y_continuous(NULL, breaks = NULL) +
+           label = "ROPE", color = oa[5]) +
+  annotate(geom = "text", x = .65, y = 4, label = "95%\nHDI", color = oa[1]) +
+  scale_x_continuous(breaks = 0:5 / 5, expand = expansion(mult = 0), limits = c(0, 1)) +
+  scale_y_continuous(NULL, breaks = NULL, expand = expansion(mult = c(0, 0.05))) +
   labs(title = "That `hdi_of_icdf()` function really came through, for us.",
-       x = expression(theta)) +
-  theme(panel.grid = element_blank())
+       x = expression(theta))
 ```
 
 In his second example (p. 337), Kruschke considered $z = 490$ heads out of $N = 1000$ flips.
@@ -174,13 +199,13 @@ tibble(theta = seq(from = 0, to = 1, length.out = 1e3)) %>%               # (i.e
   ggplot() +
   geom_rect(xmin = .45,  xmax = .55,
             ymin = -Inf, ymax = Inf,
-            color = "transparent", fill = "white") +
+            color = "transparent", fill = oa[2]) +
   geom_ribbon(aes(x = theta, ymin = 0, ymax = posterior),
-              fill = "grey67") +
-  scale_y_continuous(NULL, breaks = NULL) +
+              fill = oa[4]) +
+  scale_x_continuous(breaks = 0:5 / 5, expand = expansion(mult = 0), limits = c(0, 1)) +
+  scale_y_continuous(NULL, breaks = NULL, expand = expansion(mult = c(0, 0.05))) +
   labs(title = "This posterior sits right within the ROPE.",
-       x = expression(theta)) +
-  theme(panel.grid = element_blank())
+       x = expression(theta))
 ```
 
 Here are the new HDIs.
@@ -265,17 +290,16 @@ c_small %>%
   ggplot(aes(x = value)) +
   geom_rect(xmin = -0.05, xmax = 0.05,
             ymin = -Inf,  ymax = Inf,
-            color = "transparent", fill = "white") +
-  stat_histintervalh(aes(y = 0),
-                     point_interval = mode_hdi, .width = .95,
-                     fill = "grey67", slab_color = "grey92",
-                     breaks = 20, slab_size = .25, outline_bars = T) +
+            color = "transparent", fill = oa[2]) +
+  stat_histinterval(aes(y = 0),
+                    point_interval = mode_hdi, .width = .95,
+                    fill = oa[4], colour = oa[3], 
+                    breaks = 20, normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(title = "The ROPE ranges from −0.05 to +0.05",
        x = expression(theta)) +
-  coord_cartesian(c(-.125, .125)) +
-  theme(panel.grid = element_blank(),
-        legend.position = "none") +
+  coord_cartesian(xlim = c(-.125, .125)) +
+  theme(legend.position = "none") +
   facet_wrap(~name, scales = "free")
 ```
 
@@ -315,16 +339,14 @@ f %>%
   ggplot() +
   geom_rect(xmin = -0.05, xmax = 0.05,
             ymin = -Inf,  ymax = Inf,
-            color = "transparent", fill = "white") +
-  stat_histintervalh(aes(x = `ShinSoo Choo - Ichiro Suzuki`, y = 0),
-                     point_interval = mode_hdi, .width = .95,
-                     fill = "grey67", slab_color = "grey92",
-                     breaks = 40, slab_size = .4, outline_bars = T) +
+            color = "transparent", fill = oa[2]) +
+  stat_histinterval(aes(x = `ShinSoo Choo - Ichiro Suzuki`, y = 0),
+                    point_interval = mode_hdi, .width = .95,
+                    fill = oa[4], color = oa[3], breaks = 40) +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(title = "ShinSoo Choo - Ichiro Suzuki",
        x = expression(theta)) +
-  coord_cartesian(c(-.125, .125)) +
-  theme(panel.grid = element_blank())
+  coord_cartesian(xlim = c(-.125, .125))
 ```
 
 ### Differences of correlated parameters.
@@ -365,13 +387,11 @@ d %>%
   gather() %>% 
   
   ggplot(aes(x = value, y = 0)) +
-  stat_histintervalh(point_interval = mode_hdi, .width = .95,
-                     fill = "grey67", slab_color = "grey92",
-                     breaks = 30, slab_size = .25, outline_bars = T,
-                     normalize = "panels") +
+  stat_histinterval(point_interval = mode_hdi, .width = .95,
+                    fill = oa[4], color = oa[3],
+                    breaks = 30, normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(expression(theta)) +
-  theme(panel.grid = element_blank()) +
   facet_wrap(~key, scales = "free_y", labeller = label_parsed)
 ```
 
@@ -380,13 +400,13 @@ Here's the scatter plot, showing the correlation. I think we got pretty close!
 ```{r, fig.height = 2.75}
 d %>%
   ggplot(aes(x = `theta[1]`, y = `theta[2]`)) +
-  geom_abline(color = "white") +
-  geom_point(size = 1/2, color = "grey50", alpha = 1/4) +
-  coord_equal(xlim = c(0, 1),
-              ylim = c(0, 1)) +
-  labs(x = expression(theta[1]),
-       y = expression(theta[2])) +
-  theme(panel.grid = element_blank())
+  geom_abline(color = oa[2]) +
+  geom_point(size = 1/2, color = oa[3], alpha = 1/4) +
+  scale_x_continuous(expression(theta[1]), breaks = 0:5 / 5, 
+                     expand = expansion(mult = 0), limits = c(0, 1)) +
+  scale_y_continuous(expression(theta[2]), breaks = 0:5 / 5, 
+                     expand = expansion(mult = 0), limits = c(0, 1)) +
+  coord_equal()
 ```
 
 To make the plots in the right panel of Figure 12.1, we just need to convert the correlation from .9 to -.9.
@@ -417,13 +437,11 @@ d %>%
   gather() %>% 
   
   ggplot(aes(x = value, y = 0)) +
-  stat_histintervalh(point_interval = mode_hdi, .width = .95,
-                     fill = "grey67", slab_color = "grey92",
-                     breaks = 20, slab_size = .25, outline_bars = T,
-                     normalize = "panels") +
+  stat_histinterval(point_interval = mode_hdi, .width = .95,
+                    fill = oa[4], color = oa[3],
+                    breaks = 20, normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(expression(theta)) +
-  theme(panel.grid = element_blank()) +
   facet_wrap(~key, scales = "free_y",  labeller = label_parsed)
 ```
 
@@ -432,13 +450,13 @@ Behold the second scatter plot.
 ```{r, fig.height = 2.75}
 d %>%
   ggplot(aes(x = `theta[1]`, y = `theta[2]`)) +
-  geom_abline(color = "white") +
-  geom_point(size = 1/2, color = "grey50", alpha = 1/4) +
-  coord_equal(xlim = c(0, 1),
-              ylim = c(0, 1)) +
-  labs(x = expression(theta[1]),
-       y = expression(theta[2])) +
-  theme(panel.grid = element_blank())
+  geom_abline(color = oa[2]) +
+  geom_point(size = 1/2, color = oa[3], alpha = 1/4) +
+  scale_x_continuous(expression(theta[1]), breaks = 0:5 / 5, 
+                     expand = expansion(mult = 0), limits = c(0, 1)) +
+  scale_y_continuous(expression(theta[2]), breaks = 0:5 / 5, 
+                     expand = expansion(mult = 0), limits = c(0, 1)) +
+  coord_equal()
 ```
 
 > In summary, the marginal distributions of two parameters do not indicate the relationship between the parameter values. The joint distribution of the two parameters might have positive or negative correlation (or even a non-linear dependency), and therefore the difference of the parameter values should be explicitly examined. (pp. 341--342)
@@ -453,9 +471,10 @@ tibble(x = seq(from = 0, to = 40, by = .1)) %>%
   ggplot(aes(x = x)) +
   geom_ribbon(aes(ymin = 0,
                   ymax = dgamma(x, 2, .2)),
-              fill = "grey67") +
-  coord_cartesian(xlim = c(0, 35)) +
-  theme(panel.grid = element_blank())
+              fill = oa[4]) +
+  scale_x_continuous(expand = expansion(mult = c(0, 0.05))) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.05))) +
+  coord_cartesian(xlim = c(0, 35))
 ```
 
 If you want to get the quantile-based intervals (i.e., the ETIs), you can plug in the desired quantiles into the `qgamma()` function.
@@ -502,34 +521,35 @@ Now we've computed all those values, we can collect them into a tibble with the 
   lines <-
     tibble(interval = rep(c("eti", "hdi"), each = 4),
            x        = c(ex, hx) %>% rep(., each = 2),
-           y        = c(ey[1], 0, 0, ey[2], 0, hy, 0))
+           y        = c(ey[1], 0.0003, 0.0003, ey[2], 0, hy, 0))
 )
 ```
 
-We're finally ready to plot a more complete version of Figure 12.2.
-
+Technically, those second and third `y`-values should be zero. I've set them a touch higher so they don't get obscured by the $x$-axis in the plot. Anyway, we're finally ready to plot a more complete version of Figure 12.2.
+                     
 ```{r, fig.width = 6, fig.height = 3}
+# for the annotation
+text <-
+  tibble(x        = c(15, 12),
+         y        = c(.004, .012),
+         label    = c("95% ETI", "95% HDI"),
+         interval = c("eti", "hdi"))
+
+# plot!
 tibble(x = seq(from = 0, to = 40, by = .1)) %>% 
-  
   ggplot(aes(x = x)) +
   geom_ribbon(aes(ymin = 0, ymax = dgamma(x, 2, .2)),
-              fill = "grey67") +
+              fill = oa[4]) +
   geom_path(data = lines,
             aes(y = y, color = interval),
             size = 1) +
-  geom_text(data = tibble(
-    x        = c(15, 12),
-    y        = c(.004, .012),
-    label    = c("95% ETI", "95% HDI"),
-    interval = c("eti", "hdi")
-    ),
-    aes(y = y, color = interval, label = label)) +
-  scale_color_manual(values = c("black", "white")) +
-  scale_y_continuous(NULL, breaks = NULL) +
+  geom_text(data = text,
+            aes(y = y, color = interval, label = label)) +
+  scale_color_manual(values = oa[c(5, 1)]) +
+  scale_x_continuous("Density Value", expand = expansion(mult = c(0, 0.05))) +
+  scale_y_continuous(NULL, breaks = NULL, expand = expansion(mult = c(0, 0.05))) +
   coord_cartesian(xlim = c(0, 35)) +
-  xlab("Density Value") +
-  theme(legend.position = "none",
-        panel.grid = element_blank())
+  theme(legend.position = "none")
 ```
 
 To repeat, ETIs are the only types of intervals available directly by the **brms** package. When using the default `print()` or `summary()` output for a `brm()` model, the 95% ETIs are displayed in the 'l-95% CI' and 'u-95% CI' columns.
@@ -599,35 +619,35 @@ p1 <-
   d %>% 
   ggplot(aes(x = theta)) +
   geom_ribbon(aes(ymin = 0, ymax = prior),
-              fill = "grey50") +
+              fill = oa[4]) +
   annotate(geom = "text", x = .1, y = 4, 
-           label = expression(epsilon == 0.01), size = 3.5) +
+           label = expression(epsilon == 0.01), 
+           size = 3.5, color = oa[5]) +
   labs(title = "Prior (beta)",
-       x = expression(theta),
        y = expression("beta"*(theta*"|"*epsilon*", "*epsilon)))
 
 p2 <-
   d %>% 
   ggplot(aes(x = theta)) +
   geom_ribbon(aes(ymin = 0, ymax = likelihood),
-              fill = "grey50") +
+              fill = oa[4]) +
   labs(title = "Likelihood (Bernoulli)",
-       x = expression(theta),
        y = expression(p(D*"|"*theta)))
 
 p3 <-
   d %>% 
   ggplot(aes(x = theta)) +
   geom_ribbon(aes(ymin = 0, ymax = posterior),
-              fill = "grey50") +
+              fill = oa[4]) +
   labs(title = "Posterior (beta)",
-       x = expression(theta),
        y = expression("beta"*(theta*"|"*7.01*", "*17.01)))
 
 library(patchwork)
 
 (p1 / p2 / p3) & 
-  scale_y_continuous(breaks = NULL) &
+  scale_x_continuous(expression(theta), breaks = 0:5 / 5, 
+                     expand = expansion(mult = 0), limits = c(0, 1)) &
+  scale_y_continuous(breaks = NULL, expand = expansion(mult = c(0, 0.05))) &
   theme(panel.grid = element_blank())
 ```
 
@@ -665,32 +685,30 @@ p1 <-
   d %>% 
   ggplot(aes(x = theta)) +
   geom_ribbon(aes(ymin = 0, ymax = prior),
-              fill = "grey50") +
+              fill = oa[4]) +
   labs(title = "Prior (beta)",
-       x = expression(theta),
        y = expression("beta"*(theta*"|"*2*", "*4)))
 
 p2 <-
   d %>% 
   ggplot(aes(x = theta)) +
   geom_ribbon(aes(ymin = 0, ymax = likelihood),
-              fill = "grey50") +
+              fill = oa[4]) +
   labs(title = "Likelihood (Bernoulli)",
-       x = expression(theta),
        y = expression(p(D*"|"*theta)))
 
 p3 <-
   d %>% 
   ggplot(aes(x = theta)) +
   geom_ribbon(aes(ymin = 0, ymax = posterior),
-              fill = "grey50") +
+              fill = oa[4]) +
   labs(title = "Posterior (beta)",
-       x = expression(theta),
        y = expression("beta"*(theta*"|"*9*", "*21)))
 
 (p1 / p2 / p3) & 
-  scale_y_continuous(breaks = NULL) &
-  theme(panel.grid = element_blank())
+  scale_x_continuous(expression(theta), breaks = 0:5 / 5, 
+                     expand = expansion(mult = 0), limits = c(0, 1)) &
+  scale_y_continuous(breaks = NULL, expand = expansion(mult = c(0, 0.05)))
 ```
 
 Here are those beta parameters for that posterior.
@@ -805,34 +823,33 @@ p1 <-
   d %>% 
   ggplot(aes(x = theta)) +
   geom_ribbon(aes(ymin = 0, ymax = prior),
-              fill = "grey50") +
+              fill = oa[4]) +
   annotate(geom = "text", x = .1, y = 4, 
-           label = expression(epsilon == 0.01), size = 3.5) +
+           label = expression(epsilon == 0.01), 
+           size = 3.5, color = oa[5]) +
   labs(title = "Prior (beta)",
-       x = expression(theta),
        y = expression("beta"*(theta*"|"*epsilon*", "*epsilon)))
 
 p2 <-
   d %>% 
   ggplot(aes(x = theta)) +
   geom_ribbon(aes(ymin = 0, ymax = likelihood),
-              fill = "grey50") +
+              fill = oa[4]) +
   labs(title = "Likelihood (Bernoulli)",
-       x = expression(theta),
        y = expression(p(D*"|"*theta)))
 
 p3 <-
   d %>% 
   ggplot(aes(x = theta)) +
   geom_ribbon(aes(ymin = 0, ymax = posterior),
-              fill = "grey50") +
+              fill = oa[4]) +
   labs(title = "Posterior (beta)",
-       x = expression(theta),
        y = expression("beta"*(theta*"|"*7.01*", "*17.01)))
 
 (p1 / p2 / p3) & 
-  scale_y_continuous(breaks = NULL) &
-  theme(panel.grid = element_blank())
+  scale_x_continuous(expression(theta), breaks = 0:5 / 5, 
+                     expand = expansion(mult = 0), limits = c(0, 1)) &
+  scale_y_continuous(breaks = NULL, expand = expansion(mult = c(0, 0.05)))
 ```
 
 That is one flat posterior! Here are the shape parameters and the HDIs.
@@ -881,32 +898,30 @@ p1 <-
   d %>% 
   ggplot(aes(x = theta)) +
   geom_ribbon(aes(ymin = 0, ymax = prior),
-              fill = "grey50") +
+              fill = oa[4]) +
   labs(title = "Prior (beta)",
-       x = expression(theta),
        y = expression("beta"*(theta*"|"*1*", "*1)))
 
 p2 <-
   d %>% 
   ggplot(aes(x = theta)) +
   geom_ribbon(aes(ymin = 0, ymax = likelihood),
-              fill = "grey50") +
+              fill = oa[4]) +
   labs(title = "Likelihood (Bernoulli)",
-       x = expression(theta),
        y = expression(p(D*"|"*theta)))
 
 p3 <-
   d %>% 
   ggplot(aes(x = theta)) +
   geom_ribbon(aes(ymin = 0, ymax = posterior),
-              fill = "grey50") +
+              fill = oa[4]) +
   labs(title = "Posterior (beta)",
-       x = expression(theta),
        y = expression("beta"*(theta*"|"*8*", "*8)))
 
 (p1 / p2 / p3) & 
-  scale_y_continuous(breaks = NULL) &
-  theme(panel.grid = element_blank())
+  scale_x_continuous(expression(theta), breaks = 0:5 / 5, 
+                     expand = expansion(mult = 0), limits = c(0, 1)) &
+  scale_y_continuous(breaks = NULL, expand = expansion(mult = c(0, 0.05)))
 ```
 
 Here are the updated shape parameters and the HDIs.
@@ -949,13 +964,12 @@ p1 <-
   ggplot(aes(x = theta)) +
   geom_rect(xmin = .48,  xmax = .52,
             ymin = -Inf, ymax = Inf,
-            color = "transparent", fill = "white") +
+            color = "transparent", fill = oa[2]) +
   geom_ribbon(aes(ymin = 0, ymax = dbeta(theta, shape1 = alpha, shape2 = beta)),
-              fill = "grey67", size = 0) +
-  annotate(geom = "text", x = .01, y = 35, 
+              fill = oa[4], size = 0) +
+  annotate(geom = "text", x = .05, y = 35, 
            label = expression(epsilon == 0.01), size = 3.5) +
-  labs(title = "This posterior used the Haldane prior.",
-       x = expression(theta))
+  ggtitle("This posterior used the Haldane prior.")
 
 # redefine the Beta parameters
 alpha <-     z + 1
@@ -967,15 +981,15 @@ p2 <-
   ggplot(aes(x = theta)) +
   geom_rect(xmin = .48,  xmax = .52,
             ymin = -Inf, ymax = Inf,
-            color = "transparent", fill = "white") +
+            color = "transparent", fill = oa[2]) +
   geom_ribbon(aes(ymin = 0, ymax = dbeta(theta, shape1 = alpha, shape2 = beta)),
-              fill = "grey67", size = 0) +
-  labs(title = "This time we used the flat beta (1, 1).",
-       x = expression(theta))
+              fill = oa[4], size = 0) +
+  ggtitle("This time we used the flat beta (1, 1).")
 
 (p1 / p2) & 
-  scale_y_continuous(NULL, breaks = NULL) &
-  theme(panel.grid = element_blank())
+  scale_x_continuous(expression(theta), breaks = 0:5 / 5, 
+                     expand = expansion(mult = 0), limits = c(0, 1)) &
+  scale_y_continuous(NULL, breaks = NULL, expand = expansion(mult = c(0, 0.05)))
 ```
 
 > There is no way around this inconvenient statistical reality: high precision demands a large sample size (and a measurement device with minimal possible noise). But when we are trying to accept a specific value of $\theta$, is seems logically appropriate that we should have a reasonably precise estimate indicating that specific value. (p. 348)
@@ -1075,14 +1089,12 @@ post %>%
   gather() %>% 
   
   ggplot(aes(x = value, y = 0)) +
-  geom_vline(xintercept = 0, color = "white") +
-  stat_histintervalh(point_interval = mode_hdi, .width = .95,
-                     fill = "grey67", slab_color = "grey92",
-                     breaks = 30, slab_size = .25, outline_bars = T,
-                     normalize = "panels") +
+  geom_vline(xintercept = 0, color = oa[2]) +
+  stat_histinterval(point_interval = mode_hdi, .width = .95,
+                    fill = oa[4], color = oa[3],
+                    breaks = 30, normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   coord_cartesian(xlim = c(-.25, .25)) +
-  theme(panel.grid = element_blank()) +
   facet_wrap(~key, labeller = label_parsed)
 ```
 
@@ -1180,7 +1192,15 @@ hypothesis(fit12.1,
 
 Here we get an underwhelming BF of 1.46. The posterior probability that hypothesis versus its logical alternative is .59. Notice we no longer have a `*` in the `Star` column.
 
-We won't be using the `hypothesis()` function much, in the project. But if you're interested, there are other trick ways to make good use of it. To learn more, check out Vourre's handy blog post, [*How to calculate contrasts from a fitted brms model*](https://vuorre.netlify.com/post/2020/02/06/how-to-calculate-contrasts-from-a-fitted-brms-model/).
+One last thing about the `hypothesis()` function: you can feed it into the `plot()` function to get a quick plot of the results. Here's what that looks like from our last example.
+
+```{r, fig.width = 4, fig.height = 2.5}
+hypothesis(fit12.1, 
+           "inv_logit_scaled(conditionMozart) - inv_logit_scaled(conditionBach) > 0") %>% 
+  plot()
+```
+
+We won't use the `hypothesis()` function any further in the project. But if you're interested, there are other trick ways to make good use of it. To learn more, check out Vourre's handy blog post, [*How to calculate contrasts from a fitted brms model*](https://vuorre.netlify.com/post/2020/02/06/how-to-calculate-contrasts-from-a-fitted-brms-model/).
 
 ## Relations of parameter estimation and model comparison
 
@@ -1204,12 +1224,11 @@ sessionInfo()
 
 ```{r, echo = F}
 # Here we'll remove our objects
-rm(bernoulli_likelihood, n, z, trial_data, d, alpha, beta, hdi_of_icdf, h, my_data, fit9.2, c, c_small, name_list, nd, correlation_matrix, mu, sd, covariance_matrix, ex, hx, ey, hy, lines, epsilon, p1, p2, p3, p_d_null, p_d, hdi_of_qbeta, a, b, n_g, n_t, fit12.1, post, fit12.2, f, theta)
+rm(oa, bernoulli_likelihood, n, z, trial_data, d, alpha, beta, hdi_of_icdf, h, my_data, fit9.2, c, c_small, name_list, nd, correlation_matrix, mu, sd, covariance_matrix, ex, hx, ey, hy, lines, text, epsilon, p1, p2, p3, p_d_null, p_d, hdi_of_qbeta, a, b, n_g, n_t, fit12.1, post, fit12.2, f, theta)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
-pacman::p_unload(pacman::p_loaded(), character.only = TRUE)
-
 ggplot2::theme_set(ggplot2::theme_grey())
+pacman::p_unload(pacman::p_loaded(), character.only = TRUE)
 ```
 
