@@ -66,6 +66,11 @@ text <-
 Plot.
 
 ```{r, fig.width = 4.5, fig.height = 4.5}
+theme_set(
+  theme_grey() +
+    theme(panel.grid = element_blank())
+)
+
 p1 <-
   d %>% 
   ggplot(aes(x = theta, y = density)) +
@@ -97,9 +102,10 @@ p2 <-
                   ylim = c(0, 5))
 
 (p1 / p2) & 
-  scale_x_continuous(breaks = -3:3) &
-  theme(panel.grid = element_blank())
+  scale_x_continuous(breaks = -3:3)
 ```
+
+For the plots in this chapter, we keep things simple and rely on the **ggplot2** defaults with one exception: we omitted those unnecessary white gridlines with the `theme_set()` argument at the top of that block. You can undo that with `theme_set(ggplot2::theme_grey())`.
 
 Because I'm not sure how to make the dots and trajectories depicted in the third row, I also won't be able to make proper histograms for the bottom rows. This will go for Figures 14.2 and 14.3, too. If you know how to reproduce them properly, please share your code in my [GitHub issue #21](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues/21). Let's let Kruschke close this section out:
 
@@ -151,7 +157,7 @@ Time to fire up **brms**.
 library(brms)
 ```
 
-In the absence of predictors, you might think of this as an intercept-only model. You can fit the simple intercept-only Bernoulli model with `brms::brm()` like this:
+In the absence of predictors, you might think of this as an intercept-only model. You can fit the simple intercept-only Bernoulli model with `brms::brm()` like this.
 
 ```{r fit14.1}
 fit14.1 <-
@@ -172,7 +178,7 @@ As Kruschke wrote,
 
 Unlike what Kruschek showed on page 409, we did not use the `thin` argument, above, and will generally avoid thinning in this project. You just don't tend to need to thin your chains when using Stan. I do, however, tend to use the `seed` argument. Because computers use pseudorandom number generators to take random draws, I prefer to make my random draws reproducible by setting my seed. Others have argued against this. You do you.
 
-Kruschke mentioned trace plots and model summaries. Here's our trace plot.
+Kruschke mentioned trace plots and model summaries. Here's our trace plot, which comes with a marginal density plot by **brms** default.
 
 ```{r, fig.width = 8, fig.height = 1.5}
 plot(fit14.1)
@@ -186,7 +192,7 @@ print(fit14.1)
 
 Did you notice that divergent transitions warning at the top? I don't believe Kruschke discussed those in the text. For an good introduction, check out the [*Divergent Transitions* section](https://mc-stan.org/docs/2_23/reference-manual/divergent-transitions.html) in the *Stan reference manual*. In short, divergent transitions indicate your HMC chains had some difficulty exploring the parameter space. As indicated in the warning, increasing the `adapt_delta` parameter to a value above 0.8, but below 1, can help. Other times increasing the number of `warmup` iterations or using better priors will help, too. Sometimes divergent transitions indicate you might need to seriously reconsider your model. When you're stumped, the [Stan Forums](https://discourse.mc-stan.org/) can be a good place to look for help. You can even find a [subsection dedicated to **brms** users](https://discourse.mc-stan.org/c/interfaces/brms/36), there.
 
-Anyway, we will solve our divergent-transitions problem by setting `adapt_delta = 0.99` and using a better prior. If you recall, $\operatorname{beta} (1, 1)$ is flat. Why not use a weakly-regularizing $\operatorname{beta} (2, 2)$, instead? Before fitting the model, we can use the `tidybayes::stat_dist_halfeyeh()` function to visualize those two priors.
+Anyway, we will solve our divergent-transitions problem by setting `adapt_delta = 0.99` and using a better prior. If you recall, $\operatorname{beta}(1, 1)$ is flat. Why not use a weakly-regularizing $\operatorname{beta}(2, 2)$, instead? Before fitting the model, we can use the `tidybayes::stat_dist_halfeye()` function to visualize those two priors.
 
 ```{r, fig.width = 3.5, fig.height = 2.5, warning = F}
 library(tidybayes)
@@ -196,18 +202,16 @@ tibble(fit   = str_c("fit14.", 1:2),
        beta  = 1:2,
        x     = .5,
        y     = c(1.33, 2.33),
-       label = c("beta (1, 1)", "beta (2, 2)")) %>% 
+       label = c("beta(1, 1)", "beta(2, 2)")) %>% 
   
   ggplot() +
-  stat_dist_halfeyeh(aes(y = fit, dist = "beta", 
-                         arg1 = alpha, arg2 = beta),
-                     .width = c(.5, .95)) +
+  stat_dist_halfeye(aes(y = fit, dist = "beta", arg1 = alpha, arg2 = beta),
+                    .width = c(.5, .95)) +
   geom_text(aes(x = x, y = y, label = label),
             color = "grey94", size = 5) +
-  labs(title = "Plot your priors with\ntidybayes::stat_dist_halfeyeh()",
+  labs(title = "Plot your priors with\ntidybayes::stat_dist_halfeye()",
        x = expression(italic(p)(theta)),
-       y = NULL) +
-  theme(panel.grid = element_blank())
+       y = NULL)
 ```
 
 Fit the updated model.
@@ -304,11 +308,10 @@ Here's a look at the prior distribution.
 ```{r, fig.width = 3.5, fig.height = 2.5}
 prior_samples(fit14.4) %>% 
   ggplot(aes(x = b, y = 0)) +
-  stat_halfeyeh(.width = c(.5, .95)) +
+  stat_halfeye(.width = c(.5, .95)) +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(title = expression("Beta"*(2*", "*2)),
-       x = expression(italic(p)(theta))) +
-  theme(panel.grid = element_blank())
+       x = expression(italic(p)(theta)))
 ```
 
 ### Simplified scripts for frequently used analyses.
@@ -355,10 +358,8 @@ rm(d, position, text, p1, p2, n, z, my_data, fit14.1, fit14.2, fit14.3, fit14.4)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
-pacman::p_unload(pacman::p_loaded(), character.only = TRUE)
-
 ggplot2::theme_set(ggplot2::theme_grey())
-
 bayesplot::color_scheme_set("blue")
+pacman::p_unload(pacman::p_loaded(), character.only = TRUE)
 ```
 
