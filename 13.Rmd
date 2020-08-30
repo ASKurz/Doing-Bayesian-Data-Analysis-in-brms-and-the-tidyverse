@@ -65,13 +65,38 @@ I'm going to skip over these.
 
 ### When the goal is to exclude a null value.
 
-> Usually it is more intuitively accessible to get prior data, or to think of idealized prior data, than to directly specify a distribution over parameter values. For example, based on knowledge about the application domain, we might have 2000 actual or idealized flips of the coin for which the result showed 65% heads. Therefore we'll describe the data-generating hypothesis as a beta distribution with a mode of 0.65 and concentration based on 2000 flips after a uniform "proto-prior": $\operatorname{beta} (\theta | 0.65 \cdot (2000 - 2) + 1, (1 - 0.65) \cdot (2000 - 2) + 1)$.
+> Usually it is more intuitively accessible to get prior data, or to think of idealized prior data, than to directly specify a distribution over parameter values. For example, based on knowledge about the application domain, we might have 2000 actual or idealized flips of the coin for which the result showed 65% heads. Therefore we'll describe the data-generating hypothesis as a beta distribution with a mode of 0.65 and concentration based on 2000 flips after a uniform "proto-prior": $\operatorname{beta}(\theta | 0.65 \cdot (2000 - 2) + 1, (1 - 0.65) \cdot (2000 - 2) + 1)$.
 
-We might express that in code like this.
+We'll look at that in a plot in just a moment. In the last chapter, we took settled on a color palette and augmented our global plotting theme with help from the [**fishualize** package](https://CRAN.R-project.org/package=fishualize). In this chapter we'll keep with our fish-centric palette, this time based on [Chaetodon ephippium](https://www.fishbase.se/summary/Chaetodon-ephippium).
+
+```{r, warning = F, message = F, fig.width = 3, fig.height = 1}
+library(tidyverse)
+library(fishualize)
+
+ce <- fish(n = 9, option = "Chaetodon_ephippium")
+
+ce
+
+fishualize("Chaetodon_ephippium", n = 9)
+
+theme_set(
+  theme_grey() +
+    theme(text = element_text(color = ce[1]),
+          axis.text = element_text(color = ce[1]),
+          axis.ticks = element_line(color = ce[1]),
+          legend.background = element_blank(),
+          legend.box.background = element_blank(),
+          legend.key = element_rect(fill = ce[5]),
+          panel.background = element_rect(fill = ce[5], color = ce[4]),
+          panel.grid = element_blank(),
+          strip.background = element_rect(fill = ce[1], color = ce[1]),
+          strip.text = element_text(color = "white"))
+)
+```
+
+Here's what $\operatorname{beta}(\theta | 0.65 \cdot (2000 - 2) + 1, (1 - 0.65) \cdot (2000 - 2) + 1)$ looks like.
 
 ```{r, fig.width = 4, fig.height = 2, message = F, warning = F}
-library(tidyverse)
-
 kappa <- 2000
 omega <- .65
 
@@ -81,11 +106,10 @@ tibble(theta = seq(from = 0, to = 1, by = .001)) %>%
                        shape2 = (1 - omega) * (kappa - 2) + 1)) %>% 
   
   ggplot(aes(x = theta, ymin = 0, ymax = prior)) +
-  geom_ribbon(size = 0, fill = "grey67") +
-  scale_y_continuous(NULL, breaks = NULL) +
-  labs(title = "Behold our prior. It's rather peaked.",
-       x = expression(theta)) +
-  theme(panel.grid = element_blank())
+  geom_ribbon(size = 0, fill = ce[3]) +
+  scale_y_continuous(NULL, breaks = NULL, expand = expansion(mult = c(0, 0.05))) +
+  labs(subtitle = expression("Behold our beta"*(1299.7*', '*700.3)*" prior. It's rather peaked"),
+       x = expression(theta))
 ```
 
 If we wanted to take some random draws from that prior, say 5, we'd do something like this.
@@ -264,15 +288,14 @@ tibble(theta = seq(from = 0, to = 1, by = .01)) %>%
                        shape2 = (1 - omega) * (kappa - 2) + 1)) %>% 
   
   ggplot(aes(x = theta, ymin = 0, ymax = prior)) +
-  geom_ribbon(size = 0, fill = "grey67") +
-  scale_y_continuous(NULL, breaks = NULL) +
+  geom_ribbon(size = 0, fill = ce[3]) +
+  scale_y_continuous(NULL, breaks = NULL, expand = expansion(mult = c(0, 0.05))) +
   coord_cartesian(ylim = c(0, 1.25)) +
   labs(title = "Behold the uniform audience prior.",
-       x = expression(theta)) +
-  theme(panel.grid = element_blank())
+       x = expression(theta))
 ```
 
-If you work out the algebra with `omega` and `kappa`, you'll see this is a $\operatorname{beta} (1, 1)$. Thus, `aud_prior_n` is $\kappa$ and `aud_prior_mode` is $\omega$.
+If you work out the algebra with `omega` and `kappa`, you'll see this is a $\operatorname{beta}(1, 1)$. Thus, `aud_prior_n` is $\kappa$ and `aud_prior_mode` is $\omega$.
 
 Here we'll wrap our `min_n_for_hdi_power()` function into a simple `sim_power()` function for use with `purrr::map2()`.
 
@@ -320,7 +343,7 @@ sim %>%
 
 ### When the goal is precision.
 
-Recall that if we have $\operatorname{beta} (a, b)$ prior for $\theta$ of the Bernoulli likelihood function, then the analytic solution for the posterior is $\operatorname{beta} (\theta | z + a, N – z + b)$. In our first example, $z = 6$ out of $N = 10$ randomly selected voters preferred candidate A and we started with a flat $\operatorname{beta} (\theta | 1, 1)$ prior. We can check that our posterior is indeed $\operatorname{beta} (7, 5)$ by working through the algebra.
+Recall that if we have $\operatorname{beta}(a, b)$ prior for $\theta$ of the Bernoulli likelihood function, then the analytic solution for the posterior is $\operatorname{beta}(\theta | z + a, N – z + b)$. In our first example, $z = 6$ out of $N = 10$ randomly selected voters preferred candidate A and we started with a flat $\operatorname{beta}(\theta | 1, 1)$ prior. We can check that our posterior is indeed $\operatorname{beta}(7, 5)$ by working through the algebra.
 
 ```{r}
 z <- 6
@@ -344,7 +367,7 @@ Here's how we compute the 95% HDIs.
 )
 ```
 
-The $\operatorname{beta} (7, 5)$ distribution looks like this.
+The $\operatorname{beta}(7, 5)$ distribution looks like this.
 
 ```{r, fig.width = 4, fig.height = 2}
 tibble(theta = seq(from = 0, to = 1, by = .01)) %>% 
@@ -353,15 +376,14 @@ tibble(theta = seq(from = 0, to = 1, by = .01)) %>%
                          shape2 = 5)) %>% 
   
   ggplot(aes(x = theta, ymin = 0, ymax = density)) +
-  geom_ribbon(size = 0, fill = "grey67") +
+  geom_ribbon(size = 0, fill = ce[3]) +
   geom_segment(x = h[1], xend = h[2],
-               y = 0,    yend = 0,
-               size = 1) +
-  annotate(geom = "text", x = .6, y = 1/3, label = "95% HDI") +
+               y = 0.01,    yend = 0.01,
+               size = 1.2, color = ce[9]) +
+  annotate(geom = "text", x = .6, y = 1/3, label = "95% HDI", color = "white") +
   scale_x_continuous(NULL, breaks = c(0, h[1], z / n, h[2], 1) %>% round(2)) +
-  scale_y_continuous(NULL, breaks = NULL) +
-  ggtitle(expression("beta"*(7*", "*5))) +
-  theme(panel.grid = element_blank())
+  scale_y_continuous(NULL, breaks = NULL, expand = expansion(mult = c(0, 0.05))) +
+  ggtitle(expression("beta"*(7*", "*5)))
 ```
 
 "It turns out, in this case, that we can never have a sample size large enough to achieve the goal of 80% of the HDIs falling above $\theta = 0.5$. To see why," keep reading in the text (p. 371). Happily, 
@@ -430,11 +452,10 @@ tibble(theta = seq(from = 0, to = 1, by = .1)) %>%
                          shape2 = (1 - omega) * (kappa - 2) + 1)) %>% 
   
   ggplot(aes(x = theta, ymin = 0, ymax = density)) +
-  geom_ribbon(size = 0, fill = "grey67") +
-  scale_y_continuous(NULL, breaks = NULL, limits = c(0, 1.25)) +
+  geom_ribbon(size = 0, fill = ce[3]) +
+  scale_y_continuous(NULL, breaks = NULL, expand = expansion(mult = c(0, 0.05))) +
   labs(title = "Behold the uniform audience prior.",
-       x = expression(theta)) +
-  theme(panel.grid = element_blank())
+       x = expression(theta))
 ```
 
 Here are what the beta distributions based on the `sim` look like.
@@ -450,12 +471,11 @@ sim %>%
          mode    = str_c("omega == ", mode)) %>% 
   
   ggplot(aes(x = theta, ymin = 0, ymax = density)) +
-  geom_vline(xintercept = .5, color = "white") +
-  geom_ribbon(size = 0, fill = "grey67") +
+  geom_vline(xintercept = .5, color = ce[8]) +
+  geom_ribbon(size = 0, fill = ce[3]) +
   scale_x_continuous(expression(theta), labels = c("0", "", ".5", "", "1")) +
-  scale_y_continuous(NULL, breaks = NULL) +
+  scale_y_continuous(NULL, breaks = NULL, expand = expansion(mult = c(0, 0.05))) +
   ggtitle("The power and mode values are in the rows and columns, respectively.") +
-  theme(panel.grid = element_blank()) +
   facet_grid(power ~ mode, labeller = label_parsed)
 ```
 
@@ -637,7 +657,7 @@ hdi_of_icdf(name = qbeta,
 
 Following the middle of page 375, we'll want to do the whole thing again with $\kappa = 10$ and $N = 91$.
 
-Before we run the next simulation, notice how our first approach had us saving the model fits within our `sim1` object. When the models are simple and based on small data and when you’re only simulating 100 times, this isn't a huge deal. But saving 1000+ `brms::brm()` fit objects of hierarchical models will bog you down. So for our next simulation, we’ll only save the HDIs from our `get_hdi()` function. 
+Before we run the next simulation, notice how our first approach had us saving the model fits within our `sim1` object. When the models are simple and based on small data and when you’re only simulating 100 times, this isn't a huge deal. But saving 1,000+ `brms::brm()` fit objects of hierarchical models will bog you down. So for our next simulation, we’ll only save the HDIs from our `get_hdi()` function. 
 
 ```{r, eval = F}
 # how many rows of 0s and 1s should we have in the data?
@@ -783,20 +803,18 @@ posterior_samples(fit13.2) %>%
   pivot_longer(b_Intercept:sd_s__Intercept) %>% 
   
   ggplot(aes(x = value, y = 0)) +
-  stat_histintervalh(point_interval = mode_hdi, .width = .95,
-                     fill = "grey67", slab_color = "grey92",
-                     breaks = 40, slab_size = .25, outline_bars = T,
-                     normalize = "panels") +
+  stat_histinterval(point_interval = mode_hdi, .width = .95,
+                    fill = ce[3], color = ce[9],
+                    breaks = 40, normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(subtitle = "Remember, these are in the log-odds metric.",
        x = NULL) +
-  theme(panel.grid = element_blank()) +
   facet_wrap(~name, scales = "free")
 ```
 
 > Now we have a distribution of parameter values consistent with our idealized hypothesis, but we did not have to figure out the top-level constants in the model. We merely specified the idealized tendencies in the data and expressed our confidence by its amount... So we now have a large set of representative parameter values for conducting a power analysis. (pp. 378--379)
 
-With **brms**, you can sample from those model-implied parameter values with the `fitted()` function. By default, it will return values in the probability metric for our logistic model. Here we'll specify a group-level (i.e., `s`) value that was not in the data. We'll feed that new value into the `newdata` argument and set `allow_new_levels = T`. We'll also set `summary = F`, which will return actual probability values rather than a summary. 
+With **brms**, you can sample from those model-implied parameter values with the `fitted()` function. By default, it will return values in the probability metric for our logistic model. Here we'll specify a group-level (i.e., `s`) value that was not in the data. We'll feed that new value into the `newdata` argument and set `allow_new_levels = T`. We'll also set `summary = F`, which will return actual probability values rather than a summary.
 
 ```{r}
 set.seed(13)
@@ -817,14 +835,12 @@ Here's what that looks like.
 ```{r, fig.width = 4, fig.height = 3}
 f %>% 
   ggplot(aes(x = theta, y = 0)) +
-  stat_histintervalh(point_interval = mode_hdi, .width = .95,
-                     fill = "grey67", slab_color = "grey92",
-                     breaks = 20, slab_size = .2, outline_bars = T) +
+  stat_histinterval(point_interval = mode_hdi, .width = .95,
+                    fill = ce[3], color = ce[9], breaks = 20) +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(subtitle = "Behold our \"distribution of parameter values consistent\nwith our idealized hypothesis.\"",
        x = expression(theta)) +
-  xlim(0, 1) +
-  theme(panel.grid = element_blank())
+  xlim(0, 1)
 ```
 
 We can make a custom function to sample from $\theta$. We might call it `sample_theta()`.
@@ -1171,14 +1187,12 @@ posterior_samples(fit13.4) %>%
   pivot_longer(b_Intercept:sd_s__Intercept) %>% 
 
   ggplot(aes(x = value, y = 0)) +
-  stat_histintervalh(point_interval = mode_hdi, .width = .95,
-                     fill = "grey67", slab_color = "grey92",
-                     breaks = 40, slab_size = .25, outline_bars = T,
-                     normalize = "panels") +
+  stat_histinterval(point_interval = mode_hdi, .width = .95,
+                    fill = ce[3], color = ce[9],
+                    breaks = 40, normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(subtitle = "Remember, these are in the log-odds metric.",
        x = NULL) +
-  theme(panel.grid = element_blank()) +
   facet_wrap(~name, scales = "free")
 ```
 
@@ -1201,14 +1215,12 @@ Here's what our updated distribution of $\theta$ values looks like.
 ```{r, fig.width = 4, fig.height = 3}
 f %>% 
   ggplot(aes(x = theta, y = 0)) +
-  stat_histintervalh(point_interval = mode_hdi, .width = c(.95, .5),
-                     fill = "grey67", slab_color = "grey92",
-                     breaks = 40, slab_size = .25, outline_bars = T) +
+  stat_histinterval(point_interval = mode_hdi, .width = c(.95, .5),
+                    fill = ce[3], color = ce[9], breaks = 40) +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(subtitle = "Behold our \"distribution of parameter values consistent\nwith our idealized hypothesis.\"",
        x = expression(theta)) +
-  coord_cartesian(xlim = c(0, 1)) +
-  theme(panel.grid = element_blank())
+  coord_cartesian(xlim = c(0, 1))
 ```
 
 Note the distribution is wider than the previous one. Anyway, now we're good to go. Here's our version of the first power analysis.
@@ -1336,9 +1348,9 @@ $$
 
 To ground ourselves a bit, here's some of the content from that page that followed the equation.
 
-> For a default alternative prior, the beta distribution is supposed to be uninformed, according to particular mathematical criteria. Intuition might suggest that a uniform distribution suits this requirement, that is, $\operatorname{beta} (\theta | 1, 1)$. Instead, some argue that the most appropriate uninformed beta distribution is $\operatorname{beta} (\theta | \epsilon, \epsilon)$, where $\epsilon$ is a small number approaching zero (p. 344)
+> For a default alternative prior, the beta distribution is supposed to be uninformed, according to particular mathematical criteria. Intuition might suggest that a uniform distribution suits this requirement, that is, $\operatorname{beta} (\theta | 1, 1)$. Instead, some argue that the most appropriate uninformed beta distribution is $\operatorname{beta}(\theta | \epsilon, \epsilon)$, where $\epsilon$ is a small number approaching zero (p. 344)
 
-The $\operatorname{beta} (\epsilon, \epsilon)$, recall, is the Haldane prior. Often times, $\epsilon = 0.01$. That will be our approach here, too. Let's make another custom function.
+The $\operatorname{beta}(\epsilon, \epsilon)$, recall, is the Haldane prior. Often times, $\epsilon = 0.01$. That will be our approach here, too. Let's make another custom function.
 
 ```{r}
 log_bf <- function(n, z, theta) { 
@@ -1416,57 +1428,57 @@ We're finally ready to define the five subplots for our version of Figure 13.4.
 p1 <-
   coin.5 %>% 
   ggplot(aes(x = n, y = z / n)) +
-  geom_hline(yintercept = .5, color = "white") +
-  geom_line() +
-  geom_point(size = 2/3) +
+  geom_hline(yintercept = .5, color = ce[9]) +
+  geom_line(color = ce[1]) +
+  geom_point(size = 2/3, color = ce[1]) +
   scale_x_continuous(NULL, breaks = 0:7 * 100) +
-  coord_cartesian(ylim = c(0, 1))
+  scale_y_continuous(expand = expansion(mult = 0), limits = c(0, 1))
 
 p2 <-
   coin.5 %>% 
   ggplot(aes(x = n, y = p)) +
-  geom_hline(yintercept = .05, color = "white") +
-  geom_line() +
-  geom_point(size = 2/3) +
+  geom_hline(yintercept = .05, color = ce[9]) +
+  geom_line(aes(color = p < .05)) +
+  geom_point(aes(color = p < .05), 
+             size = 2/3) +
+  scale_color_manual(values = ce[c(2, 7)], breaks = NULL) +
   scale_x_continuous(NULL, breaks = 0:7 * 100) +
-  scale_y_continuous(expression(italic(p)*"-value"), limits = c(0, 1))
+  scale_y_continuous(expression(italic(p)*"-value"), expand = expansion(mult = 0), limits = c(0, 1))
   
 p3 <-
   coin.5 %>% 
   ggplot(aes(x = n, y = log_bf)) +
-  geom_hline(yintercept = -1.1, color = "white") +
-  geom_line() +
+  geom_hline(yintercept = -1.1, color = ce[9]) +
+  geom_line(color = ce[7]) +
   geom_point(aes(color = log_bf < -1.1 | log_bf > 1.1),
-             alpha = 1/2, size = 2/3, show.legend = F) +
+             alpha = 1/2, size = 2/3) +
   annotate(geom = "text", x = 60, y = -1.5, 
-           label = "accept the null", color = "grey50") +
-  scale_color_viridis_d(option = "D", end = .75) +
+           label = "accept the null", color = ce[1]) +
+  scale_color_manual(values = ce[c(2, 7)], breaks = NULL) +
   scale_x_continuous(NULL, breaks = 0:7 * 100) +
-  ylab("log(BF)")
+  ylab(expression(log(BF)))
 
 p4 <-
   coin.5 %>% 
   ggplot(aes(x = n)) +
-  geom_hline(yintercept = c(.45, .55), color = "white") +
+  geom_hline(yintercept = c(.45, .55), color = ce[9]) +
   geom_linerange(aes(ymin = ll, ymax = ul,
                      color = ll > .45 & ul < .55),
-                 alpha = 1/2, show.legend = F) +
-  scale_color_viridis_d(option = "D", end = .75) +
+                 alpha = 1/2) +
+  scale_color_manual(values = ce[c(2, 7)], breaks = NULL) +
   scale_x_continuous(NULL, breaks = 0:7 * 100) +
-  ylab("95% HDI") +
-  coord_cartesian(ylim = c(0, 1))
+  scale_y_continuous("95% HDI", expand = expansion(mult = 0), limits = c(0, 1))
 
 p5 <-
   coin.5 %>% 
   ggplot(aes(x = n, y = width)) +
-  geom_hline(yintercept = .08, color = "white") +
-  geom_line() +
+  geom_hline(yintercept = .08, color = ce[9]) +
+  geom_line(aes(color = width < .08)) +
   geom_point(aes(color = width < .08),
-             alpha = 1/2, size = 2/3, show.legend = F) +
-  scale_color_viridis_d(option = "D", end = .75) +
+             alpha = 1/2, size = 2/3) +
+  scale_color_manual(values = ce[c(2, 7)], breaks = NULL) +
   scale_x_continuous(NULL, breaks = 0:7 * 100) +
-  ylab("HDI width") +
-  coord_cartesian(ylim = c(0, 1))
+  scale_y_continuous("HDI width", expand = expansion(mult = 0), limits = c(0, 1))
 ```
 
 With syntax from the **patchwork** package, we'll arrange them one atop another.
@@ -1474,7 +1486,7 @@ With syntax from the **patchwork** package, we'll arrange them one atop another.
 ```{r, fig.width = 8, fig.height = 8, warning = F, message = F}
 library(patchwork)
 
-(p1 / p2 / p3 / p4 / p5) & theme(panel.grid = element_blank())
+(p1 / p2 / p3 / p4 / p5)
 ```
 
 Now let's compute data of the same form, but based on $\theta = .65$. This time we'll do all the data wrangling steps in one code block.
@@ -1509,56 +1521,56 @@ Here is the code for our version of Figure 13.5.
 p1 <-
   coin.65 %>% 
   ggplot(aes(x = n, y = z / n)) +
-  geom_hline(yintercept = .65, color = "white") +
-  geom_line() +
+  geom_hline(yintercept = .65, color = ce[9]) +
+  geom_line(color = ce[1]) +
   geom_point(size = 2/3) +
-  coord_cartesian(ylim = c(0, 1))
+  scale_y_continuous(expand = expansion(mult = 0), limits = c(0, 1))
 
 p2 <-
   coin.65 %>% 
   ggplot(aes(x = n, y = p)) +
-  geom_hline(yintercept = .05, color = "white") +
-  geom_line() +
+  geom_hline(yintercept = .05, color = ce[9]) +
+  geom_line(aes(color = p < .05)) +
   geom_point(aes(color = p < .05),
-             alpha = 1/2, size = 2/3, show.legend = F) +
-  scale_color_viridis_d(option = "D", end = .75) +
-  scale_y_continuous(expression(italic(p)*"-value"), limits = c(0, 1)) 
+             alpha = 1/2, size = 2/3) +
+  scale_color_manual(values = ce[c(2, 7)], breaks = NULL) +
+  scale_y_continuous(expression(italic(p)*"-value"), expand = expansion(mult = 0), limits = c(0, 1))
+  
 
 p3 <-
   coin.65 %>% 
   ggplot(aes(x = n, y = log_bf)) +
-  geom_hline(yintercept = c(-1.1, 1.1), color = "white") +
-  geom_line() +
+  geom_hline(yintercept = c(-1.1, 1.1), color = ce[9]) +
+  geom_line(color = ce[1]) +
   geom_point(aes(color = log_bf < -1.1 | log_bf > 1.1),
-             alpha = 1/2, size = 2/3, show.legend = F) +
+             alpha = 1/2, size = 2/3) +
   annotate(geom = "text", x = 60, y = c(-8, 28), 
-           label = c("accept the null", "reject the null"), color = "grey50") +
-  scale_color_viridis_d(option = "D", end = .75) +
-  scale_y_continuous("log(BF)", limits = c(-10, 30))
+           label = c("accept the null", "reject the null"), color = ce[1]) +
+  scale_color_manual(values = ce[c(2, 7)], breaks = NULL) +
+  scale_y_continuous(expression(log(BF)), limits = c(-10, 30))
 
 p4 <-
   coin.65 %>% 
   ggplot(aes(x = n)) +
-  geom_hline(yintercept = c(.45, .55), color = "white") +
+  geom_hline(yintercept = c(.45, .55), color = ce[9]) +
   geom_linerange(aes(ymin = ll, ymax = ul,
                      color = ll > .55 | ul < .45),
-                 alpha = 1/2, show.legend = F) +
-  scale_color_viridis_d(option = "D", end = .75) +
-  scale_y_continuous("95% HDI", limits = c(0, 1))
+                 alpha = 1/2) +
+  scale_color_manual(values = ce[c(2, 7)], breaks = NULL) +
+  scale_y_continuous("95% HDI", expand = expansion(mult = 0), limits = c(0, 1))
 
 p5 <-
   coin.65 %>% 
   ggplot(aes(x = n, y = width)) +
-  geom_hline(yintercept = .08, color = "white") +
-  geom_line() +
+  geom_hline(yintercept = .08, color = ce[9]) +
+  geom_line(aes(color = width < .08)) +
   geom_point(aes(color = width < .08),
-             alpha = 1/2, size = 2/3, show.legend = F) +
-  scale_color_viridis_d(option = "D", end = .75) +
-  scale_y_continuous("HDI width", limits = c(0, 1))
+             alpha = 1/2, size = 2/3) +
+  scale_color_manual(values = ce[c(2, 7)], breaks = NULL) +
+  scale_y_continuous("HDI width", expand = expansion(mult = 0), limits = c(0, 1))
 
 (p1 / p2 / p3 / p4 / p5) & 
-  scale_x_continuous(NULL, breaks = 0:7 * 100) &
-  theme(panel.grid = element_blank())
+  scale_x_continuous(NULL, breaks = 0:7 * 100)
 ```
 
 ### Average behavior of sequential tests.
@@ -1595,7 +1607,7 @@ Though researchers sometimes use retrospective power analyses and are sometimes 
 
 > Conducting a power analysis in advance of collecting data is very important and valuable. Often in real research, a fascinating theory and clever experimental manipulation imply a subtle effect. It can come as a shock to the researcher when power analysis reveals that detecting the subtle effect would take many hundreds of subjects! But the shock of power analysis is far less than the pain of actually running dozens of subjects and finding highly uncertain estimates of the sought-after effect. (p. 395)
 
-For more handy uses of power analyses, keep reading in the text. For more practice with simulation approaches to Bayesian power analyses with **brms**, check out my blog series on the topic. You might start with the first post, [*Bayesian power analysis: Part I. Prepare to reject* $H_0$ *with simulation*](https://solomonkurz.netlify.com/post/bayesian-power-analysis-part-i/).
+For more handy uses of power analyses, keep reading in the text. For more practice with simulation approaches to Bayesian power analyses with **brms**, check out my blog series on the topic. You might start with the first post, [*Bayesian power analysis: Part I. Prepare to reject* $H_0$ *with simulation*](https://solomonkurz.netlify.com/post/bayesian-power-analysis-part-i/). For a critique of the precision approach to Bayesian power analysis, check out the blog post by [Richard Morey](https://twitter.com/richarddmorey), [*Power and precision*](https://medium.com/@richarddmorey/power-and-precision-47f644ddea5e).
 
 ## Session info {-}
 
@@ -1604,10 +1616,8 @@ sessionInfo()
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
-pacman::p_unload(pacman::p_loaded(), character.only = TRUE)
-
 ggplot2::theme_set(ggplot2::theme_grey())
-
 bayesplot::color_scheme_set("blue")
+pacman::p_unload(pacman::p_loaded(), character.only = TRUE)
 ```
 
