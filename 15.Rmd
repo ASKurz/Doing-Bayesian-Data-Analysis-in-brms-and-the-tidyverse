@@ -54,18 +54,104 @@ $$y = \beta_0 + \beta_1 x,$$
 
 where $y$ is the variable being predicted and $x$ is the predictor. $\beta_0$ is the intercept (i.e., the expected value when $x$ is zero) and $\beta_1$ is the expected increase in $y$ after a one-unit increase in $x$.
 
-We'll fire up the **tidyverse** to make the left panel of Figure 15.1.
+Before we make our version of Figure 15.1, let's talk about our theme and color palette. In this chapter, we'll base our overall on `ggplot2::theme_linedraw()`. We'll take selections from `option = "E"` from the [**viridis** package](https://github.com/sjmgarnier/viridis) to make our color palette. Based on our **ggplot2** skills from the last few chapters, these moves are pretty mundane. We can go further.
+
+In this chapter, we'll extend our skillset by practicing how to alter the default settings of our **ggplot2** geoms. If you browse through the content of the text, you'll see we'll a lot of the upcomming plots will require lines of various sorts. We'll make the bulk of those lines with `geom_line()`, `geom_hline()`, `geom_vline()`, and `geom_segment()`. as a first step, it'd be handy to see how their default aesthetic settings are defined. Here's how to do that for `geom_line()`.
+
+```{r}
+ggplot2:::check_subclass("line", "Geom")$default_aes
+```
+
+We can use the `ggplot2::update_geom_defaults()` function to change those default settings. Here's how we might go about increasing the default `size` and `color` parameters.
+
+```{r, warning = F, message = F}
+library(tidyverse)
+library(viridis)
+
+default_line <- ggplot2:::check_subclass("line", "Geom")$default_aes
+
+update_geom_defaults(
+  geom = "line", 
+  new = list(
+    color = viridis_pal(option = "E")(9)[2],
+    size = 1)
+)
+```
+
+Now confirm our new defaults.
+
+```{r}
+ggplot2:::check_subclass("line", "Geom")$default_aes
+```
+
+Critically, notice how we saved the original default settings for `geom_line()` as `default_line` **before** we changed them. That way, all we have to do is execute this to change things back to normal.
+
+```{r}
+update_geom_defaults(
+  geom = "line", 
+  new = default_line
+)
+
+ggplot2:::check_subclass("line", "Geom")$default_aes
+```
+
+Now you see how this works, let's save the default settings for the other three geoms.
+
+```{r}
+default_hline <- ggplot2:::check_subclass("vline", "Geom")$default_aes
+default_vline <- ggplot2:::check_subclass("hline", "Geom")$default_aes
+default_segment <- ggplot2:::check_subclass("segment", "Geom")$default_aes
+```
+
+Here we'll update the defaults of all four of our line-oriented geoms and change the settings for our global plot theme.
+
+```{r}
+update_geom_defaults(
+  geom = "line", 
+  new = list(
+    color = viridis_pal(option = "E")(9)[2],
+    size = 1)
+)
+
+update_geom_defaults(
+  geom = "hline", 
+  new = list(
+    color = viridis_pal(option = "E")(9)[8],
+    size = 1/4,
+    linetype = 2)
+)
+
+update_geom_defaults(
+  geom = "vline", 
+  new = list(
+    color = viridis_pal(option = "E")(9)[8],
+    size = 1/4,
+    linetype = 2)
+)
+
+update_geom_defaults(
+  geom = "segment", 
+  new = list(
+    color = viridis_pal(option = "E")(9)[5],
+    size = 1/4)
+)
+
+theme_set(
+  theme_linedraw() +
+    theme(panel.grid = element_blank())
+)
+```
+
+You can learn more about these methods [here](https://ggplot2.tidyverse.org/reference/update_defaults.html) and [here](https://stackoverflow.com/questions/40307499/resetting-update-geom-defaults-in-ggplot2). Let's see what we've done by making the left panel of Figure 15.1.
 
 ```{r, fig.width = 3, fig.height = 4, message = F, warning = F}
-library(tidyverse)
-
 tibble(x = -3:7) %>%
   mutate(y_1 = -5 + 2 * x,
          y_2 = 10 + 2 * x) %>% 
   
   ggplot(aes(x = x)) +
-  geom_vline(xintercept = 0, color = "white", linetype = 2) +
-  geom_hline(yintercept = 0, color = "white", linetype = 2) +
+  geom_vline(xintercept = 0) +
+  geom_hline(yintercept = 0) +
   geom_line(aes(y = y_1)) +
   geom_line(aes(y = y_2)) +
   geom_text(data = tibble(
@@ -78,8 +164,7 @@ tibble(x = -3:7) %>%
   labs(title = "Different Intercepts",
        y = "y") +
   coord_cartesian(xlim = c(-2, 6),
-                  ylim = c(-10, 25)) +
-  theme(panel.grid = element_blank())
+                  ylim = c(-10, 25))
 ```
 
 Did you notice how we followed the form of the basic linear function when we defined the values for `y_1` and `y_2`? It's that simple! Here's the right panel.
@@ -90,8 +175,8 @@ tibble(x = -3:7) %>%
          y_2 = 10 + 2 * x) %>% 
   
   ggplot(aes(x = x)) +
-  geom_vline(xintercept = 0, color = "white", linetype = 2) +
-  geom_hline(yintercept = 0, color = "white", linetype = 2) +
+  geom_vline(xintercept = 0) +
+  geom_hline(yintercept = 0) +
   geom_line(aes(y = y_1)) +
   geom_line(aes(y = y_2)) +
   geom_text(data = tibble(
@@ -104,8 +189,7 @@ tibble(x = -3:7) %>%
   labs(title = "Different Slopes",
        y = "y") +
   coord_cartesian(xlim = c(-2, 6),
-                  ylim = c(-10, 25)) +
-  theme(panel.grid = element_blank())
+                  ylim = c(-10, 25))
 ```
 
 > **Summary of why we care.** The likelihood function includes the form of the dependency of $y$ on $x$. When $y$ and $x$ are metric variables, the simplest form of dependency, both mathematically and intuitively, is one that preserves proportionality. The mathematical expression of this relation is a so-called linear function. The usual mathematical expression of a line is the $y$-intercept form, but sometimes a more intuitive expression is the $x$ threshold form. Linear functions form the core of the GLM. (pp. 424--425, **emphasis** in the original)
@@ -140,13 +224,12 @@ crossing(x1 = seq(from = 0, to = 10, by = .5),
   
   ggplot(aes(x = x1, y = x2, fill = y)) +
   geom_raster() +
-  scale_fill_viridis_c(option = "D") +
+  scale_fill_viridis_c(option = "E") +
   scale_x_continuous(expression(x[1]), expand = c(0, 0),
                      breaks = seq(from = 0, to = 10, by = 2)) +
   scale_y_continuous(expression(x[2]), expand = c(0, 0),
                      breaks = seq(from = 0, to = 10, by = 2)) +
   coord_equal() +
-  theme(panel.grid = element_blank()) +
   facet_wrap(~key, labeller = label_parsed)
 ```
 
@@ -169,13 +252,12 @@ crossing(x1 = seq(from = 0, to = 10, by = .5),
   
   ggplot(aes(x = x1, y = x2, fill = y)) +
   geom_raster() +
-  scale_fill_viridis_c(option = "D") +
+  scale_fill_viridis_c(option = "E") +
   scale_x_continuous(expression(x[1]), expand = c(0, 0),
                      breaks = seq(from = 0, to = 10, by = 2)) +
   scale_y_continuous(expression(x[2]), expand = c(0, 0),
                      breaks = seq(from = 0, to = 10, by = 2)) +
   coord_equal() +
-  theme(panel.grid = element_blank()) +
   facet_wrap(~key, labeller = label_parsed)
 ```
 
@@ -231,20 +313,18 @@ tibble(x = 1:2,
   
   # plot!
   ggplot(aes(x = x, y = y)) +
-  geom_hline(yintercept = 1.69, color = "white", linetype = 2) +
-  geom_col(width = .075, fill = "grey67") +
+  geom_hline(yintercept = 1.69) +
+  geom_col(width = .075, fill = viridis_pal(option = "E")(9)[2]) +
   geom_segment(data = arrows,
                aes(xend = x, yend = yend),
-               arrow = arrow(length = unit(0.2, "cm")),
-               size = 1/3, color = "grey25") +
+               arrow = arrow(length = unit(0.2, "cm"))) +
   geom_text(data = text,
             aes(label = label), 
             size = 3.5, parse = T) +
   scale_x_continuous(breaks = 1:2, labels = c("<1,0>", "<0,1>")) +
   coord_cartesian(xlim = c(0, 3),
                   ylim = c(1.5, 1.75)) +
-  theme(axis.ticks.x = element_blank(),
-        panel.grid = element_blank())
+  theme(axis.ticks.x = element_blank())
 ```
 
 Here's the code for the bottom panel.
@@ -265,12 +345,11 @@ tibble(x = 1:5,
 
   # the plot
   ggplot(aes(x = x, y = y)) +
-  geom_hline(yintercept = 101, color = "white", linetype = 2) +
-  geom_col(width = .075, fill = "grey67") +
+  geom_hline(yintercept = 101) +
+  geom_col(width = .075, fill = viridis_pal(option = "E")(9)[2]) +
   geom_segment(data = arrows,
                aes(xend = x, yend = yend),
-               arrow = arrow(length = unit(0.2, "cm")),
-               size = 1/3, color = "grey25") +
+               arrow = arrow(length = unit(0.2, "cm"))) +
   geom_text(data = text,
             aes(label = label), 
             size = 3.5, parse = T) +
@@ -278,8 +357,7 @@ tibble(x = 1:5,
                      labels = c("<1,0,0,0,0>", "<0,1,0,0,0>", "<0,0,1,0,0>", "<0,0,0,1,0>", "<0,0,0,0,1>")) +
   coord_cartesian(xlim = c(0, 5.5),
                   ylim = c(90, 106.5)) +
-  theme(axis.ticks.x = element_blank(),
-        panel.grid = element_blank())
+  theme(axis.ticks.x = element_blank())
 ```
 
 Before we make our versions of the two panels in Figure 15.5, we should note that the values in the prose are at odds with the values implied in the figure. For simplicity, our versions of Figure 15.5 will match up with the values in the original figure, *not* the prose. For a look at what the figure might have looked like had it been based on the values in the prose, check out Kruschke's [Corrigenda](https://sites.google.com/site/doingbayesiandataanalysis/corrigenda).
@@ -301,15 +379,14 @@ d %>%
   geom_col(position = "dodge") +
   geom_text(data = d %>% filter(type == "text"),
             aes(label = x_1, color = x_1)) +
-  scale_fill_viridis_d(NULL, option = "C", end = .6) +
-  scale_color_viridis_d(NULL, option = "C", end = .6) +
+  scale_fill_viridis_d(NULL, option = "E", begin = .25, end = .75) +
+  scale_color_viridis_d(NULL, option = "E", begin = .25, end = .75) +
   scale_x_continuous(breaks = 0:2,
                      labels = c("<1,0,0>", "<0,1,0>", "<0,0,1>")) +
-  scale_y_continuous(breaks = seq(from = 0, to = 10, by = 2)) +
+  scale_y_continuous(breaks = seq(from = 0, to = 10, by = 2), expand = expansion(mult = c(0, 0.05))) +
   ggtitle("Additive (no interaction)") +
   theme(axis.ticks.x = element_blank(),
-        legend.position = "none",
-        panel.grid = element_blank())
+        legend.position = "none")
 ```
 
 Did you notice our `filter()` trick in the code?
@@ -335,15 +412,14 @@ d %>%
   geom_col(position = "dodge") +
   geom_text(data = d %>% filter(type == "text"),
             aes(label = x_1, color = x_1)) +
-  scale_fill_viridis_d(NULL, option = "C", end = .6) +
-  scale_color_viridis_d(NULL, option = "C", end = .6) +
+  scale_fill_viridis_d(NULL, option = "E", begin = .25, end = .75) +
+  scale_color_viridis_d(NULL, option = "E", begin = .25, end = .75) +
   scale_x_continuous(breaks = 0:2,
                      labels = c("<1,0,0>", "<0,1,0>", "<0,0,1>")) +
-  scale_y_continuous(breaks = seq(from = 0, to = 10, by = 2)) +
+  scale_y_continuous(breaks = 0:5 * 2, expand = expansion(mult = c(0, 0.05))) +
   ggtitle("Non-Additive Interaction") +
   theme(axis.ticks.x = element_blank(),
-        legend.position = "none",
-        panel.grid = element_blank())
+        legend.position = "none")
 ```
 
 "The main point to understand now is that *the term 'interaction' refers to a nonadditive influence of the predictors on the predicted, regardless of whether the predictors are measured on a nominal scale or a metric scale*" (p. 434, *emphasis* in the original).
@@ -368,11 +444,11 @@ $$y = \operatorname{logistic}(x) = \frac{1}{ \big (1 + \exp (-x) \big )}.$$
 
 We can write the logistic function for a univariable metric predictor as
 
-$$y = \operatorname{logistic}(x; \beta_0, \beta_1) = \frac{1}{\big (1 + \exp (-(\beta_0 + \beta_1)) \big )}.$$
+$$y = \operatorname{logistic}(x; \beta_0, \beta_1) = \frac{1}{\big (1 + \exp (-[\beta_0 + \beta_1]) \big )}.$$
 
 And if we prefer to parameterize it in terms of gain $\gamma$ and threshold $\theta$, it'd be
 
-$$y = \operatorname{logistic}(x; \gamma, \theta) = \frac{1}{ \big (1 + \exp (-\gamma (x - \theta)) \big )}.$$
+$$y = \operatorname{logistic}(x; \gamma, \theta) = \frac{1}{ \big (1 + \exp (-\gamma [x - \theta]) \big )}.$$
 
 We can make the sexy logistic curves of Figure 15.6 with `stat_function()`, into which we'll plug our very own custom `make_logistic()` function. Here's the left panel.
 
@@ -381,29 +457,30 @@ make_logistic <- function(x, gamma, theta) {
   1 / (1 + exp(-gamma * (x - theta)))
 }
 
-# we'll need this for the annotation
+# annotation
 text <-
   tibble(x     = c(-1, 3),
          y     = c(.9, .1),
          label = c('list(gamma == 0.5, theta == -1)',
                    'list(gamma == 0.5, theta == 3)'))
 
+# plot
 tibble(x = c(-11, 11)) %>% 
   ggplot(aes(x = x)) +
-  geom_vline(xintercept = c(-1, 3), color = "white", linetype = 2) +
-  geom_hline(yintercept = .5, color = "white", linetype = 2) +
+  geom_vline(xintercept = c(-1, 3)) +
+  geom_hline(yintercept = .5) +
   stat_function(fun  = make_logistic, 
                 args = list(gamma = .5, theta = -1), 
-                size = 1, color = "grey50") +
+                size = 1, color = viridis_pal(option = "E")(9)[2]) +
   stat_function(fun  = make_logistic, 
                 args = list(gamma = .5, theta = 3), 
-                size = 1, color = "grey50") +
+                size = 1, color = viridis_pal(option = "E")(9)[2]) +
   geom_text(data = text,
             aes(y = y, label = label),
             size = 3.5, parse = T) +
+  scale_y_continuous(expand = expansion(mult = 0), limits = c(0, 1)) +
   coord_cartesian(xlim = c(-10, 10)) +
-  ggtitle("Different Thresholds") +
-  theme(panel.grid = element_blank())  
+  ggtitle("Different Thresholds") 
 ```
 
 For kicks, we'll take a different approach for the right panel. Instead of pumping values through `stat_function()` within our plot code, we'll use our `make_logistic()` function within `mutate()` before beginning the plot code.
@@ -423,16 +500,16 @@ crossing(gamma = c(2, .2),
   
   # plot!
   ggplot(aes(x = x, y = y)) +
-  geom_vline(xintercept = 4, color = "white", linetype = 2) +
-  geom_hline(yintercept = .5, color = "white", linetype = 2) +
+  geom_vline(xintercept = 4) +
+  geom_hline(yintercept = .5) +
   geom_line(aes(group = gamma),
-            size = 1, color = "grey50") +
+            size = 1, color = viridis_pal(option = "E")(9)[2]) +
   geom_text(data = text,
             aes(label = label),
             size = 3.5, parse = T) +
+  scale_y_continuous(expand = expansion(mult = 0), limits = c(0, 1)) +
   coord_cartesian(xlim = c(-10, 10)) +
-  ggtitle("Different Gains") +
-  theme(panel.grid = element_blank())
+  ggtitle("Different Gains")
 ```
 
 I don't know that one plotting approach is better than the other. It's good to have options.
@@ -458,7 +535,7 @@ crossing(x1 = seq(from = -6, to = 6, by = .5),
   
   ggplot(aes(x = x1, y = x2, fill = y)) +
   geom_raster() +
-  scale_fill_viridis_c(option = "D", limits = c(0, 1)) +
+  scale_fill_viridis_c(option = "E", limits = c(0, 1)) +
   scale_x_continuous(expression(x[1]), expand = c(0, 0),
                      breaks = seq(from = -6, to = 6, by = 2)) +
   scale_y_continuous(expression(x[2]), expand = c(0, 0),
@@ -466,7 +543,6 @@ crossing(x1 = seq(from = -6, to = 6, by = .5),
                      position = "right") +
   coord_equal() +
   theme(legend.position = "left",
-        panel.grid = element_blank(),
         strip.text = element_text(size = 8)) +
   facet_wrap(~key, labeller = label_parsed)
 ```
@@ -485,14 +561,13 @@ tibble(x = seq(from = -4, to = 4, by = .1)) %>%
   ggplot(aes(x = x)) +
   geom_ribbon(data = . %>% filter(x <=1),
               aes(ymin = 0, ymax = dnorm(x, mean = 0, sd = 1)),
-              fill = "grey67") +
+              fill = viridis_pal(option = "E")(9)[2], alpha = 2/3) +
   stat_function(fun = dnorm, 
                 args = list(mean = 0, sd = 1), 
-                size = 1, color = "grey50") +
+                size = 1, color = viridis_pal(option = "E")(9)[2]) +
+  scale_y_continuous(expression(p(x)), expand = expansion(mult = c(0, 0.05))) +
   coord_cartesian(xlim = c(-3, 3)) +
-  labs(title = "Normal Density",
-       y = "p(x)") +
-  theme(panel.grid = element_blank())  
+  ggtitle("Normal Density") 
 ```
 
 Did you notice our `data = . %>% filter(x <=1)` trick in `geom_ribbon()`? Anyway, here's the analogous cumulative normal function depicted in the bottom panel of Figure 15.8.
@@ -503,15 +578,13 @@ tibble(x = seq(from = -4, to = 4, by = .1)) %>%
   ggplot(aes(x = x)) +
   stat_function(fun = pnorm, 
                 args = list(mean = 0, sd = 1), 
-                size = 1, color = "grey50") +
+                size = 1, color = viridis_pal(option = "E")(9)[2]) +
   geom_segment(aes(x = 1, xend = 1, 
                    y = 0, yend = pnorm(1, 0, 1)),
-               arrow = arrow(length = unit(0.2, "cm")),
-               size = 1/4, color = "grey25") +
+               arrow = arrow(length = unit(0.2, "cm"))) +
+  scale_y_continuous(expression(Phi(x)), expand = expansion(mult = 0), limits = c(0, 1)) +
   coord_cartesian(xlim = c(-3, 3)) +
-  labs(title = "Cumulative Normal",
-       y = expression(Phi(x))) +
-  theme(panel.grid = element_blank())  
+  ggtitle("Cumulative Normal")
 ```
 
 > Terminology: The inverse of the cumulative normal is called the *probit* function. ["Probit" stands for "probability unit"; @bliss1934method]. The probit function maps a value $p$, for $0.0 \leq p \leq 1.0$, onto the infinite real line, and a graph of the probit function looks very much like the logit function. (p. 439, *emphasis* in the original)
@@ -571,18 +644,17 @@ tibble(x = runif(n = n_samples, -10, 10)) %>%
   
   # plot!
   ggplot(aes(x = x, y = y)) +
-  geom_vline(xintercept = 0, color = "white") +
-  geom_hline(yintercept = 0, color = "white") +
+  geom_vline(xintercept = 0) +
+  geom_hline(yintercept = 0) +
   geom_point(size = 1/5) +
   geom_abline(intercept = 10, slope = 2,
-              size = 1, color = "blue1") +
+              size = 1, color = viridis_pal(option = "E")(9)[2]) +
   geom_path(data = curves,
             aes(group = y_mean),
-            color = "blue", size = 3/4) +
+            color = viridis_pal(option = "E")(9)[2], size = 3/4) +
   labs(title = "Normal PDF around Linear Function",
        y = "y") +
-  coord_cartesian(ylim = c(-10, 30)) +
-  theme(panel.grid = element_blank()) 
+  coord_cartesian(ylim = c(-10, 30))
 ```
 
 We'll revisit this method in Chapter 17. The wireframe plots at the bottom of Figure 15.9 and in Figure 15.10 are outside of our **ggplot2** purview.
@@ -611,11 +683,34 @@ sessionInfo()
 ```
 
 ```{r, echo = F}
+update_geom_defaults(
+  geom = "line", 
+  new = default_line
+)
+
+update_geom_defaults(
+  geom = "hline", 
+  new = default_hline
+)
+
+update_geom_defaults(
+  geom = "vline", 
+  new = default_vline
+)
+
+update_geom_defaults(
+  geom = "segment", 
+  new = default_segment
+)
+```
+
+```{r, echo = F}
 # remove the objects
-rm(arrows, text, d, make_logistic, logistic, curves, n_samples)
+rm(default_line, default_hline, default_vline, default_segment, arrows, text, d, make_logistic, logistic, curves, n_samples)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
+ggplot2::theme_set(ggplot2::theme_grey())
 pacman::p_unload(pacman::p_loaded(), character.only = TRUE)
 ```
 
