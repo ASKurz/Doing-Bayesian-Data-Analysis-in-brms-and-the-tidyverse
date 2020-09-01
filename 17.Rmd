@@ -29,10 +29,10 @@ n_draw <- 1000
 set.seed(17)
 d <-
   tibble(panel = rep(letters[1:2], each = n_draw),
-         x = c(runif(n = n_draw,    -10, 10),
-               rnorm(n = n_draw / 2, -6,  2),
-               rnorm(n = n_draw / 2,  3,  2))) %>% 
-  mutate(y = 10 + 2 * x + rnorm(n = n(), 0, 2))
+         x = c(runif(n = n_draw, min = -10, max = 10),
+               rnorm(n = n_draw / 2, mean = -7, sd = 2),
+               rnorm(n = n_draw / 2,  mean = 3, sd = 2))) %>% 
+  mutate(y = 10 + 2 * x + rnorm(n = n(), mean = 0, sd = 2))
 
 head(d)
 ```
@@ -40,7 +40,7 @@ head(d)
 In case you missed it, Kruschke defied the formula for these data in Figure 17.1. It is
 
 \begin{align*}
-y_i & \sim \operatorname{Normal} (\mu, \sigma = 2), \text{where} \\
+y_i & \sim \operatorname{Normal}(\mu, \sigma = 2), \text{where} \\
 \mu & = 10 + 2 x_i.
 \end{align*}
 
@@ -77,21 +77,33 @@ curves <-
 str(curves)
 ```
 
-Now we're ready to make Figure 17.1.
+Before we make Figure 17.1, let's talk color. Like last chapter, we'll take our color palette from the [**beyonce** package](https://github.com/dill/beyonce) [@R-beyonce]. Our palette will be a nine-point version of #41. 
 
-```{r, fig.width = 7, fig.height = 4}
-theme_set(theme_grey() +
-            theme(panel.grid = element_blank()))
+```{r, warning = F, message = F, fig.width = 3, fig.height = 1}
+library(beyonce)
+
+bp <- beyonce_palette(41, n = 9, type = "continuous")
+
+bp
+```
+
+The global theme will be `ggplot2::theme_linedraw()` with the grid lines removed. Make Figure 17.1.
+
+```{r, fig.width = 7, fig.height = 4, message = F}
+theme_set(
+  theme_linedraw() +
+    theme(panel.grid = element_blank())
+)
 
 d %>% 
   ggplot(aes(x = x, y = y)) +
-  geom_vline(xintercept = 0, color = "white") +
-  geom_hline(yintercept = 0, color = "white") +
-  geom_point(size = 1/3, alpha = 1/3) +
-  stat_smooth(method = "lm", se = F, fullrange = T) +
+  geom_vline(xintercept = 0, size = 1/3, linetype = 2, color = bp[9]) +
+  geom_hline(yintercept = 0, size = 1/3, linetype = 2, color = bp[9]) +
+  geom_point(size = 1/3, alpha = 1/3, color = bp[5]) +
+  stat_smooth(method = "lm", se = F, fullrange = T, color = bp[1]) +
   geom_path(data = curves,
             aes(group = y_mean),
-            color = "blue", size = 1) +
+            color = bp[2], size = 1) +
   labs(title = "Normal PDF around Linear Function",
        subtitle = "We simulated x from a uniform distribution in the left panel and simulated it from a mixture of\n two Gaussians on the right.") +
   coord_cartesian(xlim = c(-10, 10),
@@ -342,8 +354,8 @@ ggplot(data = d,
        aes(x = height, y = weight)) +
   geom_abline(intercept = post[1:n_lines, "b_0"], 
               slope = post[1:n_lines, "b_1"],
-              color = "grey67", size = 1/4, alpha = .3) +
-  geom_point(alpha = 1/2) +
+              color = bp[2], size = 1/4, alpha = 1/3) +
+  geom_point(alpha = 1/2, color = bp[5]) +
   labs(subtitle = eval(substitute(paste("Data with", n_lines, "credible regression lines"))),
        x = "height",
        y = "weight") +
@@ -362,6 +374,13 @@ rope <-
          xmin = -.5,
          xmax = .5)
 
+# annotate the ROPE
+text <-
+  tibble(x     = 0,
+         y     = 0.98,
+         label = "ROPE",
+         key   = "Slope")
+
 # here are the primary data
 post %>% 
   transmute(Intercept = b_0,
@@ -375,12 +394,14 @@ post %>%
   geom_rect(data = rope,
             aes(xmin = xmin, xmax = xmax,
                 ymin = -Inf, ymax = Inf),
-            color = "transparent", fill = "white") +
-  geom_histogram(aes(x = value),
-                 color = "grey92", fill = "grey67",
-                 size = .2, bins = 40) +
-  stat_pointintervalh(aes(x = value, y = 0), 
-                      point_interval = mode_hdi, .width = c(.95, .5)) +
+            color = "transparent", fill = bp[9]) +
+  stat_histinterval(aes(x = value, y = 0), 
+                    point_interval = mode_hdi, .width = .95,
+                    fill = bp[6], color = bp[1], slab_color = bp[5],
+                    breaks = 40, normalize = "panels") +
+  geom_text(data = text,
+            aes(x = x, y = y, label = label),
+            size = 2.75, color = "white") +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(NULL) +
   facet_wrap(~key, scales = "free", ncol = 2)
@@ -391,7 +412,7 @@ Here's the scatter plot for the slope and intercept.
 ```{r, fig.width = 3.25, fig.height = 3}
 post %>% 
   ggplot(aes(x = b_1, y = b_0)) +
-  geom_point(color = "grey56", size = 1/3, alpha = 1/3) +
+  geom_point(color = bp[3], size = 1/3, alpha = 1/3) +
   labs(x = expression(beta[1]),
        y = expression(beta[0]))
 ```
@@ -403,7 +424,7 @@ post %>%
   transmute(Scale = sigma * sd_y,
             Normality = nu %>% log10()) %>% 
   ggplot(aes(x = Normality, y = Scale)) +
-  geom_point(color = "grey56", size = 1/3, alpha = 1/3) +
+  geom_point(color = bp[3], size = 1/3, alpha = 1/3) +
   labs(x = expression(log10(nu)),
        y = expression(sigma))
 ```
@@ -437,11 +458,11 @@ n_lines <- 100
 ggplot(data = d %>% 
          filter(subset == 1), 
        aes(x = height, y = weight)) +
-  geom_vline(xintercept = 0, color = "white") +
+  geom_vline(xintercept = 0, color = bp[9]) +
   geom_abline(intercept = post[1:n_lines, "b_0"], 
               slope = post[1:n_lines, "b_1"],
-              color = "grey67", size = 1/4, alpha = .3) +
-  geom_point(alpha = 1/2) +
+              color = bp[6], size = 1/4, alpha = 1/3) +
+  geom_point(alpha = 1/2, color = bp[3]) +
   scale_y_continuous(breaks = seq(from = -300, to = 200, by = 100)) +
   labs(subtitle = eval(substitute(paste("Data with", n_lines, "credible regression lines"))),
        x = "height",
@@ -466,12 +487,11 @@ post %>%
   geom_rect(data = rope,
             aes(xmin = xmin, xmax = xmax,
                 ymin = -Inf, ymax = Inf),
-            color = "transparent", fill = "white") +
-  geom_histogram(aes(x = value),
-                 color = "grey92", fill = "grey67",
-                 size = .2, bins = 40) +
-  stat_pointintervalh(aes(x = value, y = 0), 
-                      point_interval = mode_hdi, .width = c(.95, .5)) +
+            color = "transparent", fill = bp[9]) +
+  stat_histinterval(aes(x = value, y = 0), 
+                    point_interval = mode_hdi, .width = .95,
+                    fill = bp[6], color = bp[1], slab_color = bp[5],
+                    breaks = 40, normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(NULL) +
   facet_wrap(~key, scales = "free", ncol = 2)
@@ -482,7 +502,7 @@ And we'll finish up with the scatter plots.
 ```{r, fig.width = 3.25, fig.height = 3}
 post %>% 
   ggplot(aes(x = b_1, y = b_0)) +
-  geom_point(color = "grey56", size = 1/3, alpha = 1/3) +
+  geom_point(color = bp[4], size = 1/3, alpha = 1/3) +
   labs(x = expression(beta[1]),
        y = expression(beta[0]))
 
@@ -490,7 +510,7 @@ post %>%
   transmute(Scale = sigma * sd_y,
             Normality = nu %>% log10()) %>% 
   ggplot(aes(x = Normality, y = Scale)) +
-  geom_point(color = "grey56", size = 1/3, alpha = 1/3) +
+  geom_point(color = bp[4], size = 1/3, alpha = 1/3) +
   labs(x = expression(log10(nu)),
        y = expression(sigma))
 ```
@@ -559,12 +579,11 @@ posterior_samples(fit17.3) %>%
   geom_rect(data = rope,
             aes(xmin = xmin, xmax = xmax,
                 ymin = -Inf, ymax = Inf),
-            color = "transparent", fill = "white") +
-  geom_histogram(aes(x = value),
-                 color = "grey92", fill = "grey67",
-                 size = .2, bins = 40) +
-  stat_pointintervalh(aes(x = value, y = 0), 
-                      point_interval = mode_hdi, .width = c(.95, .5)) +
+            color = "transparent", fill = bp[9]) +
+  stat_histinterval(aes(x = value, y = 0), 
+                    point_interval = mode_hdi, .width = .95,
+                    fill = bp[6], color = bp[1], slab_color = bp[5],
+                    breaks = 40, normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(NULL) +
   facet_wrap(~key, scales = "free", ncol = 2)
@@ -580,15 +599,31 @@ library(bayesplot)
 
 They had equally impressive autocorrelation plots.
 
-```{r, fig.width = 5, fig.height = 3}
+
+stat_histinterval(aes(x = value, y = 0), 
+                    point_interval = mode_hdi, .width = .95,
+                    fill = bp[6], color = bp[1], slab_color = bp[5],
+                    breaks = 40, normalize = "panels") +
+  
+  
+  , fig.width = 5, fig.height = 3
+```{r}
+# set the bayesplot color scheme
+color_scheme_set(scheme = bp[c(1, 3, 8, 7, 5, 5)])
+
 mcmc_acf(posterior_samples(fit17.1), pars = c("b_Intercept", "b_height_z", "sigma", "nu"), lags = 10)
 mcmc_acf(posterior_samples(fit17.3), pars = c("b_Intercept", "b_height", "sigma", "nu"), lags = 10)
 ```
 
 Their $N_{eff}/N$ ratios were pretty similar. Both were reasonable. You'd probably want to run a simulation to contrast them with any rigor.
 
-```{r, fig.width = 6, fig.height = 3.25, warning = F, message = F}
+, fig.width = 6, fig.height = 3.25, warning = F, message = F
+
+```{r}
 library(patchwork)
+
+# change the bayesplot color scheme
+color_scheme_set(scheme = bp[c(1, 3, 4, 6, 7, 9)])
 
 p1 <-
   neff_ratio(fit17.1) %>% 
@@ -618,9 +653,9 @@ post %>%
   mutate(weight_at_50 = b_0 + b_1 * 50) %>% 
   
   ggplot(aes(x = weight_at_50, y = 0)) +
-  stat_histintervalh(point_interval = mode_hdi, .width = c(.95, .5),
-                     fill = "grey67", slab_color = "grey92",
-                     breaks = 30, slab_size = .25, outline_bars = T) +
+  stat_histinterval(point_interval = mode_hdi, .width = .95,
+                    fill = bp[6], color = bp[1], slab_color = bp[5],
+                    breaks = 40, normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab("lbs")
 ```
@@ -735,28 +770,27 @@ head(post)
 ```
 
 Here's the top panel of Figure 17.4.
-
+  
 ```{r, fig.width = 4.25, fig.height = 4}
 # how many posterior lines would you like?
 n_lines <- 250
 
 my_data %>% 
-  mutate(Subj = Subj %>% as.character()) %>% 
+  mutate(Subj = factor(Subj, levels = 25:1)) %>% 
   
   ggplot(aes(x = X, y = Y)) +
   geom_abline(intercept = post[1:n_lines, "b_0"], 
               slope     = post[1:n_lines, "b_1"],
-              color = "grey67", size = 1/4, alpha = .3) +
+              color = "grey50", size = 1/4, alpha = 1/5) +
   geom_point(aes(color = Subj),
              alpha = 1/2) +
   geom_line(aes(group = Subj, color = Subj),
             size = 1/4) +
-  scale_color_viridis_d() +
+  scale_color_manual(values = beyonce_palette(41, n = 25, type = "continuous"), breaks = NULL) +
   scale_y_continuous(breaks = seq(from = 50, to = 250, by = 50)) +
   labs(subtitle = eval(substitute(paste("Data from all units with", n_lines, "credible population-level\nregression lines")))) +
   coord_cartesian(xlim = c(40, 95),
-                  ylim = c(30, 270)) +
-  theme(legend.position = "none")
+                  ylim = c(30, 270))
 ```
 
 Recall how we can use `coef()` to extract the `Subj`-specific parameters. But we'll want posterior draws rather than summaries, which requires `summary = F`. It'll take a bit of wrangling to get the output in a tidy format. Once we're there, the plot code will be fairly simple.
@@ -792,18 +826,19 @@ n_lines <- 250
 
 # the plot:
 my_data %>% 
+  mutate(Subj = factor(Subj, levels = 25:1)) %>% 
+  
   ggplot(aes(x = X, y = Y)) +
   geom_abline(data = c %>% filter(iter <= n_lines),
               aes(intercept = b_0, slope = b_1), 
-              color = "grey67", size = 1/4, alpha = .3) +
+              color = "grey50", size = 1/4, alpha = 1/5) +
   geom_point(aes(color = Subj)) +
-  scale_color_viridis_c() +
+  scale_color_manual(values = beyonce_palette(41, n = 25, type = "continuous"), breaks = NULL) +
   scale_x_continuous(breaks = seq(from = 50, to = 90,  by = 20)) +
   scale_y_continuous(breaks = seq(from = 50, to = 250, by = 100)) +
   labs(subtitle = "Each unit now has its own bundle of credible regression lines") +
   coord_cartesian(xlim = c(45, 90),
                   ylim = c(50, 270)) +
-  theme(legend.position = "none") +
   facet_wrap(~Subj %>% factor(., levels = 1:25))
 ```
 
@@ -842,17 +877,17 @@ For the second time, here's the top panel of Figure 17.4, this time based off of
 ```{r, fig.width = 4.25, fig.height = 4}
 p1 <-
   my_data %>% 
-  mutate(Subj = Subj %>% as.character()) %>% 
+  mutate(Subj = factor(Subj, levels = 25:1)) %>%
   
   ggplot(aes(x = X, y = Y)) +
   geom_line(data = f,
             aes(group = iter),
-            color = "grey67", size = 1/4, alpha = .3) +
+            color = "grey50", size = 1/4, alpha = 1/5) +
   geom_point(aes(color = Subj),
              alpha = 1/2) +
   geom_line(aes(group = Subj, color = Subj),
             size = 1/4) +
-  scale_color_viridis_d(option = "C") +
+  scale_color_manual(values = beyonce_palette(41, n = 25, type = "continuous")) +
   scale_y_continuous(breaks = seq(from = 50, to = 250, by = 50)) +
   labs(subtitle = eval(substitute(paste("Data from all units with", n_lines, "credible population-level\nregression lines")))) +
   coord_cartesian(xlim = c(40, 95),
@@ -894,18 +929,19 @@ And now for the second time, here's the bottom panel of Figure 17.4, this time b
 ```{r, fig.width = 7, fig.height = 10}
 p2 <-
   my_data %>% 
+  mutate(Subj = factor(Subj, levels = 25:1)) %>%
+  
   ggplot(aes(x = X, y = Y)) +
   geom_line(data = f,
             aes(group = iter),
-            color = "grey67", size = 1/4, alpha = .3) +
+            color = "grey50", size = 1/4, alpha = 1/5) +
   geom_point(aes(color = Subj)) +
-  scale_color_viridis_c(option = "C") +
+  scale_color_manual(values = beyonce_palette(41, n = 25, type = "continuous"), breaks = NULL) +
   scale_x_continuous(breaks = seq(from = 50, to = 90,  by = 20)) +
   scale_y_continuous(breaks = seq(from = 50, to = 250, by = 100)) +
   labs(subtitle = "Each unit now has its own bundle of credible regression lines") +
   coord_cartesian(xlim = c(45, 90),
                   ylim = c(50, 270)) +
-  theme(legend.position = "none") +
   facet_wrap(~Subj %>% factor(., levels = 1:25))
 
 # combine with patchwork
@@ -1050,18 +1086,19 @@ post <-
 head(post)
 ```
 
-Now we're ready to make the top panel of Figure 17.7. 
-
-```{r, fig.width = 4.25, fig.height = 4}
+Now we're ready to make the top panel of Figure 17.7.
+                   
+```{r, fig.width = 4.25, fig.height = 4 }
 my_data %>%
   ggplot(aes(x = FamilySize, y = MedianIncome)) +
   geom_line(data = post,
             aes(group = draw),
-            size  = 1/4, alpha = 1/3, color = "grey67") +
-  geom_line(aes(group = State),
-            alpha = 1/2, size = 1/4) +
-  geom_point(alpha = 1/2, size = 1/2) +
-  scale_color_viridis_c() +
+            size  = 1/4, alpha = 1/5, color = "grey67") +
+  geom_line(aes(group = State, color = State),
+            alpha = 2/3, size = 1/4) +
+  geom_point(aes(color = State),
+             alpha = 2/3, size = 1/2) +
+  scale_color_manual(values = beyonce_palette(41, n = 52, type = "continuous"), breaks = NULL) +
   scale_x_continuous("Family size", breaks = 1:8) +
   labs(title = "All states",
        y = "Median income") +
@@ -1141,10 +1178,10 @@ my_data %>%
   ggplot(aes(x = FamilySize, y = MedianIncome)) +
   geom_line(data = c,
             aes(group = draw),
-            size  = 1/4, alpha = 1/3, color = "grey67") +
+            size  = 1/4, alpha = 1/5, color = "grey67") +
   geom_point(aes(color = State)) +
   geom_line(aes(color = State)) +
-  scale_color_viridis_d() +
+  scale_color_manual(values = beyonce_palette(41, n = 52, type = "continuous"), breaks = NULL) +
   scale_x_continuous("Family size", breaks = 1:8) +
   labs(subtitle = "Each State now has its own bundle of credible regression curves.",
        y = "Median income") +
@@ -1161,9 +1198,10 @@ Although "almost all of the posterior distribution [was] below $\nu = 4$" in the
 ```{r, fig.width = 3.5, fig.height = 2.75}
 posterior_samples(fit17.5) %>%
   ggplot(aes(x = nu, y = 0)) +
-  stat_histintervalh(point_interval = mode_hdi, .width = .95,
-                     fill = "grey67", slab_color = "grey92",
-                     breaks = 40, slab_size = .25, outline_bars = T) +
+  stat_histinterval(point_interval = mode_hdi, .width = .95,
+                    fill = bp[6], color = bp[1], slab_color = bp[5],
+                    breaks = 40, normalize = "panels") +
+  scale_x_continuous(expand = expansion(mult = c(0, 0.05))) +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(title = expression(Our~big~nu),
        x = NULL)
@@ -1187,12 +1225,12 @@ sessionInfo()
 
 ```{r, echo = F}
 # remove the objects
-rm(n_draw, d, curves, HtWtDataGenerator, standardize, fit17.1, stanvars, fit17.2, post, make_beta_0, make_beta_1, sd_x, sd_y, m_x, m_y, n_lines, rope, beta_0_sigma, beta_1_sigma, fit17.3, p1, p2, nd, my_data, fit17.4, p3, p4, c, f, fit17.5, make_beta_2)
+rm(n_draw, d, curves, beyonce_palettes, bp, HtWtDataGenerator, standardize, fit17.1, stanvars, fit17.2, post, make_beta_0, make_beta_1, sd_x, sd_y, m_x, m_y, n_lines, rope, text, beta_0_sigma, beta_1_sigma, fit17.3, p1, p2, nd, my_data, fit17.4, p3, p4, c, f, fit17.5, make_beta_2)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
-pacman::p_unload(pacman::p_loaded(), character.only = TRUE)
-
 ggplot2::theme_set(ggplot2::theme_grey())
+bayesplot::color_scheme_set("blue")
+pacman::p_unload(pacman::p_loaded(), character.only = TRUE)
 ```
 
