@@ -82,42 +82,72 @@ text <-
 head(text)
 ```
 
-Now we're ready to plot.
+We're almost ready to plot. Before we do, let's talk color and theme. For this chapter, we'll take our color palette from the [**palettetown** package](https://CRAN.R-project.org/package=palettetown) [@R-palettetown], which provides an array of color palettes inspired by [Pokémon](https://www.pokemon.com/us/). Our color palette will be #17, which is based on [Pidgeotto](https://www.pokemon.com/us/pokedex/pidgeotto).
+
+```{r, warning = F, message = F}
+library(palettetown)
+
+scales::show_col(pokepal(pokemon = 17))
+
+pp <- pokepal(pokemon = 17)
+
+pp
+```
+
+Our overall plot theme will be based on the default `theme_grey()` with a good number of adjustments.
+
+```{r}
+theme_set(
+  theme_grey() +
+    theme(text = element_text(color = pp[4]),
+          axis.text = element_text(color = pp[4]),
+          axis.ticks = element_line(color = pp[4]),
+          legend.background = element_blank(),
+          legend.box.background = element_blank(),
+          legend.key = element_rect(fill = pp[9]),
+          panel.background = element_rect(fill = pp[9], color = pp[9]),
+          panel.grid = element_blank(),
+          plot.background = element_rect(fill = pp[12], color = pp[12]),
+          strip.background = element_rect(fill = alpha(pp[2], 1/3), color = "transparent"),
+          strip.text = element_text(color = pp[4]))
+)
+```
+
+Now make Figure 19.1.
 
 ```{r, fig.width = 6, fig.height = 2.75, warning = F, message = F}
 library(ggridges)
 
 d %>% 
   ggplot(aes(x = d, y = group, group = group)) +
-  geom_vline(xintercept = grand_mean, color = "white") +
-  geom_jitter(height = .05, alpha = 1/4, shape = 1) +
+  geom_vline(xintercept = grand_mean, color = pp[12]) +
+  geom_jitter(height = .05, alpha = 4/4, shape = 1, color = pp[10]) +
   # the Gausians
   geom_ridgeline(data = densities,
                  aes(height = -density),
                  min_height = NA, scale = 3/2, size = 3/4,
-                 fill = "transparent", color = "grey50") +
+                 fill = "transparent", color = pp[7]) +
   # the small arrows
   geom_segment(data = arrow,
                aes(xend = d + deviation,
                    y = group + offset, yend = group + offset),
-               color = "grey50", size = 1,
+               color = pp[5], size = 1,
                arrow = arrow(length = unit(.2, "cm"))) +
   # the large arrow on the left
   geom_segment(aes(x = 80, xend = grand_mean,
                    y = 0, yend = 0),
-               color = "grey50", size = 3/4,
+               color = pp[5], size = 3/4,
                arrow = arrow(length = unit(.2, "cm"))) +
   # the text
   geom_text(data = text,
             aes(x = grand_mean + deviation, y = group + offset,
                 label = label, angle = angle), 
-            size = 4, parse = T) +
+            size = 4, color = pp[4], parse = T) +
   scale_y_continuous(NULL, breaks = 1:5,
                      labels = c("<1,0,0,0,0>", "<0,1,0,0,0>", "<0,0,1,0,0>", "<0,0,0,1,0>", "<0,0,0,0,1>")) +
   xlab(NULL) +
   coord_flip(xlim = c(90, 112),
-             ylim = c(-0.2, 5.5)) +
-  theme(panel.grid = element_blank())
+             ylim = c(-0.2, 5.5))
 ```
 
 > The descriptive model presented in Figure 19.1 is the traditional one used by classical ANOVA (which is described a bit more in the next section). More general models are straight forward to implement in Bayesian software. For example, outliers could be accommodated by using heavy-tailed noise distributions (such as a $t$ distribution) instead of a normal distribution, and different groups could be given different standard deviations. (p. 556)
@@ -155,21 +185,20 @@ The noise standard deviation $\sigma_y$ is depicted in the prior statement inclu
 
 Kruschke set the upper bound for his $\sigma_y$ to 10 times the standard deviation of the criterion variable. The tails of the half-Cauchy are sufficiently fat that, in practice, I've found it doesn't matter much what you set the $SD$ of its prior to. One is often a sensible default for reasonably-scaled data. But if we want to take a more principled approach, we can set it to the size of the criterion's $SD$ or perhaps even 10 times that.
 
-Kruschke suggested using a gamma on $\sigma_\beta$, which is a sensible alternative to half-Cauchy often used within the Stan universe. Especially in situations in which you would like to (a) keep the variance parameter above zero, but (b) still allow it to be arbitrarily close to zero, and also (c) let the likelihood dominate the posterior, the Stan team recommends the gamma(2, 0) prior, based on the paper by Chung and colleagues [-@chungNondegeneratePenalizedLikelihood2013, click [here](http://www.stat.columbia.edu/~gelman/research/published/chung_etal_Pmetrika2013.pdf)]. But you should note that I don't mean a literal 0 for the second parameter in the gamma distribution, but rather some small value like 0.1 or so. This is all clarified in @chungNondegeneratePenalizedLikelihood2013. Here's what $\operatorname{gamma} (2, 0.1)$ looks like. 
+Kruschke suggested using a gamma on $\sigma_\beta$, which is a sensible alternative to half-Cauchy often used within the Stan universe. Especially in situations in which you would like to (a) keep the variance parameter above zero, but (b) still allow it to be arbitrarily close to zero, and also (c) let the likelihood dominate the posterior, the Stan team recommends the gamma(2, 0) prior, based on the paper by Chung and colleagues [-@chungNondegeneratePenalizedLikelihood2013, click [here](http://www.stat.columbia.edu/~gelman/research/published/chung_etal_Pmetrika2013.pdf)]. But you should note that I don't mean a literal 0 for the second parameter in the gamma distribution, but rather some small value like 0.1 or so. This is all clarified in @chungNondegeneratePenalizedLikelihood2013. Here's what $\operatorname{gamma}(2, 0.1)$ looks like. 
 
 ```{r, fig.width = 6, fig.height = 2}
 tibble(x = seq(from = 0, to = 110, by = .1)) %>% 
   
   ggplot(aes(x = x, ymin = 0, ymax = dgamma(x, 2, 0.1))) +
-  geom_ribbon(size = 0, fill = "grey67") +
-  annotate(geom = "text", x = 14.25, y = 0.015, label = "'gamma'~(2*', '*0.1)", 
-           parse = T, color = "grey92", size = 4.25) +
-  scale_y_continuous(NULL, breaks = NULL) +
-  coord_cartesian(xlim = c(0, 100)) +
-  theme(panel.grid = element_blank())
+  geom_ribbon(size = 0, fill = pp[10]) +
+  annotate(geom = "text", x = 14.25, y = 0.015, label = "'gamma'*(2*', '*0.1)", 
+           parse = T, color = pp[1], size = 4.25) +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 110)) +
+  scale_y_continuous(NULL, breaks = NULL, expand = expansion(mult = c(0, 0.05)))
 ```
 
-If you'd like that prior be even less informative, just reduce it to like $\operatorname{gamma} (2, 0.01)$ or so. Kruschke goes further to recommend "the shape and rate parameters of the gamma distribution are set so its mode is `sd(y)/2` and its standard deviation is `2*sd(y)`, using the function `gammaShRaFromModeSD` explained in Section 9.2.2." (pp. 560--561). Let's make that function.
+If you'd like that prior be even less informative, just reduce it to like $\operatorname{gamma}(2, 0.01)$ or so. Kruschke goes further to recommend "the shape and rate parameters of the gamma distribution are set so its mode is `sd(y)/2` and its standard deviation is `2*sd(y)`, using the function `gammaShRaFromModeSD` explained in Section 9.2.2." (pp. 560--561). Let's make that function.
 
 ```{r}
 gamma_a_b_from_omega_sigma <- function(mode, sd) {
@@ -197,14 +226,14 @@ sigma <- 2 * sd_y
 And that produces the following gamma distribution.
 
 ```{r, fig.width = 6, fig.height = 2}
-tibble(x = seq(from = 0, to = 50, by = .01)) %>% 
+tibble(x = seq(from = 0, to = 21, by = .01)) %>% 
   
   ggplot(aes(x = x, ymin = 0, ymax = dgamma(x, s_r$shape, s_r$rate))) +
-  geom_ribbon(size = 0, fill = "grey67") +
-  scale_x_continuous(breaks = c(0, 1, 5, 10, 20)) +
-  scale_y_continuous(NULL, breaks = NULL) +
-  coord_cartesian(xlim = c(0, 20)) +
-  theme(panel.grid = element_blank())
+  geom_ribbon(size = 0, fill = pp[8]) +
+  annotate(geom = "text", x = 2.75, y = 0.02, label = "'gamma'*(1.283196*', '*0.5663911)", 
+           parse = T, color = pp[7], size = 2.75) +
+  scale_x_continuous(breaks = c(0, 1, 5, 10, 20), expand = c(0, 0), limits = c(0, 21)) +
+  scale_y_continuous(NULL, breaks = NULL, expand = expansion(mult = c(0, 0.05)))
 ```
 
 In the parameter space that matters, from zero to one, that gamma is pretty noninformative. It peaks between the two, slopes very gently rightward, but has the nice steep slope on the left keeping the estimates off the zero boundary. And even though that right slope is very gentle given the scale of the data, it's aggressive enough that it should keep the MCMC chains from spending a lot of time in ridiculous parts of the parameter space. I.e., when working with finite numbers of iterations, we want our MCMC chains wasting exactly zero iterations investigating what the density might be for $\sigma_\beta \approx 1e10$ for standardized data.
@@ -229,13 +258,13 @@ my_data %>%
   mutate(CompanionNumber = fct_reorder(CompanionNumber, group_mean)) %>% 
   
   ggplot(aes(x = Longevity, y = CompanionNumber, fill = group_mean)) +
-  geom_density_ridges(scale = 3/2, size = .2, color = "grey92") +
-  scale_fill_viridis_c(option = "A", end = .92) +
-  ylab(NULL) +
+  geom_density_ridges(scale = 3/2, size = .2, color = pp[9]) +
+  scale_fill_gradient(low = pp[4], high = pp[2]) +
+  scale_x_continuous(expand = expansion(mult = c(0, 0.05)), limits = c(0, NA)) +
+  scale_y_discrete(NULL, expand = expansion(mult = c(0, 0.4))) +
   theme(axis.text.y = element_text(hjust = 0),
         axis.ticks.y = element_blank(),
-        legend.position = "none",
-        panel.grid = element_blank())
+        legend.position = "none")
 ```
 
 Let's fire up **brms**.
@@ -285,19 +314,18 @@ fit19.1 <-
 
 Much like Kruschke's JAGS chains, our **brms** chains are well behaved.
 
-```{r, fig.width = 8, fig.height = 4}
+```{r, fig.width = 8, fig.height = 4, message = F, warning = F}
+library(bayesplot)
+
+color_scheme_set(scheme = pp[c(10, 8, 12, 5, 1, 4)])
+
 plot(fit19.1)
 ```
 
 Also like Kruschke, our chains appear moderately autocorrelated.
 
-```{r, message = F, warning = F, fig.width = 7, fig.height = 4}
+```{r, fig.width = 7, fig.height = 4}
 post <- posterior_samples(fit19.1, add_chain = T)
-
-library(bayesplot)
-
-theme_set(theme_gray() +
-            theme(panel.grid = element_blank()))
 
 mcmc_acf(post, pars = c("b_Intercept", "sd_CompanionNumber__Intercept", "sigma"), lags = 10)
 ```
@@ -351,7 +379,7 @@ tibble(x = c(0, 150)) %>%
                   args  = list(mean = mean, sd = sd), 
                   alpha = 2/3, 
                   size  = 1/3,
-                  color = "grey50")
+                  color = pp[4])
     }, 
     # enter means and standard deviations here
     mean = post_draws[, "b_Intercept"],
@@ -359,8 +387,9 @@ tibble(x = c(0, 150)) %>%
     ) +
   geom_jitter(data = my_data, aes(x = Longevity, y = -0.001),
               height = .001, 
-              alpha = 1/2) +
-  scale_x_continuous("Longevity", breaks = seq(from = 0, to = 100, by = 25)) +
+              alpha = 3/4, color = pp[10]) +
+  scale_x_continuous("Longevity", breaks = 0:4 * 25,
+                     limits = c(0, NA), expand = expansion(mult = c(0, 0.05))) +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(title = "Posterior Predictive Distribution",
        subtitle = "The jittered dots are the ungrouped Longevity data. The\nGaussians are posterior draws depicting the overall\ndistribution, the grand mean.") +
@@ -407,17 +436,17 @@ densities %>%
   ggplot(aes(x = Longevity, y = CompanionNumber)) +
   # here we make our density lines
   geom_ridgeline(aes(height = density, group = interaction(CompanionNumber, .draw)),
-                 fill = NA, color = adjustcolor("grey50", alpha.f = 2/3),
+                 fill = NA, color = adjustcolor(pp[4], alpha.f = 2/3),
                  size = 1/3, scale = 25) +
   # the original data with little jitter thrown in
   geom_jitter(data = my_data,
-              height = .04, alpha = 1/2) +
+              height = .04, alpha = 3/4, color = pp[10]) +
   # pretty much everything below this line is aesthetic fluff
-  scale_x_continuous(breaks = seq(from = 0, to = 100, by = 25)) +
+  scale_x_continuous(breaks = 0:4 * 25, limits = c(0, 110), 
+                     expand = expansion(mult = c(0, 0.05))) +
   labs(title = "Data with Posterior Predictive Distrib.", 
        y = NULL) +
-  coord_cartesian(xlim = c(0, 110),
-                  ylim = c(1.25, 5.25)) +
+  coord_cartesian(ylim = c(1.25, 5.25)) +
   theme(axis.text.y = element_text(hjust = 0),
         axis.ticks.y = element_blank())
 ```
@@ -458,13 +487,14 @@ post %>%
   transmute(c = (`r_CompanionNumber[Pregnant1,Intercept]` + `r_CompanionNumber[Pregnant1,Intercept]`) / 2 - `r_CompanionNumber[None0,Intercept]`) %>% 
   
   ggplot(aes(x = c, y = 0)) +
-  stat_histintervalh(point_interval = mode_hdi, .width = c(.95, .5),
-                     fill = "grey67", slab_color = "grey92",
-                     breaks = 40, slab_size = .25, outline_bars = T) +
+  stat_dotsinterval(point_interval = mode_hdi, .width = .95,
+                    slab_color = pp[5], slab_fill = pp[5], color = pp[4]) +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(subtitle = "Pregnant1.Pregnant8 vs None0",
        x = "Difference")
 ```
+
+Up to this point, our primary mode of showing marginal posterior distributions has either been minute variations on Kruschke’s typical histogram approach or with densities. We’ll use those again in the future, too. In this chapter and the next, we’ll veer a little further from the source material and depict our marginal posteriors with dot plots and their very close relatives, quantile plots. In the dot plot, above, each of the 4,000 posterior draws is depicted by one of the stacked brown dots. To stack the dots in neat columns like that, **tidybayes** has to round a little. Though we lose something in the numeric precision, we gain a lot in interpretability. We’ll have more to say in just a moment.
 
 In case you were curious, here are the HMC-based posterior mode and 95% HDIs.
 
@@ -482,15 +512,17 @@ post %>%
   transmute(es = ((`r_CompanionNumber[Pregnant1,Intercept]` + `r_CompanionNumber[Pregnant1,Intercept]`) / 2 - `r_CompanionNumber[None0,Intercept]`) / sigma) %>% 
   
   ggplot(aes(x = es, y = 0)) +
-  stat_histintervalh(point_interval = mode_hdi, .width = c(.95, .5),
-                     fill = "grey67", slab_color = "grey92",
-                     breaks = 40, slab_size = .25, outline_bars = T) +
+  stat_dotsinterval(point_interval = mode_hdi, .width = .95,
+                    slab_fill = pp[5], color = pp[4], 
+                    slab_size = 0, quantiles = 100) +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(subtitle = "Pregnant1.Pregnant8 vs None0",
        x = "Effect Size")
 ```
 
-Tiny. 
+Tiny.
+
+Did you notice the `quantiles = 100` argument within `stat_dotsinterval()`? Instead of a dot plot with 4,000 tiny little dots, that argument converted the output to a quantile plot. The 4,000 posterior draws are now summarized by 100 dots, each of which represents $1\%$ of the total sample [see @kayWhenIshMy2016, @fernandesUncertaintyDisplaysUsing2018]. This quantile dot-plot method will be our main approach for the rest of the chapter.
 
 Okay, now let's do the rest in bulk. First we'll do the difference scores.
 
@@ -507,10 +539,9 @@ differences %>%
   gather() %>% 
   
   ggplot(aes(x = value, y = 0)) +
-  stat_histintervalh(point_interval = mode_hdi, .width = c(.95, .5),
-                     fill = "grey67", slab_color = "grey92",
-                     breaks = 40, slab_size = .25, outline_bars = T,
-                     normalize = "panels") +
+  stat_dotsinterval(point_interval = mode_hdi, .width = .95,
+                    slab_fill = pp[5], color = pp[4], 
+                    slab_size = 0, quantiles = 100) +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab("Difference") +
   facet_wrap(~key, scales = "free")
@@ -524,10 +555,9 @@ differences %>%
   gather() %>% 
   
   ggplot(aes(x = value, y = 0)) +
-  stat_histintervalh(point_interval = mode_hdi, .width = c(.95, .5),
-                     fill = "grey67", slab_color = "grey92",
-                     breaks = 40, slab_size = .25, outline_bars = T,
-                     normalize = "panels") +
+  stat_dotsinterval(point_interval = mode_hdi, .width = .95,
+                    slab_fill = pp[5], color = pp[4], 
+                    slab_size = 0, quantiles = 100) +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab("Effect Size") +
   facet_wrap(~key, scales = "free_x")
@@ -535,7 +565,7 @@ differences %>%
 
 > In traditional ANOVA, analysts often perform a so-called omnibus test that asks whether it is plausible that all the groups are simultaneously exactly equal. I find that the omnibus test is rarely meaningful, however.... In the hierarchical Bayesian estimation used here, there is no direct equivalent to an omnibus test in ANOVA, and the emphasis is on examining all the meaningful contrasts. (p. 567)
 
-Speaking of all meaningful contrasts, if you'd like to make all pairwise comparisons in a hierarchical model of this form, **tidybayes** offers a convenient way to do so [see the [Comparing levels of a factor](https://mjskay.github.io/tidybayes/articles/tidy-brms.html#comparing-levels-of-a-factor) section of @kayExtractingVisualizingTidy2020a]. Here we'll demonstrate with `geom_halfeyeh()`.
+Speaking of all meaningful contrasts, if you'd like to make all pairwise comparisons in a hierarchical model of this form, **tidybayes** offers a convenient way to do so [see the [Comparing levels of a factor](https://mjskay.github.io/tidybayes/articles/tidy-brms.html#comparing-levels-of-a-factor) section of @kayExtractingVisualizingTidy2020a]. Here we'll demonstrate with `stat_dotsinterval()`.
 
 ```{r, fig.height = 4.5, fig.width = 6}
 fit19.1 %>%
@@ -544,12 +574,14 @@ fit19.1 %>%
   compare_levels(r_CompanionNumber, by = CompanionNumber) %>%
   
   ggplot(aes(x = r_CompanionNumber, y = CompanionNumber)) +
-  geom_vline(xintercept = 0, color  = "white") +
-  geom_halfeyeh(point_interval = mode_hdi, .width = c(.95, .5)) +
+  geom_vline(xintercept = 0, color = pp[12]) +
+  stat_dotsinterval(point_interval = mode_hdi, .width = .95,
+                    slab_fill = pp[5], color = pp[4], 
+                    slab_size = 0, quantiles = 100) +
   labs(x = "Contrast",
        y = NULL) +
-  theme(axis.text.y = element_text(hjust = 0),
-        axis.ticks.y = element_blank())
+  coord_cartesian(ylim = c(1.5, 10.5)) +
+  theme(axis.text.y = element_text(hjust = 0))
 ```
 
 But back to that omnibus test notion. If you really wanted to, I suppose one rough analogue would be to use information criteria to compare the hierarchical model to one that includes a single intercept with no group-level deflections. Here’s what the simpler model would look like.
@@ -601,9 +633,9 @@ Yep, in complimenting the LOO difference, virtually all the stacking weight went
 ```{r, fig.width = 4, fig.height = 2.5}
 post %>% 
   ggplot(aes(x = sd_CompanionNumber__Intercept, y = 0)) +
-  stat_histintervalh(point_interval = mode_hdi, .width = c(.95, .5),
-                     fill = "grey67", slab_color = "grey92",
-                     breaks = 100, slab_size = .25, outline_bars = T) +
+  stat_dotsinterval(point_interval = mode_hdi, .width = .95,
+                    slab_fill = pp[5], color = pp[4], 
+                    slab_size = 0, quantiles = 100) +
   scale_y_continuous(NULL, breaks = NULL) +
   coord_cartesian(xlim = c(0, 50)) +
   labs(title = expression("Behold the fit19.1 posterior for "*sigma[beta]*"."),
@@ -619,7 +651,7 @@ Yeah, zero and other values close to zero don't look credible for that parameter
 
 We may as well compute those ranges by hand. Here's the range of the observed data.
 
-```{r}
+```{r, message = F}
 my_data %>% 
   group_by(CompanionNumber) %>% 
   summarise(mean  = mean(Longevity)) %>% 
@@ -644,7 +676,7 @@ coef(fit19.1)$CompanionNumber[, , "Intercept"] %>%
   summarise(range = max(Estimate) - min(Estimate))
 ```
 
-Note that wasn't fully Bayesian of us. Those means and their difference carry uncertainty with them and that uncertainty can be fully expressed if we use all the posterior draws (i.e., use `summary = F` and wrangle).
+Note that wasn't fully Bayesian of us. Those means and their difference carry uncertainty and that uncertainty can be fully expressed if we use all the posterior draws (i.e., use `summary = F` and wrangle).
 
 ```{r}
 coef(fit19.1, summary = F)$CompanionNumber[, , "Intercept"] %>% 
@@ -685,7 +717,7 @@ posterior_summary(fit19.1)["sd_CompanionNumber__Intercept", ]
 posterior_summary(fit19.3)["sd_CompanionNumber__Intercept", ]
 ```
 
-Here that is in a coefficient plot using `tidybayes::stat_intervalh()`.
+Here that is in a coefficient plot using `tidybayes::stat_interval()`.
 
 ```{r, fig.width = 6, fig.height = 1.25}
 bind_rows(posterior_samples(fit19.1) %>% select(sd_CompanionNumber__Intercept),
@@ -693,12 +725,12 @@ bind_rows(posterior_samples(fit19.1) %>% select(sd_CompanionNumber__Intercept),
   mutate(fit = rep(c("fit19.1", "fit19.3"), each = n() / 2)) %>% 
   
   ggplot(aes(x = sd_CompanionNumber__Intercept, y = fit)) +
-  stat_intervalh(point_interval = mode_hdi, .width = c(.5, .8, .95)) +
-  scale_color_grey("HDI", start = 2/3, end = 0, 
-                   labels = c("95%", "80%", "50%")) +
-  labs(x = expression(sigma[beta]),
-       y = NULL) +
-  coord_cartesian(xlim = c(0, 80)) +
+  stat_interval(point_interval = mode_hdi, .width = c(.5, .8, .95)) +
+  scale_color_manual(values = pp[c(11, 5, 7)], 
+                     labels = c("95%", "80%", "50%")) +
+  scale_x_continuous(expression(sigma[beta]), 
+                     limits = c(0, NA), expand = expansion(mult = c(0, 0.05))) +
+  ylab(NULL) +
   theme(legend.key.size = unit(0.45, "cm"))
 ```
 
@@ -798,7 +830,7 @@ The results are pretty much the same as that of the two-group hierarchical model
 
 "In Figure 19.3, the data within each group have a large standard deviation. For example, longevities in the Virgin8 group range from 20 to 60 days" (p. 568). Turns out Kruschke's slightly wrong on this. Probably just a typo.
 
-```{r}
+```{r, message = F}
 my_data %>% 
   group_by(CompanionNumber) %>% 
   summarise(min   = min(Longevity),
@@ -832,7 +864,9 @@ Kruschke recalled `fit19.1`'s estimate for $\sigma_y$ had a posterior mode aroun
 ```{r, fig.width = 4, fig.height = 2}
 posterior_samples(fit19.1) %>% 
   ggplot(aes(x = sigma, y = 0)) +
-  geom_halfeyeh(point_interval = mode_hdi, .width = c(.5, .95)) +
+  stat_dotsinterval(point_interval = mode_hdi, .width = .95,
+                    slab_fill = pp[5], color = pp[4], 
+                    slab_size = 0, quantiles = 100) +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(expression(sigma[y])) +
   theme(panel.grid = element_blank())
@@ -875,10 +909,10 @@ fit19.5 <-
   brm(data = my_data,
       family = gaussian,
       Longevity ~ 1 + thorax_c + (1 | CompanionNumber),
-      prior = c(prior(normal(mean_y, sd_y * 5),          class = Intercept),
+      prior = c(prior(normal(mean_y, sd_y * 5), class = Intercept),
                 prior(normal(0, 2 * sd_y / sd_thorax_c), class = b),
-                prior(gamma(alpha, beta),                class = sd),
-                prior(cauchy(0, sd_y),                   class = sigma)),
+                prior(gamma(alpha, beta), class = sd),
+                prior(cauchy(0, sd_y), class = sigma)),
       iter = 4000, warmup = 1000, chains = 4, cores = 4,
       seed = 19,
       control = list(adapt_delta = 0.99),
@@ -897,20 +931,29 @@ Let's see if that $\sigma_y$ posterior shrank.
 ```{r, fig.width = 4, fig.height = 2}
 posterior_samples(fit19.5) %>% 
   ggplot(aes(x = sigma, y = 0)) +
-  geom_halfeyeh(point_interval = mode_hdi, .width = c(.5, .95)) +
+  stat_dotsinterval(point_interval = mode_hdi, .width = .95,
+                    slab_fill = pp[5], color = pp[4], 
+                    slab_size = 0, quantiles = 100) +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(expression(sigma[y]))
 ```
 
 Yep, sure did! Now our between-group comparisons should be more precise. Heck, if we wanted to we could even make a difference plot.
 
+```{r}
+tibble(sigma1 = posterior_samples(fit19.1) %>% pull(sigma),
+       sigma5 = posterior_samples(fit19.5) %>% pull(sigma))
+```
+
 ```{r, fig.width = 4, fig.height = 2.25}
-bind_cols(posterior_samples(fit19.1) %>% select(sigma),
-          posterior_samples(fit19.5) %>% select(sigma)) %>% 
-  transmute(dif = sigma - sigma1) %>% 
+tibble(sigma1 = posterior_samples(fit19.1) %>% pull(sigma),
+       sigma5 = posterior_samples(fit19.5) %>% pull(sigma)) %>% 
+  transmute(dif = sigma1 - sigma5) %>% 
   
   ggplot(aes(x = dif, y = 0)) +
-  geom_halfeyeh(point_interval = mode_hdi, .width = c(.5, .95)) +
+  stat_dotsinterval(point_interval = mode_hdi, .width = .95,
+                    slab_fill = pp[5], color = pp[4], 
+                    slab_size = 0, quantiles = 100) +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(title = "This is a difference distribution",
        x = expression(sigma[y][" | fit19.1"]-sigma[y][" | fit19.5"]))
@@ -919,7 +962,8 @@ bind_cols(posterior_samples(fit19.1) %>% select(sigma),
 If you want a quick and dirty plot of the relation between `thorax_c` and `Longevity`, you might employ `brms::conditional_effects()`.
 
 ```{r, fig.width = 3, fig.height = 3}
-conditional_effects(fit19.5)
+conditional_effects(fit19.5) %>% 
+  plot(line_args = list(color = pp[5], fill = pp[11]))
 ```
 
 But to make plots like the ones at the top of Figure 19.5, we'll have to work a little harder. First, we need some intermediary values marking off the three values along the `Thorax`-axis Kruschke singled out in his top panel plots. As far as I can tell, they were the `min()`, the `max()`, and their `mean()`.
@@ -949,7 +993,7 @@ densities <-
 glimpse(densities)
 ```
 
-Here, we'll use a simplified workflow to extract the `fitted()` values in order to make the regression lines. Since these are straight lines, all we need are two values for each draw, one at the extremes of the `Thorax` axis. 
+Here, we'll use a simplified workflow to extract the `fitted()` values in order to make the regression lines. Since these are straight lines, all we need are two values for each draw, one at the extremes of the `Thorax` axis.
 
 ```{r}
 f <-
@@ -970,18 +1014,18 @@ densities %>%
   # the Gaussians
   geom_ridgeline(aes(height = -density, group = interaction(Thorax, .draw)),
                  fill = NA, size = 1/5, scale = 5/3,
-                 color = adjustcolor("grey50", alpha.f = 1/5),
+                 color = adjustcolor(pp[4], alpha.f = 1/5),
                  min_height = NA) +
   # the vertical lines below the Gaussians
   geom_line(aes(group = interaction(Thorax, .draw)),
-            color = "grey50", alpha = 1/5, size = 1/5) +
+            color = pp[4], alpha = 1/5, size = 1/5) +
   # the regression lines
   geom_line(data = f,
             aes(group = .draw),
-            alpha = 1/5, size = 1/5, color = "grey50") +
+            alpha = 1/5, size = 1/5, color = pp[4]) +
   # the data
   geom_point(data = my_data,
-             alpha = 1/2) +
+             alpha = 3/4, color = pp[10]) +
   coord_flip(xlim = c(0, 110),
              ylim = c(.58, 1)) +
   facet_wrap(~CompanionNumber, ncol = 5)
@@ -1007,10 +1051,9 @@ p1 <-
   gather() %>%   
   
   ggplot(aes(x = value, y = 0)) +
-  stat_histintervalh(point_interval = mode_hdi, .width = c(.95, .5),
-                     fill = "grey67", slab_color = "grey92",
-                     breaks = 40, slab_size = .25, outline_bars = T,
-                     normalize = "panels") +
+  stat_dotsinterval(point_interval = mode_hdi, .width = .95,
+                    slab_fill = pp[5], color = pp[4], 
+                    slab_size = 0, quantiles = 100) +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab("Difference") +
   theme(strip.text = element_text(size = 6.4)) +
@@ -1026,10 +1069,9 @@ p2 <-
   gather() %>%   
   
   ggplot(aes(x = value, y = 0)) +
-  stat_histintervalh(point_interval = mode_hdi, .width = c(.95, .5),
-                     fill = "grey67", slab_color = "grey92",
-                     breaks = 40, slab_size = .25, outline_bars = T,
-                     normalize = "panels") +
+  stat_dotsinterval(point_interval = mode_hdi, .width = .95,
+                    slab_fill = pp[5], color = pp[4], 
+                    slab_size = 0, quantiles = 100) +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab("Effect Size") +
   theme(strip.text = element_text(size = 6.4)) +
@@ -1075,10 +1117,10 @@ fit19.5 <-
   brm(data = my_data,
       family = gaussian,
       Longevity ~ 1 + thorax_c + (1 | CompanionNumber),
-      prior = c(prior(normal(mean_y, sd_y * 5),          class = Intercept),
+      prior = c(prior(normal(mean_y, sd_y * 5), class = Intercept),
                 prior(normal(0, 2 * sd_y / sd_thorax_c), class = b),
-                prior(gamma(alpha, beta),                class = sd),
-                prior(cauchy(0, sd_y),                   class = sigma)),
+                prior(gamma(alpha, beta), class = sd),
+                prior(cauchy(0, sd_y), class = sigma)),
       iter = 4000, warmup = 1000, chains = 4, cores = 4,
       seed = 19,
       control = list(adapt_delta = 0.99),
@@ -1086,7 +1128,7 @@ fit19.5 <-
       file = "fits/fit19.05")
 ``` 
 
-It's easy to get lost in the differences in the priors and the technical details  with the model chains and such. The main thing to notice, here, is the differences in the model formulas (i.e., the likelihoods). Both models had intercepts and slopes. But whereas the model from 17.3 set both parameters to random, only the intercept in our last model was random. The covariate `thorax_c` was fixed--it did not vary by group. Had we wanted it to, our `formula` syntax would have been something like `Longevity ~ 1 + thorax_c + (1 + thorax_c || CompanionNumber)`. And again, as noted in Chapter 17, the `||` portion of the syntax set the random intercepts and slopes to be orthogonal (i.e., correlate exactly at zero). As we'll see, this will often not be the case. But let's not get ahead of ourselves.
+It's easy to get lost in the differences in the priors and the technical details with the model chains and such. The main thing to notice, here, is the differences in the model formulas (i.e., the likelihoods). Both models had intercepts and slopes. But whereas the model from 17.3 set both parameters to random, only the intercept in our last model was random. The covariate `thorax_c` was fixed--it did not vary by group. Had we wanted it to, our `formula` syntax would have been something like `Longevity ~ 1 + thorax_c + (1 + thorax_c || CompanionNumber)`. And again, as noted in Chapter 17, the `||` portion of the syntax set the random intercepts and slopes to be orthogonal (i.e., correlate exactly at zero). As we'll see, this will often not be the case. But let's not get ahead of ourselves.
 
 > Conceptually, the main difference between the models is merely the focus of attention. In the hierarchical linear regression model, the focus was on the slope coefficient. In that case, we were trying to estimate the magnitude of the slope, simultaneously for individuals and overall. The intercepts, which describe the levels of the nominal predictor, were of ancillary interest. In the present section, on the other hand, the focus of attention is reversed. We are most interested in the intercepts and their differences between groups, with the slopes on the covariate being of ancillary interest. (p. 573)
 
@@ -1110,7 +1152,8 @@ tibble(prior = rnorm(n_draws, mean = log(1), sd = 1)) %>%
   gather(key, value) %>% 
 
   ggplot(aes(x = value)) +
-  geom_density(fill = "grey50", color = "transparent") +
+  stat_dots(slab_fill = pp[5], slab_size = 0) +
+  scale_y_continuous(NULL, breaks = NULL, expand = expansion(mult = c(0, 0.05)), limits = c(0, NA)) +
   facet_wrap(~key, scales = "free")
 ```
 
@@ -1122,7 +1165,9 @@ tibble(prior = rnorm(n_draws, mean = log(1), sd = 2)) %>%
   mutate(prior_exp = exp(prior)) %>% 
 
   ggplot(aes(x = prior_exp)) +
-  geom_density(fill = "grey50", color = "transparent") +
+  stat_dots(slab_fill = pp[5], slab_size = 0) +
+  scale_x_continuous(expand = expansion(mult = c(0, 0.05))) +
+  scale_y_continuous(NULL, breaks = NULL, expand = expansion(mult = c(0, 0.05)), limits = c(0, NA)) +
   coord_cartesian(xlim = c(0, 17))
 ```
 
@@ -1181,7 +1226,7 @@ head(my_data)
 
 Here are the means and $SD$s for each `Group`.
 
-```{r}
+```{r, message = F}
 my_data %>% 
   group_by(Group) %>% 
   summarise(mean = mean(Y),
@@ -1254,15 +1299,15 @@ glimpse(densities)
 In our wrangling code, the main thing to notice is those last two lines. If you look closely to Kruschke's Gaussians, you'll notice they all have the same maximum height. Up to this point, ours haven't. This has to do with technicalities on how densities are scaled. In brief, the wider densities have been shorter. So those last two lines scaled all the densities within the same group to the same metric. Otherwise the code was business as usual. 
 
 Anyway, here's our version of the top panel of Figure 19.7.
-
+  
 ```{r, fig.height = 3.5, fig.width = 3.75}
 densities %>% 
   ggplot(aes(x = Y, y = Group)) +
   geom_ridgeline(aes(height = density, group = interaction(Group, .draw)),
-                 fill = NA, color = adjustcolor("grey50", alpha.f = 2/3),
+                 fill = NA, color = adjustcolor(pp[7], alpha.f = 2/3),
                  size = 1/3, scale = 3/4) +
   geom_jitter(data = my_data,
-              height = .04, alpha = 1/2) +
+              height = .04, alpha = 3/4, color = pp[10]) +
   scale_x_continuous(breaks = seq(from = 80, to = 120, by = 10)) +
   labs(title = "Data with Posterior Predictive Distrib.", 
        y = NULL) +
@@ -1287,10 +1332,9 @@ differences %>%
   mutate(key = factor(key, levels = c("D vs A", "C vs B"))) %>% 
   
   ggplot(aes(x = value, y = 0)) +
-  stat_histintervalh(point_interval = mode_hdi, .width = c(.5, .95),
-                     fill = "grey67", slab_color = "grey92",
-                     breaks = 40, slab_size = .25, outline_bars = T,
-                     normalize = "panels") +
+  stat_dotsinterval(point_interval = mode_hdi, .width = .95,
+                    slab_fill = pp[5], color = pp[4],
+                    slab_size = 0, quantiles = 100) +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(x = "Difference") +
   facet_wrap(~key, scales = "free_x", ncol = 4)
@@ -1305,10 +1349,9 @@ differences %>%
   mutate(key = factor(key, levels = c("D vs A", "C vs B"))) %>% 
   
   ggplot(aes(x = value, y = 0)) +
-  stat_histintervalh(point_interval = mode_hdi, .width = c(.5, .95),
-                     fill = "grey67", slab_color = "grey92",
-                     breaks = 30, slab_size = .25, outline_bars = T,
-                     normalize = "panels") +
+  stat_dotsinterval(point_interval = mode_hdi, .width = .95,
+                    slab_fill = pp[5], color = pp[4],
+                    slab_size = 0, quantiles = 100) +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(x = "Effect Size") +
   facet_wrap(~key, scales = "free_x", ncol = 4)
@@ -1325,11 +1368,13 @@ fit19.6 %>%
   mutate(Group = reorder(Group, r_Group)) %>%
   
   ggplot(aes(x = r_Group, y = Group)) +
-  geom_vline(xintercept = 0, color = "white") +
-  geom_halfeyeh(point_interval = mode_hdi, .width = c(.95, .5)) +
+  geom_vline(xintercept = 0, color = pp[12]) +
+  stat_dotsinterval(point_interval = mode_hdi, .width = .95,
+                    slab_fill = pp[5], color = pp[4],
+                    slab_size = 0, quantiles = 100) +
   labs(x = "Contrast",
        y = NULL) +
-  coord_cartesian(ylim = c(1.33, 6.5)) +
+  coord_cartesian(ylim = c(1.5, 6.5)) +
   theme(axis.text.y = element_text(hjust = 0),
         axis.ticks.y = element_blank())
 ```
@@ -1412,10 +1457,10 @@ p1 <-
   densities %>% 
   ggplot(aes(x = Y, y = Group)) +
   geom_ridgeline(aes(height = density, group = interaction(Group, .draw)),
-                 fill = NA, color = adjustcolor("grey50", alpha.f = 2/3),
+                 fill = NA, color = adjustcolor(pp[7], alpha.f = 2/3),
                  size = 1/3, scale = 3/4) +
   geom_jitter(data = my_data,
-              height = .04, alpha = 1/2) +
+              height = .04, alpha = 3/4, color = pp[10]) +
   scale_x_continuous(breaks = seq(from = 80, to = 120, by = 10)) +
   labs(title = "Data with Posterior Predictive Distrib.", 
        y = NULL) +
@@ -1438,10 +1483,9 @@ p2 <-
   mutate(key = factor(key, levels = c("D vs A", "C vs B"))) %>% 
   
   ggplot(aes(x = value, y = 0)) +
-  stat_histintervalh(point_interval = mode_hdi, .width = c(.5, .95),
-                     fill = "grey67", slab_color = "grey92",
-                     breaks = 40, slab_size = .25, outline_bars = T,
-                     normalize = "panels") +
+  stat_dotsinterval(point_interval = mode_hdi, .width = .95,
+                    slab_fill = pp[5], color = pp[4],
+                    slab_size = 0, quantiles = 100) +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab("Difference") +
   facet_wrap(~key, scales = "free_x", ncol = 4)
@@ -1460,10 +1504,9 @@ p3 <-
   mutate(key = factor(key, levels = c("D vs A", "C vs B"))) %>% 
   
   ggplot(aes(x = value, y = 0)) +
-  stat_histintervalh(point_interval = mode_hdi, .width = c(.5, .95),
-                     fill = "grey67", slab_color = "grey92",
-                     breaks = 30, slab_size = .25, outline_bars = T,
-                     normalize = "panels") +
+  stat_dotsinterval(point_interval = mode_hdi, .width = .95,
+                    slab_fill = pp[5], color = pp[4],
+                    slab_size = 0, quantiles = 100) +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab("Effect Size") +
   facet_wrap(~key, scales = "free_x", ncol = 4)
@@ -1489,10 +1532,9 @@ post %>%
   mutate(key = factor(key, levels = c("D vs A", "C vs B", "D vs C", "B vs A"))) %>% 
   
   ggplot(aes(x = value, y = 0)) +
-  stat_histintervalh(point_interval = mode_hdi, .width = c(.5, .95),
-                     fill = "grey67", slab_color = "grey92",
-                     breaks = 30, slab_size = .25, outline_bars = T,
-                     normalize = "panels") +
+  stat_dotsinterval(point_interval = mode_hdi, .width = .95,
+                    slab_fill = pp[5], color = pp[4],
+                    slab_size = 0, quantiles = 100) +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(expression(Differences~'in'~sigma)) +
   facet_wrap(~key, scales = "free", ncol = 4)
@@ -1529,7 +1571,7 @@ my_data %>%
 
 Let's focus on just two groups, the male fruit flies for which individual males were supplied access to one or with virgin female fruit flies per day. In the data, these are `CompanionNumber == Virgin1` and `CompanionNumber == Virgin8`, respectively. Here's a look at their mean `Longevity` values.
 
-```{r}
+```{r, message = F}
 my_data %>% 
   filter(str_detect(CompanionNumber, "Virgin")) %>% 
   group_by(CompanionNumber) %>% 
@@ -1619,12 +1661,12 @@ post %>%
   pivot_longer(-lp__) %>% 
   
   ggplot(aes(x = value, y = 0)) +
-  stat_halfeyeh(point_interval = mode_hdi, .width = .95,
-                fill = "grey67", slab_color = "grey92",
-                normalize = "panels") +
+  stat_dotsinterval(point_interval = mode_hdi, .width = .95,
+                    slab_fill = pp[2], color = pp[7],
+                    slab_size = 0, quantiles = 100) +
   geom_vline(data = lines,
              aes(xintercept = value),
-             color = "grey33", linetype = 2) +
+             color = pp[13], linetype = 2) +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab("posterior") +
   facet_wrap(~name, scales = "free")
@@ -1637,10 +1679,11 @@ post %>%
   mutate(d = (b_CompanionNumberVirgin1 - b_CompanionNumberVirgin8) / s_y) %>% 
   
   ggplot(aes(x = d, y = 0)) +
-  stat_halfeyeh(point_interval = mode_hdi, .width = .95,
-                fill = "grey67", slab_color = "grey92") +
+  stat_dotsinterval(point_interval = mode_hdi, .width = .95,
+                    slab_fill = pp[2], color = pp[7],
+                    slab_size = 0, quantiles = 100) +
   geom_vline(xintercept = (y_bar_a - y_bar_b) / s_y,
-             color = "grey33", linetype = 2) +
+             color = pp[13], linetype = 2) +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(expression(paste("Cohen's ", italic(d), " expressed as a posterior")))
 ```
@@ -1682,10 +1725,11 @@ post <- posterior_samples(fit19.9)
 
 post %>% 
   ggplot(aes(x = b_Virgin1, y = 0)) +
-  stat_halfeyeh(point_interval = mode_hdi, .width = .95,
-                fill = "grey67", slab_color = "grey92") +
+  stat_dotsinterval(point_interval = mode_hdi, .width = .95,
+                    slab_fill = pp[2], color = pp[7],
+                    slab_size = 0, quantiles = 100) +
   geom_vline(xintercept = y_bar_a - y_bar_b,
-             color = "grey33", linetype = 2) +
+             color = pp[13], linetype = 2) +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab("Unstandardized mean difference")
 ```
@@ -1697,10 +1741,11 @@ post %>%
   mutate(d = b_Virgin1 / s_y) %>% 
   
   ggplot(aes(x = d, y = 0)) +
-  stat_halfeyeh(point_interval = mode_hdi, .width = .95,
-                fill = "grey67", slab_color = "grey92") +
+  stat_dotsinterval(point_interval = mode_hdi, .width = .95,
+                    slab_fill = pp[2], color = pp[7],
+                    slab_size = 0, quantiles = 100) +
   geom_vline(xintercept = (y_bar_a - y_bar_b) / s_y,
-             color = "grey33", linetype = 2) +
+             color = pp[13], linetype = 2) +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(expression(paste("Cohen's ", italic(d), " expressed as a posterior")))
 ```
@@ -1737,10 +1782,11 @@ Behold our out-of-the-box Bayesian Cohen's $d$.
 posterior_samples(fit19.10) %>% 
   
   ggplot(aes(x = b_Virgin1, y = 0)) +
-  stat_halfeyeh(point_interval = mode_hdi, .width = .95,
-                fill = "grey67", slab_color = "grey92") +
+  stat_dotsinterval(point_interval = mode_hdi, .width = .95,
+                    slab_fill = pp[2], color = pp[7],
+                    slab_size = 0, quantiles = 100) +
   geom_vline(xintercept = (y_bar_a - y_bar_b) / s_y,
-             color = "grey33", linetype = 2) +
+             color = pp[13], linetype = 2) +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(expression(paste("Cohen's ", italic(d), " expressed as a posterior")))
 ```
@@ -1774,7 +1820,9 @@ The data are IQ scores for participants in two groups. They look like this.
 ```{r, fig.width = 5, fig.height = 2.75}
 my_data %>% 
   ggplot(aes(x = Score, Group)) +
-  geom_halfeyeh(point_interval = mode_hdi, .width = c(.95, .5)) +
+  stat_dotsinterval(point_interval = mode_hdi, .width = .95,
+                    slab_fill = pp[2], color = pp[7],
+                    slab_size = 0, quantiles = 100) +
   xlab("IQ score") +
   coord_cartesian(ylim = c(1.5, 2.25))
 ```
@@ -1795,7 +1843,7 @@ s_y <- sd(my_data$Score)
 
 To get full posteriors for $d$, you might use any of the three methods we practiced with, above. Because we're only working with sample statistics, these are all only approximations of $\delta$. The thing about IQ scores is we actually know the population mean and standard deviation for IQ. They are 100 and 15, respectively. We know this because the people who make IQ tests design them that way. Let's see how well out sample statistics approximate the population parameters.
 
-```{r}
+```{r, message = F}
 my_data %>% 
   group_by(Group) %>% 
   summarise(mean = mean(Score),
@@ -1836,14 +1884,12 @@ sessionInfo()
 
 ```{r, echo = F}
 # remove our objects
-rm(generate_data, n, grand_mean, d, densities, arrow, text, gamma_a_b_from_omega_sigma, sd_y, omega, sigma, s_r, my_data, mean_y, stanvars, fit19.1, post, n_draws, post_draws, fit19.2, mw, fit19.3, fit19.4, my_small_data, sd_thorax_c, fit19.5, r, f, differences, p1, p2, fit19.6, fit19.7, p3, y_bar_a, y_bar_b, s_y, fit19.8, lines, fit19.9, fit19.10)
+rm(generate_data, n, grand_mean, d, densities, arrow, text, pp, gamma_a_b_from_omega_sigma, sd_y, omega, sigma, s_r, my_data, mean_y, stanvars, fit19.1, post, n_draws, post_draws, fit19.2, mw, fit19.3, fit19.4, my_small_data, sd_thorax_c, fit19.5, r, f, differences, p1, p2, fit19.6, fit19.7, p3, y_bar_a, y_bar_b, s_y, fit19.8, lines, fit19.9, fit19.10)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
-pacman::p_unload(pacman::p_loaded(), character.only = TRUE)
-
 ggplot2::theme_set(ggplot2::theme_grey())
-
 bayesplot::color_scheme_set("blue")
+pacman::p_unload(pacman::p_loaded(), character.only = TRUE)
 ```
 
