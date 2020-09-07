@@ -158,6 +158,167 @@ But now
 
 > suppose we flip the coin nine times and get six heads. Given those data, what are the posterior probabilities of the coin coming from the head-biased or tail-biased factories? We will pursue the answer three ways: via formal analysis, grid approximation, and MCMC. (p. 270)
 
+Before we move on to a formal analysis, here's a more faithful version of Kruschke's Figure 10.2 based on the method from my blog post, [*Make model diagrams, Kruschke style*](https://solomonkurz.netlify.app/post/make-model-diagrams-kruschke-style/).
+
+```{r, fig.width = 3.9, fig.height = 5, message = F}
+library(patchwork)
+
+p1 <-
+  tibble(x = 1:2,
+         d = c(.75, .75)) %>% 
+  ggplot(aes(x = x, y = d)) +
+  geom_col(fill = alpha(kh[5], .9), width = .45) +
+  annotate(geom = "text",
+           x = 1.5, y = .2,
+           label = "categorical",
+           size = 5, color = kh[1]) +
+  annotate(geom = "text",
+           x = 1.5, y = .85,
+           label = "italic(P[m])",
+           size = 5, color = kh[1], family = "Times", parse = TRUE) +
+  coord_cartesian(xlim = c(-.5, 3.5),
+                  ylim = 0:1) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5, color = kh[1]))
+
+## an annotated arrow
+# save our custom arrow settings
+my_arrow <- arrow(angle = 20, length = unit(0.35, "cm"), type = "closed")
+p2 <-
+  tibble(x    = .5,
+         y    = 1,
+         xend = .5,
+         yend = 0) %>%
+  
+  ggplot(aes(x = x, xend = xend,
+             y = y, yend = yend)) +
+  geom_segment(arrow = my_arrow, color = kh[1]) +
+  annotate(geom = "text",
+           x = .375, y = 1/3,
+           label = "'~'",
+           size = 10, color = kh[1], family = "Times", parse = T) +
+  xlim(0, 1) +
+  theme_void()
+
+p3 <-
+  tibble(x = seq(from = .01, to = .99, by = .01),
+         d = (dbeta(x, 5, 10) / max(dbeta(x, 5, 10)))) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = d)) +
+  geom_ribbon(fill = alpha(kh[4], .85), size = 0) +
+  annotate(geom = "text",
+           x = .5, y = .2,
+           label = "beta",
+           size = 5, color = kh[1]) +
+  annotate(geom = "text",
+           x = .5, y = .6,
+           label = "list(italic(A)[1], italic(B)[1])",
+           size = 5, color = kh[1], family = "Times", parse = TRUE) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5, color = kh[1]))
+
+p4 <-
+  tibble(x = seq(from = .01, to = .99, by = .01),
+         d = (dbeta(x, 10, 5) / max(dbeta(x, 10, 5)))) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = d)) +
+  geom_ribbon(fill = kh[6], size = 0) +
+  annotate(geom = "text",
+           x = .5, y = .2,
+           label = "beta",
+           size = 5, color = kh[1]) +
+  annotate(geom = "text",
+           x = .5, y = .6,
+           label = "list(italic(A)[2], italic(B)[2])",
+           size = 5, color = kh[1], family = "Times", parse = TRUE) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5, color = kh[1]))
+
+# bar plot of Bernoulli data
+p5 <-
+  tibble(x = 0:1,
+         d = (dbinom(x, size = 1, prob = 1/3)) / max(dbinom(x, size = 1, prob = 1/3))) %>% 
+  
+  ggplot(aes(x = x, y = d)) +
+  geom_col(fill = alpha(kh[4], .85), width = .4) +
+  annotate(geom = "text",
+           x = .5, y = .2,
+           label = "Bernoulli",
+           size = 7, color = kh[1]) +
+  annotate(geom = "text",
+           x = .5, y = .94,
+           label = "theta", 
+           size = 7, color = kh[1], family = "Times", parse = T) +
+  xlim(-.75, 1.75) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5, color = kh[1]))
+
+# another bar plot of Bernoulli data
+p6 <-
+  tibble(x = 0:1,
+         d = (dbinom(x, size = 1, prob = 2/3)) / max(dbinom(x, size = 1, prob = 2/3))) %>% 
+  
+  ggplot(aes(x = x, y = d)) +
+  geom_col(fill = kh[6], width = .4) +
+  annotate(geom = "text",
+           x = .5, y = .2,
+           label = "Bernoulli",
+           size = 7, color = kh[1]) +
+  annotate(geom = "text",
+           x = .5, y = .94,
+           label = "theta", 
+           size = 7, color = kh[1], family = "Times", parse = T) +
+  xlim(-.75, 1.75) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5, color = kh[1]))
+
+
+# another annotated arrow
+p7 <-
+  tibble(x     = c(.375, .625),
+         y     = c(1/3, 1/3),
+         label = c("'~'", "italic(i)")) %>% 
+  
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(size = c(10, 7), parse = T, family = "Times") +
+  geom_segment(x = .5, xend = .5,
+               y = 1, yend = 0,
+               arrow = my_arrow, color = kh[1]) +
+  xlim(0, 1) +
+  theme_void()
+
+# some text
+p8 <-
+  tibble(x     = 1,
+         y     = .5,
+         label = "italic(y[i])") %>% 
+  
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(size = 7, color = kh[1], parse = T, family = "Times") +
+  xlim(0, 2) +
+  theme_void()
+
+# define the layout
+layout <- c(
+  area(t = 1, b = 2, l = 2, r = 3),
+  area(t = 3, b = 3, l = 2, r = 3),
+  area(t = 4, b = 5, l = 1, r = 2),
+  area(t = 4, b = 5, l = 3, r = 4),
+  area(t = 6, b = 6, l = 1, r = 2),
+  area(t = 6, b = 6, l = 3, r = 4),
+  area(t = 7, b = 8, l = 1, r = 2),
+  area(t = 7, b = 8, l = 3, r = 4),
+  area(t = 9, b = 9, l = 2, r = 3),
+  area(t = 10, b = 10, l = 2, r = 3)
+)
+
+# combine and plot!
+(p1 + p2 + p3 + p4 + p2 + p2 + p5 + p6 + p7 + p8) + 
+  plot_layout(design = layout) &
+  ylim(0, 1) &
+  theme(plot.margin = margin(0, 5.5, 0, 5.5))
+```
+
 ### Solution by formal analysis.
 
 Here we rehearse if we have $\operatorname{beta} (\theta, a, b)$ prior for $\theta$ of the Bernoulli likelihood function, then the analytic solution for the posterior is $\operatorname{beta} (\theta | z + a, N – z + b)$. Within this paradigm, if you would like to compute $p(D | m)$, don't use the following function. If suffers from [underflow](https://en.wikipedia.org/wiki/Arithmetic_underflow) with large values.
@@ -1344,7 +1505,7 @@ sessionInfo()
 
 ```{r, echo = F}
 # remove our objects
-rm(d, kh, length, p_d, p_d_1, p_d_2, odds, p1, p2, bernoulli_likelihood, n, z, trial_data, omega, kappa, stanvars, fit10.1, theta, mean_theta, sd_theta, a_post, b_post, one_over_pd, fit10.2, mw, nd, pp_a, fit10.3, fit10.4, my_data, fit9.2, fit10.5, fit10.6, hdi_of_icdf, hdi_of_qbeta, fit10.7, fit10.8, p3)
+rm(d, kh, length, p1, p2, my_arrow, p3, p4, p5, p6, p7, p8, layout, p_d, p_d_1, p_d_2, odds, bernoulli_likelihood, n, z, trial_data, omega, kappa, stanvars, fit10.1, theta, mean_theta, sd_theta, a_post, b_post, one_over_pd, fit10.2, mw, nd, pp_a, fit10.3, fit10.4, my_data, fit9.2, fit10.5, fit10.6, hdi_of_icdf, hdi_of_qbeta, fit10.7, fit10.8)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
