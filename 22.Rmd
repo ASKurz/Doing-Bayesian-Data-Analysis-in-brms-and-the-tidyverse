@@ -36,7 +36,7 @@ for which the subscripts $k$ indicate there's a linear model for each of the $k$
 
 In this scenerio, what we want to know is the probability of $\lambda_{[1]}$, $\lambda_{[2]}$, and $\lambda_{[3]}$. The probability of a given outcome $k$ follows the formula
 
-$$\phi_k = \operatorname{softmax}_S (\{\lambda_k\}) = \frac{\exp (\lambda_k)}{\sum_{c \in S} \exp  (\lambda_c)}$$
+$$\phi_k = \operatorname{softmax}_S (\{\lambda_k\}) = \frac{\exp (\lambda_k)}{\sum_{c \in S} \exp  (\lambda_c)}.$$
 
 > In words, [the equation] says that the probability of outcome $k$ is the exponentiated linear propensity of outcome $k$ relative to the sum of exponentiated linear propensities across all outcomes in the set $S$. You may be wondering, Why exponentiate? Intuitively, we have to go from propensities that can have negative values to probabilities that can only have non-negative values, and we have to preserve order. The exponential function satisfies that need. (p. 650)
 
@@ -57,28 +57,58 @@ glimpse(d1)
 glimpse(d2)
 ```
 
-Let's bind the two data frames together and plot in bulk.
+Before we explore these data in a plot, let's talk color and theme. For this chapter, we'll carry forward our practice from [Chapter 21][Dichotomous Predicted Variable] and take our color palette from the [**PNWColors** package](https://CRAN.R-project.org/package=PNWColors). This time, our color palette will be `"Lake"`.
 
-```{r, fig.width = 5}
+```{r, warning = F, message = F, fig.width = 3, fig.height = 1}
+library(PNWColors)
+
+pl <- pnw_palette(name = "Lake")
+
+pl
+```
+
+We'll base our overall plot theme on `cowplot::theme_minimal_grid()`, with many color adjustments from `PNWColors::pnw_palette(name = "Lake")`.
+
+```{r, warning = F, message = F}
+library(cowplot)
+
+theme_set(
+  theme_minimal_grid() +
+    theme(text = element_text(color = pl[1]),
+          axis.text = element_text(color = pl[1]),
+          axis.ticks = element_line(color = pl[1]),
+          legend.background = element_blank(),
+          legend.box.background = element_blank(),
+          legend.key = element_rect(fill = pl[8]),
+          panel.background = element_rect(fill = pl[8], color = pl[8]),
+          panel.grid = element_blank(),
+          strip.background = element_rect(fill = pl[7], color = pl[7]),
+          strip.text = element_text(color = pl[1]))
+)
+```
+
+Now bind the two data frames together and plot our version of Figure 22.1.
+
+```{r, fig.width = 5.5}
 bind_rows(d1, d2) %>%
-  mutate(data = rep(str_c("d", 1:2), each = n() / 2)) %>% 
+  mutate(data = rep(str_c("d", 1:2), each = n() / 2),
+         Y = factor(Y)) %>% 
   
   ggplot(aes(x = X1, y = X2, label = Y, color = Y)) +
   geom_hline(yintercept = 0, color = "white") +
   geom_vline(xintercept = 0, color = "white") +
   geom_text(size = 3) +
-  scale_color_viridis_c(end = .9) +
+  scale_color_manual(values = pl[2:5]) +
   labs(x = expression(x[1]),
        y = expression(x[2])) +
   coord_equal() +
-  theme(legend.position = "none",
-        panel.grid = element_blank()) +
+  theme(legend.position = "none") +
   facet_wrap(~data, ncol = 2)
 ```
 
 ### Softmax reduces to logistic for two outcomes.
 
-"When there are only two outcomes, the softmax formulation reduces to the logistic regression of Chapter 21" (p. 653)
+"When there are only two outcomes, the softmax formulation reduces to the logistic regression of Chapter 21" (p. 653).
 
 ### Independence from irrelevant attributes.
 
@@ -122,11 +152,11 @@ Though we retain the same walking/bussing ratio, we end up with a different mode
 The model follows the generic equation
 
 \begin{align*}
-\phi_{S^* | S} = \operatorname{logistic} (\lambda_{S^* | S}) \\
+\phi_{S^* | S} = \operatorname{logistic}(\lambda_{S^* | S}) \\
 \lambda_{S^* | S} = \beta_{0, S^* | S} + \beta_{1, {S^* | S}} x,
 \end{align*}
 
-where the conditional response probability (i.e., the goal of the analysis) is $\phi_{S^* | S}$. $S^*$ and $S$ denote the subset of outcomes and larger set of outcomes, respectively, and $\lambda_{S^* | S}$ is the propensity based on some linear model. 
+where the conditional response probability (i.e., the goal of the analysis) is $\phi_{S^* | S}$. $S^*$ and $S$ denote the subset of outcomes and larger set of outcomes, respectively, and $\lambda_{S^* | S}$ is the propensity based on some linear model.
 
 Kruschke saved the data for Figure 22.3 in the `CondLogistRegData1.csv` and `CondLogistRegData2.csv` files.
 
@@ -142,18 +172,18 @@ Let's bind the two data frames together and plot in bulk.
 
 ```{r, fig.width = 5}
 bind_rows(d3, d4) %>%
-  mutate(data = rep(str_c("d", 3:4), each = n() / 2)) %>% 
+  mutate(data = rep(str_c("d", 3:4), each = n() / 2),
+         Y = factor(Y)) %>% 
   
   ggplot(aes(x = X1, y = X2, label = Y, color = Y)) +
   geom_hline(yintercept = 0, color = "white") +
   geom_vline(xintercept = 0, color = "white") +
   geom_text(size = 3) +
-  scale_color_viridis_c(end = .9) +
+  scale_color_manual(values = pl[2:5]) +
   coord_equal() +
   labs(x = expression(x[1]),
        y = expression(x[2])) +
-  theme(legend.position = "none",
-        panel.grid = element_blank()) +
+  theme(legend.position = "none") +
   facet_wrap(~data, ncol = 2)
 ```
 
@@ -165,7 +195,7 @@ Kruschke pointed out in his Figure 22.4 and the surrounding prose that we speak 
 
 > The **categorical** family is currently only implemented with the multivariate logit link function and has density
 >
-> $$f(y) = \mu_y = \frac{\exp (\eta_y)}{\sum_{k = 1}^K \exp  (\eta_k)}$$
+> $$f(y) = \mu_y = \frac{\exp (\eta_y)}{\sum_{k = 1}^K \exp (\eta_k)}$$
 >
 > Note that $\eta$ does also depend on the category $k$. For reasons of identifiability, $\eta_1$ is set to $0$.
 
@@ -237,17 +267,15 @@ post %>%
   
   # plot
   ggplot(aes(x = value, y = 0)) +
-  stat_histintervalh(point_interval = mode_hdi, .width = .95,
-                     fill = "grey67", slab_color = "grey92",
-                     breaks = 30, slab_size = .25, outline_bars = T,
-                     normalize = "panels") +
+  stat_histinterval(point_interval = mode_hdi, .width = .95,
+                    fill = pl[4], slab_color = pl[3], color = pl[1], point_color = pl[2],
+                    normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab("marginal posterior") +
-  theme(panel.grid = element_blank()) +
   facet_grid(lambda~parameter, labeller = label_parsed, scales = "free_x")
 ```
 
-Because the $\beta$ values for when $\lambda = 1$ are all fixed to 0, we left those plots out of our version of the figure. If you really wanted them, you'd have to enter the corresponding cells into the data before plotting. If you summarize each parameter by it's posterior mean, `round()`, and wrangle a little, you can arrange the results in a similar way that the equations for $\lambda_2$ through $\lambda_4$ are displayed on the left side of Figure 22.5
+Because the $\beta$ values for when $\lambda = 1$ are all fixed to 0, we left those plots out of our version of the figure. If you really wanted them, you'd have to enter the corresponding cells into the data before plotting. If you summarize each parameter by it's posterior mean, `round()`, and wrangle a little, you can arrange the results in a similar way that the equations for $\lambda_2$ through $\lambda_4$ are displayed on the left side of Figure 22.5.
 
 ```{r}
 post %>% 
@@ -283,11 +311,11 @@ fitted(fit22.1,
   
   ggplot(aes(x = X1, y = X2, fill = probability)) +
   geom_raster(interpolate = T) +
-  scale_fill_viridis_c(expression(phi[italic(k)*"|"*italic(S)]),
-                       option = "A", limits = c(0, 1)) +
+  scale_fill_gradientn(expression(phi[italic(k)*"|"*italic(S)]),,
+                       colours = pnw_palette(name = "Lake", n = 101),
+                       limits = c(0, 1)) +
   scale_x_continuous(expand = c(0, 0)) +
   scale_y_continuous(expand = c(0, 0)) +
-  theme(panel.grid = element_blank()) +
   facet_wrap(~name, labeller = label_parsed)
 ```
 
@@ -301,7 +329,7 @@ I'm not pursuing this model type at this time. If you work through the solution,
 
 ## Generalizations and variations of the models
 
-These models can be generalized to include different kinds of predictors, variants robust to outliers, and model comparison via information criteria and so forth. Also, you can find a couple more examples with softmax regression in Chapter 10 of McElreath's [*Statistical rethinking*](https://xcelab.net/rm/statistical-rethinking/).
+These models can be generalized to include different kinds of predictors, variants robust to outliers, and model comparison via information criteria and so forth. You can find a few more examples with softmax regression in Chapter 10 of the first edition of McElreath's [-@mcelreathStatisticalRethinkingBayesian2015] [*Statistical rethinking*](https://xcelab.net/rm/statistical-rethinking/) and Chapter 11 of his second edition [@mcelreathStatisticalRethinkingBayesian2020]. See also Kurz [-@kurzStatisticalRethinkingBrms2020, [Section 11.3](https://bookdown.org/content/4857/god-spiked-the-integers.html#multinomial-and-categorical-models)] and Kurz [-@kurzStatisticalRethinkingBrms2020, [Section 10.3.1](https://bookdown.org/content/3890/counting-and-classification.html#multinomial)].
 
 ## Session info {-}
 
@@ -311,14 +339,11 @@ sessionInfo()
 
 ```{r, message = F, echo = F}
 # remove the objects
-rm(d1, d2, d3, d4, fit22.1, post, nd)
+rm(d1, d2, pl, d3, d4, fit22.1, post, nd)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
-pacman::p_unload(pacman::p_loaded(), character.only = TRUE)
-
 ggplot2::theme_set(ggplot2::theme_grey())
-
-bayesplot::color_scheme_set("blue")
+pacman::p_unload(pacman::p_loaded(), character.only = TRUE)
 ```
 
