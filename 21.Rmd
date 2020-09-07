@@ -29,13 +29,13 @@ Figure 21.1 is beyond the scope of our current **ggplot2** paradigm. But we will
 Our statistical model will follow the form
 
 \begin{align*}
-\mu & = \operatorname{logistic} (\beta_0 + \beta_1 x_1 + \beta_2 x_2) \\
-y & \sim \operatorname{Bernoulli} (\mu)
+\mu & = \operatorname{logistic}(\beta_0 + \beta_1 x_1 + \beta_2 x_2) \\
+y & \sim \operatorname{Bernoulli}(\mu)
 \end{align*}
 
 where
 
-$$\operatorname{logistic} (x) = \frac{1}{(1 + \exp (-x))}.$$
+$$\operatorname{logistic}(x) = \frac{1}{[1 + \exp (-x)]}.$$
 
 The generic **brms** code for logistic regression using the Bernoulli likelihood looks like so.
 
@@ -61,7 +61,7 @@ fit <-
                 prior(normal(0, 2), class = b)))
 ```
 
-As long as the data are not aggregated, the results of these two should be the same within simulation variance. In **brms**, the default link for both `family = bernoulli` and `family = binomial` models is `logit`, which is exactly what we want, here. Also, note the additional `| trials(1) ` syntax on the left side of the model formula. You could get away with omitting this in older versions of **brms**. But newer versions prompt users to specify how many of trials each row in the data represents. This is because, as with the baseball data we’ll use later in the chapter, the binomial distribution includes an $n$ parameter. When working with un-aggregated data like what we’re about to do, below, it’s presumed that $n = 1$.
+As long as the data are not aggregated, the results of these two should be the same within simulation variance. In **brms**, the default link for both `family = bernoulli` and `family = binomial` models is `logit`, which is exactly what we want, here. Also, note the additional `| trials(1) ` syntax on the left side of the model formula. You could get away with omitting this in older versions of **brms**. But newer versions prompt users to specify how many of trials each row in the data represents. This is because, as with the baseball data we’ll use later in the chapter, the binomial distribution includes an $n$ parameter. When working with un-aggregated data like what we’re about to do, below, it's presumed that $n = 1$.
 
 ### Example: Height, weight, and gender.
 
@@ -84,30 +84,57 @@ my_data <-
          weight_z = (weight - mean(weight)) / sd(weight))
 ```
 
-Before we fit a model, we might take a quick look at the data. The `ggMarginal()` function from the [**ggExtra** package](https://github.com/daattali/ggExtra) [@R-ggExtra] will be of help, here.
+Before we fit a model, we might take a quick look at the data, which rases the issues of colors and theme. For this chapter, we'll take our color palette from the [**PNWColors** package](https://CRAN.R-project.org/package=PNWColors) [@R-PNWColors], which provides color palettes inspired by the beauty of my birthplace,the US Pacific Northwest. Our color palette will be `"Mushroom"`.
 
-```{r}
-# install.packages("ggExtra", dependencies = T)
-library(ggExtra)
+```{r, warning = F, message = F, fig.width = 3, fig.height = 1}
+# install.packages("PNWColors", dependencies = T)
+library(PNWColors)
+
+pm <- pnw_palette(name = "Mushroom", n = 8)
+
+pm
 ```
 
-Here we make a scatter plot with marginal densities.
+Our overall plot theme will be a `"Mushroom"` infused extension of `theme_linedraw()`.
+
+```{r}
+theme_set(
+  theme_linedraw() +
+    theme(text = element_text(color = pm[1]),
+          axis.text = element_text(color = pm[1]),
+          axis.ticks = element_line(color = pm[1]),
+          legend.background = element_blank(),
+          legend.box.background = element_blank(),
+          legend.key = element_rect(fill = pm[8]),
+          panel.background = element_rect(fill = pm[8], color = pm[8]),
+          panel.border = element_rect(colour = pm[1]),
+          panel.grid = element_blank(),
+          strip.background = element_rect(fill = pm[1], color = pm[1]),
+          strip.text = element_text(color = pm[8]))
+)
+```
+
+Our first plot will explore the relations among the continuous variables `weight` and `height` and the dummy variable `male`. The `ggMarginal()` function from the [**ggExtra** package](https://github.com/daattali/ggExtra) [@R-ggExtra] will help us get a sense of the multivariate distribution by allowing us to add marginal densities to a scatter plot.
 
 ```{r, fig.width = 4.25, fig.height = 4}
+# install.packages("ggExtra", dependencies = T)
+library(ggExtra)
+
 p <-
   my_data %>% 
   ggplot(aes(x = weight, y = height, fill = male == 1)) +
   geom_point(aes(color = male == 1), 
-             alpha = 2/3) +
-  scale_color_manual(values = c("red4", "blue4")) +
-  scale_fill_manual(values = c("red4", "blue4")) +
-  theme(legend.position = "none",
-        panel.grid = element_blank())
+             alpha = 3/4) +
+  scale_color_manual(values = pm[c(3, 6)]) +
+  scale_fill_manual(values = pm[c(3, 6)]) +
+  theme(legend.position = "none")
+
 p %>% 
   ggMarginal(data = my_data,  
+             colour = pm[1],
              groupFill = T,
-             type = 'density', 
-             color = "transparent")
+             alpha = .8,
+             type = "density")
 ```
 
 Looks like the data for which `male == 1` are concentrated in the upper right and those for which `male == 0` are more so in the lower left. What we'd like is a model that would tell us the optimal dividing line(s) between our `male` categories with respect to those predictor variables.
@@ -149,7 +176,7 @@ nd <- tibble(weight_z = seq(from = -2, to = 3.5, length.out = length))
 f <-
   fitted(fit21.1,
          newdata  = nd,
-         summary  = F,
+         summary = F,
          nsamples = n_iter) %>% 
   as_tibble() %>%
   mutate(iter = 1:n_iter) %>% 
@@ -175,17 +202,16 @@ Using those `thresholds`, here's our version of the top panel of Figure 21.3.
 ```{r, fig.width = 4.5, fig.height = 3.75}
 f %>% 
   ggplot(aes(x = weight)) +
-  geom_hline(yintercept = .5, color = "white", size = 1/2) +
-  geom_vline(xintercept = thresholds$weight, color = "white", size = 2/5) +
+  geom_hline(yintercept = .5, color = pm[7], size = 1/2, linetype = 2) +
+  geom_vline(xintercept = thresholds$weight, color = pm[6], size = 2/5) +
   geom_line(aes(y = value, group = iter),
-            color = "grey50", size = 1/3, alpha = 2/3) +
+            color = pm[1], size = 1/3, alpha = 2/3) +
   geom_point(data = my_data,
              aes(y = male),
-             alpha = 1/3) +
+             alpha = 1/3, color = pm[1]) +
   labs(title = "Data with Post. Pred.", 
        y = "male") +
-  coord_cartesian(xlim = range(my_data$weight)) +
-  theme(panel.grid = element_blank())
+  coord_cartesian(xlim = range(my_data$weight))
 ```
 
 We should discuss those thresholds (i.e., the verticla lines) a bit. Kruschke:
@@ -208,13 +234,12 @@ post <-
 # plot
 post %>% 
   ggplot(aes(x = value, y = 0)) +
-  stat_histintervalh(point_interval = mode_hdi, .width = c(.95, .5),
-                     fill = "grey67", slab_color = "grey92",
-                     breaks = 50, slab_size = .25, outline_bars = T,
-                     normalize = "panels") +
+  stat_halfeye(point_interval = mode_hdi, .width = .95, 
+               shape = 15, point_size = 2.5, point_color = pm[4],
+               slab_color = pm[1], fill = pm[7], color = pm[1],
+               slab_size = 1/2, size = 2, normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(NULL) +
-  theme(panel.grid = element_blank()) +
   facet_wrap(~name, scales = "free", ncol = 2)
 ```
 
@@ -225,6 +250,24 @@ post %>%
   group_by(name) %>% 
   mode_hdi() %>% 
   mutate_if(is.double, round, digits = 3)
+```
+
+If you look back at our code for the lower marginal plots for Figure 21.3, you'll notice we did a whole lot of argument tweaking within `tidybayes::stat_halfeye()`. We have a lot of marginal densities ahead of us in this chapter, so we might streamline our code with those settings saved in a custom function. As the vibe I'm going for in those settings is based on some of the plots in [Chapter 16](https://clauswilke.com/dataviz/visualizing-uncertainty.html) of Wilke's [-@wilkeFundamentalsDataVisualization2019], *Fundamentals of data visualization*, we'll call our function `stat_wilke()`.
+
+```{r}
+stat_wilke <- function(.width = .95, 
+                       shape = 15, point_size = 2.5, point_color = pm[4],
+                       slab_color = pm[1], fill = pm[7], color = pm[1],
+                       slab_size = 1/2, size = 2, ...) {
+  
+  stat_halfeye(point_interval = mode_hdi, .width = .width, 
+               shape = shape, point_size = point_size, point_color = point_color,
+               slab_color = slab_color, fill = fill, color = color, 
+               slab_size = slab_size, size = size,
+               normalize = "panels",
+               ...)
+  
+}
 ```
 
 Now fit the two-predictor model using both `weight_z` and `height_z`
@@ -275,15 +318,14 @@ post %>%
   # now plot
   ggplot(aes(x = weight, y = height)) +
   geom_line(aes(group = iter),
-            color = "white", size = 2/5) +
+            color = pm[7], size = 2/5, alpha = 2/3) +
   geom_text(data = my_data,
             aes(label = male, color = male == 1)) +
-  scale_color_manual(values = c("red4", "blue4")) +
+  scale_color_manual(values = pm[c(4, 1)]) +
   ggtitle("Data with Post. Pred.") +
   coord_cartesian(xlim = range(my_data$weight),
                   ylim = range(my_data$height)) +
-  theme(legend.position = "none",
-        panel.grid = element_blank())
+  theme(legend.position = "none")
 ```
 
 With just a tiny bit more wrangling, we'll be ready to make the bottom panels of Figure 21.4.
@@ -295,17 +337,13 @@ post %>%
                        levels = c("Intercept", "weight", "height"))) %>% 
   
   ggplot(aes(x = value, y = 0)) +
-  stat_histintervalh(point_interval = mode_hdi, .width = c(.95, .5),
-                     fill = "grey67", slab_color = "grey92",
-                     breaks = 40, slab_size = .25, outline_bars = T,
-                     normalize = "panels") +
+  stat_wilke() +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(NULL) +
-  theme(panel.grid = element_blank()) +
   facet_wrap(~name, scales = "free", ncol = 3)
 ```
 
-By now, you know how to use `mode_hdi()` to return those exact summary values if you'd like them.
+Did you notice our use of `stat_wilke()`? By now, you know how to use `mode_hdi()` to return those exact summary values if you'd like them.
 
 Now remember how we backed away from Figure 21.1? Well, when you have a logistic regression with two predictors, there is a reasonable way to express those three dimensions on a two-dimensional grid. Now we have the results from `fit21.2`, let's try it out.
 
@@ -346,8 +384,9 @@ f %>%
   geom_text(data = my_data,
             aes(label = male, color = male == 1),
             show.legend = F) +
-  scale_color_manual(values = c("white", "black")) +
-  scale_fill_viridis_c(option = "A", begin = .1, limits = c(0, 1)) +
+  scale_color_manual(values = pm[c(8, 1)]) +
+  scale_fill_gradientn(colours = pnw_palette(name = "Mushroom", n = 101),
+                       limits = c(0, 1)) +
   scale_y_continuous(position = "right") +
   coord_cartesian(xlim = range(my_data$weight),
                   ylim = range(my_data$height)) +
@@ -356,12 +395,12 @@ f %>%
 
 If you look way back to Figure 21.1 (p. 623), you'll see the following formula at the top:
 
-$$y \sim \operatorname{dbern} (m), m = \operatorname{logistic} (0.018 x_1 + 0.7 x_2 - 50).$$
+$$y \sim \operatorname{dbern}(m), m = \operatorname{logistic}(0.018 x_1 + 0.7 x_2 - 50).$$
 
 Now while you keep your finger on that equation, take another look at the last line in Kruschke's Equation 21.1,
 
 $$
-\operatorname{logit} (\mu) = 
+\operatorname{logit}(\mu) = 
 \underbrace{\zeta_0 - \sum_j \frac{\zeta_j}{s_{x_j}} \overline x_j}_{\beta_0} +
 \sum_j \underbrace{\frac{\zeta_j}{s_{x_j}} \overline x_j}_{\beta_j},
 $$
@@ -387,15 +426,15 @@ Hopefully this helps make sense of what the thresholds in Figure 21.4.a represen
 
 ### Log odds.
 
-> When the logistic regression formula is written using the logit function, we have $\operatorname{logit} (\mu) = \beta_0 + \beta_1 x_1 + \beta_2 x_2$. The formula implies that whenever $x_1$ goes up by 1 unit (on the $x_1$ scale), then $\operatorname{logit} (\mu)$ goes up by an amount $\beta_1$. And whenever $x_2$ goes up by 1 unit (on the $x_2$ scale), then $\operatorname{logit} (\mu)$ goes up by an amount $\beta_2$. Thus, the regression coefficients are telling us about increases in $\operatorname{logit} (\mu)$. To understand the regression coefficients, we need to understand $\operatorname{logit} (\mu)$. (pp. 629--630)
+> When the logistic regression formula is written using the logit function, we have $\operatorname{logit}(\mu) = \beta_0 + \beta_1 x_1 + \beta_2 x_2$. The formula implies that whenever $x_1$ goes up by 1 unit (on the $x_1$ scale), then $\operatorname{logit}(\mu)$ goes up by an amount $\beta_1$. And whenever $x_2$ goes up by 1 unit (on the $x_2$ scale), then $\operatorname{logit}(\mu)$ goes up by an amount $\beta_2$. Thus, the regression coefficients are telling us about increases in $\operatorname{logit}(\mu)$. To understand the regression coefficients, we need to understand $\operatorname{logit}(\mu)$. (pp. 629--630)
 
 Given the logit function is the inverse of the logistic, which itself is
 
-$$\operatorname{logistic} (x) = \frac{1}{1 + \exp (−x)},$$
+$$\operatorname{logistic}(x) = \frac{1}{1 + \exp (−x)},$$
 
 and given the formula 
 
-$$\operatorname{logit} (\mu) = \log \bigg (\frac{\mu}{1 - \mu} \bigg), $$
+$$\operatorname{logit}(\mu) = \log \left (\frac{\mu}{1 - \mu} \right), $$
 
 where
 
@@ -404,22 +443,21 @@ $$0 < \mu < 1, $$
 it may or may not be clear that the results of our logistic regression models have a nonlinear relation with the actual parameter of interest, $\mu$, which, recall, is the probability our criterion variable is 1 (e.g., `male == 1`). To get a sense of that nonlinear relation, we might make a plot.
 
 ```{r, fig.width = 3.25, fig.height = 3}
-tibble(mu = seq(from = 0, to = 1, length.out = 200)) %>% 
+tibble(mu = seq(from = 0, to = 1, length.out = 300)) %>% 
   mutate(logit_mu = log(mu / (1 - mu))) %>% 
 
   ggplot(aes(x = mu, y = logit_mu)) +
-  geom_line() +
+  geom_line(color = pm[3], size = 1.5) +
   labs(x = expression(mu~"(i.e., the probability space)"),
        y = expression(logit~mu~"(i.e., the parameter space)")) +
-  theme(legend.position = "none",
-        panel.grid = element_blank())
+  theme(legend.position = "none")
 ```
 
 So whereas our probability space is bound between 0 and 1, the parameter space shoots off into negative and positive infinity. Also,
 
-$$\operatorname{logit} (\mu) = \log \Bigg (\frac{p(y = 1)}{p(y = 0)} \Bigg ).$$
+$$\operatorname{logit}(\mu) = \log \left (\frac{p(y = 1)}{p(y = 0)} \right ).$$
 
-Thus, "the ratio, $p(y = 1) / p(y = 0)$, is called the odds of outcome 1 to outcome 0, and therefore $\operatorname{logit} (\mu)$ is the log odds of outcome 1 to outcome 0" (p. 630).
+Thus, "the ratio, $p(y = 1) / p(y = 0)$, is called the odds of outcome 1 to outcome 0, and therefore $\operatorname{logit}(\mu)$ is the log odds of outcome 1 to outcome 0" (p. 630).
 
 Here's a table layout of the height/weight examples in the middle of page 630.
 
@@ -514,16 +552,15 @@ We're ready to plot the top left panel of Figure 21.5.
 ```{r, fig.width = 4.25, fig.height = 3.75}
 f %>%   
   ggplot(aes(x = x, y = y)) +
-  geom_hline(yintercept = .5, color = "white") +
-  geom_vline(xintercept = thresholds$x, color = "white", size = 2/5) +
+  geom_hline(yintercept = .5, color = pm[7], size = 1/2) +
+  geom_vline(xintercept = thresholds$x, color = pm[6], size = 2/5, linetype = 2) +
   geom_line(aes(group = iter),
-            color = "grey50", alpha = 2/3, size = 1/3) +
+            color = pm[1], size = 1/3, alpha = 2/3) +
   geom_point(data = d_rare,
-             alpha = 1/5) +
+             alpha = 1/3, color = pm[1]) +
   scale_x_continuous(breaks = -3:3) +
   ggtitle("Data with Post. Pred.") +
-  coord_cartesian(xlim = c(-3, 3)) +
-  theme(panel.grid = element_blank())
+  coord_cartesian(xlim = c(-3, 3))
 ```
 
 Here are the two subplots at the bottom, left.
@@ -535,13 +572,9 @@ posterior_samples(fit21.3) %>%
   pivot_longer(everything()) %>% 
   
   ggplot(aes(x = value, y = 0)) +
-  stat_histintervalh(point_interval = mode_hdi, .width = c(.95, .5),
-                     fill = "grey67", slab_color = "grey92",
-                     breaks = 40, slab_size = .25, outline_bars = T,
-                     normalize = "panels") +
+  stat_wilke() +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(NULL) +
-  theme(panel.grid = element_blank()) +
   facet_wrap(~name, scales = "free", ncol = 2)
 ```
 
@@ -607,16 +640,15 @@ thresholds <-
 p1 <-
   f %>%   
   ggplot(aes(x = x, y = y)) +
-  geom_hline(yintercept = .5, color = "white") +
-  geom_vline(xintercept = thresholds$x, color = "white", size = 2/5) +
+  geom_hline(yintercept = .5, color = pm[7], size = 1/2) +
+  geom_vline(xintercept = thresholds$x, color = pm[6], size = 2/5, linetype = 2) +
   geom_line(aes(group = iter),
-            color = "grey50", alpha = 2/3, size = 1/3) +
+            color = pm[1], size = 1/3, alpha = 2/3) +
   geom_point(data = d_not_rare,
              aes(y = y),
-             alpha = 1/5) +
+             alpha = 1/3, color = pm[1]) +
   ggtitle("Data with Post. Pred.") +
-  coord_cartesian(xlim = c(-3, 3)) +
-  theme(panel.grid = element_blank())
+  coord_cartesian(xlim = c(-3, 3))
 ```
 
 Now make the two subplots at the bottom.
@@ -629,13 +661,9 @@ p2 <-
   pivot_longer(everything()) %>% 
   
   ggplot(aes(x = value, y = 0)) +
-  stat_histintervalh(point_interval = mode_hdi, .width = c(.95, .5),
-                     fill = "grey67", slab_color = "grey92",
-                     breaks = 40, slab_size = .25, outline_bars = T,
-                     normalize = "panels") +
+  stat_wilke() +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(NULL) +
-  theme(panel.grid = element_blank()) +
   facet_wrap(~name, scales = "free", ncol = 2)
 ```
 
@@ -727,11 +755,11 @@ posterior_samples(fit21.5) %>%
   pivot_longer(-lp__) %>% 
   
   ggplot(aes(x = value, y = name)) +
-  stat_gradientintervalh(point_interval = mode_hdi, .width = c(.5, .95), fill = "grey25") +
+  stat_gradientinterval(point_interval = mode_hdi, .width = c(.5, .95), 
+                        color = pm[1], fill = pm[4]) +
   labs(x = NULL, y = NULL) +
   theme(axis.text.y = element_text(hjust = 0),
-        axis.ticks.y = element_blank(),
-        panel.grid = element_blank())
+        axis.ticks.y = element_blank())
 ```
 
 Them are some sloppy estimates! But we digress. Here's our version of Figure 21.6.a.
@@ -745,20 +773,19 @@ posterior_samples(fit21.5) %>%
          x1 = c(-4, 4)) %>% 
   # this follows the equation near the top of p. 629
   mutate(x2 = (-b_Intercept / b_x2) + (-b_x1 / b_x2) * x1) %>% 
-  
+
   # now plot
   ggplot(aes(x = x1, y = x2)) +
   geom_line(aes(group = iter),
-            color = "white", size = 2/5) +
+            color = pm[7], size = 2/5, alpha = 2/3) +
   geom_text(data = d,
             aes(label = y, color = y == 1),
             size = 2.5) +
-  scale_color_manual(values = c("red4", "blue4")) +
+  scale_color_manual(values = pm[c(4, 1)]) +
   ggtitle("Data with Post. Pred.") +
   coord_cartesian(xlim = c(-3, 3),
                   ylim = c(-3, 3)) +
-  theme(legend.position = "none", 
-        panel.grid = element_blank())
+  theme(legend.position = "none")
 ```
 
 It can be easy to under-appreciate how sensitive this plot is to the seed you set for `sample_n()`. To give a better sense of the uncertainty in the posterior for the threshold, here we show the plot for several different seeds.
@@ -787,31 +814,70 @@ tibble(seed = 1:9) %>%
   # plot
   ggplot(aes(x = x1, y = x2)) +
   geom_line(aes(group = iter),
-            color = "white", size = 1/3) +
+            color = pm[7], size = 2/5, alpha = 2/3) +
   geom_text(data = d,
             aes(label = y, color = y == 1),
             size = 1.5) +
-  scale_color_manual(values = c("red4", "blue4")) +
+  scale_color_manual(values = pm[c(4, 1)]) +
   ggtitle("Data with Post. Pred.") +
   coord_cartesian(xlim = c(-3, 3),
                   ylim = c(-3, 3)) +
-  theme(legend.position = "none",
-        panel.grid = element_blank()) +
+  theme(legend.position = "none") +
   facet_wrap(~seed)
 ```
 
-We'll use `pairs()` to make our version of Figure 21.6.b.
+To make our version of the pairs plots in Figure 21.6.b, we'll bring back some of our old tricks with **GGally**. First, we define our custom settings for the upper triangle, the diagonal, and lower triangle.
 
-```{r, fig.width = 3.75, fig.height = 3.5}
-pairs(fit21.5,
-      off_diag_args = list(size = 1/5, alpha = 1/5))
+```{r, warning = F, message = F}
+library(GGally)
+
+my_upper <- function(data, mapping, ...) {
+  ggplot(data = data, mapping = mapping) + 
+    geom_point(size = 1/2, shape = 1, alpha = 1/4, color = pm[2])
+    # geom_point(size = 1/4, alpha = 1/4, color = pm[2])
+}
+
+my_diag <- function(data, mapping, ...) {
+  ggplot(data = data, mapping = mapping) + 
+    stat_wilke() +
+    scale_x_continuous(NULL, breaks = NULL) +
+    scale_y_continuous(NULL, breaks = NULL) +
+    coord_cartesian(ylim = c(-0.01, NA))
+}
+
+my_lower <- function(data, mapping, ...) {
+  
+  # get the x and y data to use the other code
+  x <- eval_data_col(data, mapping$x)
+  y <- eval_data_col(data, mapping$y)
+  
+  # compute the correlations
+  corr <- cor(x, y, method = "p", use = "pairwise")
+  abs_corr <- abs(corr)
+  
+  # plot the cor value
+  ggally_text(
+    label = formatC(corr, digits = 2, format = "f") %>% str_replace(., "0.", "."),
+    mapping = aes(),
+    color = pm[1],
+    size = 4) +
+    scale_x_continuous(NULL, breaks = NULL) +
+    scale_y_continuous(NULL, breaks = NULL) +
+    theme(panel.background = element_rect(fill = pm[8]))
+}
 ```
 
-Finally, here are the Pearson's correlations among the model parameters.
+Now we wrangle and plot.
 
-```{r}
-vcov(fit21.5, correlation = T) %>%
-  round(digits = 3)
+```{r, fig.width = 3.75, fig.height = 3.5, warning = F, message = F}
+posterior_samples(fit21.5) %>% 
+  transmute(`Intercept~(beta[0])` = b_Intercept,
+            `x1~(beta[1])`        = b_x1,
+            `x2~(beta[2])`        = b_x2) %>% 
+  ggpairs(upper = list(continuous = my_upper),
+          diag = list(continuous = my_diag),
+          lower = list(continuous = my_lower),
+          labeller = label_parsed)
 ```
 
 ### Interaction of metric predictors.
@@ -883,9 +949,9 @@ f %>%
   geom_text(data = d,
             aes(label = y, color = y == 1),
             size = 2.75, show.legend = F) +
-  scale_color_manual(values = c("white", "black")) +
-  scale_fill_viridis_c(expression(italic(p)(italic(y)==1)), 
-                       option = "A", begin = .15, limits = c(0, 1)) +
+  scale_color_manual(values = pm[c(8, 1)]) +
+  scale_fill_gradientn(colours = pnw_palette(name = "Mushroom", n = 101),
+                       limits = c(0, 1)) +
   scale_x_continuous(expand = c(0, 0)) +
   scale_y_continuous(expand = c(0, 0)) +
   coord_cartesian(xlim = range(nd$x1),
@@ -898,7 +964,7 @@ Instead of a simple threshold line, we get to visualize our interaction as a che
 
 With the robust logistic regression approach,
 
-> we will describe the data as being a mixture of two different sources. One source is the logistic function of the predictor(s). The other source is sheer randomness or "guessing," whereby the $y$ value comes from the flip of a fair coin: $y \sim \operatorname{Bernoulli} (\mu = 1/2)$. We suppose that every data point has a small chance, $\alpha$, of being generated by the guessing process, but usually, with probability $1 - \alpha$, the $y$ value comes from the logistic function of the predictor. With the two sources combined, the predicted probability that $y = 1$ is
+> we will describe the data as being a mixture of two different sources. One source is the logistic function of the predictor(s). The other source is sheer randomness or "guessing," whereby the $y$ value comes from the flip of a fair coin: $y \sim \operatorname{Bernoulli}(\mu = 1/2)$. We suppose that every data point has a small chance, $\alpha$, of being generated by the guessing process, but usually, with probability $1 - \alpha$, the $y$ value comes from the logistic function of the predictor. With the two sources combined, the predicted probability that $y = 1$ is
 >
 > $$\mu = \alpha \cdot \frac{1}{2} + (1 - \alpha) \cdot \operatorname{logistic} \bigg ( \beta_0  + \sum_j \beta_j x_j \bigg )$$
 >
@@ -912,11 +978,10 @@ tibble(x = seq(from = 0, to = 1, length.out = 200)) %>%
   ggplot(aes(x = x)) +
   # check out this `ymax` trick?
   geom_ribbon(aes(ymin = 0, ymax = dbeta(x, 1, 9)),
-              size = 0, fill = "grey50") +
-  scale_y_continuous(NULL, breaks = NULL) +
-  labs(title = expression("beta"*(1*", "*9)), 
-       x = NULL) +
-  theme(panel.grid = element_blank())
+              size = 0, fill = pm[4]) +
+  scale_x_continuous(NULL, breaks = 0:5 / 5, expand = c(0, 0)) +
+  scale_y_continuous(NULL, breaks = NULL, expand = expansion(mult = c(0, 0.05))) +
+  ggtitle(expression("beta"*(1*", "*9)))
 ```
 
 To fit the **brms** analogue to Kruschke's rogust logistic regression model, we'll need to adopt what  Bürkner calls the non-linear syntax, which you can learn about in detail with his [-@Bürkner2020Non_linear] vignette, [*Estimating non-linear models with brms*](https://CRAN.R-project.org/package=brms/vignettes/brms_nonlinear.html).
@@ -954,7 +1019,9 @@ Anyway, here's a quick and dirty look at the conditional effects for `weight_z`.
 
 ```{r, fig.width = 4, fig.height = 3}
 conditional_effects(fit21.7) %>% 
-  plot(points = T)
+  plot(points = T,
+       line_args = list(color = pm[2], fill = pm[6]),
+       point_args = list(color = pm[1], alpha = 3/4))
 ```
 
 The way we prep for our version of Figure 21.8 is just the same as what we did for Figure 21.3, above.
@@ -988,17 +1055,16 @@ Now make the top panel.
 p1 <-
   f %>% 
   ggplot(aes(x = weight, y = value)) +
-  geom_hline(yintercept = .5, color = "white", size = 1/2) +
-  geom_vline(xintercept = thresholds$weight, color = "white", size = 2/5) +
+  geom_hline(yintercept = .5, color = pm[7], size = 1/2) +
+  geom_vline(xintercept = thresholds$weight, color = pm[6], size = 2/5, linetype = 2) +
   geom_line(aes(group = iter),
-            color = "grey50", size = 1/3, alpha = 2/3) +
+            color = pm[1], size = 1/3, alpha = 2/3) +
   geom_point(data = my_data,
              aes(y = male),
-             alpha = 1/3) +
+             alpha = 1/3, color = pm[1]) +
   labs(title = "Data with Post. Pred.", 
        y = "male") +
-  coord_cartesian(xlim = range(my_data$weight)) +
-  theme(panel.grid = element_blank())
+  coord_cartesian(xlim = range(my_data$weight))
 ```
 
 Here we make the marginal-distribution plots for our versions of the lower panels of Figure 21.8.
@@ -1013,13 +1079,9 @@ p2 <-
   mutate(name = factor(name, levels = c("Intercept", "weight", "guessing"))) %>% 
   
   ggplot(aes(x = value, y = 0)) +
-  stat_histintervalh(point_interval = mode_hdi, .width = c(.95, .5),
-                     fill = "grey67", slab_color = "grey92",
-                     breaks = 40, slab_size = .25, outline_bars = T,
-                     normalize = "panels") +
+  stat_wilke() +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(NULL) +
-  theme(panel.grid = element_blank()) +
   facet_wrap(~name, scales = "free", ncol = 3)
 ```
 
@@ -1030,11 +1092,17 @@ p1 / p2 +
   plot_layout(height = c(4, 1))
 ```
 
-Here are the `pairs()` plots.
+Here are the `ggpairs()` plots.
 
-```{r, fig.width = 3.75, fig.height = 3.5}
-pairs(fit21.7,
-      off_diag_args = list(size = 1/5, alpha = 1/5))
+```{r, fig.width = 3.75, fig.height = 3.5, warning = F, message = F}
+posterior_samples(fit21.7) %>% 
+  transmute(`Intercept~(beta[0])` = b_b0_Intercept,
+            `weight~(beta[1])`    = b_b1_Intercept,
+            guessing              = b_a_Intercept) %>% 
+  ggpairs(upper = list(continuous = my_upper),
+          diag = list(continuous = my_diag),
+          lower = list(continuous = my_lower),
+          labeller = label_parsed)
 ```
 
 Look at how that sweet Stan-based HMC reduced the correlation between $\beta_0$ and $\beta_1$.
@@ -1050,20 +1118,20 @@ For more on this approach to robust logistic regression in **brms** and an alter
 If we have just a single group and no other predictors, that's just an intercept-only model. Back in the earlier chapters we thought of such a model as
 
 \begin{align*}
-y & \sim \operatorname{Bernoulli} (\theta) \\
-\theta & \sim \operatorname{dbeta} (a, b).
+y & \sim \operatorname{Bernoulli}(\theta) \\
+\theta & \sim \operatorname{dbeta}(a, b).
 \end{align*}
 
 Now we're expressing the model as
 
 \begin{align*}
-y   & \sim \operatorname{Bernoulli} (\mu) \\
-\mu & \sim \operatorname{logistic} (\beta_0).
+y   & \sim \operatorname{Bernoulli}(\mu) \\
+\mu & \sim \operatorname{logistic}(\beta_0).
 \end{align*}
 
 For that $\beta_0$, we typically use a Gaussian prior of the form
 
-$$\beta_0 \sim \operatorname{Normal} (M_0, S_0).$$
+$$\beta_0 \sim \operatorname{Normal}(M_0, S_0).$$
 
 In a situation where we don't have strong prior substantive knowledge, we often set $M_0 = 0$, which puts the probability mass around $\theta = .5$, a reasonable default hypothesis. Often times $S_0$ is some modest single-digit integer like 2 or 4. To get a sense of how different Gaussians translate to the beta distribution, we'll recreate Figure 21.11.
 
@@ -1084,12 +1152,11 @@ crossing(m_0 = 0:1,
   # plot
   ggplot(aes(x = sim,
              y = ..density..)) +
-  geom_histogram(color = "grey92", fill = "grey67",
+  geom_histogram(color = pm[8], fill = pm[7],
                  size = 1/3, bins = 20, boundary = 0) +
-  geom_line(stat = "density", size = 3/4) +
+  geom_line(stat = "density", size = 1, color = pm[3]) +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(expression(mu)) +
-  theme(panel.grid = element_blank()) +
   facet_wrap(~key, scales = "free_y", labeller = label_parsed)
 ```
 
@@ -1107,12 +1174,11 @@ tibble(m_0 = 0,
   # plot
   ggplot(aes(x = sim,
              y = ..density..)) +
-  geom_histogram(color = "grey92", fill = "grey67",
+  geom_histogram(color = pm[8], fill = pm[7],
                  size = 1/3, bins = 20, boundary = 0) +
-  geom_line(stat = "density", size = 3/4) +
+  geom_line(stat = "density", size = 1, color = pm[3]) +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(expression(mu)) +
-  theme(panel.grid = element_blank()) +
   facet_wrap(~key, scales = "free_y", labeller = label_parsed, ncol = 3)
 ```
 
@@ -1155,13 +1221,13 @@ glimpse(my_data)
 I'm not aware that Kruschke's modeling approach, here, will work well within the **brms** paradigm. I suggest we fit a simple hierarchical logistic regression model, instead. With this approach, we use the statistical model
 
 \begin{align*}
-\text{Hits}_i               & \sim \operatorname{Binomial} (\text{AtBats}_i, p_i) \\
-\operatorname{logit} (p_i)  & = \beta_0 + \beta_{\text{PriPos}_i} + \beta_{\text{PriPos:Player}_i} \\
-\beta_0                     & \sim \operatorname{Normal} (0, 2) \\
-\beta_\text{PriPos}         & \sim \operatorname{Normal} (0, \sigma_\text{PriPos}) \\
-\beta_\text{PriPos:Player}  & \sim \operatorname{Normal} (0, \sigma_\text{PriPos:Player}) \\
-\sigma_\text{PriPos}        & \sim \operatorname{HalfCauchy} (0, 1) \\
-\sigma_\text{PriPos:Player} & \sim \operatorname{HalfCauchy} (0, 1).
+\text{Hits}_i               & \sim \operatorname{Binomial}(\text{AtBats}_i, p_i) \\
+\operatorname{logit}(p_i)   & = \beta_0 + \beta_{\text{PriPos}_i} + \beta_{\text{PriPos:Player}_i} \\
+\beta_0                     & \sim \operatorname{Normal}(0, 2) \\
+\beta_\text{PriPos}         & \sim \operatorname{Normal}(0, \sigma_\text{PriPos}) \\
+\beta_\text{PriPos:Player}  & \sim \operatorname{Normal}(0, \sigma_\text{PriPos:Player}) \\
+\sigma_\text{PriPos}        & \sim \operatorname{HalfCauchy}(0, 1) \\
+\sigma_\text{PriPos:Player} & \sim \operatorname{HalfCauchy}(0, 1).
 \end{align*}
 
 Here's how to fit the model with **brms**. Notice we're finally making good use of the `trials()` syntax. This is because we're fitting an aggregated binomial model. Instead of our criterion variable `Hits` being a vector of 0's and 1's, it's the number of successful trials given the total number of trials, which is listed in the `AtBats` vector. Aggregated binomial.
@@ -1186,7 +1252,7 @@ Before we start plotting, review the model summary.
 print(fit21.8)
 ```
 
-If you look closely at our model versus the one in the text, you'll see ours has fewer parameters. As a down-the-line consequence, our model doesn't support a direct analogue to the plot at the top of Figure 21.13. However, we can come close. Rather than modeling the position-based probabilities as multiple draws of beta distributions, we can simply summarize our probabilities by their posterior distributions. 
+If you look closely at our model versus the one in the text, you'll see ours has fewer parameters. As a down-the-line consequence, our model doesn't support a direct analogue to the plot at the top of Figure 21.13. However, we can come close. Rather than modeling the position-based probabilities as multiple draws of beta distributions, we can simply summarize our probabilities by their posterior distributions.
 
 ```{r, fig.width = 8, fig.height = 2.75, warning = F, message = F}
 library(ggridges)
@@ -1210,18 +1276,18 @@ fitted(fit21.8,
   
   # plot
   ggplot(aes(x = probability, y = PriPos)) +
-  geom_vline(xintercept = fixef(fit21.8)[1] %>% inv_logit_scaled(), color = "white") +
-  geom_density_ridges(size = 0, fill = "grey67", scale = .9) +
+  geom_vline(xintercept = fixef(fit21.8)[1] %>% inv_logit_scaled(), color = pm[6]) +
+  geom_density_ridges(color = pm[1], fill = pm[7], size = 1/2,
+                      rel_min_height = 0.005, scale = .9) +
   geom_jitter(data = my_data,
               aes(x = Hits / AtBats),
-              height = .025, alpha = 1/6, size = 1/6) +
-  coord_cartesian(xlim = c(0, 1),
+              height = .025, alpha = 1/6, size = 1/6, color = pm[1]) +
+  scale_x_continuous("Hits / AtBats", breaks = 0:5 / 5, expand = c(0, 0)) +
+  coord_cartesian(xlim = c(0, 1), 
                   ylim = c(1, 9.5)) +
-  labs(title = "Data with Posterior Predictive Distrib.",
-       x = "Hits / AtBats") +
+  ggtitle("Data with Posterior Predictive Distrib.") +
   theme(axis.text.y = element_text(hjust = 0),
-        axis.ticks.y = element_blank(),
-        panel.grid = element_blank())
+        axis.ticks.y = element_blank())
 ```
 
 For kicks and giggles, we depicted the grand mean probability as the white vertical line in the background with the `geom_vline()` line.
@@ -1256,22 +1322,20 @@ nd %>%
   # plot!
   ggplot(aes(y = PriPos)) +
   geom_ridgeline(aes(x = theta, height = -density, group = interaction(PriPos, .draw)),
-                 fill = NA, color = adjustcolor("grey50", alpha.f = 1/3),
-                 size = 1/4, scale = 3/4, min_height = NA) +
+                 fill = NA, color = adjustcolor(pm[1], alpha.f = 1/3),
+                 size = 1/3, alpha = 2/3, min_height = NA) +
   geom_jitter(data = my_data,
               aes(x = Hits / AtBats, size = AtBats),
-              height = .05, alpha = 1/6, shape = 1) +
+              height = .05, alpha = 1/6, shape = 1, color = pm[1]) +
   scale_size_continuous(range = c(1/4, 4)) +
+  scale_x_continuous("Hits / AtBats", expand = c(0, 0)) +
   labs(title = "Data with Posterior Predictive Distrib.",
-       x = "Hits / AtBats",
        y = NULL) +
-  coord_flip(ylim = c(0.67, 8.67)) +
+  coord_flip(xlim = c(0, 1),
+             ylim = c(0.67, 8.67)) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1),
         axis.ticks.x = element_blank(),
-        legend.background = element_rect(fill = "transparent", color = "white"),
-        legend.key = element_rect(fill = "transparent", color = "transparent"),
-        legend.position = c(.956, .8),
-        panel.grid = element_blank())
+        legend.position = c(.956, .8))
 ```
 
 `r emo::ji("warning")` Since we didn't actually presume the beta distribution anywhere in our `brm()` statistical model, *I would not attempt to present this workflow in a scientific outlet*. Go with the previous plot. This attempt seems dishonest. But it is kinda fun to see how far we can push our results. `r emo::ji("warning")`
@@ -1315,14 +1379,10 @@ p1 <-
   mutate(name = factor(name, levels = c("Pitcher vs. Catcher", "Catcher vs. 1st Base"))) %>% 
   
   ggplot(aes(x = value, y = 0)) +
-  geom_vline(xintercept = 0, color = "white") +
-  stat_histintervalh(point_interval = mode_hdi, .width = c(.95, .5),
-                     fill = "grey67", slab_color = "grey92",
-                     breaks = 40, slab_size = .2, outline_bars = T,
-                     normalize = "panels") +
+  geom_vline(xintercept = 0, color = pm[6]) +
+  stat_wilke() +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab("Difference (in b)") +
-  theme(panel.grid = element_blank()) +
   facet_wrap(~name, scales = "free", ncol = 2)
 ```
 
@@ -1339,14 +1399,10 @@ p2 <-
   mutate(name = factor(name, levels = c("Pitcher vs. Catcher", "Catcher vs. 1st Base"))) %>% 
   
   ggplot(aes(x = value, y = 0)) +
-  geom_vline(xintercept = 0, color = "white") +
-  stat_histintervalh(point_interval = mode_hdi, .width = c(.95, .5),
-                     fill = "grey67", slab_color = "grey92",
-                     breaks = 40, slab_size = .2, outline_bars = T,
-                     normalize = "panels") +
+  geom_vline(xintercept = 0, color = pm[6]) +
+  stat_wilke() +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab("Difference (in probability)") +
-  theme(panel.grid = element_blank()) +
   facet_wrap(~name, scales = "free", ncol = 2)
 ```
 
@@ -1366,14 +1422,11 @@ sessionInfo()
 
 ```{r, message = F, echo = F}
 # Here we'll remove our objects
-rm(my_data, p, fit21.1, length, n_iter, nd, f, thresholds, fit21.2, post, b0, b1, n, d_rare, fit21.3, d_not_rare, fit21.4, p1, p2, p3, s, m, d, b2, fit21.5, different_seed, b3, fit21.6, fit21.7, logistic, positions, fit21.8)
+rm(my_data, pm, p, fit21.1, length, n_iter, nd, f, thresholds, stat_wilke, fit21.2, post, b0, b1, n, d_rare, fit21.3, d_not_rare, fit21.4, p1, p2, p3, s, m, d, b2, fit21.5, different_seed, my_upper, my_diag, my_lower, b3, fit21.6, fit21.7, logistic, positions, fit21.8)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
-pacman::p_unload(pacman::p_loaded(), character.only = TRUE)
-
 ggplot2::theme_set(ggplot2::theme_grey())
-
-bayesplot::color_scheme_set("blue")
+pacman::p_unload(pacman::p_loaded(), character.only = TRUE)
 ```
 
