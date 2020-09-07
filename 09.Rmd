@@ -77,6 +77,145 @@ tibble(k = seq(from = 10, to = 200, by = 10)) %>%
 
 Holding $\omega$ constant, the density gets more concentrated around $\omega$ as $\kappa$ increases. But back to the text" "Now we make the essential expansion of our scenario into the realm of hierarchical models. Instead of thinking of $\omega$ as fixed by prior knowledge, we think of it as another parameter to be estimated" (p. 224).
 
+```{r, fig.width = 3.9, fig.height = 5, message = F}
+library(ggforce)
+library(patchwork)
+
+p1 <-
+  tibble(x = seq(from = .01, to = .99, by = .01),
+       d = (dbeta(x, 2, 2)) / max(dbeta(x, 2, 2))) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = d)) +
+  geom_ribbon(fill = "grey67", size = 0) +
+  annotate(geom = "text",
+           x = .5, y = .2,
+           label = "beta",
+           size = 7) +
+  annotate(geom = "text",
+           x = .5, y = .6,
+           label = "italic(A[omega])*', '*italic(B[omega])", 
+           size = 7, family = "Times", parse = TRUE) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5))
+
+p2 <-
+  tibble(x = c(.5, .475, .26, .08, .06,
+               .5, .55, .85, 1.15, 1.2),
+         y = c(1, .7, .6, .5, .2,
+               1, .7, .6, .5, .2),
+         line = rep(letters[2:1], each = 5)) %>% 
+  
+  ggplot(aes(x = x, y = y)) +
+  geom_bspline(aes(color = line),
+               size = 2/3, show.legend = F) + 
+  annotate(geom = "text",
+           x = 0, y = .125,
+           label = "omega(italic(K)-2)+1*', '*(1-omega)(italic(K)-2)+1",
+           size = 7, parse = T, family = "Times", hjust = 0) +
+  annotate(geom = "text",
+           x = 1/3, y = .7,
+           label = "'~'",
+           size = 10, parse = T, family = "Times") +
+  scale_color_manual(values = c("grey75", "black")) +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 2)) +
+  ylim(0, 1) +
+  theme_void()
+
+p3 <-
+  tibble(x = seq(from = .01, to = .99, by = .01),
+         d = (dbeta(x, 2, 2)) / max(dbeta(x, 2, 2))) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = d)) +
+  geom_ribbon(fill = "grey67", size = 0) +
+  annotate(geom = "text",
+           x = .5, y = .2,
+           label = "beta",
+           size = 7) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5))
+
+## an annotated arrow
+# save our custom arrow settings
+my_arrow <- arrow(angle = 20, length = unit(0.35, "cm"), type = "closed")
+
+p4 <-
+  tibble(x    = .5,
+         y    = 1,
+         xend = .5,
+         yend = 0) %>%
+  
+  ggplot(aes(x = x, xend = xend,
+             y = y, yend = yend)) +
+  geom_segment(arrow = my_arrow) +
+  annotate(geom = "text",
+           x = .375, y = 1/3,
+           label = "'~'",
+           size = 10, family = "Times", parse = T) +
+  xlim(0, 1) +
+  theme_void()
+
+# bar plot of Bernoulli data
+p5 <-
+  tibble(x = 0:1,
+         d = (dbinom(x, size = 1, prob = .6)) / max(dbinom(x, size = 1, prob = .6))) %>% 
+  
+  ggplot(aes(x = x, y = d)) +
+  geom_col(fill = "grey67", width = .4) +
+  annotate(geom = "text",
+           x = .5, y = .2,
+           label = "Bernoulli",
+           size = 7) +
+  annotate(geom = "text",
+           x = .5, y = .94,
+           label = "theta", 
+           size = 7, family = "Times", parse = T) +
+  xlim(-.75, 1.75) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5))
+
+# another annotated arrow
+p6 <-
+  tibble(x     = c(.375, .625),
+         y     = c(1/3, 1/3),
+         label = c("'~'", "italic(i)")) %>% 
+  
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(size = c(10, 7), parse = T, family = "Times") +
+  geom_segment(x = .5, xend = .5,
+               y = 1, yend = 0,
+               arrow = my_arrow) +
+  xlim(0, 1) +
+  theme_void()
+
+# some text
+p7 <-
+  tibble(x     = .5,
+         y     = .5,
+         label = "italic(y[i])") %>% 
+  
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(size = 7, parse = T, family = "Times") +
+  xlim(0, 1) +
+  theme_void()
+
+# define the layout
+layout <- c(
+  area(t = 1, b = 2, l = 1, r = 1),
+  area(t = 4, b = 5, l = 1, r = 1),
+  area(t = 3, b = 4, l = 1, r = 2),
+  area(t = 6, b = 6, l = 1, r = 1),
+  area(t = 7, b = 8, l = 1, r = 1),
+  area(t = 9, b = 9, l = 1, r = 1),
+  area(t = 10, b = 10, l = 1, r = 1)
+)
+
+# combine and plot!
+(p1 + p3 + p2 + p4 + p5 + p6 + p7) + 
+  plot_layout(design = layout) &
+  ylim(0, 1) &
+  theme(plot.margin = margin(0, 5.5, 0, 5.5))
+```
+
 ### Posterior via grid approximation.
 
 > When the parameters extend over a finite domain, and there are not too many of them, then we can approximate the posterior via grid approximation. In our present situation, we have the parameters $\theta$ and $\omega$ that both have finite domains, namely the interval $[0, 1]$. Therefore, a grid approximation is tractable and the distributions can be readily graphed. (p. 226)
@@ -551,6 +690,138 @@ d %>%
 ## Multiple coins from a single mint
 
 > What if we collect data from more than one coin created by the mint? If each coin has its own distinct bias $\theta_s$, then we are estimating a distinct parameter value for each coin, and using all the data to estimate $\omega$. (p. 230)
+
+Kruschke broke down a model of this form with his diagram in Figure 9.4. Here's our version of that figure.
+
+```{r, fig.width = 3.85, fig.height = 5, message = F}
+p1 <-
+  tibble(x = seq(from = .01, to = .99, by = .01),
+       d = (dbeta(x, 2, 2)) / max(dbeta(x, 2, 2))) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = d)) +
+  geom_ribbon(fill = a_purple, size = 0) +
+  annotate(geom = "text",
+           x = .5, y = .2,
+           label = "beta",
+           size = 7) +
+  annotate(geom = "text",
+           x = .5, y = .6,
+           label = "italic(A[omega])*', '*italic(B[omega])", 
+           size = 7, family = "Times", parse = TRUE) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5))
+
+p2 <-
+  tibble(x = c(.5, .475, .26, .08, .06,
+               .5, .55, .85, 1.15, 1.2),
+         y = c(1, .7, .6, .5, .2,
+               1, .7, .6, .5, .2),
+         line = rep(letters[2:1], each = 5)) %>% 
+  
+  ggplot(aes(x = x, y = y)) +
+  geom_bspline(aes(color = line),
+               size = 2/3, show.legend = F) + 
+  annotate(geom = "text",
+           x = 0, y = .125,
+           label = "omega(italic(K)-2)+1*', '*(1-omega)(italic(K)-2)+1",
+           size = 7, parse = T, family = "Times", hjust = 0) +
+  annotate(geom = "text",
+           x = 1/3, y = .7,
+           label = "'~'",
+           size = 10, parse = T, family = "Times") +
+  scale_color_manual(values = c("grey75", "black")) +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 2)) +
+  ylim(0, 1) +
+  theme_void()
+
+p3 <-
+  tibble(x = seq(from = .01, to = .99, by = .01),
+         d = (dbeta(x, 2, 2)) / max(dbeta(x, 2, 2))) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = d)) +
+  geom_ribbon(fill = a_purple, size = 0) +
+  annotate(geom = "text",
+           x = .5, y = .2,
+           label = "beta",
+           size = 7) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5))
+
+# an annotated arrow
+p4 <-
+  tibble(x     = c(.35, .65),
+         y     = c(1/3, 1/3),
+         label = c("'~'", "italic(s)")) %>% 
+  
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(size = c(10, 7), parse = T, family = "Times") +
+  geom_segment(x = .5, xend = .5,
+               y = 1, yend = 0,
+               arrow = my_arrow) +
+  xlim(0, 1) +
+  theme_void()
+
+# bar plot of Bernoulli data
+p5 <-
+  tibble(x = 0:1,
+         d = (dbinom(x, size = 1, prob = .6)) / max(dbinom(x, size = 1, prob = .6))) %>% 
+  
+  ggplot(aes(x = x, y = d)) +
+  geom_col(fill = a_purple, width = .4) +
+  annotate(geom = "text",
+           x = .5, y = .2,
+           label = "Bernoulli",
+           size = 7) +
+  annotate(geom = "text",
+           x = .5, y = .92,
+           label = "theta[italic(s)]", 
+           size = 7, family = "Times", parse = T) +
+  xlim(-.75, 1.75) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5))
+
+# another annotated arrow
+p6 <-
+  tibble(x     = c(.35, .65),
+         y     = c(1/3, 1/3),
+         label = c("'~'", "italic(i)*'|'*italic(s)")) %>% 
+  
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(size = c(10, 7), parse = T, family = "Times") +
+  geom_segment(x = .5, xend = .5,
+               y = 1, yend = 0,
+               arrow = my_arrow) +
+  xlim(0, 1) +
+  theme_void()
+
+# some text
+p7 <-
+  tibble(x     = 1,
+         y     = .5,
+         label = "italic(y)[italic(i)*'|'*italic(s)]") %>% 
+  
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(size = 7, parse = T, family = "Times") +
+  xlim(0, 2) +
+  theme_void()
+
+# define the layout
+layout <- c(
+  area(t = 1, b = 2, l = 1, r = 1),
+  area(t = 4, b = 5, l = 1, r = 1),
+  area(t = 3, b = 4, l = 1, r = 2),
+  area(t = 6, b = 6, l = 1, r = 1),
+  area(t = 7, b = 8, l = 1, r = 1),
+  area(t = 9, b = 9, l = 1, r = 1),
+  area(t = 10, b = 10, l = 1, r = 1)
+)
+
+# plot!
+(p1 + p3 + p2 + p4 + p5 + p6 + p7) + 
+  plot_layout(design = layout) &
+  ylim(0, 1) &
+  theme(plot.margin = margin(0, 5.5, 0, 5.5))
+```
 
 ### Posterior via grid approximation.
 
@@ -1055,12 +1326,9 @@ p53 <-
         text = element_text(color = "white"))
 ```
 
-
 Okay, let's make the full version of Figure 9.6.
 
 ```{r, fig.width = 6.5, fig.height = 9, warning = F, message = F}
-library(patchwork)
-
 (p11 / p21 / p31 / p41 / p51) | (p12 / p22 / p32 / p42 / p52) | (p13 / p23 / p33 / p43 / p53)
 ```
 
@@ -1071,6 +1339,164 @@ Oh mamma!
 In case you didn't catch it, we used different numbers of points to evaluate each parameter. Whereas Kruschke indicated in the text he only used 50, we used 101. That value of 101 came from how we defined our `parameter_space` with the code `seq(from = 0, to = 1, by = .01)`. The reason we used a more densely-packed parameter space was to get smoother-looking 2D density plots.
 
 ### A realistic model with MCMC.
+
+In this section, Kruschke freed up the previously fixed value of $K$, now letting $\kappa$ vary hierarchically with a gamma prior. He depicted the model in Figure 9.7. Here's our version of the figure.
+
+```{r, fig.width = 3.9, fig.height = 5, message = F}
+# a beta density
+p1 <-
+  tibble(x = seq(from = .01, to = .99, by = .01),
+         d = (dbeta(x, 2, 2)) / max(dbeta(x, 2, 2))) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = d)) +
+  geom_ribbon(fill = a_purple, size = 0) +
+  annotate(geom = "text",
+           x = .5, y = .2,
+           label = "beta",
+           size = 7) +
+  annotate(geom = "text",
+           x = .5, y = .6,
+           label = "italic(A[omega])*', '*italic(B[omega])", 
+           size = 7, family = "Times", parse = TRUE) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5))
+
+# a gamma density
+p2 <-
+  tibble(x = seq(from = 0, to = 5, by = .01),
+         d = (dgamma(x, 1.75, .85) / max(dgamma(x, 1.75, .85)))) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = d)) +
+  geom_ribbon(fill = a_purple, size = 0) +
+  annotate(geom = "text",
+           x = 2.5, y = .2,
+           label = "gamma",
+           size = 7) +
+  annotate(geom = "text",
+           x = 2.5, y = .6,
+           label = "list(italic(S)[kappa], italic(R)[kappa])",
+           size = 7, family = "Times", parse = TRUE) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5))
+
+p3 <-
+  tibble(x = c(.5, .475, .26, .08, .06,
+               .5, .55, .85, 1.15, 1.175,
+               1.5, 1.4, 1, .25, .2,
+               1.5, 1.49, 1.445, 1.4, 1.39),
+         y = c(1, .7, .6, .5, .2,
+               1, .7, .6, .5, .2,
+               1, .7, .6, .5, .2,
+               1, .75, .6, .45, .2),
+         line = rep(letters[2:1], each = 5) %>% rep(., times = 2),
+         plot = rep(1:2, each = 10)) %>% 
+  
+  ggplot(aes(x = x, y = y, group = interaction(plot, line))) +
+  geom_bspline(aes(color = line),
+               size = 2/3, show.legend = F) + 
+  annotate(geom = "text",
+           x = 0, y = .1,
+           label = "omega(kappa-2)+1*', '*(1-omega)(kappa-2)+1",
+           size = 7, parse = T, family = "Times", hjust = 0) +
+  annotate(geom = "text",
+           x = c(1/3, 1.15), y = .7,
+           label = "'~'",
+           size = 10, parse = T, family = "Times") +
+  scale_color_manual(values = c("grey75", "black")) +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 2)) +
+  ylim(0, 1) +
+  theme_void()
+
+# another beta density
+p4 <-
+  tibble(x = seq(from = .01, to = .99, by = .01),
+         d = (dbeta(x, 2, 2)) / max(dbeta(x, 2, 2))) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = d)) +
+  geom_ribbon(fill = a_purple, size = 0) +
+  annotate(geom = "text",
+           x = .5, y = .2,
+           label = "beta",
+           size = 7) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5))
+
+# an annotated arrow
+p5 <-
+  tibble(x     = c(.375, .625),
+         y     = c(1/3, 1/3),
+         label = c("'~'", "italic(s)")) %>% 
+  
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(size = c(10, 7), parse = T, family = "Times") +
+  geom_segment(x = 0.5, xend = 0.5,
+               y = 1, yend = 0,
+               arrow = my_arrow) +
+  xlim(0, 1) +
+  theme_void()
+
+# bar plot of Bernoulli data
+p6 <-
+  tibble(x = 0:1,
+         d = (dbinom(x, size = 1, prob = .6)) / max(dbinom(x, size = 1, prob = .6))) %>% 
+  
+  ggplot(aes(x = x, y = d)) +
+  geom_col(fill = a_purple, width = .4) +
+  annotate(geom = "text",
+           x = .5, y = .2,
+           label = "Bernoulli",
+           size = 7) +
+  annotate(geom = "text",
+           x = .5, y = .94,
+           label = "theta", 
+           size = 7, family = "Times", parse = T) +
+  xlim(-.75, 1.75) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5))
+
+# another annotated arrow
+p7 <-
+  tibble(x     = c(.35, .65),
+         y     = c(1/3, 1/3),
+         label = c("'~'", "italic(i)*'|'*italic(s)")) %>% 
+  
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(size = c(10, 7), parse = T, family = "Times") +
+  geom_segment(x = .5, xend = .5,
+               y = 1, yend = 0,
+               arrow = my_arrow) +
+  xlim(0, 1) +
+  theme_void()
+
+# some text
+p8 <-
+  tibble(x     = .5,
+         y     = .5,
+         label = "italic(y[i])['|'][italic(s)]") %>% 
+  
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(size = 7, parse = T, family = "Times") +
+  xlim(0, 1) +
+  theme_void()
+
+# define the layout
+layout <- c(
+  area(t = 1, b = 2, l = 1, r = 1),
+  area(t = 1, b = 2, l = 2, r = 2),
+  area(t = 4, b = 5, l = 1, r = 1),
+  area(t = 3, b = 4, l = 1, r = 2),
+  area(t = 6, b = 6, l = 1, r = 1),
+  area(t = 7, b = 8, l = 1, r = 1),
+  area(t = 9, b = 9, l = 1, r = 1),
+  area(t = 10, b = 10, l = 1, r = 1)
+)
+
+# plot!
+(p1 + p2 + p4 + p3 + p5 + p6 + p7 + p8) + 
+  plot_layout(design = layout) &
+  ylim(0, 1) &
+  theme(plot.margin = margin(0, 5.5, 0, 5.5))
+```
 
 "Because the value of $\kappa − 2$ must be non-negative, the prior distribution on $\kappa − 2$ must not allow negative values" (p. 237). Gamma is one of the distributions with that property. The gamma distribution is defined by two parameters, its *shape* and *rate*. To get a sense of how those play out, here' a look at the gamma densities of Figure 9.8.
 
@@ -2162,7 +2588,7 @@ sessionInfo()
 
 ```{r, echo = F}
 # remove our objects
-rm(beta_by_k, alpha, beta, make_prior, parameter_space, d, geom_2dd, a_purple, geom_marginal, text, bernoulli_likelihood, n, z, trial_data, trial_data_1, trial_data_2, p11, p12, p13, p21, p22, p23, p31, p32, p33, p41, p42, p43, p51, p52, p53, length, gamma_s_and_r_from_mean_sd, gamma_s_and_r_from_mode_sd, gamma_param, my_data, fit9.1, post, post_small, p1, p2, p3, labels, sigmas, r_norm, fit9.1_prior, prior, prior_samples, omega, kappa1, kappa2, stop_time_bernoulli, start_time_bernoulli, stop_time_binomial, start_time_binomial, fit9.2, make_histogram, make_point, p4, coef_primary_position, coef_small, name_list, nd, fitted_players, fitted_positions)
+rm(beta_by_k, p1, p2, p3, my_arrow, p4, p5, p6, p7, layout, alpha, beta, make_prior, parameter_space, d, geom_2dd, a_purple, geom_marginal, text, bernoulli_likelihood, n, z, trial_data, trial_data_1, trial_data_2, p11, p12, p13, p21, p22, p23, p31, p32, p33, p41, p42, p43, p51, p52, p53, p8, length, gamma_s_and_r_from_mean_sd, gamma_s_and_r_from_mode_sd, gamma_param, my_data, fit9.1, post, post_small, labels, sigmas, r_norm, fit9.1_prior, prior, prior_samples, omega, kappa1, kappa2, stop_time_bernoulli, start_time_bernoulli, stop_time_binomial, start_time_binomial, fit9.2, make_histogram, make_point, coef_primary_position, coef_small, name_list, nd, fitted_players, fitted_positions)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
