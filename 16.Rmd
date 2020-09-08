@@ -163,7 +163,7 @@ stanvars <-
   stanvar(sd_y,   name = "sd_y")
 ```
 
-It's been a while since we used the `stanvar()` function, so we should review. Though we've saved that as `stanvars`, you could name it whatever you want. The main trick is to them tell `brms::brm()` about your values in a `stanvars` statement. 
+It's been a while since we used the `stanvar()` function, so we should review. Though we've saved that as `stanvars`, you could name it whatever you want. The main trick is to them tell `brms::brm()` about your values in a `stanvars` statement.
 
 Kruschke mentioned that the "the conventional noncommittal gamma prior [for the precision] has shape and rate constants that are close to zero, such as Sh = 0.01 and R = 0.01" (p. 456). Here's what that looks like.
 
@@ -181,7 +181,7 @@ tibble(x   = seq(from = 0, to = 12, by = .025)) %>%
                   ylim = c(0, 0.35))
 ```
 
-The thing is, with **brms** we typically estimate $\sigma$ rather than precision. Though gamma is also a feasible prior distribution for $\sigma$, we won't use it here. But we won't be using Kruschke's uniform prior, either. The Stan team [discourages uniform priors for variance parameters](https://github.com/stan-dev/stan/wiki/Prior-Choice-Recommendations), such as our $\sigma$. I'm not going to get into the details of why, but you've got that hyperlink above and the good old [Stan user's guide](https://mc-stan.org/docs/2_23/stan-users-guide/index.html) [@standevelopmentteamStanUserGuide2020] if you'd like to dive deeper. 
+The thing is, with **brms** we typically estimate $\sigma$ rather than precision. Though gamma is also a feasible prior distribution for $\sigma$, we won't use it here. But we won't be using Kruschke's uniform prior, either. The Stan team [discourages uniform priors for variance parameters](https://github.com/stan-dev/stan/wiki/Prior-Choice-Recommendations), such as our $\sigma$. I'm not going to get into the details of why, but you've got that hyperlink above and the good old [Stan user's guide](https://mc-stan.org/docs/2_23/stan-users-guide/index.html) [@standevelopmentteamStanUserGuide2020] if you'd like to dive deeper.
 
 Here we'll use the half normal. By "half normal," we mean that the mean is zero and it's bounded from zero to positive infinity--no negative $\sigma$ values for us! By the "half normal," we also mean to suggest that smaller values are more credible than those approaching infinity. When working with unstandardized data, an easy default for a weakly-regularizing half normal is to set the $\sigma$ hyperparameter (i.e., *S*) to the standard deviation of the criterion variable (i.e., $s_Y$). Here's that that looks like for this example.
 
@@ -198,7 +198,7 @@ tibble(x   = seq(from = 0, to = 110, by = .1)) %>%
   coord_cartesian(xlim = c(0, 100))
 ```
 
-This prior isn't quite as non-committal as the conventional gamma prior for precision. It discourages the HMC algorithm from exploring $\sigma$ values much larger than two or three times the standard deviation in the data themselves. In practice, I've found it to have a minimal influence on the posterior. If you'd like to make it even less committal, try setting that $\sigma$ hyperparameter to some multiple of $s_Y$ like $2 \times s_Y$ or $10 \times s_Y$. Compare this to Kruschke's recommendations for setting a noncommittal uniform prior for $\sigma$. When using the uniform distribution, $\operatorname{uniform}(L, H)$, 
+This prior isn't quite as non-committal as the conventional gamma prior for precision. It discourages the HMC algorithm from exploring $\sigma$ values much larger than two or three times the standard deviation in the data themselves. In practice, I've found it to have a minimal influence on the posterior. If you'd like to make it even less committal, try setting that $\sigma$ hyperparameter to some multiple of $s_Y$ like $2 \times s_Y$ or $10 \times s_Y$. Compare this to Kruschke's recommendations for setting a noncommittal uniform prior for $\sigma$. When using the uniform distribution, $\operatorname{uniform}(L, H)$,
 
 > we will set the high value $H$ of the uniform prior on $\sigma$ to a huge multiple of the standard deviation in the data, and set the low value $L$ to a tiny fraction of the standard deviation in the data. Again, this means that the prior is vague no matter what the scale of the data happens to be. (p. 455)
 
@@ -234,7 +234,128 @@ tibble(x = seq(from = -10000, to = 10000, by = 1)) %>%
   labs(subtitle = "The grey density in the background is the normal prior for mu.\nThe dashed vertical line is our 'mean_y' value.")
 ```
 
-Yep, Kruschke's right. That is one noncommittal prior given our data. We could tighten that up by an order of magnitude and still have little influence on the posterior. Anyway, here's how to put our priors to use with **brms**.
+Yep, Kruschke's right. That is one noncommittal prior given our data. We could tighten that up by an order of magnitude and still have little influence on the posterior. Now we've decided on our parameterization ($\sigma$, not $\tau$) and our priors (half-normal, not uniform or gamma), we are ready to make our version of the model diagram in Figure 16.2.
+
+```{r, fig.width = 3.9, fig.height = 3.5, message = F}
+library(patchwork)
+
+# normal density
+p1 <-
+  tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
+  geom_ribbon(fill = bp[6], size = 0) +
+  annotate(geom = "text",
+           x = 0, y = .2,
+           label = "normal",
+           size = 7, color = bp[5]) +
+  annotate(geom = "text",
+           x = c(0, 1.5), y = .6,
+           label = c("italic(M)", "italic(S)[mu]"), 
+           size = 7, color = bp[5], family = "Times", parse = T) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5, color = bp[4]))
+
+# half-normal density
+p2 <-
+  tibble(x = seq(from = 0, to = 3, by = .01),
+         d = (dnorm(x)) / max(dnorm(x))) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = d)) +
+  geom_ribbon(fill = bp[6], size = 0) +
+  annotate(geom = "text",
+           x = 1.5, y = .2,
+           label = "half-normal",
+           size = 7, color = bp[5]) +
+  annotate(geom = "text",
+           x = 1.5, y = .6,
+           label = "0*','*~italic(S)[sigma]", 
+           size = 7, color = bp[5], family = "Times", parse = T) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5, color = bp[4]))
+
+## two annotated arrows
+# save our custom arrow settings
+my_arrow <- arrow(angle = 20, length = unit(0.35, "cm"), type = "closed")
+
+p3 <-
+  tibble(x    = c(.43, 1.5),
+         y    = c(1, 1),
+         xend = c(.43, .8),
+         yend = c(.2, .2)) %>%
+  
+  ggplot(aes(x = x, xend = xend,
+             y = y, yend = yend)) +
+  geom_segment(arrow = my_arrow, color = bp[4]) +
+  annotate(geom = "text",
+           x = c(.3, 1), y = .6,
+           label = "'~'",
+           size = 10, color = bp[5], family = "Times", parse = T) +
+  xlim(0, 2) +
+  theme_void()
+
+# a second normal density
+p4 <-
+  tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
+  geom_ribbon(fill = bp[6], size = 0) +
+  annotate(geom = "text",
+           x = 0, y = .2,
+           label = "normal",
+           size = 7, color = bp[5]) +
+  annotate(geom = "text",
+           x = c(0, 1.5), y = .6,
+           label = c("mu", "sigma"), 
+           size = 7, color = bp[5], family = "Times", parse = T) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5, color = bp[4]))
+
+# the final annotated arrow
+p5 <-
+  tibble(x     = c(.375, .625),
+         y     = c(1/3, 1/3),
+         label = c("'~'", "italic(i)")) %>% 
+  
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(size = c(10, 7), color = bp[5], parse = T, family = "Times") +
+  geom_segment(x = .5, xend = .5,
+               y = 1, yend = 0, 
+               color = bp[4], arrow = my_arrow) +
+  xlim(0, 1) +
+  theme_void()
+
+# some text
+p6 <-
+  tibble(x     = .5,
+         y     = .5,
+         label = "italic(y[i])") %>% 
+  
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(size = 7, color = bp[5], parse = T, family = "Times") +
+  xlim(0, 1) +
+  theme_void()
+
+# define the layout
+layout <- c(
+  area(t = 1, b = 2, l = 1, r = 2),
+  area(t = 1, b = 2, l = 3, r = 4),
+  area(t = 4, b = 5, l = 1, r = 2),
+  area(t = 3, b = 4, l = 1, r = 4),
+  area(t = 6, b = 6, l = 1, r = 2),
+  area(t = 7, b = 7, l = 1, r = 2)
+)
+
+# combine and plot!
+(p1 + p2 + p4 + p3 + p5 + p6) + 
+  plot_layout(design = layout) &
+  ylim(0, 1) &
+  theme(plot.margin = margin(0, 5.5, 0, 5.5)) 
+```
+
+Two things about the notation in our diagram: Because we have two $\sigma$ hyperparameters, we've denoted the one for the prior on $\mu$ as $S_\mu$ and the one for the prior on $\sigma$ as $S_\sigma$. Also, note that we fixed the $\mu$ hyperparameter for half-normal prior to zero. This won't always be the case, but it's so common within the **brms** ecosystem that I'm going to express it this way throughout most of this ebook. This is our default.
+
+Here's how to put these priors to use with **brms**.
 
 ```{r fit16.1}
 fit16.1 <-
@@ -405,7 +526,7 @@ pp_check(fit16.1, nsamples = n_lines)
 
 In principle, we didn't need to load the **bayesplot** package to use the `brms::pp_check()` function. But doing so gave us access to the `bayesplot::color_scheme_set()`, which allowed us to apply the colors from our color palette to the plot.
 
-Before we move on, we should talk a little about effect sizes, which we all but glossed over in our code. 
+Before we move on, we should talk a little about effect sizes, which we all but glossed over in our code.
 
 > *Effect size* is simply the amount of change induced by the treatment relative to the standard deviation: $(\mu - 100) / \sigma$. In other words, the effect size is the "standardized" change... A conventionally "small" effect size in psychological research is 0.2 [@cohenStatisticalPowerAnalysis1988], and the ROPE limits are set at half that size for purposed of illustration. (p. 457, *emphasis* in the original).
 
@@ -573,8 +694,6 @@ p2 <-
 Now we'll bind the two ggplots together with the **patchwork** package to make the full version of Figure 16.6.
 
 ```{r, fig.width = 7, fig.height = 6, warning = F, message = F}
-library(patchwork)
-
 p1 + p2
 ```
 
@@ -739,10 +858,9 @@ post %>%
 
 For the final panel of Figure 16.9, we'll make our $t$ lines in much the same way we did, earlier. But last time, we just took the first $\mu$ and $\sigma$ values from the first 63 rows of the `post` tibble. This time we'll use `dplyr::sample_n()` to take *random draws* from the `post` rows instead. We tell `sample_n()` how many draws we'd like with the `size` argument. Since `sample_n()` tells us which rows it drew from in the form of rownames, we then use the `tibble::rownames_to_column()` function to save those rownames in an actual column named `draw`--this is the variable we group the lines by in `geom_line()`.
 
-In addition to the change in our row selection strategy, this time we'll slightly amend the code within the last `mutate()` line. Since we'd like to work with the $t$ distribution, we specified `metRology::dt.scaled()` function instead of `dnorm()`. 
-, fig.width = 3, fig.height = 2.25
+In addition to the change in our row selection strategy, this time we'll slightly amend the code within the last `mutate()` line. Since we'd like to work with the $t$ distribution, we specified `metRology::dt.scaled()` function instead of `dnorm()`.
 
-```{r}
+```{r, fig.width = 3, fig.height = 2.25}
 # how many credible density lines would you like?
 n_lines <- 63
 
@@ -903,6 +1021,143 @@ Almost all the stacking weight [see @yaoUsingStackingAverage2018] went to `fit16
 
 > When there are two groups, we estimate the mean and scale for each group. When using $t$ distributions for robust estimation, we could also estimate the normality of each group separately. But because there usually are relatively few outliers, we will use a single normality parameter to describe both groups, so that the estimate of the normality is more stably estimated. (p. 468)
 
+To get a sense of what this looks like, here's our version of the model diagram in Figure 16.11.
+
+```{r, fig.width = 5.9, fig.height = 3.5, message = F}
+# exponential density
+p1 <-
+  tibble(x = seq(from = 0, to = 1, by = .01)) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = (dexp(x, 2) / max(dexp(x, 2))))) +
+  geom_ribbon(fill = bp[6], size = 0) +
+  annotate(geom = "text",
+           x = .5, y = .2,
+           label = "exp",
+           size = 7, color = bp[5]) +
+  annotate(geom = "text",
+           x = .5, y = .6,
+           label = "italic(K)",
+           size = 7, color = bp[5], family = "Times", parse = T) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5, color = bp[4]))
+
+# normal density
+p2 <-
+  tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
+  geom_ribbon(fill = bp[6], size = 0) +
+  annotate(geom = "text",
+           x = 0, y = .2,
+           label = "normal",
+           size = 7, color = bp[5]) +
+  annotate(geom = "text",
+           x = c(0, 1.5), y = .6,
+           label = c("italic(M)", "italic(S)[mu]"), 
+           size = 7, color = bp[5], family = "Times", parse = T) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5, color = bp[4]))
+
+# half-normal density
+p3 <-
+  tibble(x = seq(from = 0, to = 3, by = .01),
+         d = (dnorm(x)) / max(dnorm(x))) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = d)) +
+  geom_ribbon(fill = bp[6], size = 0) +
+  annotate(geom = "text",
+           x = 1.5, y = .2,
+           label = "half-normal",
+           size = 7, color = bp[5]) +
+  annotate(geom = "text",
+           x = 1.5, y = .6,
+           label = "0*','*~italic(S)[sigma]", 
+           size = 7, color = bp[5], family = "Times", parse = T) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5, color = bp[4]))
+
+# four annotated arrows
+p4 <-
+  tibble(x    = c(.43, .43, 1.5, 2.5),
+         y    = c(1, .55, 1, 1),
+         xend = c(.43, 1.15, 1.5, 1.8),
+         yend = c(.8, .15, .2, .2)) %>%
+  
+  ggplot(aes(x = x, xend = xend,
+             y = y, yend = yend)) +
+  geom_segment(arrow = my_arrow, color = bp[4]) +
+  annotate(geom = "text",
+           x = c(.3, .65, 1.38, 1.62, 2, 2.3), y = c(.92, .25, .6, .6, .6, .6),
+           label = c("'~'", "'='", "'~'", "italic(j)", "'~'", "italic(j)"),
+           size = c(10, 10, 10, 7, 10, 7), 
+           color = bp[5], family = "Times", parse = T) +
+  annotate(geom = "text",
+           x = .43, y = .7,
+           label = "nu*minute+1",
+           size = 7, color = bp[5], family = "Times", parse = T) +
+  xlim(0, 3) +
+  theme_void()
+
+# student-t density
+p5 <-
+  tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = (dt(x, 3) / max(dt(x, 3))))) +
+  geom_ribbon(fill = bp[6], size = 0) +
+  annotate(geom = "text",
+           x = 0, y = .2,
+           label = "student t",
+           size = 7, color = bp[5], family = "Times") +
+  annotate(geom = "text",
+           x = 0, y = .6,
+           label = "nu~~~mu[italic(j)]~~~sigma[italic(j)]",
+           size = 7, color = bp[5], family = "Times", parse = T) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5, color = bp[4]))
+
+# the final annotated arrow
+p6 <-
+  tibble(x     = c(.375, .625),
+         y     = c(1/3, 1/3),
+         label = c("'~'", "italic(i)*'|'*italic(j)")) %>% 
+  
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(size = c(10, 7), color = bp[5], parse = T, family = "Times") +
+  geom_segment(x = .5, xend = .5,
+               y = 1, yend = 0, 
+               color = bp[4], arrow = my_arrow) +
+  xlim(0, 1) +
+  theme_void()
+
+# some text
+p7 <-
+  tibble(x     = .5,
+         y     = .5,
+         label = "italic(y)[italic(i)*'|'*italic(j)]") %>% 
+  
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(size = 7, color = bp[5], parse = T, family = "Times") +
+  xlim(0, 1) +
+  theme_void()
+
+# define the layout
+layout <- c(
+  area(t = 1, b = 2, l = 1, r = 2),
+  area(t = 1, b = 2, l = 3, r = 4),
+  area(t = 1, b = 2, l = 5, r = 6),
+  area(t = 4, b = 5, l = 3, r = 4),
+  area(t = 3, b = 4, l = 1, r = 6),
+  area(t = 6, b = 6, l = 3, r = 4),
+  area(t = 7, b = 7, l = 3, r = 4)
+)
+
+# combine and plot!
+(p1 + p2 + p3 + p5 + p4 + p6 + p7) + 
+  plot_layout(design = layout) &
+  ylim(0, 1) &
+  theme(plot.margin = margin(0, 5.5, 0, 5.5))
+```
+
 Since we subset the data, earlier, we'll just reload it to get the full data set.
 
 ```{r, message = F}
@@ -1011,7 +1266,7 @@ post %>%
 
 Now let's make the upper two panels in the right column of Figure 16.12.
 
-You might note a few things in our wrangling code. First, in the `mutate()` function, we defined the density values for the two `Group` conditions one at a time. If you look carefully within those definitions, you’ll see we used `10^Normality` for the `df` argument, rather than just `Normality`. *Why?* Remember how a few code blocks up we transformed the original `nu` column to `Normality` by placing it within `log10()`? Well, if you want to undo that, you have to take 10 to the power of `Normality`. Next, notice that we subset the `post` tibble with `select()`. This wasn't technically necessary, but it made the next line easier. Finally, with the `gather()` function, we transformed the `Placebo` and `Smart Drug` columns into an index column strategically named `Group`, which matched up with the original `my_data` data, and a `density` column, which contained the actual density values for the lines. 
+You might note a few things in our wrangling code. First, in the `mutate()` function, we defined the density values for the two `Group` conditions one at a time. If you look carefully within those definitions, you’ll see we used `10^Normality` for the `df` argument, rather than just `Normality`. *Why?* Remember how a few code blocks up we transformed the original `nu` column to `Normality` by placing it within `log10()`? Well, if you want to undo that, you have to take 10 to the power of `Normality`. Next, notice that we subset the `post` tibble with `select()`. This wasn't technically necessary, but it made the next line easier. Finally, with the `gather()` function, we transformed the `Placebo` and `Smart Drug` columns into an index column strategically named `Group`, which matched up with the original `my_data` data, and a `density` column, which contained the actual density values for the lines.
 
 I know. That's a lot to take in. If you're confused, run the lines in the code one at a time to see how they work. But anyway, here's the final result!
 
@@ -1123,7 +1378,7 @@ sessionInfo()
 
 ```{r, echo = F}
 # here we'll remove our objects
-rm(sequence_length, d, beyonce_palettes, bp, my_data, mean_y, sd_y, stanvars, fit16.1, post, rope, text, n_lines, n_draws, mu, p1, p2, fit16.2, fit16.3, h)
+rm(sequence_length, d, beyonce_palettes, bp, my_data, mean_y, sd_y, stanvars, p1, p2, my_arrow, p3, p4, p5, p6, layout, fit16.1, post, rope, text, n_lines, n_draws, mu, fit16.2, p7, fit16.3, h)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
