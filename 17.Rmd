@@ -121,7 +121,196 @@ I emphasized these points because I've heard and seen a lot of academics conflat
 
 ## Robust linear regression
 
-> There is no requirement to use a normal distribution for the noise distribution. The normal distribution is traditional because of its relative simplicity in mathematical derivations. But real data may have outliers, and the use of (optionally) heavy-tailed noise distributions is straight forward in contemporary Bayesian software[, like **brms**]. (pp. 479--480) 
+> There is no requirement to use a normal distribution for the noise distribution. The normal distribution is traditional because of its relative simplicity in mathematical derivations. But real data may have outliers, and the use of (optionally) heavy-tailed noise distributions is straight forward in contemporary Bayesian software[, like **brms**]. (pp. 479--480)
+
+Let's make our version of the model diagram in Figure 17.2 to get a sense of where we're going.
+
+```{r, fig.width = 7, fig.height = 5, message = F}
+library(patchwork)
+
+# normal density
+p1 <-
+  tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
+  geom_ribbon(fill = bp[6], size = 0) +
+  annotate(geom = "text",
+           x = 0, y = .2,
+           label = "normal",
+           size = 7, color = bp[1]) +
+  annotate(geom = "text",
+           x = c(0, 1.5), y = .6,
+           label = c("italic(M)[0]", "italic(S)[0]"), 
+           size = 7, color = bp[1], family = "Times", parse = T) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5, color = bp[1]))
+
+# a second normal density
+p2 <-
+  tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
+  geom_ribbon(fill = bp[6], size = 0) +
+  annotate(geom = "text",
+           x = 0, y = .2,
+           label = "normal",
+           size = 7, color = bp[1]) +
+  annotate(geom = "text",
+           x = c(0, 1.5), y = .6,
+           label = c("italic(M)[1]", "italic(S)[1]"), 
+           size = 7, color = bp[1], family = "Times", parse = T) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5, color = bp[1]))
+
+## two annotated arrows
+# save our custom arrow settings
+my_arrow <- arrow(angle = 20, length = unit(0.35, "cm"), type = "closed")
+p3 <-
+  tibble(x    = c(.33, 1.67),
+         y    = c(1, 1),
+         xend = c(.75, 1.1),
+         yend = c(0, 0)) %>%
+  
+  ggplot(aes(x = x, xend = xend,
+             y = y, yend = yend)) +
+  geom_segment(arrow = my_arrow, color = bp[1]) +
+  annotate(geom = "text",
+           x = c(.4, 1.25), y = .5,
+           label = "'~'",
+           size = 10, color = bp[1], family = "Times", parse = T) +
+  xlim(0, 2) +
+  theme_void()
+
+# exponential density
+p4 <-
+  tibble(x = seq(from = 0, to = 1, by = .01)) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = (dexp(x, 2) / max(dexp(x, 2))))) +
+  geom_ribbon(fill = bp[6], size = 0) +
+  annotate(geom = "text",
+           x = .5, y = .2,
+           label = "exp",
+           size = 7, color = bp[1]) +
+  annotate(geom = "text",
+           x = .5, y = .6,
+           label = "italic(K)",
+           size = 7, color = bp[1], family = "Times", parse = T) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5, color = bp[1]))
+
+# likelihood formula
+p5 <-
+  tibble(x = .5,
+         y = .25,
+         label = "beta[0]+beta[1]*italic(x)[italic(i)]") %>% 
+  
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(size = 7, color = bp[1], parse = T, family = "Times") +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 1)) +
+  ylim(0, 1) +
+  theme_void()
+
+# half-normal density
+p6 <-
+  tibble(x = seq(from = 0, to = 3, by = .01)) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
+  geom_ribbon(fill = bp[6], size = 0) +
+  annotate(geom = "text",
+           x = 1.5, y = .2,
+           label = "half-normal",
+           size = 7, color = bp[1]) +
+  annotate(geom = "text",
+           x = 1.5, y = .6,
+           label = "0*','*~italic(S)[sigma]", 
+           size = 7, color = bp[1], family = "Times", parse = T) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5, color = bp[1]))
+
+# four annotated arrows
+p7 <-
+  tibble(x    = c(.43, .43, 1.5, 2.5),
+         y    = c(1, .55, 1, 1),
+         xend = c(.43, 1.225, 1.5, 1.75),
+         yend = c(.8, .15, .2, .2)) %>%
+  
+  ggplot(aes(x = x, xend = xend,
+             y = y, yend = yend)) +
+  geom_segment(arrow = my_arrow, color = bp[1]) +
+  annotate(geom = "text",
+           x = c(.3, .7, 1.38, 2), y = c(.92, .22, .65, .6),
+           label = c("'~'", "'='", "'='", "'~'"),
+           size = 10, 
+           color = bp[1], family = "Times", parse = T) +
+  annotate(geom = "text",
+           x = .43, y = .7,
+           label = "nu*minute+1",
+           size = 7, color = bp[1], family = "Times", parse = T) +
+  xlim(0, 3) +
+  theme_void()
+
+# student-t density
+p8 <-
+  tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = (dt(x, 3) / max(dt(x, 3))))) +
+  geom_ribbon(fill = bp[6], size = 0) +
+  annotate(geom = "text",
+           x = 0, y = .2,
+           label = "student t",
+           size = 7, color = bp[1]) +
+  annotate(geom = "text",
+           x = 0, y = .6,
+           label = "nu~~~mu[italic(i)]~~~sigma",
+           size = 7, color = bp[1], family = "Times", parse = T) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5, color = bp[1]))
+
+# the final annotated arrow
+p9 <-
+  tibble(x     = c(.375, .625),
+         y     = c(1/3, 1/3),
+         label = c("'~'", "italic(i)")) %>% 
+  
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(size = c(10, 7), color = bp[1], parse = T, family = "Times") +
+  geom_segment(x = .5, xend = .5,
+               y = 1, yend = 0, 
+               color = bp[1], arrow = my_arrow) +
+  xlim(0, 1) +
+  theme_void()
+
+# some text
+p10 <-
+  tibble(x     = .5,
+         y     = .5,
+         label = "italic(y[i])") %>% 
+  
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(size = 7, color = bp[1], parse = T, family = "Times") +
+  xlim(0, 1) +
+  theme_void()
+
+# define the layout
+layout <- c(
+  area(t = 1, b = 2, l = 3, r = 5),
+  area(t = 1, b = 2, l = 7, r = 9),
+  area(t = 4, b = 5, l = 1, r = 3),
+  area(t = 4, b = 5, l = 5, r = 7),
+  area(t = 4, b = 5, l = 9, r = 11),
+  area(t = 3, b = 4, l = 3, r = 9),
+  area(t = 7, b = 8, l = 5, r = 7),
+  area(t = 6, b = 7, l = 1, r = 11),
+  area(t = 9, b = 9, l = 5, r = 7),
+  area(t = 10, b = 10, l = 5, r = 7)
+)
+
+# combine and plot!
+(p1 + p2 + p4 + p5 + p6 + p3 + p8 + p7 + p9 + p10) + 
+  plot_layout(design = layout) &
+  ylim(0, 1) &
+  theme(plot.margin = margin(0, 5.5, 0, 5.5))
+```
 
 Here's Kruschke's `HtWtDataGenerator()` code.
 
@@ -527,7 +716,7 @@ The issues is we want a system where we can readily specify vague priors on our 
 
 > a regression slope can take on a maximum value of $\operatorname{SD}_y / \operatorname{SD}_x$ for data that are perfectly correlated. Therefore, the prior on the slope will be given a standard deviation that is large compared to that maximum. The biggest that an intercept could be, for data that are perfectly correlated, is $M_x \operatorname{SD}_y / \operatorname{SD}_x$. Therefore, the prior on the intercept will have a standard deviation that is large compared to that maximum. (p. 487)
 
-With that in mind, we'll specify our `stanvars` as follows:
+With that in mind, we'll specify our `stanvars` as follows.
 
 ```{r}
 beta_0_sigma <- 10 * abs(m_x * sd_y / sd_x)
@@ -591,7 +780,7 @@ posterior_samples(fit17.3) %>%
 
 ### Stan or JAGS?
 
-In this project we only fit the models with **brms**, which uses Stan under the hood. But since we fit the $N = 300$ model with both standardized and unstandardized data, we can compare their performance. For that, we'll want **bayesplot**.
+In this ebook we only fit the models with **brms**, which uses Stan under the hood. But since we fit the $N = 300$ model with both standardized and unstandardized data, we can compare their performance. For that, we'll want **bayesplot**.
 
 ```{r, message = F, warning = F}
 library(bayesplot)
@@ -599,15 +788,7 @@ library(bayesplot)
 
 They had equally impressive autocorrelation plots.
 
-
-stat_histinterval(aes(x = value, y = 0), 
-                    point_interval = mode_hdi, .width = .95,
-                    fill = bp[6], color = bp[1], slab_color = bp[5],
-                    breaks = 40, normalize = "panels") +
-  
-  
-  , fig.width = 5, fig.height = 3
-```{r}
+```{r, fig.width = 5, fig.height = 3}
 # set the bayesplot color scheme
 color_scheme_set(scheme = bp[c(1, 3, 8, 7, 5, 5)])
 
@@ -617,11 +798,7 @@ mcmc_acf(posterior_samples(fit17.3), pars = c("b_Intercept", "b_height", "sigma"
 
 Their $N_{eff}/N$ ratios were pretty similar. Both were reasonable. You'd probably want to run a simulation to contrast them with any rigor.
 
-, fig.width = 6, fig.height = 3.25, warning = F, message = F
-
-```{r}
-library(patchwork)
-
+```{r, fig.width = 6, fig.height = 3.25, warning = F, message = F}
 # change the bayesplot color scheme
 color_scheme_set(scheme = bp[c(1, 3, 4, 6, 7, 9)])
 
@@ -642,7 +819,7 @@ p1 / p2 + plot_layout(guide = "collect")
 
 ### Interpreting the posterior distribution.
 
-Halfway through the prose, Kruschke mentioned how the models provide entire posteriors for the `weight` of a 50-inch-tall person. **brms** offers a few ways to do so. 
+Halfway through the prose, Kruschke mentioned how the models provide entire posteriors for the `weight` of a 50-inch-tall person. **brms** offers a few ways to do so.
 
 > In some applications, there is interest in extrapolating or interpolating trends at $x$ values sparsely represented in the current data. For instance, we might want to predict the weight of a person who is 50 inches tall. A feature of Bayesian analysis is that we get an entire distribution of credible predicted values, not only a point estimate. (p. 489)
 
@@ -671,7 +848,7 @@ fitted(fit17.3,
        newdata = nd)
 ```
 
-The code returned a typical **brms**-style summary of the posterior mean, standard deviation, and 95% percentile-based intervals. The same basic method will work for the standardized models, `fit17.1` or `fit17.2`. But that will take a little more wrangling. First, we'll need to transform our desired value 50 into its standardized version. 
+The code returned a typical **brms**-style summary of the posterior mean, standard deviation, and 95% percentile-based intervals. The same basic method will work for the standardized models, `fit17.1` or `fit17.2`. But that will take a little more wrangling. First, we'll need to transform our desired value 50 into its standardized version.
 
 ```{r}
 nd <- tibble(height_z = (50 - mean(d$height)) / sd(d$height))
@@ -706,7 +883,285 @@ glimpse(my_data)
 
 ### The model and implementation in ~~JAGS~~ brms.
 
-Here we'll standardize the data and define our `stanvars`. I should note that standardizing and mean centering, more generally, becomes complicated with multilevel models. Here we're just standardizing based on the grand mean and grand standard deviation. But there are other ways to standardize, such as within groups. Craig Enders has a good [-@endersCenteringPredictorsContextual2013] [book chapter](https://scholar.google.com/scholar?hl=en&as_sdt=0%2C1&q=Centering+Predictors+and+Contextual+Effects&btnG=) that touched on the topic, as well as an earlier [-@enders2007centering] [paper](http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.928.9848&rep=rep1&type=pdf) with Tofighi.
+Kruschke described the model diagram in Figure 17.6 as "a bit daunting" (p. 491). The code to make our version of the diagram is "a bit daunting," too. Just like the code for any other diagram, it's modular. If you're following along with me and making these on your own, just build it up, step by step.
+
+```{r, fig.width = 8.5, fig.height = 6, message = F}
+# normal density
+p1 <-
+  tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
+  geom_ribbon(fill = bp[6], size = 0) +
+  annotate(geom = "text",
+           x = 0, y = .2,
+           label = "normal",
+           size = 7, color = bp[1]) +
+  annotate(geom = "text",
+           x = c(0, 1.5), y = .6,
+           label = c("italic(M)[0]", "italic(S)[0]"), 
+           size = 7, color = bp[1], family = "Times", parse = T) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5, color = bp[1]))
+
+# half-normal density
+p2 <-
+  tibble(x = seq(from = 0, to = 3, by = .01)) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
+  geom_ribbon(fill = bp[6], size = 0) +
+  annotate(geom = "text",
+           x = 1.5, y = .2,
+           label = "half-normal",
+           size = 7, color = bp[1]) +
+  annotate(geom = "text",
+           x = 1.5, y = .6,
+           label = "0*','*~italic(S)[sigma][0]", 
+           size = 7, color = bp[1], family = "Times", parse = T) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5, color = bp[1]))
+
+# a second normal density
+p3 <-
+  tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
+  geom_ribbon(fill = bp[6], size = 0) +
+  annotate(geom = "text",
+           x = 0, y = .2,
+           label = "normal",
+           size = 7, color = bp[1]) +
+  annotate(geom = "text",
+           x = c(0, 1.5), y = .6,
+           label = c("italic(M)[1]", "italic(S)[1]"), 
+           size = 7, color = bp[1], family = "Times", parse = T) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5, color = bp[1]))
+
+# a second half-normal density
+p4 <-
+  tibble(x = seq(from = 0, to = 3, by = .01)) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
+  geom_ribbon(fill = bp[6], size = 0) +
+  annotate(geom = "text",
+           x = 1.5, y = .2,
+           label = "half-normal",
+           size = 7, color = bp[1]) +
+  annotate(geom = "text",
+           x = 1.5, y = .6,
+           label = "0*','*~italic(S)[sigma][1]", 
+           size = 7, color = bp[1], family = "Times", parse = T) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5, color = bp[1]))
+
+# four annotated arrows
+p5 <-
+  tibble(x    = c(.05, .35, .65, .95),
+         y    = c(1, 1, 1, 1),
+         xend = c(.32, .4, .65, .72),
+         yend = c(.2, .2, .2, .2)) %>%
+  
+  ggplot(aes(x = x, xend = xend,
+             y = y, yend = yend)) +
+  geom_segment(arrow = my_arrow, color = bp[1]) +
+  annotate(geom = "text",
+           x = c(.16, .35, .625, .78), y = .55,
+           label = "'~'",
+           size = 10, color = bp[1], family = "Times", parse = T) +
+  xlim(0, 1) +
+  theme_void()
+
+# third normal density
+p6 <-
+  tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
+  geom_ribbon(fill = bp[6], size = 0) +
+  annotate(geom = "text",
+           x = 0, y = .2,
+           label = "normal",
+           size = 7, color = bp[1]) +
+  annotate(geom = "text",
+           x = c(0, 1.5), y = .6,
+           label = c("mu[0]", "sigma[0]"), 
+           size = 7, color = bp[1], family = "Times", parse = T) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5, color = bp[1]))
+
+# fourth normal density
+p7 <-
+  tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
+  geom_ribbon(fill = bp[6], size = 0) +
+  annotate(geom = "text",
+           x = 0, y = .2,
+           label = "normal",
+           size = 7, color = bp[1]) +
+  annotate(geom = "text",
+           x = c(0, 1.5), y = .6,
+           label = c("mu[1]", "sigma[1]"), 
+           size = 7, color = bp[1], family = "Times", parse = T) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5, color = bp[1]))
+
+# two annotated arrows
+p8 <-
+  tibble(x    = c(.18, .82),
+         y    = c(1, 1),
+         xend = c(.36, .55),
+         yend = c(0, 0)) %>%
+  
+  ggplot(aes(x = x, xend = xend,
+             y = y, yend = yend)) +
+  geom_segment(arrow = my_arrow, color = bp[1]) +
+  annotate(geom = "text",
+           x = c(.18, .33, .64, .77), y = .55,
+           label = c("'~'", "italic(j)", "'~'", "italic(j)"),
+           size = c(10, 7, 10, 7), 
+           color = bp[1], family = "Times", parse = T) +
+  xlim(0, 1) +
+  theme_void()
+
+# exponential density
+p9 <-
+  tibble(x = seq(from = 0, to = 1, by = .01)) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = (dexp(x, 2) / max(dexp(x, 2))))) +
+  geom_ribbon(fill = bp[6], size = 0) +
+  annotate(geom = "text",
+           x = .5, y = .2,
+           label = "exp",
+           size = 7, color = bp[1]) +
+  annotate(geom = "text",
+           x = .5, y = .6,
+           label = "italic(K)",
+           size = 7, color = bp[1], family = "Times", parse = T) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5, color = bp[1]))
+
+# likelihood formula
+p10 <-
+  tibble(x = .5,
+         y = .25,
+         label = "beta[0][italic(j)]+beta[1][italic(j)]*italic(x)[italic(i)*'|'*italic(j)]") %>% 
+  
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(size = 7, color = bp[1], parse = T, family = "Times") +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 1)) +
+  ylim(0, 1) +
+  theme_void()
+
+# half-normal density
+p11 <-
+  tibble(x = seq(from = 0, to = 3, by = .01)) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
+  geom_ribbon(fill = bp[6], size = 0) +
+  annotate(geom = "text",
+           x = 1.5, y = .2,
+           label = "half-normal",
+           size = 7, color = bp[1]) +
+  annotate(geom = "text",
+           x = 1.5, y = .6,
+           label = "0*','*~italic(S)[sigma]", 
+           size = 7, color = bp[1], family = "Times", parse = T) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5, color = bp[1]))
+
+# four annotated arrows
+p12 <-
+  tibble(x    = c(.43, .43, 1.5, 2.5),
+         y    = c(1, .55, 1, 1),
+         xend = c(.43, 1.225, 1.5, 1.75),
+         yend = c(.8, .15, .2, .2)) %>%
+  
+  ggplot(aes(x = x, xend = xend,
+             y = y, yend = yend)) +
+  geom_segment(arrow = my_arrow, color = bp[1]) +
+  annotate(geom = "text",
+           x = c(.3, .7, 1.38, 2), y = c(.92, .22, .65, .6),
+           label = c("'~'", "'='", "'='", "'~'"),
+           size = 10, 
+           color = bp[1], family = "Times", parse = T) +
+  annotate(geom = "text",
+           x = .43, y = .7,
+           label = "nu*minute+1",
+           size = 7, color = bp[1], family = "Times", parse = T) +
+  xlim(0, 3) +
+  theme_void()
+
+# student-t density
+p13 <-
+  tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = (dt(x, 3) / max(dt(x, 3))))) +
+  geom_ribbon(fill = bp[6], size = 0) +
+  annotate(geom = "text",
+           x = 0, y = .2,
+           label = "student t",
+           size = 7, color = bp[1]) +
+  annotate(geom = "text",
+           x = 0, y = .6,
+           label = "nu~~mu[italic(i)*'|'*italic(j)]~~sigma",
+           size = 7, color = bp[1], family = "Times", parse = T) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5, color = bp[1]))
+
+# the final annotated arrow
+p14 <-
+  tibble(x     = c(.375, .625),
+         y     = c(1/3, 1/3),
+         label = c("'~'", "italic(i)*'|'*italic(j)")) %>% 
+  
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(size = c(10, 7), color = bp[1], parse = T, family = "Times") +
+  geom_segment(x = .5, xend = .5,
+               y = 1, yend = 0, 
+               color = bp[1], arrow = my_arrow) +
+  xlim(0, 1) +
+  theme_void()
+
+# some text
+p15 <-
+  tibble(x     = .5,
+         y     = .5,
+         label = "italic(y)[italic(i)*'|'*italic(j)]") %>% 
+  
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(size = 7, color = bp[1], parse = T, family = "Times") +
+  xlim(0, 1) +
+  theme_void()
+
+# define the layout
+layout <- c(
+  area(t = 1, b = 2, l = 1, r = 3),
+  area(t = 1, b = 2, l = 5, r = 7),
+  area(t = 1, b = 2, l = 9, r = 11),
+  area(t = 1, b = 2, l = 13, r = 15),
+  area(t = 4, b = 5, l = 5, r = 7),
+  area(t = 4, b = 5, l = 9, r = 11),
+  area(t = 3, b = 4, l = 1, r = 15),
+  area(t = 7, b = 8, l = 3, r = 5),
+  area(t = 7, b = 8, l = 7, r = 9),
+  area(t = 7, b = 8, l = 11, r = 13),
+  area(t = 6, b = 7, l = 5, r = 11),
+  area(t = 10, b = 11, l = 7, r = 9),
+  area(t = 9, b = 10, l = 3, r = 13),
+  area(t = 12, b = 12, l = 7, r = 9),
+  area(t = 13, b = 13, l = 7, r = 9)
+)
+
+# combine and plot!
+(p1 + p2 + p3 + p4 + p6 + p7 + p5 + p9 + p10 + p11 + p8 + p13 + p12 + p14 + p15) + 
+  plot_layout(design = layout) &
+  ylim(0, 1) &
+  theme(plot.margin = margin(0, 5.5, 0, 5.5))
+```
+
+Just look at that sweet thing! If you made you version, here; have a piece of cake. `r emo::ji("cake")`. You earned it.
+
+Now let's standardize the data and define our `stanvars`. I should note that standardizing and mean centering, more generally, becomes complicated with multilevel models. Here we're just standardizing based on the grand mean and grand standard deviation. But there are other ways to standardize, such as within groups. Craig Enders has a good [-@endersCenteringPredictorsContextual2013] [book chapter](https://scholar.google.com/scholar?hl=en&as_sdt=0%2C1&q=Centering+Predictors+and+Contextual+Effects&btnG=) that touched on the topic, as well as an earlier [-@enders2007centering] [paper](http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.928.9848&rep=rep1&type=pdf) with Tofighi.
 
 ```{r}
 my_data <-
@@ -954,7 +1409,7 @@ p4 <-
 (p4 / p2) + plot_layout(heights = c(0.6, 1))
 ```
 
-Especially if you're new to these kinds of models, it's easy to get lost in all that code. And for real--the wrangling required for those plots was no joke. The primary difficulty was that we had to convert standardized solutions to unstandardized solutions, which leads to an important distinction. When we used the first method of working with the `posterior_samples()` and `coef()` output, we focused on **transforming the model parameters**. In contrast, when we used the second method of working with the `fitted()` output, we focused instead on **transforming the model predictions and predictor values**. This distinction can be really confusing, at first. Stick with it! There will be times one method is more convenient or intuitive than the other. It's good to have both methods in your repertoire. 
+Especially if you're new to these kinds of models, it's easy to get lost in all that code. And for real--the wrangling required for those plots was no joke. The primary difficulty was that we had to convert standardized solutions to unstandardized solutions, which leads to an important distinction. When we used the first method of working with the `posterior_samples()` and `coef()` output, we focused on **transforming the model parameters**. In contrast, when we used the second method of working with the `fitted()` output, we focused instead on **transforming the model predictions and predictor values**. This distinction can be really confusing, at first. Stick with it! There will be times one method is more convenient or intuitive than the other. It's good to have both methods in your repertoire.
 
 ## Quadratic trend and weighted data
 
@@ -1225,7 +1680,7 @@ sessionInfo()
 
 ```{r, echo = F}
 # remove the objects
-rm(n_draw, d, curves, beyonce_palettes, bp, HtWtDataGenerator, standardize, fit17.1, stanvars, fit17.2, post, make_beta_0, make_beta_1, sd_x, sd_y, m_x, m_y, n_lines, rope, text, beta_0_sigma, beta_1_sigma, fit17.3, p1, p2, nd, my_data, fit17.4, p3, p4, c, f, fit17.5, make_beta_2)
+rm(n_draw, d, curves, beyonce_palettes, bp, p1, p2, my_arrow, p3, p4, p5, p6, p7, p8, p9, p10, layout, HtWtDataGenerator, standardize, fit17.1, stanvars, fit17.2, post, make_beta_0, make_beta_1, sd_x, sd_y, m_x, m_y, n_lines, rope, text, beta_0_sigma, beta_1_sigma, fit17.3, nd, my_data, p11, p12, p13, p14, p15, fit17.4, c, f, fit17.5, make_beta_2)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
