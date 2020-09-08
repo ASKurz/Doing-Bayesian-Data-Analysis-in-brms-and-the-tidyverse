@@ -201,6 +201,281 @@ Kruschke pointed out in his Figure 22.4 and the surrounding prose that we speak 
 
 Though there's no explicit softmax talk in that vignette, you can find it documented in his code [here](https://github.com/paul-buerkner/brms/blob/bc550ff3a2d41656a6711737faf1049207657800/R/distributions.R), starting in line 1891.
 
+Now onto our **ggplot2** + **patchwork** version of the model diagram in Figure 22.4. I'm not gonna lie. The requisite code is a slog. We'll take the task in bits. First, we make and save the elements for the diagram on the left.
+
+```{r, warning = F, message = F}
+library(patchwork)
+
+p1 <-
+  tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
+  geom_ribbon(fill = pl[6], color = pl[5]) +
+  annotate(geom = "text",
+           x = 0, y = .2,
+           label = "normal",
+           size = 7, color = pl[1]) +
+  annotate(geom = "text",
+           x = c(0, 1.5), y = .6,
+           label = c("italic(M)[0]", "italic(S)[0]"), 
+           size = 7, color = pl[1], hjust = 0, family = "Times", parse = T) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5, color = pl[1]),
+        plot.background = element_rect(fill = pl[8], color = "white", size = 1))
+
+p2 <-
+  tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
+  geom_ribbon(fill = pl[6], color = pl[5]) +
+  annotate(geom = "text",
+           x = 0, y = .2,
+           label = "normal",
+           size = 7, color = pl[1]) +
+  annotate(geom = "text",
+           x = c(0, 1.5), y = .6,
+           label = c("italic(M[jk])", "italic(S[jk])"), 
+           size = 7, color = pl[1], hjust = 0, family = "Times", parse = T) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5, color = pl[1]),
+        plot.background = element_rect(fill = pl[8], color = "white", size = 1))
+
+## an annotated arrow
+# save our custom arrow settings
+my_arrow <- arrow(angle = 20, length = unit(0.35, "cm"), type = "closed")
+p3 <-
+  tibble(x    = .5,
+         y    = 1,
+         xend = .75,
+         yend = 0) %>%
+  
+  ggplot(aes(x = x, xend = xend,
+             y = y, yend = yend)) +
+  geom_segment(arrow = my_arrow, color = pl[1]) +
+  annotate(geom = "text",
+           x = c(.5, .8), y = 1/3,
+           label = c("'~'", "italic(k)"),
+           size = c(10, 7), color = pl[1], family = "Times", parse = T) +
+  xlim(0, 1) +
+  theme_void()
+
+## another annotated arrow
+p4 <-
+  tibble(x    = .5,
+         y    = 1,
+         xend = .3,
+         yend = 0) %>%
+  
+  ggplot(aes(x = x, xend = xend,
+             y = y, yend = yend)) +
+  geom_segment(arrow = my_arrow, color = pl[1]) +
+  annotate(geom = "text",
+           x = c(.2, .5), y = 1/3,
+           label = c("'~'", "italic(jk)"),
+           size = c(10, 7), color = pl[1], family = "Times", parse = T) +
+  xlim(0, 1) +
+  theme_void()
+
+# likelihood formula
+p5 <-
+  tibble(x = .5,
+         y = .5,
+         label = "softmax(beta[0]['['*italic(k)*']']+sum()[italic(j)]~beta[italic(j)]['['*italic(k)*']']~italic(x)[italic(ji)])") %>% 
+  
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(size = 7, color = pl[1], parse = T, family = "Times") +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 1)) +
+  ylim(0, 1) +
+  theme_void()
+
+# a third annotated arrow
+p6 <-
+  tibble(x     = c(.375, .6),
+         y     = c(1/2, 1/2),
+         label = c("'='", "italic(i)")) %>% 
+  
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(size = c(10, 7), color = pl[1], parse = T, family = "Times") +
+  geom_segment(x = .5, xend = .5,
+               y = 1, yend = 0,
+               arrow = my_arrow, color = pl[1]) +
+  xlim(0, 1) +
+  theme_void()
+
+# bar plot of categorical data
+p7 <-
+  tibble(x = 0:3,
+         d = c(.5, .85, .5, .85)) %>% 
+  ggplot(aes(x = x, y = d)) +
+  geom_col(fill = pl[6], color = pl[5], width = .45) +
+  annotate(geom = "text",
+           x = 1.5, y = .2,
+           label = "categorical",
+           size = 7, color = pl[1]) +
+  annotate(geom = "text",
+           x = 1.5, y = .9, hjust = 0,
+           label = "mu[italic(i)*'['*italic(k)*']']",
+           size = 7, color = pl[1], family = "Times", parse = TRUE) +
+  coord_cartesian(xlim = c(-.5, 3.5),
+                  ylim = 0:1) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5, color = pl[1]),
+        plot.background = element_rect(fill = pl[8], color = "white", size = 1))
+
+# the final annotated arrow
+p8 <-
+  tibble(x     = c(.375, .625),
+         y     = c(1/3, 1/3),
+         label = c("'~'", "italic(i)")) %>% 
+  
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(size = c(10, 7), color = pm[1], parse = T, family = "Times") +
+  geom_segment(x = .5, xend = .5,
+               y = 1, yend = 0, 
+               color = pl[1], arrow = my_arrow) +
+  xlim(0, 1) +
+  theme_void()
+
+# some text
+p9 <-
+  tibble(x     = 1,
+         y     = .5,
+         label = "italic(y[i])") %>% 
+  
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(size = 7, color = pl[1], parse = T, family = "Times") +
+  xlim(0, 2) +
+  theme_void()
+
+# define the layout
+layout <- c(
+  area(t = 1, b = 2, l = 1, r = 2),
+  area(t = 1, b = 2, l = 3, r = 4),
+  area(t = 3, b = 3, l = 1, r = 2),
+  area(t = 3, b = 3, l = 3, r = 4),
+  area(t = 4, b = 4, l = 1, r = 4),
+  area(t = 5, b = 5, l = 2, r = 3),
+  area(t = 6, b = 7, l = 2, r = 3),
+  area(t = 8, b = 8, l = 2, r = 3),
+  area(t = 9, b = 9, l = 2, r = 3)
+)
+
+# combine and plot!
+a <-
+  (
+    (p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8 + p9) + 
+      plot_layout(design = layout) &
+      ylim(0, 1) &
+      theme(plot.margin = margin(0, 5.5, 0, 5.5))
+  )
+```
+
+Now we make and save the elements for the diagram on the right.
+
+```{r, warning = F, message = F}
+p2 <-
+  tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
+  geom_ribbon(fill = pl[6], color = pl[5]) +
+  annotate(geom = "text",
+           x = 0, y = .2,
+           label = "normal",
+           size = 7, color = pl[1]) +
+  annotate(geom = "text",
+           x = c(0, 1.5), y = .6,
+           label = c("italic(M[j])", "italic(S[j])"), 
+           size = 7, color = pl[1], hjust = 0, family = "Times", parse = T) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5, color = pl[1]),
+        plot.background = element_rect(fill = pl[8], color = "white", size = 1))
+
+## an annotated arrow
+p3 <-
+  tibble(x    = .5,
+         y    = 1,
+         xend = .85,
+         yend = 0) %>%
+  
+  ggplot(aes(x = x, xend = xend,
+             y = y, yend = yend)) +
+  geom_segment(arrow = my_arrow, color = pl[1]) +
+  annotate(geom = "text",
+           x = .6, y = 1/3,
+           label = "'~'",
+           size = 10, color = pl[1], family = "Times", parse = T) +
+  xlim(0, 1) +
+  theme_void()
+
+## another annotated arrow
+p4 <-
+  tibble(x    = .5,
+         y    = 1,
+         xend = .3,
+         yend = 0) %>%
+  
+  ggplot(aes(x = x, xend = xend,
+             y = y, yend = yend)) +
+  geom_segment(arrow = my_arrow, color = pl[1]) +
+  annotate(geom = "text",
+           x = c(.2, .5), y = 1/3,
+           label = c("'~'", "italic(j)"),
+           size = c(10, 7), color = pl[1], family = "Times", parse = T) +
+  xlim(0, 1) +
+  theme_void()
+
+# likelihood formula
+p5 <-
+  tibble(x = .5,
+         y = .5,
+         label = "logistic(beta[0]+sum()[italic(j)]~beta[italic(j)]~italic(x)[italic(ji)])") %>% 
+  
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(size = 7, color = pl[1], parse = T, family = "Times") +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 1)) +
+  ylim(0, 1) +
+  theme_void()
+
+# bar plot of Bernoulli data
+p7 <-
+  tibble(x = 0:1,
+         d = (dbinom(x, size = 1, prob = .6)) / max(dbinom(x, size = 1, prob = .6))) %>% 
+  
+  ggplot(aes(x = x, y = d)) +
+  geom_col(fill = pl[6], color = pl[5], width = .4) +
+  annotate(geom = "text",
+           x = .5, y = .2,
+           label = "Bernoulli",
+           size = 7, color = pl[1]) +
+  annotate(geom = "text",
+           x = .5, y = .9,
+           label = "mu[italic(i)]", 
+           size = 7, color = pl[1], family = "Times", parse = T) +
+  xlim(-.75, 1.75) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5, color = pl[1]),
+        plot.background = element_rect(fill = pl[8], color = "white", size = 1))
+
+# combine and plot!
+c <-
+  (
+    (p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8 + p9) + 
+      plot_layout(design = layout) &
+      ylim(0, 1) &
+      theme(plot.margin = margin(0, 5.5, 0, 5.5))
+  )
+```
+
+Here we combine the two model diagrams and plot!
+
+```{r, fig.width = 6, fig.height = 4.25, warning = F, message = F}
+b <- plot_spacer()
+
+(a | b | c) + plot_layout(widths = c(4, 1, 4))
+```
+
+`r emo::ji("tada")`
+
 ### Conditional logistic model.
 
 The conditional logistic regression models are not natively supported in **brms** at this time. However, if you follow [issue #560](https://github.com/paul-buerkner/brms/issues/560), you'll see there are ways to fit them using the nonlinear syntax. If you compare the syntax Bürkner used in that thread on January 30^th^ to the JAGS syntax Kruschke showed on pages 661 and 662, you'll see they appear to follow contrasting parameterizations.
@@ -339,7 +614,7 @@ sessionInfo()
 
 ```{r, message = F, echo = F}
 # remove the objects
-rm(d1, d2, pl, d3, d4, fit22.1, post, nd)
+rm(d1, d2, pl, d3, d4, p1, p2, my_arrow, p3, p4, p5, p6, p7, p8, p9, layout, a, c, b, fit22.1, post, nd)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
