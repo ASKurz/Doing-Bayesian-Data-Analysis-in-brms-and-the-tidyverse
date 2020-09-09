@@ -158,9 +158,221 @@ d %>%
 
 ## Hierarchical Bayesian approach
 
-"Our goal is to estimate its parameters in a Bayesian framework. Therefore, all the parameters need to be given a meaningfully structured prior distribution" (p. 557). However, our approach will depart a little from the one in the text. All our parameters will **not** "have generic noncommittal prior distributions" (p. 557). Most importantly, we will not follow the example in [@gelmanPriorDistributionsVariance2006] of putting a broad uniform prior on $\sigma_y$. Rather, we will continue using the half-Gaussian prior, as [recommended by the Stan team](https://github.com/stan-dev/stan/wiki/Prior-Choice-Recommendations). However, we will follow Kruschke's lead for the overall intercept and use a Gaussian prior "made broad on the scale of the data" (p. 557). And like Kruschke, we will estimate $\sigma_\beta$ from the data.
+"Our goal is to estimate its parameters in a Bayesian framework. Therefore, all the parameters need to be given a meaningfully structured prior distribution" (p. 557). However, our approach will depart a little from the one in the text. All our parameters will **not** "have generic noncommittal prior distributions" (p. 557). Most importantly, we will not follow the example in [@gelmanPriorDistributionsVariance2006] of putting a broad uniform prior on $\sigma_y$. Rather, we will continue using the half-Gaussian prior, as [recommended by the Stan team](https://github.com/stan-dev/stan/wiki/Prior-Choice-Recommendations). However, we will follow Kruschke's lead for the overall intercept and use a Gaussian prior "made broad on the scale of the data" (p. 557). And like Kruschke, we will estimate $\sigma_\beta$ from the data. To further get a sense of this, let's make our version of the hierarchical model diagram of Figure 19.2.
 
-Later on, Kruschke opined:
+```{r, fig.width = 6, fig.height = 5.5, message = F}
+library(patchwork)
+
+# bracket
+p1 <-
+  tibble(x = .99,
+         y = .5,
+         label = "{_}") %>% 
+  
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(size = 10, hjust = 1, color = pp[8], family = "Times") +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 1)) +
+  ylim(0, 1) +
+  theme_void()
+
+##  plain arrow
+# save our custom arrow settings
+my_arrow <- arrow(angle = 20, length = unit(0.35, "cm"), type = "closed")
+p2 <-
+  tibble(x    = .78,
+         y    = 1,
+         xend = .68,
+         yend = .25) %>%
+  
+  ggplot(aes(x = x, xend = xend,
+             y = y, yend = yend)) +
+  geom_segment(arrow = my_arrow, color = pp[4]) +
+  xlim(0, 1) +
+  theme_void()
+
+# normal density
+p3 <-
+  tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
+  geom_ribbon(fill = pp[9], size = 0) +
+  annotate(geom = "text",
+           x = 0, y = .2,
+           label = "normal",
+           size = 7, color = pp[4]) +
+  annotate(geom = "text",
+           x = c(0, 1.45), y = .6,
+           hjust = c(.5, 0),
+           label = c("italic(M)[0]", "italic(S)[0]"), 
+           size = 7, color = pp[4], family = "Times", parse = T) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5, color = pp[4]))
+
+# second normal density
+p4 <-
+  tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
+  geom_ribbon(fill = pp[9], size = 0) +
+  annotate(geom = "text",
+           x = 0, y = .2,
+           label = "normal",
+           size = 7, color = pp[4]) +
+  annotate(geom = "text",
+           x = c(0, 1.45), y = .6,
+           hjust = c(.5, 0),
+           label = c("0", "sigma[beta]"), 
+           size = 7, color = pp[4], family = "Times", parse = T) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5, color = pp[4]))
+
+# two annotated arrows
+p5 <-
+  tibble(x    = c(.19, .81),
+         y    = c(1, 1),
+         xend = c(.4, .74),
+         yend = c(0, 0)) %>%
+  ggplot(aes(x = x, xend = xend,
+             y = y, yend = yend)) +
+  geom_segment(arrow = my_arrow, color = pp[4]) +
+  annotate(geom = "text",
+           x = c(.22, .71, .81), y = .5,
+           label = c("'~'", "'~'", "italic(j)"),
+           size = c(10, 10, 7), 
+           color = pp[4], family = "Times", parse = T) +
+  xlim(0, 1) +
+  theme_void()
+
+# likelihood formula
+p6 <-
+  tibble(x = .99,
+         y = .25,
+         label = "beta[0]+sum()[italic(j)]*beta['['*italic(j)*']']*italic(x)['['*italic(j)*']'](italic(i))") %>% 
+ 
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(hjust = 1, size = 7, color = pp[4], parse = T, family = "Times") +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 1)) +
+  ylim(0, 1) +
+  theme_void()
+
+# half-normal density
+p7 <-
+  tibble(x = seq(from = 0, to = 3, by = .01)) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
+  geom_ribbon(fill = pp[9], size = 0) +
+  annotate(geom = "text",
+           x = 1.5, y = .2,
+           label = "half-normal",
+           size = 7, color = pp[4]) +
+  annotate(geom = "text",
+           x = 1.5, y = .6,
+           label = "0*','*~italic(S)[sigma]", 
+           size = 7, color = pp[4], family = "Times", parse = T) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5, color = pp[4]))
+
+# annotated arrow
+p8 <-
+  tibble(x     = .38,
+         y     = .65,
+         label = "'='") %>% 
+  
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(size = 10, color = pp[4], parse = T, family = "Times") +
+  geom_segment(x = .5, xend = .5,
+               y = 1, yend = .25, 
+               arrow = my_arrow, color = pp[4]) +
+  xlim(0, 1) +
+  theme_void()
+
+# the third normal density
+p9 <-
+  tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
+  geom_ribbon(fill = pp[9], size = 0) +
+  annotate(geom = "text",
+           x = 0, y = .2,
+           label = "normal",
+           size = 7, color = pp[4]) +
+  annotate(geom = "text",
+           x = c(0, 1.45), y = .6,
+           hjust = c(.5, 0),
+           label = c("mu[italic(i)]", "sigma[italic(y)]"), 
+           size = 7, color = pp[4], family = "Times", parse = T) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5, color = pp[4]))
+
+# another annotated arrow
+p10 <-
+  tibble(x     = .55,
+         y     = .6,
+         label = "'~'") %>% 
+  
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(size = 10, color = pp[4], parse = T, family = "Times") +
+  geom_segment(x = .82, xend = .38,
+               y = 1, yend = .2, 
+               arrow = my_arrow, color = pp[4]) +
+  xlim(0, 1) +
+  theme_void()
+
+# the final annotated arrow
+p11 <-
+  tibble(x     = c(.375, .625),
+         y     = c(1/3, 1/3),
+         label = c("'~'", "italic(i)")) %>% 
+  
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(size = c(10, 7), 
+            color = pp[4], parse = T, family = "Times") +
+  geom_segment(x = .5, xend = .5,
+               y = 1, yend = 0, 
+               arrow = my_arrow, color = pp[4]) +
+  xlim(0, 1) +
+  theme_void()
+
+# some text
+p12 <-
+  tibble(x     = .5,
+         y     = .5,
+         label = "italic(y[i])") %>% 
+  
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(size = 7, color = pp[4], parse = T, family = "Times") +
+  xlim(0, 1) +
+  theme_void()
+
+
+# define the layout
+layout <- c(
+  area(t = 1, b = 1, l = 6, r = 7),
+  area(t = 2, b = 3, l = 6, r = 7),
+  area(t = 3, b = 4, l = 1, r = 3),
+  area(t = 3, b = 4, l = 5, r = 7),
+  
+  area(t = 6, b = 7, l = 1, r = 7),
+  area(t = 5, b = 6, l = 1, r = 7),
+  area(t = 6, b = 7, l = 9, r = 11),
+  
+  area(t = 9, b = 10, l = 5, r = 7),
+  area(t = 8, b = 9, l = 5, r = 7),
+  
+  area(t = 8, b = 9, l = 5, r = 11),
+  
+  area(t = 11, b = 11, l = 5, r = 7),
+  area(t = 12, b = 12, l = 5, r = 7)
+)
+
+# combine and plot!
+(p1 + p2 + p3 + p4 + p6 + p5 + p7 + p9 + p8 + p10 + p11 + p12) + 
+  plot_layout(design = layout) &
+  ylim(0, 1) &
+  theme(plot.margin = margin(0, 5.5, 0, 5.5))
+```
+
+Later on in the text, Kruschke opined:
 
 > A crucial pre-requisite for estimating $\sigma_\beta$ from all the groups is an assumption that all the groups are representative and informative for the estimate. It only makes sense to influence the estimate of one group with data from the other groups if the groups can be meaningfully described as representative of a shared higher-level distribution. (p. 559)
 
@@ -181,11 +393,11 @@ fit <-
                 prior(cauchy(0, x), class = sigma)))
 ```
 
-The noise standard deviation $\sigma_y$ is depicted in the prior statement including the argument `class = sigma`. The grand mean is depicted by the first `1` in the model formula and its prior is indicated by the `class = Intercept` argument. We indicate we'd like group-based deviations from the grand mean with the `(1 | categirical_variable)` syntax, where the `1` on the left side of the bar indicates we'd like our intercepts to vary by group and the `categirical_variable` part simply represents the name of a given categorical variable we'd like those intercepts to vary by. The **brms** default is to do this with deviance scores, the mean for which will be zero. Although it's not obvious in the formula syntax, the model presumes the group-based deviations are normally distributed with a mean of zero and a standard deviation, which Kruschke termed $\sigma_\beta$. There is no prior for the mean. It's set at zero. But there is a prior for $\sigma_\beta$, which is denoted by the argument `class = sd`. We, of course, are not using a uniform prior on any of our variance parameters. But in order to be weakly informative, we will use the half-Cauchy. Recall that since the **brms** default is to set the lower bound for any variance parameter to 0, there's no need to worry about doing so ourselves. So even though the syntax only indicates `cauchy`, it's understood to mean Cauchy with a lower bound at zero; since the mean is usually 0, that makes is a half-Cauchy. 
+The noise standard deviation $\sigma_y$ is depicted in the prior statement including the argument `class = sigma`. The grand mean is depicted by the first `1` in the model formula and its prior is indicated by the `class = Intercept` argument. We indicate we'd like group-based deviations from the grand mean with the `(1 | categirical_variable)` syntax, where the `1` on the left side of the bar indicates we'd like our intercepts to vary by group and the `categirical_variable` part simply represents the name of a given categorical variable we'd like those intercepts to vary by. The **brms** default is to do this with deviance scores, the mean for which will be zero. Although it's not obvious in the formula syntax, the model presumes the group-based deviations are normally distributed with a mean of zero and a standard deviation, which Kruschke termed $\sigma_\beta$. There is no prior for the mean. It's set at zero. But there is a prior for $\sigma_\beta$, which is denoted by the argument `class = sd`. We, of course, are not using a uniform prior on any of our variance parameters. But in order to be weakly informative, we will use the half-Cauchy. Recall that since the **brms** default is to set the lower bound for any variance parameter to 0, there's no need to worry about doing so ourselves. So even though the syntax only indicates `cauchy`, it's understood to mean Cauchy with a lower bound at zero; since the mean is usually 0, that makes is a half-Cauchy.
 
 Kruschke set the upper bound for his $\sigma_y$ to 10 times the standard deviation of the criterion variable. The tails of the half-Cauchy are sufficiently fat that, in practice, I've found it doesn't matter much what you set the $SD$ of its prior to. One is often a sensible default for reasonably-scaled data. But if we want to take a more principled approach, we can set it to the size of the criterion's $SD$ or perhaps even 10 times that.
 
-Kruschke suggested using a gamma on $\sigma_\beta$, which is a sensible alternative to half-Cauchy often used within the Stan universe. Especially in situations in which you would like to (a) keep the variance parameter above zero, but (b) still allow it to be arbitrarily close to zero, and also (c) let the likelihood dominate the posterior, the Stan team recommends the gamma(2, 0) prior, based on the paper by Chung and colleagues [-@chungNondegeneratePenalizedLikelihood2013, click [here](http://www.stat.columbia.edu/~gelman/research/published/chung_etal_Pmetrika2013.pdf)]. But you should note that I don't mean a literal 0 for the second parameter in the gamma distribution, but rather some small value like 0.1 or so. This is all clarified in @chungNondegeneratePenalizedLikelihood2013. Here's what $\operatorname{gamma}(2, 0.1)$ looks like. 
+Kruschke suggested using a gamma on $\sigma_\beta$, which is a sensible alternative to half-Cauchy often used within the Stan universe. Especially in situations in which you would like to (a) keep the variance parameter above zero, but (b) still allow it to be arbitrarily close to zero, and also (c) let the likelihood dominate the posterior, the Stan team recommends the gamma(2, 0) prior, based on the paper by Chung and colleagues [-@chungNondegeneratePenalizedLikelihood2013, click [here](http://www.stat.columbia.edu/~gelman/research/published/chung_etal_Pmetrika2013.pdf)]. But you should note that I don't mean a literal 0 for the second parameter in the gamma distribution, but rather some small value like 0.1 or so. This is all clarified in @chungNondegeneratePenalizedLikelihood2013. Here's what $\operatorname{gamma}(2, 0.1)$ looks like.
 
 ```{r, fig.width = 6, fig.height = 2}
 tibble(x = seq(from = 0, to = 110, by = .1)) %>% 
@@ -198,7 +410,7 @@ tibble(x = seq(from = 0, to = 110, by = .1)) %>%
   scale_y_continuous(NULL, breaks = NULL, expand = expansion(mult = c(0, 0.05)))
 ```
 
-If you'd like that prior be even less informative, just reduce it to like $\operatorname{gamma}(2, 0.01)$ or so. Kruschke goes further to recommend "the shape and rate parameters of the gamma distribution are set so its mode is `sd(y)/2` and its standard deviation is `2*sd(y)`, using the function `gammaShRaFromModeSD` explained in Section 9.2.2." (pp. 560--561). Let's make that function.
+If you'd like that prior be even less informative, just reduce it to like $\operatorname{gamma}(2, 0.01)$ or so. Kruschke goes further to recommend "the shape and rate parameters of the gamma distribution are set so its mode is `sd(y)/2` and its standard deviation is `2*sd(y)`, using the function `gammaShRaFromModeSD` explained in [Section 9.2.2][A realistic model with MCMC.]." (pp. 560--561). Let's make that function.
 
 ```{r}
 gamma_a_b_from_omega_sigma <- function(mode, sd) {
@@ -451,13 +663,13 @@ densities %>%
         axis.ticks.y = element_blank())
 ```
 
-Do be aware that when you use this method, you may have to fiddle around with the `geom_ridgeline()` `scale` argument to get the Gaussian's heights on reasonable-looking relative heights. Stick in different numbers to get a sense of what I mean. I also find that I'm often not a fan of the way the spacing on the y axis ends up with default `geom_ridgeline()`. It's easy to overcome this with a little `ylim` fiddling. 
+Do be aware that when you use this method, you may have to fiddle around with the `geom_ridgeline()` `scale` argument to get the Gaussian's heights on reasonable-looking relative heights. Stick in different numbers to get a sense of what I mean. I also find that I'm often not a fan of the way the spacing on the y axis ends up with default `geom_ridgeline()`. It's easy to overcome this with a little `ylim` fiddling.
 
 To return to the more substantive interpretation, the top panel of
 
 > Figure 19.3 suggests that the normal distributions with homogeneous variances appear to be reasonable descriptions of the data. There are no dramatic outliers relative to the posterior predicted curves, and the spread of the data within each group appears to be reasonably matched by the width of the posterior normal curves. (Be careful when making visual assessments of homogeneity of variance because the visual spread of the data depends on the sample size; for a reminder see the [see the right panel of Figure 17.1, p. 478].) The range of credible group means, indicated by the peaks of the normal curves, suggests that the group Virgin8 is clearly lower than the others, and the group Virgin1 might be lower than the controls. To find out for sure, we need to examine the differences of group means, which we do in the next section. (p. 564)
 
-For clarity, the "see the right panel of Figure 17.1, p. 478" part was changed following Kruschke's [Corrigenda](https://sites.google.com/site/doingbayesiandataanalysis/corrigenda). 
+For clarity, the "see the right panel of Figure 17.1, p. 478" part was changed following Kruschke's [Corrigenda](https://sites.google.com/site/doingbayesiandataanalysis/corrigenda).
 
 ### Contrasts.
 
@@ -734,7 +946,7 @@ bind_rows(posterior_samples(fit19.1) %>% select(sd_CompanionNumber__Intercept),
   theme(legend.key.size = unit(0.45, "cm"))
 ```
 
-This all implies less shrinkage and a larger range. 
+This all implies less shrinkage and a larger range.
 
 ```{r, warning = F, message = F}
 coef(fit19.3, summary = F)$CompanionNumber[, , "Intercept"] %>% 
@@ -745,7 +957,7 @@ coef(fit19.3, summary = F)$CompanionNumber[, , "Intercept"] %>%
 
 And indeed, the range between the two groups is larger. Now the posterior mode for their difference has almost converged to that of the raw data. Kruschke then went on to recommend using a single-level model in such situations, instead.
 
->  That is why the two-group model in Section 16.3 did not use hierarchical structure, as illustrated in Figure 16.11 (p. 468). That model also used a $t$ distribution to accommodate outliers in the data, and that model allowed for heterogeneous variances across groups. Thus, for two groups, it is more appropriate to use the model of Section 16.3. The hierarchical multi-group model is generalized to accommodate outliers and heterogeneous variances in Section 19.5. (p. 568)
+>  That is why the two-group model in [Section 16.3][Two groups] did not use hierarchical structure, as illustrated in Figure 16.11 (p. 468). That model also used a $t$ distribution to accommodate outliers in the data, and that model allowed for heterogeneous variances across groups. Thus, for two groups, it is more appropriate to use the model of Section 16.3. The hierarchical multi-group model is generalized to accommodate outliers and heterogeneous variances in [Section 19.5][Heterogeneous variances and robustness against outliers]. (p. 568)
 
 As a refresher, here's what the **brms** code for that Chapter 16 model looked like.
 
@@ -838,7 +1050,7 @@ my_data %>%
             range = max(Longevity) - min(Longevity))
 ```
 
-But you get the point. For each group, there was quite a range. We might add predictors to the model to help account for those ranges. 
+But you get the point. For each group, there was quite a range. We might add predictors to the model to help account for those ranges.
 
 > The additional metric predictor is sometimes called a covariate. In the experimental setting, the focus of interest is usually on the nominal predictor (i.e., the experimental treatments), and the covariate is typically thought of as an ancillary predictor to help isolate the effect of the nominal predictor. But mathematically the nominal and metric predictors have equal status in the model. Let’s denote the value of the metric covariate for subject $i$ as $x_\text{cov}(i)$. Then the expected value of the predicted variable for subject $i$ is
 >
@@ -856,6 +1068,237 @@ And the $j$ subscript, recall, denotes group membership. In this context, it oft
 > & \text{where } \overline{\alpha} = \frac{1}{J} \sum^J_{j = 1} \alpha_{[j]}
 > \end{align*}
 > (pp. 569--570)
+
+We have a visual depiction of all this in the hierarchical model diagram of Figure 19.4.
+
+```{r, fig.width = 6.5, fig.height = 5.5, message = F}
+# bracket
+p1 <-
+  tibble(x = .99,
+         y = .5,
+         label = "{_}") %>% 
+  
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(size = 10, hjust = 1, color = pp[8], family = "Times") +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 1)) +
+  ylim(0, 1) +
+  theme_void()
+
+##  plain arrow
+# save our custom arrow settings
+my_arrow <- arrow(angle = 20, length = unit(0.35, "cm"), type = "closed")
+p2 <-
+  tibble(x    = .68,
+         y    = 1,
+         xend = .68,
+         yend = .25) %>%
+  
+  ggplot(aes(x = x, xend = xend,
+             y = y, yend = yend)) +
+  geom_segment(arrow = my_arrow, color = pp[4]) +
+  xlim(0, 1) +
+  theme_void()
+
+# normal density
+p3 <-
+  tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
+  geom_ribbon(fill = pp[9], size = 0) +
+  annotate(geom = "text",
+           x = 0, y = .2,
+           label = "normal",
+           size = 7, color = pp[4]) +
+  annotate(geom = "text",
+           x = c(0, 1.45), y = .6,
+           hjust = c(.5, 0),
+           label = c("italic(M)[0]", "italic(S)[0]"), 
+           size = 7, color = pp[4], family = "Times", parse = T) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5, color = pp[4]))
+
+# second normal density
+p4 <-
+  tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
+  geom_ribbon(fill = pp[9], size = 0) +
+  annotate(geom = "text",
+           x = 0, y = .2,
+           label = "normal",
+           size = 7, color = pp[4]) +
+  annotate(geom = "text",
+           x = c(0, 1.45), y = .6,
+           hjust = c(.5, 0),
+           label = c("0", "sigma[beta]"), 
+           size = 7, color = pp[4], family = "Times", parse = T) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5, color = pp[4]))
+
+# third density
+p5 <-
+  tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
+  geom_ribbon(fill = pp[9], size = 0) +
+  annotate(geom = "text",
+           x = 0, y = .2,
+           label = "normal",
+           size = 7, color = pp[4]) +
+  annotate(geom = "text",
+           x = c(0, 1.45), y = .6,
+           hjust = c(.5, 0),
+           label = c("italic(M)[italic(c)]", "italic(S)[italic(c)]"), 
+           size = 7, color = pp[4], family = "Times", parse = T) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5, color = pp[4]))
+
+# three annotated arrows
+p6 <-
+  tibble(x    = c(.09, .48, .9),
+         y    = c(1, 1, 1),
+         xend = c(.15, .34, .62),
+         yend = c(0, 0, 0)) %>%
+  ggplot(aes(x = x, xend = xend,
+             y = y, yend = yend)) +
+  geom_segment(arrow = my_arrow, color = pp[4]) +
+  annotate(geom = "text",
+           x = c(.08, .38, .45, .72), y = .5,
+           label = c("'~'", "'~'", "italic(j)", "'~'"),
+           size = c(10, 10, 7, 10), 
+           color = pp[4], family = "Times", parse = T) +
+  xlim(0, 1) +
+  theme_void()
+
+# likelihood formula
+p7 <-
+  tibble(x = .99,
+         y = .25,
+         label = "beta[0]+sum()[italic(j)]*beta['['*italic(j)*']']*italic(x)['['*italic(j)*']'](italic(i))+beta[italic(cov)]*italic(x)[italic(cov)](italic(i))") %>% 
+ 
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(hjust = 1, size = 7, color = pp[4], parse = T, family = "Times") +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 1)) +
+  ylim(0, 1) +
+  theme_void()
+
+# half-normal density
+p8 <-
+  tibble(x = seq(from = 0, to = 3, by = .01)) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
+  geom_ribbon(fill = pp[9], size = 0) +
+  annotate(geom = "text",
+           x = 1.5, y = .2,
+           label = "half-normal",
+           size = 7, color = pp[4]) +
+  annotate(geom = "text",
+           x = 1.5, y = .6,
+           label = "0*','*~italic(S)[sigma]", 
+           size = 7, color = pp[4], family = "Times", parse = T) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5, color = pp[4]))
+
+# annotated arrow
+p9 <-
+  tibble(x     = .38,
+         y     = .65,
+         label = "'='") %>% 
+  
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(size = 10, color = pp[4], parse = T, family = "Times") +
+  geom_segment(x = .5, xend = .5,
+               y = 1, yend = .25, 
+               arrow = my_arrow, color = pp[4]) +
+  xlim(0, 1) +
+  theme_void()
+
+# the fourth normal density
+p10 <-
+  tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
+  geom_ribbon(fill = pp[9], size = 0) +
+  annotate(geom = "text",
+           x = 0, y = .2,
+           label = "normal",
+           size = 7, color = pp[4]) +
+  annotate(geom = "text",
+           x = c(0, 1.45), y = .6,
+           hjust = c(.5, 0),
+           label = c("mu[italic(i)]", "sigma[italic(y)]"), 
+           size = 7, color = pp[4], family = "Times", parse = T) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5, color = pp[4]))
+
+# another annotated arrow
+p11 <-
+  tibble(x     = .5,
+         y     = .6,
+         label = "'~'") %>% 
+  
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(size = 10, color = pp[4], parse = T, family = "Times") +
+  geom_segment(x = .85, xend = .27,
+               y = 1, yend = .2, 
+               arrow = my_arrow, color = pp[4]) +
+  xlim(0, 1) +
+  theme_void()
+
+# the final annotated arrow
+p12 <-
+  tibble(x     = c(.375, .625),
+         y     = c(1/3, 1/3),
+         label = c("'~'", "italic(i)")) %>% 
+  
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(size = c(10, 7), 
+            color = pp[4], parse = T, family = "Times") +
+  geom_segment(x = .5, xend = .5,
+               y = 1, yend = 0, 
+               arrow = my_arrow, color = pp[4]) +
+  xlim(0, 1) +
+  theme_void()
+
+# some text
+p13 <-
+  tibble(x     = .5,
+         y     = .5,
+         label = "italic(y[i])") %>% 
+  
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(size = 7, color = pp[4], parse = T, family = "Times") +
+  xlim(0, 1) +
+  theme_void()
+
+
+# define the layout
+layout <- c(
+  area(t = 1, b = 1, l = 6, r = 7),
+  area(t = 2, b = 3, l = 6, r = 7),
+  area(t = 3, b = 4, l = 1, r = 3),
+  area(t = 3, b = 4, l = 5, r = 7),
+  area(t = 3, b = 4, l = 9, r = 11),
+  
+  area(t = 6, b = 7, l = 1, r = 9),
+  area(t = 5, b = 6, l = 1, r = 11),
+  area(t = 6, b = 7, l = 11, r = 13),
+  
+  area(t = 9, b = 10, l = 5, r = 7),
+  area(t = 8, b = 9, l = 5, r = 7),
+  
+  area(t = 8, b = 9, l = 5, r = 13),
+  
+  area(t = 11, b = 11, l = 5, r = 7),
+  area(t = 12, b = 12, l = 5, r = 7)
+)
+
+# combine and plot!
+(p1 + p2 + p3 + p4 + p5 + p7 + p6 + p8 + p10 + p9 + p11 + p12 + p13) + 
+  plot_layout(design = layout) &
+  ylim(0, 1) &
+  theme(plot.margin = margin(0, 5.5, 0, 5.5))
+```
 
 ### Example: Sex, death, and size.
 
@@ -1087,11 +1530,11 @@ p1 / p2
 
 In contrast with ANCOVA,
 
-> Bayesian methods do not partition the least-squares variance to make estimates, and therefore the Bayesian method is analogous to ANCOVA but is not ANCOVA. Frequentist practitioners are urged to test (with $p$ values) whether the assumptions of (a) equal slope in all groups, (b) equal standard deviation in all groups, and (c) normally distributed noise can be rejected. In a Bayesian approach, the descriptive model is generalized to address these concerns, as will be discussed in Section 19.5. (p. 572)
+> Bayesian methods do not partition the least-squares variance to make estimates, and therefore the Bayesian method is analogous to ANCOVA but is not ANCOVA. Frequentist practitioners are urged to test (with $p$ values) whether the assumptions of (a) equal slope in all groups, (b) equal standard deviation in all groups, and (c) normally distributed noise can be rejected. In a Bayesian approach, the descriptive model is generalized to address these concerns, as will be discussed in [Section 19.5][Heterogeneous variances and robustness against outliers]. (p. 572)
 
 ### Relation to hierarchical linear regression.
 
-Here Kruschke contrasts our last model with the one from way back in Chapter 17, section 3. As a refresher, here's what that code looked like.
+Here Kruschke contrasts our last model with the one from way back in [Section 17.3][Hierarchical regression on individuals within groups]. As a refresher, here's what that code looked like.
 
 ```{r, eval = F}
 fit17.4 <-
@@ -1134,14 +1577,313 @@ It's easy to get lost in the differences in the priors and the technical details
 
 ## Heterogeneous variances and robustness against outliers
 
-On page 574, Kruschke laid out the schematic for a hierarchical Student's-$t$ model in for which both the $\mu$ and $\sigma$ parameters are random. If you recall, @Bürkner2020Distributional calls these [distributional models](https://CRAN.R-project.org/package=brms/vignettes/brms_distreg.html) and they are indeed available within the **brms** framework. But there's a catch. Though we can model $\sigma$ all day long and we can even make it hierarchical, **brms** limits us to modeling the hierarchical $\sigma$ parameters within the typical Gaussian framework. That is, we will depart from Kruschke's schematic in that we will be
+In Figure 19.6 on page 574, Kruschke laid out the diagram for a hierarchical Student's-$t$ model in for which both the $\mu$ and $\sigma$ parameters are random. If you recall, @Bürkner2020Distributional calls these [distributional models](https://CRAN.R-project.org/package=brms/vignettes/brms_distreg.html) and they are indeed available within the **brms** framework. But there's a catch. Though we can model $\sigma$ all day long and we can even make it hierarchical, **brms** limits us to modeling the hierarchical $\sigma$ parameters within the typical Gaussian framework. That is, we will depart from Kruschke's schematic in that we will be
 
 * modeling the log of $\sigma$,
 * indicating its grand mean with the `sigma ~ 1` syntax,
 * modeling the group-level deflections as Gaussian with a mean of 0 and standard deviation $\sigma_\sigma$ estimated from the data,
 * and choosing a sensible prior for $\sigma_\sigma$ that is left-bound at 0 and gently slopes to the right (i.e., a folded $t$ or gamma distribution).
 
-Since we're modeling $\log (\sigma)$, we might use Gaussian prior centered on `sd(my_data$y) %>% log()` and a reasonable spread like 1. We can simulate a little to get a sense of what those distributions look like.
+Thus, here's our **brms**-centric variant of the diagram in Figure 19.6.
+
+```{r, fig.width = 7.5, fig.height = 5.5, message = F}
+# bracket
+p1 <-
+  tibble(x = .99,
+         y = .5,
+         label = "{_}") %>% 
+  
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(size = 10, hjust = 1, color = pp[8], family = "Times") +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 1)) +
+  ylim(0, 1) +
+  theme_void()
+
+##  plain arrow
+# save our custom arrow settings
+my_arrow <- arrow(angle = 20, length = unit(0.35, "cm"), type = "closed")
+p2 <-
+  tibble(x    = .68,
+         y    = 1,
+         xend = .68,
+         yend = .25) %>%
+  
+  ggplot(aes(x = x, xend = xend,
+             y = y, yend = yend)) +
+  geom_segment(arrow = my_arrow, color = pp[4]) +
+  xlim(0, 1) +
+  theme_void()
+
+# normal density
+p3 <-
+  tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
+  geom_ribbon(fill = pp[9], size = 0) +
+  annotate(geom = "text",
+           x = 0, y = .2,
+           label = "normal",
+           size = 7, color = pp[4]) +
+  annotate(geom = "text",
+           x = c(0, 1.45), y = .6,
+           hjust = c(.5, 0),
+           label = c("italic(M)[0]", "italic(S)[0]"), 
+           size = 7, color = pp[4], family = "Times", parse = T) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5, color = pp[4]))
+
+# second normal density
+p4 <-
+  tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
+  geom_ribbon(fill = pp[9], size = 0) +
+  annotate(geom = "text",
+           x = 0, y = .2,
+           label = "normal",
+           size = 7, color = pp[4]) +
+  annotate(geom = "text",
+           x = c(0, 1.45), y = .6,
+           hjust = c(.5, 0),
+           label = c("0", "sigma[beta]"), 
+           size = 7, color = pp[4], family = "Times", parse = T) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5, color = pp[4]))
+
+# third normal density
+p5 <-
+  tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
+  geom_ribbon(fill = pp[9], size = 0) +
+  annotate(geom = "text",
+           x = 0, y = .2,
+           label = "normal",
+           size = 7, color = pp[4]) +
+  annotate(geom = "text",
+           x = c(0, 1.15), y = .6,
+           label = c("italic(M)[mu[sigma]]", "italic(S)[mu[sigma]]"), 
+           hjust = c(.5, 0),
+           size = 7, color = pp[4], family = "Times", parse = T) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5, color = pp[4]))
+
+# half-normal density
+p6 <-
+  tibble(x = seq(from = 0, to = 3, by = .01)) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
+  geom_ribbon(fill = pp[9], size = 0) +
+  annotate(geom = "text",
+           x = 1.5, y = .2,
+           label = "half-normal",
+           size = 7, color = pp[4]) +
+  annotate(geom = "text",
+           x = 1.5, y = .6,
+           label = "0*','*~italic(S)[sigma[sigma]]", 
+           size = 7, color = pp[4], family = "Times", parse = T) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5, color = pp[4]))
+
+# exponential density
+p7 <-
+  tibble(x = seq(from = 0, to = 1, by = .01)) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = (dexp(x, 2) / max(dexp(x, 2))))) +
+  geom_ribbon(fill = pp[9], size = 0) +
+  annotate(geom = "text",
+           x = .5, y = .2,
+           label = "exp",
+           size = 7, color = pp[4]) +
+  annotate(geom = "text",
+           x = .5, y = .6,
+           label = "italic(K)",
+           size = 7, color = pp[4], family = "Times", parse = T) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5, color = pp[4]))
+
+# likelihood formula
+p8 <-
+  tibble(x = .5,
+         y = .25,
+         label = "beta[0]+sum()[italic(j)]*beta['['*italic(j)*']']*italic(x)['['*italic(j)*']'](italic(i))") %>% 
+ 
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(size = 7, color = pp[4], parse = T, family = "Times") +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 1)) +
+  ylim(0, 1) +
+  theme_void()
+
+# normal density
+p9 <-
+  tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
+  geom_ribbon(fill = pp[9], size = 0) +
+  annotate(geom = "text",
+           x = 0, y = .2,
+           label = "normal",
+           size = 7, color = pp[4]) +
+  annotate(geom = "text",
+           x = c(0, 1.2), y = .6,
+           hjust = c(.5, 0),
+           label = c("mu[sigma]", "sigma[sigma]"), 
+           size = 7, color = pp[4], family = "Times", parse = T) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5, color = pp[4]))
+
+# four annotated arrows
+p10 <-
+  tibble(x    = c(.07, .36, .67, .94),
+         y    = c(1, 1, 1, 1),
+         xend = c(.18, .34, .65, .73),
+         yend = c(0, 0, .2, .2)) %>%
+  ggplot(aes(x = x, xend = xend,
+             y = y, yend = yend)) +
+  geom_segment(arrow = my_arrow, color = pp[4]) +
+  annotate(geom = "text",
+           x = c(.09, .32, .37, .63, .77), y = .5,
+           label = c("'~'", "'~'", "italic(j)", "'~'", "'~'" ),
+           size = c(10, 10, 7, 10, 10), 
+           color = pp[4], family = "Times", parse = T) +
+  xlim(0, 1) +
+  theme_void()
+
+# student-t density
+p11 <-
+  tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = (dt(x, 3) / max(dt(x, 3))))) +
+  geom_ribbon(fill = pp[9], size = 0) +
+  annotate(geom = "text",
+           x = 0, y = .2,
+           label = "student t",
+           size = 7, color = pp[4]) +
+  annotate(geom = "text",
+           x = c(-1.4, 0), y = .6,
+           label = c("nu", "mu[italic(i)]"),
+           size = 7, color = pp[4], family = "Times", parse = T) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5, color = pp[4]))
+
+# log sigma
+p12 <-
+  tibble(x = .65,
+         y = .6,
+         label = "log(sigma[italic(j)*'('*italic(i)*')'])") %>% 
+ 
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(hjust = 0, size = 7, color = pp[4], parse = T, family = "Times") +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 2)) +
+  ylim(0, 1) +
+  theme_void()
+
+# two annotated arrows
+p13 <-
+  tibble(x    = c(.15, .15),
+         y    = c(1, .47),
+         xend = c(.15, .72),
+         yend = c(.75, .1)) %>%
+  
+  ggplot(aes(x = x, xend = xend,
+             y = y, yend = yend)) +
+  geom_segment(arrow = my_arrow, color = pp[4]) +
+  annotate(geom = "text",
+           x = c(.1, .15, .28), y = c(.92, .64, .22),
+           label = c("'~'", "nu*minute+1", "'='"),
+           size = c(10, 7, 10), color = pp[4], family = "Times", parse = T) +
+  xlim(0, 1) +
+  theme_void()
+
+# one annotated arrow
+p14 <-
+  tibble(x     = .38,
+         y     = .65,
+         label = "'='") %>% 
+  
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(size = 10, color = pp[4], parse = T, family = "Times") +
+  geom_segment(x = .5, xend = .5,
+               y = 1, yend = .15, 
+               arrow = my_arrow, color = pp[4]) +
+  xlim(0, 1) +
+  theme_void()
+
+# another annotated arrow
+p15 <-
+  tibble(x     = c(.58, .71),
+         y     = .6,
+         label = c("'~'", "italic(j)")) %>% 
+  
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(size = c(10, 7), color = pp[4], parse = T, family = "Times") +
+  geom_segment(x = .85, xend = .42,
+               y = 1, yend = .18, 
+               arrow = my_arrow, color = pp[4]) +
+  xlim(0, 1) +
+  theme_void()
+
+# the final annotated arrow
+p16 <-
+  tibble(x     = c(.375, .625),
+         y     = c(1/3, 1/3),
+         label = c("'~'", "italic(i)")) %>% 
+  
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(size = c(10, 7), 
+            color = pp[4], parse = T, family = "Times") +
+  geom_segment(x = .5, xend = .5,
+               y = 1, yend = 0, 
+               arrow = my_arrow, color = pp[4]) +
+  xlim(0, 1) +
+  theme_void()
+
+# some text
+p17 <-
+  tibble(x     = .5,
+         y     = .5,
+         label = "italic(y[i])") %>% 
+  
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(size = 7, color = pp[4], parse = T, family = "Times") +
+  xlim(0, 1) +
+  theme_void()
+
+# define the layout
+layout <- c(
+  area(t = 1, b = 1, l = 8, r = 9),
+  area(t = 2, b = 3, l = 8, r = 9),
+  
+  area(t = 3, b = 4, l = 3, r = 5),
+  area(t = 3, b = 4, l = 7, r = 9),
+  area(t = 3, b = 4, l = 11, r = 13),
+  area(t = 3, b = 4, l = 15, r = 17),
+  
+  area(t = 6, b = 7, l = 1, r = 3),
+  area(t = 6, b = 7, l = 5, r = 9),
+  area(t = 6, b = 7, l = 11, r = 13),
+  
+  area(t = 5, b = 6, l = 3, r = 17),
+  
+  area(t = 10, b = 11, l = 6, r = 8),
+  area(t = 10, b = 11, l = 7, r = 9),
+  
+  area(t = 8, b = 10, l = 1, r = 8),
+  area(t = 8, b = 10, l = 6, r = 8),
+  area(t = 8, b = 10, l = 6, r = 13),
+  
+  area(t = 12, b = 12, l = 6, r = 8),
+  area(t = 13, b = 13, l = 6, r = 8)
+)
+
+# combine and plot!
+(p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8 + p9 + p10 + p11 + p12 + p13 + p14 + p15 + p16 + p17) + 
+  plot_layout(design = layout) &
+  ylim(0, 1) &
+  theme(plot.margin = margin(0, 5.5, 0, 5.5))
+```
+
+Since we're modeling $\log \left (\sigma_{j(i)} \right )$, we might use Gaussian prior centered on `sd(my_data$y) %>% log()` and a reasonable spread like 1. We can simulate a little to get a sense of what those distributions look like.
 
 ```{r, fig.width = 6, fig.height = 2}
 n_draws <- 1e3
@@ -1296,7 +2038,7 @@ densities <-
 glimpse(densities)
 ```
 
-In our wrangling code, the main thing to notice is those last two lines. If you look closely to Kruschke's Gaussians, you'll notice they all have the same maximum height. Up to this point, ours haven't. This has to do with technicalities on how densities are scaled. In brief, the wider densities have been shorter. So those last two lines scaled all the densities within the same group to the same metric. Otherwise the code was business as usual. 
+In our wrangling code, the main thing to notice is those last two lines. If you look closely to Kruschke's Gaussians, you'll notice they all have the same maximum height. Up to this point, ours haven't. This has to do with technicalities on how densities are scaled. In brief, the wider densities have been shorter. So those last two lines scaled all the densities within the same group to the same metric. Otherwise the code was business as usual.
 
 Anyway, here's our version of the top panel of Figure 19.7.
   
@@ -1448,7 +2190,7 @@ densities <-
 glimpse(densities)
 ```
 
-If you look closely at our code, above, you'll note switching from the Gaussian to the Student $t$ required changes in our flow. Most obviously, we switched from `qnorm()` and `dnorm()` to `qt()` and `dt()`, respectively. The base **R** Student $t$ functions don't take arguments for $\mu$ and $\sigma$. Rather, they're presumed to be 0 and 1, respectively. That means that for our first three `mutate()` functions, the computations were all based on the standard Student $t$, with only the $\nu$ parameter varying according to the posterior. The way we corrected for that was with the fourth `mutate()`. 
+If you look closely at our code, above, you'll note switching from the Gaussian to the Student $t$ required changes in our flow. Most obviously, we switched from `qnorm()` and `dnorm()` to `qt()` and `dt()`, respectively. The base **R** Student $t$ functions don't take arguments for $\mu$ and $\sigma$. Rather, they're presumed to be 0 and 1, respectively. That means that for our first three `mutate()` functions, the computations were all based on the standard Student $t$, with only the $\nu$ parameter varying according to the posterior. The way we corrected for that was with the fourth `mutate()`.
 
 Now we're ready to make and save our version of the top panel of Figure 19.7.
 
@@ -1518,7 +2260,7 @@ Combine them all and plot!
 p1 / p2 / p3 + plot_layout(heights = c(2, 1, 1))
 ```
 
-Notice that because (a) the sigma parameters were heterogeneous and (b) they were estimated on the log scale, we had to do quite a bit more data processing before they effect size estimates were ready. 
+Notice that because (a) the sigma parameters were heterogeneous and (b) they were estimated on the log scale, we had to do quite a bit more data processing before they effect size estimates were ready.
 
 "Finally, because each group has its own estimated scale (i.e., $\sigma_j$), we can investigate differences in scales across groups" (p. 578). That's not a bad idea. Even though Kruschke didn't show this in the text, we may as well give it a go.
 
@@ -1554,7 +2296,7 @@ $$d = \frac{\bar y_A - \bar y_B}{s_y},$$
 
 where the unstandardized means of the variable of interest $y$ are compared between two groups, A and B. From the raw data, we compute their two means, $\bar y_A$ and $\bar y_B$, and divide their difference by the common (i.e., pooled) standard deviation $s_y$. As is the typical case, the empirically-derived means and standard deviations are stand-ins (i.e., estimates) of the population parameters. If we're willing to ignore uncertainty, we can do this all by hand.
 
-Let's walk this out with the fruit-fly data from section 19.3.2.
+Let's walk this out with the fruit-fly data from [Section 19.3.2][Example: Sex and death.].
 
 ```{r, message = F}
 my_data <- read_csv("data.R/FruitflyDataReduced.csv")
@@ -1605,9 +2347,9 @@ Now computing Cohen's $d$ is just simple arithmetic.
 (y_bar_a - y_bar_b) / s_y
 ```
 
-Though I'm not up on contemporary standards in fruit fly research, a Cohen’s $d$ of that size would be considered [conspicuously] large in most areas of my field (psychology). If we'd like to compute the $d$ estimates for any other combination of experimental conditions, we'd just follow the corresponding arithmetic. 
+Though I'm not up on contemporary standards in fruit fly research, a Cohen’s $d$ of that size would be considered [conspicuously] large in most areas of my field (psychology). If we'd like to compute the $d$ estimates for any other combination of experimental conditions, we'd just follow the corresponding arithmetic.
 
-As I hinted at earlier, the problem with this approach is it ignores uncertainty. Frequentists use various formulas to express this in terms of 95% confidence intervals. Our approach will be to express it with the posterior distribution of a Bayesian model. We've already accomplished this with our `fit19.1` from above. Here we'll use three other approaches. 
+As I hinted at earlier, the problem with this approach is it ignores uncertainty. Frequentists use various formulas to express this in terms of 95% confidence intervals. Our approach will be to express it with the posterior distribution of a Bayesian model. We've already accomplished this with our `fit19.1` from above. Here we'll use three other approaches.
 
 Instead of the Bayesian hierarchical alternative to the frequentist ANOVA, we can use a single-level model where we predict a metric variable with separate intercepts for the two levels of `CompanionNumber`. First, we subset the data and define our `stanvars`.
 
@@ -1807,7 +2549,7 @@ $$\delta = \frac{\mu_A - \mu_B}{\sigma},$$
 
 where $\mu_A$ and $\mu_B$ are the population means for the two groups under consideration and $\sigma$ is the pooled standard deviation in the population. Often times we don't have access to these values, which is why we run experiments and fit statistical models. But sometimes we do have access to the population parameters. In those cases, we can just plug them into the formula rather than estimate them in our models or with our sample statistics. 
 
-Back in section 16.1.2, we saw an example of this with the `TwoGroupIQ` data. Let's load them, again.
+Back in [Section 16.1.2][Approximation by ~~MCMC in JAGS~~ HMC in brms.], we saw an example of this with the `TwoGroupIQ` data. Let's load them, again.
 
 ```{r, message = F}
 my_data <- read_csv("data.R/TwoGroupIQ.csv")
@@ -1862,13 +2604,13 @@ The result is very close to the one above. But this time our equation for $d$ wa
 
 $$d = \frac{\bar y_A - \mu_B}{s_y},$$
 
-where we used the population mean $\mu_B$, but the other two terms were based on values from the sample. As long as you are defining the `Placebo` control as a stand-in for the population, this is a more precice way to compute $d$. Going further, we can also replace our $s_y$ with $\sigma$ (i.e., 15). 
+where we used the population mean $\mu_B$, but the other two terms were based on values from the sample. As long as you are defining the `Placebo` control as a stand-in for the population, this is a more precice way to compute $d$. Going further, we can also replace our $s_y$ with $\sigma$ (i.e., 15).
 
 ```{r}
 (y_bar_a - 100) / 15
 ```
 
-Now our estimate is quite different. *Why*? Recall that sample standard deviations for both groups were larger than 15. That resulted in a $s_y$ value that was larger than 15, which meant we divided the unstandardized difference by a larger denominator. That larger denominator returned a smaller product. 
+Now our estimate is quite different. *Why*? Recall that sample standard deviations for both groups were larger than 15. That resulted in a $s_y$ value that was larger than 15, which meant we divided the unstandardized difference by a larger denominator. That larger denominator returned a smaller product.
 
 We have more than simple algebra to contend with, though. Replacing $s_y$ with 15 actually changed the meaning of the effect size. We were no longer using a pooled standard deviation. Rather, we were using the unconditional population standard deviation. Again, as long as we're equating our `Placebo` group with the population, we might restate that 15 as $\sigma_B$. Sometimes you might see this expressed as $\sigma_C$, where $C$ indicates "Control" (i.e., the reference category). That changed our formula to this:
 
@@ -1884,7 +2626,7 @@ sessionInfo()
 
 ```{r, echo = F}
 # remove our objects
-rm(generate_data, n, grand_mean, d, densities, arrow, text, pp, gamma_a_b_from_omega_sigma, sd_y, omega, sigma, s_r, my_data, mean_y, stanvars, fit19.1, post, n_draws, post_draws, fit19.2, mw, fit19.3, fit19.4, my_small_data, sd_thorax_c, fit19.5, r, f, differences, p1, p2, fit19.6, fit19.7, p3, y_bar_a, y_bar_b, s_y, fit19.8, lines, fit19.9, fit19.10)
+rm(generate_data, n, grand_mean, d, densities, arrow, text, pp, p1, p2, my_arrow, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, layout, gamma_a_b_from_omega_sigma, sd_y, omega, sigma, s_r, my_data, mean_y, stanvars, fit19.1, post, n_draws, post_draws, fit19.2, mw, fit19.3, fit19.4, p13, my_small_data, sd_thorax_c, fit19.5, r, f, differences, p14, p15, p16, p17, fit19.6, fit19.7, y_bar_a, y_bar_b, s_y, fit19.8, lines, fit19.9, fit19.10)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
