@@ -31,7 +31,7 @@ If your data and research questions are simple and straightforward, you might fi
 
 ### Optional points.
 
-For more thoughts on robustness checks, check out a couple Gelman's blog posts, [*What's the point of a robustness check?*](https://statmodeling.stat.columbia.edu/2017/11/29/whats-point-robustness-check/) and [*Robustness checks are a joke*](https://statmodeling.stat.columbia.edu/2018/11/14/robustness-checks-joke/), along with the action in the comments section. 
+For more thoughts on robustness checks, check out a couple Gelman's blog posts, [*What's the point of a robustness check?*](https://statmodeling.stat.columbia.edu/2017/11/29/whats-point-robustness-check/) and [*Robustness checks are a joke*](https://statmodeling.stat.columbia.edu/2018/11/14/robustness-checks-joke/), along with the action in the comments section.
 
 In addition to posterior predictive checks, which are great [see @kruschkePosteriorPredictiveChecks2013], consider prior predictive checks, too. For a great introduction to the topic, check out Gabry, Simpson, Vehtari, Betancourt, and Gelman's [-@gabry2019visualization] [*Visualization in Bayesian workflow*](https://rss.onlinelibrary.wiley.com/doi/pdf/10.1111/rssa.12378).
 
@@ -70,7 +70,7 @@ fit24.1$data
 Happily, the rest of the information is still there for you. E.g., here's the summary.
 
 ```{r}
-print(fit24.1)
+summary(fit24.1)
 ```
 
 ## Functions for computing highest density intervals
@@ -124,7 +124,14 @@ To walk that through a bit, `prob_density_vec` is a vector of density values for
 
 As to those results, the values in saved as `$indices` are the row numbers for all cases in `prob_mass_vec` that were within the HDI. The value in `$mass` showed the actual width of the HDI. Because we're only working with finite samples (i.e., `length = 201`), we won't likely get a perfect 95% HDI. The value in `$height` is the density value for *the waterline that defines the highest density region*. A plot might make that less abstract.
 
-```{r, fig.width = 7, fig.height = 2.75}
+```{r, fig.width = 7, fig.height = 2.75, warning = F, message = F}
+library(ggthemes)
+
+theme_set(
+  theme_base() +
+  theme(plot.background = element_rect(color = "transparent"))
+)
+
 # wrangle
 tibble(row     = 1:length(prob_density_vec),
        theta   = seq(0, 1, length = length(prob_density_vec)),
@@ -137,19 +144,20 @@ tibble(row     = 1:length(prob_density_vec),
   geom_ribbon(data = . %>% 
                 filter(cred == 1),
               aes(ymin = 0, ymax = density),
-              fill = "grey50") +
+              fill = "grey67") +
   # density line
-  geom_line(color = "grey33") +
+  geom_line(color = "skyblue", size = 1) +
   # waterline
-  geom_hline(yintercept = HDI_info$height, linetype = 2, color = "skyblue") +
+  geom_hline(yintercept = HDI_info$height, linetype = 3, size = 1/4) +
   # fluff
   annotate(geom = "text", x = .2, y = 0.0046,
            label = '"waterline" that defines all points\ninside the highest density region') +
   annotate(geom = "text", x = .715, y = 0.01,
-           label = "95.28% HDI", color = "grey92", size = 5) +
-  xlab(expression(theta)) +
-  theme(panel.grid = element_blank())
+           label = "95.28% HDI", color = "black", size = 5) +
+  xlab(expression(theta))
 ```
+
+You might have noticed our `theme_set()` lines at the top of that code block. For the plots in this chapter, we'll give a nod to the source material and make them with a similar aesthetic to Kruschke's plots.
 
 ### HDI of unimodal distribution is shortest interval.
 
@@ -157,7 +165,7 @@ tibble(row     = 1:length(prob_density_vec),
 
 ### R code for computing HDI of a MCMC sample.
 
-In this section, Kruschke provided the code for his `HDIofMCMC()` function. We recreate it, below, with a few mild formatting changes.
+In this section, Kruschke provided the code for his `HDIofMCMC()` function. We recreate it, below, with a few mild formatting changes. The `ggthemes::theme_base()` theme gets us most of the way there.
 
 ```{r}
 HDIofMCMC <- function(sampleVec, credMass = .95) {
@@ -225,7 +233,7 @@ Identical.
 
 ### R code for computing HDI of a function.
 
-> The function described in this section finds the HDI of a unimodal probability density function that is specified mathematically in R. For example, the function can find HDI's of normal densities or of beta densities or of gamma densities, because those densities are specified as functions in R. (p. 728).
+> The function described in this section finds the HDI of a unimodal probability density function that is specified mathematically in R. For example, the function can find HDI's of normal densities or of beta densities or of gamma densities, because those densities are specified as functions in R. (p. 728)
 
 If you recall, we've been using this funciton off and on since Chapter 4. Here is it, again, with mildly reformated code and parameter names.
 
@@ -266,7 +274,7 @@ Here's how it works for the standard normal distribution.
 hdi_of_icdf(qnorm, mean = 0, sd = 1)
 ```
 
-By default, it returns 95% HDIs. Here's how it'd work if you wanted the 80% intervals for $\operatorname{beta}(2, 2)$.
+By default, it returns 95% HDIs. Here's how it'd work if you wanted the 80% intervals for $\operatorname{Beta}(2, 2)$.
 
 ```{r}
 hdi_of_icdf(qbeta, shape1 = 2, shape2 = 2, width = .8)
@@ -288,7 +296,7 @@ We'll make sense of all this in just a moment. First, let's see how Kruschke des
 
 > To illustrate why it is important to include censored data in the analysis, consider a case in which $N = 500$ values are generated randomly from a normal distribution with $\mu = 100$ and $\sigma = 15$. Suppose that values above 106 are censored, as are values in the interval between 94 and 100. For the censored values, all we know is the interval in which they occurred, but not their exact value. (p. 732)
 
-I'm now aware that we have access to Kruschke's censored data, so we'll just make our own based on his description. We'll start off by simulating the idealized uncensored data, `y`, based on $\operatorname{Normal} (100, 15)$.
+I'm now aware that we have access to Kruschke's censored data, so we'll just make our own based on his description. We'll start off by simulating the idealized uncensored data, `y`, based on $\operatorname{Normal}(100, 15)$.
 
 ```{r}
 n <- 500
@@ -351,9 +359,9 @@ d %>%
   pivot_longer(c(y, y_na)) %>% 
   
   ggplot(aes(x = value)) +
-  geom_histogram(size = .25, binwidth = 2.5, fill = "grey67", color = "grey92") +
+  geom_histogram(size = .25, binwidth = 2.5, fill = "skyblue4", color = "white") +
   xlab(NULL) +
-  theme(panel.grid = element_blank()) +
+  scale_y_continuous(NULL, breaks = NULL) +
   facet_wrap(~name, ncol = 2)
 ```
 
@@ -430,11 +438,10 @@ These subplots look a lot like those from back in Section 16.2. Since this is th
 geom_hist <- function(xintercept = xintercept, binwidth = binwidth, ...) {
   
   list(
-    geom_vline(xintercept = xintercept, color = "white", size = 1),
-    geom_histogram(fill = "grey67", color = "grey92", size = .2, binwidth = binwidth),
-    stat_pointintervalh(aes(y = 0), point_interval = mode_hdi, .width = .95),
-    scale_y_continuous(NULL, breaks = NULL),
-    theme(panel.grid = element_blank())
+    geom_histogram(fill = "skyblue", color = "white", size = .2, binwidth = binwidth),
+    geom_vline(xintercept = xintercept, color = "skyblue3", size = 1/2, linetype = 3),
+    stat_pointinterval(aes(y = 0), point_interval = mode_hdi, .width = .95),
+    scale_y_continuous(NULL, breaks = NULL)
   )
   
 }
@@ -446,19 +453,19 @@ Now we have our `geom_hist()`, here are the first three histograms for the margi
 p1 <-
   post %>% 
   ggplot(aes(x = mu)) +
-  geom_hist(xintercept = 100, binwidth = 0.25) +
+  geom_hist(xintercept = 100, binwidth = 0.1) +
   xlab(expression(mu))
 
 p3 <-
   post %>% 
   ggplot(aes(x = sigma)) +
-  geom_hist(xintercept = 15, binwidth = 0.1) +
+  geom_hist(xintercept = 15, binwidth = 0.08) +
   xlab(expression(sigma))
 
 p4 <-
   post %>% 
   ggplot(aes(x = `(mu-100)/sigma`)) +
-  geom_hist(xintercept = 0, binwidth = 0.025) +
+  geom_hist(xintercept = 0, binwidth = 0.015) +
   xlab(expression((mu-100)/sigma))
 ```
 
@@ -478,13 +485,11 @@ p2 <-
   ggplot(aes(x = y_na)) + 
   geom_histogram(data = d, 
                  aes(y = stat(density)),
-                 color = "grey92", fill = "grey67",
-                 size = .2, binwidth = 2.5) +
+                 size = .25, binwidth = 2.5, fill = "skyblue4", color = "white") +
   geom_line(aes(y = density, group = iter),
-            size  = 1/4, alpha = 1/3, color = "grey25") +
+            size  = 1/4, alpha = 1/3, color = "skyblue") +
   scale_x_continuous("data with posterior predictive lines", limits = c(40, 110)) +
-  scale_y_continuous(NULL, breaks = NULL) +
-  theme(panel.grid = element_blank())
+  scale_y_continuous(NULL, breaks = NULL)
 ```
 
 Now extract the posterior draws from our censored model, `fit25.2`, and repeat the process.
@@ -498,7 +503,7 @@ post <-
 p5 <-
   post %>% 
   ggplot(aes(x = mu)) +
-  geom_hist(xintercept = 100, binwidth = 0.15) +
+  geom_hist(xintercept = 100, binwidth = 0.1) +
   xlab(expression(mu))
 
 p7 <-
@@ -524,13 +529,11 @@ p6 <-
   ggplot(aes(x = y_na)) + 
   geom_histogram(data = d, 
                  aes(y = stat(density)),
-                 color = "grey92", fill = "grey67",
-                 size = .2, binwidth = 2.5) +
+                 size = .25, binwidth = 2.5, fill = "skyblue4", color = "white") +
   geom_line(aes(y = density, group = iter),
-            size  = 1/4, alpha = 1/3, color = "grey25") +
+            size  = 1/4, alpha = 1/3, color = "skyblue") +
   scale_x_continuous("data with posterior predictive lines", limits = c(40, 110)) +
-  scale_y_continuous(NULL, breaks = NULL) +
-  theme(panel.grid = element_blank())
+  scale_y_continuous(NULL, breaks = NULL)
 ```
 
 Load **patchwork**, combine the subplots, and annotate a bit.
@@ -546,7 +549,7 @@ library(patchwork)
 
 ## What Next?
 
-"If you have made it this far and you are looking for more, you might peruse posts at [Kruschke's] blog, [[https://doingbayesiandataanalysis.blogspot.com/]](https://doingbayesiandataanalysis.blogspot.com/), and search there for topics that interest you." In addition to the other references Kruschke mentioned, you might also check out McElreath's [-@mcelreathStatisticalRethinkingBayesian2015] [*Statistical rethinking*](https://xcelab.net/rm/statistical-rethinking/). The first edition came out in 2015 and the second was released sometime in early 2020. Much like this project, I have recoded *Statistical rethinking* in a **bookdown** form, [here](https://bookdown.org/content/3890/) [@kurzStatisticalRethinkingBrms2020]. You can also find other tutorial material at my academic blog, [https://solomonkurz.netlify.com/post/](https://solomonkurz.netlify.com/post/).
+"If you have made it this far and you are looking for more, you might peruse posts at [Kruschke's] blog, [[https://doingbayesiandataanalysis.blogspot.com/]](https://doingbayesiandataanalysis.blogspot.com/), and search there for topics that interest you." In addition to the other references Kruschke mentioned, you might also check out McElreath's [-@mcelreathStatisticalRethinkingBayesian2015] [*Statistical rethinking*](https://xcelab.net/rm/statistical-rethinking/). The first edition came out in 2015 and the second was released in 2020. Much like this project, I have recoded both editions of *Statistical rethinking* in a **bookdown** form [@kurzStatisticalRethinkingBrms2020, @kurzStatisticalRethinkingSecondEd2020]. Click [here](https://bookdown.org/content/3890/) for the first and [here](https://bookdown.org/content/4857/) for the second. You can also find other tutorial material at my academic blog, [https://solomonkurz.netlify.com/post/](https://solomonkurz.netlify.com/post/).
 
 ## Session info {-}
 
@@ -560,10 +563,7 @@ rm(fit24.1, HDIofGrid, prob_density_vec, prob_mass_vec, HDI_info, HDIofMCMC, pos
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
-pacman::p_unload(pacman::p_loaded(), character.only = TRUE)
-
 ggplot2::theme_set(ggplot2::theme_grey())
-
-bayesplot::color_scheme_set("blue")
+pacman::p_unload(pacman::p_loaded(), character.only = TRUE)
 ```
 
