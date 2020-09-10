@@ -130,6 +130,35 @@ tibble(y = rpois(n = 100000, lambda = 5)) %>%
 
 Let's put `rpois()` to work and make Figure 24.1.
 
+Before we go any further, let's talk color and theme. For this chapter, we'll take our color palette from the [**ochRe** package](https://github.com/ropenscilabs/ochRe) [@R-ochRe], which provides several colour palettes inspired by the art, landscapes, and wildlife of Australia. For the plots to follow, we will use the `"healthy_reef"` palette.
+
+```{r, warning = F, message = F, fig.width = 3, fig.height = 1}
+# devtools::install_github("ropenscilabs/ochRe")
+library(ochRe)
+
+hr <- ochre_palettes[["healthy_reef"]]
+
+hr
+
+viz_palette(hr)
+```
+
+Our overall plot theme will be based on `cowplot::theme_minimal_grid()` with a few adjustments.
+
+```{r, warning = F, message = F}
+library(cowplot)
+
+theme_set(
+  theme_minimal_grid() +
+    theme(legend.key = element_rect(fill = hr[2], color = hr[2]),
+          panel.background = element_rect(fill = hr[2], color = hr[2]),
+          panel.border = element_rect(color = hr[2]),
+          panel.grid = element_blank())
+)
+```
+
+Now we have our palette and theme, we're ready to make our version of the Poisson histograms in Figure 24.1.
+
 ```{r, fig.width = 6, fig.height = 5}
 set.seed(24)
 
@@ -139,9 +168,9 @@ tibble(lambda = c(1.8, 8.3, 32.1)) %>%
   
   ggplot(aes(x = y)) +
   geom_histogram(aes(y = stat(density)),
-                 binwidth = 1, color = "grey92") +
-  ylab("p(y)") +
-  theme(panel.grid = element_blank()) +
+                 binwidth = 1, fill = hr[3]) +
+  scale_x_continuous(expand = expansion(mult = c(0, 0.05))) +
+  scale_y_continuous("p(y)", expand = expansion(mult = c(0, 0.05))) +
   facet_wrap(~lambda, ncol = 1,
              labeller = label_bquote(dpois(y*"|"*lambda == .(lambda))))
 ```
@@ -155,6 +184,245 @@ dpois(2, lambda = 5.5)
 ```
 
 ### The complete model and implementation in ~~JAGS~~ brms.
+
+To get a sense of Kruschke's hierarchical Bayesian alternative to the conventional ANOVA approach, let's make our version of the model diagram in Figure 24.2.
+
+```{r, fig.width = 8, fig.height = 5, message = F}
+library(patchwork)
+
+# bracket
+p1 <-
+  tibble(x = .95,
+         y = .5,
+         label = "{_}") %>% 
+  
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(size = 10, hjust = 1, color = hr[4], family = "Times") +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 1)) +
+  ylim(0, 1) +
+  theme_void()
+
+##  plain arrow
+# save our custom arrow settings
+my_arrow <- arrow(angle = 20, length = unit(0.35, "cm"), type = "closed")
+p2 <-
+  tibble(x    = .68,
+         y    = 1,
+         xend = .68,
+         yend = .25) %>%
+  
+  ggplot(aes(x = x, xend = xend,
+             y = y, yend = yend)) +
+  geom_segment(arrow = my_arrow, color = hr[8]) +
+  xlim(0, 1) +
+  theme_void()
+
+# normal density
+p3 <-
+  tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
+  geom_ribbon(fill = hr[2], size = 0) +
+  annotate(geom = "text",
+           x = 0, y = .2,
+           label = "normal",
+           size = 7, color = hr[8]) +
+  annotate(geom = "text",
+           x = c(0, 1.45), y = .6,
+           hjust = c(.5, 0),
+           label = c("italic(M)[0]", "italic(S)[0]"), 
+           size = 7, color = hr[8], family = "Times", parse = T) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5, color = hr[8]))
+
+# second normal density
+p4 <-
+  tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
+  geom_ribbon(fill = hr[2], size = 0) +
+  annotate(geom = "text",
+           x = 0, y = .2,
+           label = "normal",
+           size = 7, color = hr[8]) +
+  annotate(geom = "text",
+           x = c(0, 1.45), y = .6,
+           hjust = c(.5, 0),
+           label = c("0", "sigma[beta][1]"), 
+           size = 7, color = hr[8], family = "Times", parse = T) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5, color = hr[8]))
+
+# third normal density
+p5 <-
+  tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
+  geom_ribbon(fill = hr[2], size = 0) +
+  annotate(geom = "text",
+           x = 0, y = .2,
+           label = "normal",
+           size = 7, color = hr[8]) +
+  annotate(geom = "text",
+           x = c(0, 1.45), y = .6,
+           hjust = c(.5, 0),
+           label = c("0", "sigma[beta][2]"), 
+           size = 7, color = hr[8], family = "Times", parse = T) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5, color = hr[8]))
+
+# fourth normal density
+p6 <-
+  tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
+  geom_ribbon(fill = hr[2], size = 0) +
+  annotate(geom = "text",
+           x = 0, y = .2,
+           label = "normal",
+           size = 7, color = hr[8]) +
+  annotate(geom = "text",
+           x = 0, y = .6,
+           hjust = .5,
+           label = "0", 
+           size = 7, color = hr[8], family = "Times", parse = T) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5, color = hr[8]))
+
+# likelihood formula
+p7 <-
+  tibble(x = .5,
+         y = .25,
+         label = "exp(beta[0]+sum()[italic(j)]*beta[1]['['*italic(j)*']']*italic(x)[1]['['*italic(j)*']'](italic(i))+sum()[italic(k)]*beta[2]['['*italic(k)*']']*italic(x)[2]['['*italic(k)*']'](italic(i))+sum()[italic(jk)]*beta[1%*%2]['['*italic(jk)*']']*italic(x)[1%*%2]['['*italic(jk)*']'](italic(i)))") %>% 
+ 
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(size = 7, color = hr[8], parse = T, family = "Times") +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 1)) +
+  ylim(0, 1) +
+  theme_void()
+
+# sigma
+p8 <-
+  tibble(x = .13,
+         y = .6,
+         label = "sigma[beta][1%*%2]") %>% 
+ 
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(hjust = 0, size = 7, color = hr[8], parse = T, family = "Times") +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 2)) +
+  ylim(0, 1) +
+  theme_void()
+
+# four annotated arrows
+p9 <-
+  tibble(x    = c(.05, .34, .64, .945),
+         y    = c(1, 1, 1, 1),
+         xend = c(.07, .2, .46, .75),
+         yend = c(0, 0, 0, 0)) %>%
+  ggplot(aes(x = x, xend = xend,
+             y = y, yend = yend)) +
+  geom_segment(arrow = my_arrow, color = hr[8]) +
+  annotate(geom = "text",
+           x = c(.04, .24, .30, .53, .59, .81, .89), y = .5,
+           label = c("'~'", "'~'", "italic(j)", "'~'", "italic(k)", "'~'", "italic(jk)"),
+           size = c(10, 10, 7, 10, 7, 10, 7), 
+           color = hr[8], family = "Times", parse = T) +
+  xlim(0, 1) +
+  theme_void()
+
+# Poisson density
+p10 <-
+  tibble(x = 0:9) %>% 
+  ggplot(aes(x = x, y = .87 * (dpois(x, lambda = 3.5)) / max(dpois(x, lambda = 3.5))) ) +
+  geom_col(color = hr[2], fill = hr[2], width = .45) +
+  annotate(geom = "text",
+           x = 4.5, y = .2,
+           label = "Poisson",
+           size = 7, color = hr[8]) +
+  annotate(geom = "text",
+           x = 4.5, y = .89,
+           label = "lambda[italic(i)]",
+           size = 7, color = hr[8], family = "Times", parse = TRUE) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5, color = hr[8]))
+
+# one annotated arrow
+p11 <-
+  tibble(x    = .5,
+         y    = 1,
+         xend = .5,
+         yend = .35) %>%
+  
+  ggplot(aes(x = x, xend = xend,
+             y = y, yend = yend)) +
+  geom_segment(arrow = my_arrow, color = hr[8]) +
+  annotate(geom = "text",
+           x = .4, y = .725,
+           label = "'='",
+           size = 10, color = hr[8], family = "Times", parse = T) +
+  xlim(0, 1) +
+  theme_void()
+
+# the final annotated arrow
+p12 <-
+  tibble(x     = c(.375, .625),
+         y     = c(1/3, 1/3),
+         label = c("'~'", "italic(i)")) %>%
+
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(size = c(10, 7),
+            color = hr[8], parse = T, family = "Times") +
+  geom_segment(x = .5, xend = .5,
+               y = 1, yend = 0,
+               arrow = my_arrow, color = hr[8]) +
+  xlim(0, 1) +
+  theme_void()
+
+# some text
+p13 <-
+  tibble(x     = .5,
+         y     = .5,
+         label = "italic(y[i])") %>%
+
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(size = 7, color = hr[8], parse = T, family = "Times") +
+  xlim(0, 1) +
+  theme_void()
+
+# define the layout
+layout <- c(
+  area(t = 1, b = 1, l = 6, r = 7),
+  area(t = 1, b = 1, l = 10, r = 11),
+  area(t = 1, b = 1, l = 14, r = 15),
+  
+  area(t = 2, b = 3, l = 6, r = 7),
+  area(t = 2, b = 3, l = 10, r = 11),
+  area(t = 2, b = 3, l = 14, r = 15),
+  
+  area(t = 3, b = 4, l = 1, r = 3),
+  area(t = 3, b = 4, l = 5, r = 7),
+  area(t = 3, b = 4, l = 9, r = 11),
+  area(t = 3, b = 4, l = 13, r = 15),
+  
+  area(t = 6, b = 7, l = 1, r = 15),
+  
+  area(t = 3, b = 4, l = 15, r = 16),
+  
+  area(t = 5, b = 6, l = 1, r = 15),
+  
+  area(t = 10, b = 11, l = 7, r = 9),
+  area(t = 8, b = 10, l = 7, r = 9),
+  
+  area(t = 12, b = 12, l = 7, r = 9),
+  area(t = 13, b = 13, l = 7, r = 9)
+)
+
+# combine and plot!
+(p1 + p1 + p1 + p2 + p2 + p2 + p3 + p4 + p5 + p6 + p7 + p8 + p9 + p10 + p11 + p12 + p13) + 
+  plot_layout(design = layout) &
+  ylim(0, 1) &
+  theme(plot.margin = margin(0, 5.5, 0, 5.5))
+```
 
 Using Kruschke's method,
 
@@ -215,7 +483,7 @@ fit <-
       stanvars = stanvars)
 ```
 
-By **brms** default, `family = poisson` uses the log link. Thus `family = poisson(link = "log")` should return the same results. Notice the right-hand side of the model `formula`. We have three hierarchical variance parameters. This hierarchical-shrinkage approach to frequency-table data has its origins in @gelmanAnalysisVarianceWhy2005, [*Analysis of variance--why it is more important than ever*](https://projecteuclid.org/download/pdfview_1/euclid.aos/1112967698). 
+By **brms** default, `family = poisson` uses the log link. Thus `family = poisson(link = "log")` should return the same results. Notice the right-hand side of the model `formula`. We have three hierarchical variance parameters. This hierarchical-shrinkage approach to frequency-table data has its origins in @gelmanAnalysisVarianceWhy2005, [*Analysis of variance--why it is more important than ever*](https://projecteuclid.org/download/pdfview_1/euclid.aos/1112967698).
 
 ## Example: Hair eye go again
 
@@ -234,9 +502,9 @@ my_data %>%
   # plot
   ggplot(aes(x = Hair, y = Eye)) +
   geom_raster(aes(fill = value)) +
-  geom_text(aes(label = value, color = value < 300)) +
-  scale_fill_viridis_c(option = "D") +
-  scale_color_manual(values = c("black", "white")) +
+  geom_text(aes(label = value, color = value < 250)) +
+  scale_fill_gradient(low = hr[9], high = hr[2]) +
+  scale_color_manual(values = hr[c(9, 2)]) +
   scale_x_discrete(expand = c(0, 0), position = "top") +
   scale_y_discrete(expand = c(0, 0)) +
   theme(axis.text.y = element_text(hjust = 0),
@@ -289,12 +557,10 @@ tibble(x = seq(from = 0, to = 70, length.out = 1e3)) %>%
   mutate(density = dgamma(x, s_r$shape, s_r$rate)) %>% 
   
   ggplot(aes(x = x, ymin = 0, ymax = density)) +
-  geom_ribbon(fill = "grey67") +
-  scale_y_continuous(NULL, breaks = NULL) +
-  labs(title = expression("Kruschke's wide prior for "*sigma[beta*x]),
-       x = NULL) +
-  coord_cartesian(xlim = c(0, 60)) +
-  theme(panel.grid = element_blank())
+  geom_ribbon(fill = hr[4]) +
+  scale_x_continuous(NULL, expand = expansion(mult = c(0, -0.05))) +
+  scale_y_continuous(NULL, breaks = NULL, expand = expansion(mult = c(0, 0.05))) +
+  ggtitle(expression("Kruschke's wide prior for "*sigma[beta*x]))
 ```
 
 Save the `stanvars`.
@@ -345,11 +611,10 @@ bind_rows(
   
   # plot
   ggplot(aes(x = x, ymin = 0, ymax = density)) +
-  geom_ribbon(fill = "grey67") +
-  scale_y_continuous(NULL, breaks = NULL) +
+  geom_ribbon(fill = hr[6]) +
+  scale_y_continuous(NULL, breaks = NULL, expand = expansion(mult = c(0, 0.05))) +
   labs(title = "Priors",
        x = NULL) +
-  theme(panel.grid = element_blank()) +
   facet_wrap(~prior, scales = "free", labeller = label_parsed)
 ```
 
@@ -415,14 +680,12 @@ f %>%
   mutate(proportion = count / 592) %>% 
   
   ggplot(aes(x = proportion, y = 0)) +
-  stat_histintervalh(point_interval = mode_hdi, .width = .95,
-                     fill = "grey67", slab_color = "grey92",
-                     breaks = 20, slab_size = .125, outline_bars = T,
+  stat_histinterval(point_interval = mode_hdi, .width = .95,
+                    fill = hr[9], color = hr[5],
                      normalize = "panels") +
   scale_x_continuous(breaks = c(0, .1, .2)) +
   scale_y_continuous(NULL, breaks = NULL) +
   coord_cartesian(xlim = c(0, .25)) +
-  theme(panel.grid = element_blank()) +
   facet_wrap(~key, scales = "free_y")
 ```
 
@@ -474,12 +737,8 @@ deflections %>%
   gather(key, difference) %>% 
   
   ggplot(aes(x = difference, y = 0)) +
-  geom_rect(aes(xmin = -.1, xmax = .1,
-                ymin = -Inf, ymax = Inf),
-            fill = "white") +
-  stat_histintervalh(point_interval = mode_hdi, .width = .95,
-                     fill = "grey67", slab_color = "grey92",
-                     breaks = 30, slab_size = .25, outline_bars = T,
+  stat_histinterval(point_interval = mode_hdi, .width = .95,
+                     fill = hr[9], color = hr[5],
                      normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   theme(panel.grid = element_blank()) +
@@ -550,11 +809,10 @@ bind_rows(
   mutate(prior = rep(c("beta[0]", "sigma[beta*x]"), each = n() / 2)) %>% 
   
   ggplot(aes(x = x, ymin = 0, ymax = density)) +
-  geom_ribbon(fill = "grey67") +
-  scale_y_continuous(NULL, breaks = NULL) +
+  geom_ribbon(fill = hr[6]) +
+  scale_y_continuous(NULL, breaks = NULL, expand = expansion(mult = c(0, 0.05))) +
   labs(title = "Priors",
        x = NULL) +
-  theme(panel.grid = element_blank()) +
   facet_wrap(~prior, scales = "free", labeller = label_parsed)
 ```
 
@@ -584,7 +842,7 @@ We might plot our $\sigma[x]$ posteriors against our prior to get a sense of how
 
 ```{r, fig.width = 8, fig.height = 3}
 posterior_samples(fit24.2) %>% 
-  select(starts_with("sd")) %>% 
+  dplyr::select(starts_with("sd")) %>% 
   # set_names(str_c("expression(sigma", c("*a", "*ab", "*b"), ")")) %>% 
   pivot_longer(everything(),
                names_to = "sd") %>% 
@@ -593,23 +851,22 @@ posterior_samples(fit24.2) %>%
   # prior
   geom_ribbon(data = tibble(value = seq(from = 0, to = 3.5, by  =.01)),
               aes(ymin = 0, ymax = dnorm(value, 0, 1)),
-              fill = "grey50") +
+              fill = hr[8]) +
   # posterior
   geom_density(aes(fill = sd),
-               size = 0, alpha = 1/2) +
-  scale_fill_viridis_d(NULL, option = "A", begin = .2, end = .8,
-                       labels = c(expression(sigma[a]),
+               size = 0, alpha = 2/3) +
+  scale_fill_manual(values = hr[c(4, 6, 3)],
+                    labels = c(expression(sigma[a]),
                                   expression(sigma[ab]),
                                   expression(sigma[b])),
-                       guide = guide_legend(label.hjust = 0)) +
-  scale_y_continuous(NULL, breaks = NULL) +
-  xlab(NULL) +
-  theme(panel.grid = element_blank(),
-        legend.position = c(.95, .8),
+                    guide = guide_legend(label.hjust = 0)) +
+  scale_x_continuous(NULL, expand = expansion(mult = c(0, 0.05))) +
+  scale_y_continuous(NULL, breaks = NULL, expand = expansion(mult = c(0, 0.05))) +
+  theme(legend.position = c(.95, .8),
         legend.background = element_rect(fill = "transparent"))
 ```
 
-Our $\operatorname{Normal}^+ (0, 1)$ prior is that short medium-gray shape in the background. The posteriors are the taller and more colorful mounds in the foreground. Here's the top part of Figure 24.4.
+Our $\operatorname{Normal}^+ (0, 1)$ prior is that short dark shape in the background. The posteriors are the taller and more colorful mounds in the foreground. Here's the top part of Figure 24.4.
 
 ```{r, fig.width = 8, fig.height = 6}
 nd <-
@@ -626,10 +883,8 @@ fitted(fit24.2,
   
   # plot!
   ggplot(aes(x = proportion, y = 0)) +
-  stat_histintervalh(point_interval = mode_hdi, .width = .95,
-                     fill = "grey67", slab_color = "grey92",
-                     breaks = 20, slab_size = .25, outline_bars = T,
-                     normalize = "panels") +
+  stat_histinterval(point_interval = mode_hdi, .width = .95,
+                    fill = hr[7], color = hr[6], normalize = "panels") +
   scale_x_continuous(breaks = c(.05, .1, .15)) +
   scale_y_continuous(NULL, breaks = NULL) +
   coord_cartesian(xlim = c(0, .15)) +
@@ -671,12 +926,8 @@ deflections %>%
   gather(key, difference) %>% 
   
   ggplot(aes(x = difference, y = 0)) +
-  geom_rect(aes(xmin = -.1, xmax = .1,
-                ymin = -Inf, ymax = Inf),
-            fill = "white") +
-  stat_histintervalh(point_interval = mode_hdi, .width = .95,
-                     fill = "grey67", slab_color = "grey92",
-                     breaks = 30, slab_size = .25, outline_bars = T) +
+  stat_histinterval(point_interval = mode_hdi, .width = .95,
+                    fill = hr[7], color = hr[6]) +
   scale_y_continuous(NULL, breaks = NULL) +
   coord_cartesian(xlim = c(-.5, 2.5)) +
   theme(panel.grid = element_blank()) +
@@ -699,12 +950,8 @@ deflections %>%
   
   # plot
   ggplot(aes(x = difference, y = 0)) +
-  geom_rect(aes(xmin = -.1, xmax = .1,
-                ymin = -Inf, ymax = Inf),
-            fill = "white") +
-  stat_histintervalh(point_interval = mode_hdi, .width = .95,
-                     fill = "grey67", slab_color = "grey92",
-                     breaks = 30, slab_size = .25, outline_bars = T) +
+  stat_histinterval(point_interval = mode_hdi, .width = .95,
+                    fill = hr[7], color = hr[6]) +
   scale_y_continuous(NULL, breaks = NULL) +
   coord_cartesian(xlim = c(-.5, 2.5)) +
   theme(panel.grid = element_blank()) +
@@ -742,11 +989,10 @@ Virtually all the weight went to the interaction model. Also, if we step back an
 posterior_samples(fit24.2) %>% 
   
   ggplot(aes(x = `sd_a:b__Intercept`, y = 0)) +
-  geom_halfeyeh(.width = c(.5, .95)) +
+  stat_halfeye(.width = .95, fill = hr[7], color = hr[6]) +
+  scale_x_continuous(expression(sigma[a%*%b]), expand = expansion(mult = c(0, 0.05))) +
   scale_y_continuous(NULL, breaks = NULL) +
-  labs(title = "Does this look the same as zero, to you?",
-       x = expression(sigma[a%*%b])) +
-  theme(panel.grid = element_blank())
+  ggtitle("Does this look the same as zero, to you?")
 ```
 
 Sure, there's some uncertainty in that posterior. But that is not zero. We didn't need an omnibus test or even model comparison via stacking weights to figure that one out.
@@ -772,9 +1018,11 @@ post %>%
   mutate(`% hierarchical variance` = 100 * value / `sigma[total]^2`) %>% 
   
   ggplot(aes(x = `% hierarchical variance`, y = name)) +
-  geom_halfeyeh(.width = c(.5, .95)) +
+  stat_halfeye(.width = .95, fill = hr[7], color = hr[6]) +
+  scale_x_continuous(limits = c(0, 100), expand = c(0, 0)) +
   scale_y_discrete(NULL, labels = ggplot2:::parse_safe) +
-  theme(panel.grid = element_blank())
+  coord_cartesian(ylim = c(1.5, 3.5)) +
+  theme(plot.margin = margin(5.5, 10, 5.5, 5.5))
 ```
 
 Just as each of the variance parameters was estimated with uncertainty, all that uncertainty got propagated into their transformations. Even in the midst of all this uncertainty, it's clear that a good healthy portion of the hierarchical variance is from the interaction. Again, whatever you might think about $a \times b$, it's definitely not zero.
@@ -828,10 +1076,8 @@ fitted(fit24.4,
   
   # plot!
   ggplot(aes(x = proportion, y = 0)) +
-  stat_histintervalh(point_interval = mode_hdi, .width = .95,
-                     fill = "grey67", slab_color = "grey92",
-                     breaks = 20, slab_size = .25, outline_bars = T,
-                     normalize = "panels") +
+  stat_histinterval(point_interval = mode_hdi, .width = .95,
+                    fill = hr[5], color = hr[3]) +
   scale_x_continuous(breaks = c(.05, .1, .15)) +
   scale_y_continuous(NULL, breaks = NULL) +
   coord_cartesian(xlim = c(0, .15)) +
@@ -854,15 +1100,14 @@ rbind(fitted(fit24.2),
   
   # plot
   ggplot(aes(x = cell)) +
-  geom_hline(yintercept = c(11, 22), color = "white", linetype = 2) +
+  geom_hline(yintercept = c(11, 22), color = hr[3], linetype = 2) +
   geom_pointrange(aes(y = Estimate, ymin = Q2.5, ymax = Q97.5, color = fit),
-                  fatten = 1.25, position = position_dodge(width = 0.5)) +
+                  fatten = 1.5, position = position_dodge(width = 0.5)) +
   geom_point(aes(y = count),
-             size = 2) +
-  scale_color_viridis_d(NULL, option = "A", begin = .4, end = .6) +
+             size = 2, color = hr[9]) +
+  scale_color_manual(values = hr[c(7, 5)]) +
   scale_y_continuous("count", breaks = c(0, 11, 22, 33), limits = c(0, 33)) +
-  theme(panel.grid = element_blank(),
-        legend.position = "top")
+  theme(legend.position = "top")
 ```
 
 The black points are the raw data. The colored point-ranges to the left and right of each data point are the posterior means and percentile-based 95% intervals for each of the cells. The results are virtually the same between the two models. Also note how both models partially pooled towards the grand mean. That's one of the distinctive features of using the hierarchical approach.
@@ -877,14 +1122,12 @@ sessionInfo()
 
 ```{r, echo = F}
 # remove our objects
-rm(lambda, y, d, gamma_a_b_from_omega_sigma, n_x1_level, n_x2_level, n_cell, y_log_mean, y_log_sd, s_r, stanvars, my_data, fit24.1, nd, f, make_deflection, deflections, fit24.2, fit24.3, post, fit24.4)
+rm(lambda, y, d, hr, p1, my_arrow, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, layout, gamma_a_b_from_omega_sigma, n_x1_level, n_x2_level, n_cell, y_log_mean, y_log_sd, s_r, stanvars, my_data, fit24.1, nd, f, make_deflection, deflections, fit24.2, fit24.3, post, fit24.4)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
-pacman::p_unload(pacman::p_loaded(), character.only = TRUE)
-
 ggplot2::theme_set(ggplot2::theme_grey())
-
 bayesplot::color_scheme_set("blue")
+pacman::p_unload(pacman::p_loaded(), character.only = TRUE)
 ```
 
