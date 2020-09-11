@@ -2084,7 +2084,230 @@ As to the issue of parallel processing, we've been doing this all along. Note ou
 
 > Many data structures invite hierarchical descriptions that may have multiple levels. Software such as ~~JAGS~~ [**brms**] makes it easy to implement hierarchical models, and Bayesian inference makes it easy to interpret the parameter estimates, even for complex nonlinear hierarchical models. Here, we take a look at one type of extended hierarchical model. (p. 251)
 
-Here we depart a little from Kruschke, again. Though we will be fitting a hierarchical model with subjects $s$ within categories $c$, the higher-level parameters will not be $\omega$ and $\kappa$. As we'll go over, below, we will use the binomial distribution within a more conventional hierarchical logistic regression paradigm. In this paradigm, we have an overall intercept, often called $\alpha$ or $\beta_0$, which will be our analogue to Kruschke's overall $\omega$. For the two grouping categories, $s$ and $c$, we will have $\sigma$ estimates, which express the variability within those grouping. You'll see when we get there.
+As we will address below, our version of Figure 9.13 will look rather different from Kruschke's. It's something of a combination of the sensibilities from Figures 20.2 and 21.10. Even still, the diagram is of three-level model that shares many similarities to Kruschkes and, as we will see, yields very similar results.
+
+```{r, fig.width = 6.5, fig.height = 5, warning = F, message = F}
+# half-normal density
+p1 <-
+  tibble(x = seq(from = 0, to = 3, by = .01)) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
+  geom_ribbon(fill = a_purple, size = 0) +
+  annotate(geom = "text",
+           x = 1.5, y = .2,
+           label = "half-normal",
+           size = 7) +
+  annotate(geom = "text",
+           x = 1.5, y = .6,
+           label = "0*','*~italic(S)[italic(s)*'|'*italic(c)]", 
+           size = 7, family = "Times", parse = T) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5))
+
+# second half-normal density
+p2 <-
+  tibble(x = seq(from = 0, to = 3, by = .01)) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
+  geom_ribbon(fill = a_purple, size = 0) +
+  annotate(geom = "text",
+           x = 1.5, y = .2,
+           label = "half-normal",
+           size = 7) +
+  annotate(geom = "text",
+           x = 1.5, y = .6,
+           label = "0*','*~italic(S)[italic(c)]", 
+           size = 7, family = "Times", parse = T) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5))
+  
+#  annotated arrow
+p3 <-
+  tibble(x    = .85,
+         y    = 1,
+         xend = .5,
+         yend = .25) %>%
+  
+  ggplot(aes(x = x, xend = xend,
+             y = y, yend = yend)) +
+  geom_segment(arrow = my_arrow) +
+  annotate(geom = "text",
+           x = .54, y = .6, label = "'~'", 
+           size = 10, family = "Times", parse = T) +
+  xlim(0, 1) +
+  theme_void()
+
+# normal density
+p4 <-
+  tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
+  geom_ribbon(fill = a_purple, size = 0) +
+  annotate(geom = "text",
+           x = 0, y = .2,
+           label = "normal",
+           size = 7) +
+  annotate(geom = "text",
+           x = c(0, 1.45), y = .6,
+           hjust = c(.5, 0),
+           label = c("italic(M)[0]", "italic(S)[0]"), 
+           size = 7, family = "Times", parse = T) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5))
+
+# second normal density
+p5 <-
+  tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
+  geom_ribbon(fill = a_purple, size = 0) +
+  annotate(geom = "text",
+           x = 0, y = .2,
+           label = "normal",
+           size = 7) +
+  annotate(geom = "text",
+           x = c(0, 1.45), y = .6,
+           hjust = c(.5, 0),
+           label = c("0", "sigma[italic(s)*'|'*italic(c)]"), 
+           size = 7, family = "Times", parse = T) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5))
+
+# third normal density
+p6 <-
+  tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
+  geom_ribbon(fill = a_purple, size = 0) +
+  annotate(geom = "text",
+           x = 0, y = .2,
+           label = "normal",
+           size = 7) +
+  annotate(geom = "text",
+           x = c(0, 1.45), y = .6,
+           hjust = c(.5, 0),
+           label = c("0", "sigma[italic(c)]"), 
+           size = 7, family = "Times", parse = T) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5))
+
+# three annotated arrows
+p7 <-
+  tibble(x    = c(.09, .48, .9),
+         y    = c(1, 1, 1),
+         xend = c(.2, .425, .775),
+         yend = c(.2, .2, .2)) %>%
+  ggplot(aes(x = x, xend = xend,
+             y = y, yend = yend)) +
+  geom_segment(arrow = my_arrow) +
+  annotate(geom = "text",
+           x = c(.10, .42, .49, .81, .87), y = .6,
+           label = c("'~'", "'~'", "italic(s)*'|'*italic(c)", "'~'", "italic(c)"),
+           size = c(10, 10, 7, 10, 7), 
+           family = "Times", parse = T) +
+  xlim(0, 1) +
+  theme_void()
+
+# likelihood formula
+p8 <-
+  tibble(x = .5,
+         y = .5,
+         label = "logistic(beta[0]+sum()[italic(s)*'|'*italic(c)]*beta['['*italic(s)*'|'*italic(c)*']']*italic(x)['['*italic(s)*'|'*italic(c)*']'](italic(i))+sum()[italic(c)]*beta['['*italic(c)*']']*italic(x)['['*italic(c)*']'](italic(i)))") %>% 
+  
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(size = 7, parse = T, family = "Times") +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 1)) +
+  ylim(0, 1) +
+  theme_void()
+
+# a second annotated arrow
+p9 <-
+  tibble(x     = .375,
+         y     = .7,
+         label = "'='") %>% 
+  
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(size = 10, parse = T, family = "Times") +
+  geom_segment(x = .5, xend = .5,
+               y = 1, yend = .4,
+               arrow = my_arrow) +
+  xlim(0, 1) +
+  theme_void()
+
+# bar plot of Bernoulli data
+p10 <-
+  tibble(x = 0:1,
+         d = (dbinom(x, size = 1, prob = .6)) / max(dbinom(x, size = 1, prob = .6))) %>% 
+  
+  ggplot(aes(x = x, y = d)) +
+  geom_col(fill = a_purple, width = .4) +
+  annotate(geom = "text",
+           x = .5, y = .2,
+           label = "Bernoulli",
+           size = 7) +
+  annotate(geom = "text",
+           x = .5, y = .94,
+           label = "mu[italic(i)]", 
+           size = 7, family = "Times", parse = T) +
+  xlim(-.75, 1.75) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5))
+
+# another annotated arrow
+p11 <-
+  tibble(x     = c(.375, .7),
+         y     = c(1/3, 1/3),
+         label = c("'~'", "italic(i)*'|'*italic(sc)")) %>% 
+  
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(size = c(10, 7), parse = T, family = "Times") +
+  geom_segment(x = .5, xend = .5,
+               y = 1, yend = 0,
+               arrow = my_arrow) +
+  xlim(0, 1) +
+  theme_void()
+
+# some text
+p12 <-
+  tibble(x     = 1,
+         y     = .5,
+         label = "italic(y)[italic(i)*'|'*italic(sc)]") %>% 
+  
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(size = 7, parse = T, family = "Times") +
+  xlim(0, 2) +
+  theme_void()
+
+# define the layout
+layout <- c(
+  area(t = 1, b = 2, l = 7, r = 9),
+  area(t = 1, b = 2, l = 11, r = 13),
+  
+  area(t = 4, b = 5, l = 1, r = 3),
+  area(t = 4, b = 5, l = 5, r = 7),
+  area(t = 4, b = 5, l = 9, r = 11),
+  
+  area(t = 3, b = 4, l = 6, r = 8),
+  area(t = 3, b = 4, l = 10, r = 12),
+  
+  area(t = 7, b = 8, l = 1, r = 11),
+  area(t = 6, b = 7, l = 1, r = 11),
+
+  area(t = 11, b = 12, l = 5, r = 7),
+  area(t = 9, b = 11, l = 5, r = 7),
+
+  area(t = 13, b = 14, l = 5, r = 7),
+  area(t = 15, b = 15, l = 5, r = 7)
+)
+
+# combine and plot!
+(p1 + p2 + p4 + p5 + p6 + p3 + p3 + p8 + p7 + p10 + p9 + p11 + p12) + 
+  plot_layout(design = layout) &
+  ylim(0, 1) &
+  theme(plot.margin = margin(0, 5.5, 0, 5.5))
+```
+
+Though we will be fitting a hierarchical model with subjects $s$ within categories $c$, the higher-level parameters will not be $\omega$ and $\kappa$. As we'll go over, below, we will use the binomial distribution within a more conventional hierarchical logistic regression paradigm. In this paradigm, we have an overall intercept, often called $\alpha$ or $\beta_0$, which will be our analogue to Kruschke's overall $\omega$. For the two grouping categories, $s$ and $c$, we will have $\sigma$ estimates, which express the variability within those grouping. You'll see when we get there.
 
 ### Example: Baseball batting abilities by position.
 
@@ -2588,7 +2811,7 @@ sessionInfo()
 
 ```{r, echo = F}
 # remove our objects
-rm(beta_by_k, p1, p2, p3, my_arrow, p4, p5, p6, p7, layout, alpha, beta, make_prior, parameter_space, d, geom_2dd, a_purple, geom_marginal, text, bernoulli_likelihood, n, z, trial_data, trial_data_1, trial_data_2, p11, p12, p13, p21, p22, p23, p31, p32, p33, p41, p42, p43, p51, p52, p53, p8, length, gamma_s_and_r_from_mean_sd, gamma_s_and_r_from_mode_sd, gamma_param, my_data, fit9.1, post, post_small, labels, sigmas, r_norm, fit9.1_prior, prior, prior_samples, omega, kappa1, kappa2, stop_time_bernoulli, start_time_bernoulli, stop_time_binomial, start_time_binomial, fit9.2, make_histogram, make_point, coef_primary_position, coef_small, name_list, nd, fitted_players, fitted_positions)
+rm(beta_by_k, p1, p2, p3, my_arrow, p4, p5, p6, p7, layout, alpha, beta, make_prior, parameter_space, d, geom_2dd, a_purple, geom_marginal, text, bernoulli_likelihood, n, z, trial_data, trial_data_1, trial_data_2, p11, p12, p13, p21, p22, p23, p31, p32, p33, p41, p42, p43, p51, p52, p53, p8, length, gamma_s_and_r_from_mean_sd, gamma_s_and_r_from_mode_sd, gamma_param, my_data, fit9.1, post, post_small, labels, sigmas, r_norm, fit9.1_prior, prior, prior_samples, omega, kappa1, kappa2, stop_time_bernoulli, start_time_bernoulli, stop_time_binomial, start_time_binomial, p9, p10, fit9.2, make_histogram, make_point, coef_primary_position, coef_small, name_list, nd, fitted_players, fitted_positions)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
