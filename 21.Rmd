@@ -100,6 +100,7 @@ Now make Figure 21.2.
 ```{r, fig.width = 2, fig.height = 4.25, warning = F, message = F}
 library(patchwork)
 
+# normal density
 p1 <-
   tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
   ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
@@ -117,6 +118,7 @@ p1 <-
   theme(axis.line.x = element_line(size = 0.5),
         plot.background = element_rect(fill = pm[8], color = "white", size = 1))
 
+# second normal density
 p2 <-
   tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
   ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
@@ -573,7 +575,7 @@ $$
 \sum_j \underbrace{\frac{\zeta_j}{s_{x_j}} \overline x_j}_{\beta_j},
 $$
 
-where the $\zeta$s are the parameters from the model based on standardized predictors. Our `fit21.2` was based on standardized `weight` and `height` values (i.e., `weight_z` and `height_z`), yielding model coefficients in the $\zeta$ metric. Here we use the formula above to convert our `fit21.2` estimates to their unstandardized $\beta$ metric. For simplicity, we'll just take their means. 
+where the $\zeta$s are the parameters from the model based on standardized predictors. Our `fit21.2` was based on standardized `weight` and `height` values (i.e., `weight_z` and `height_z`), yielding model coefficients in the $\zeta$ metric. Here we use the formula above to convert our `fit21.2` estimates to their unstandardized $\beta$ metric. For simplicity, we'll just take their means.
 
 ```{r}
 posterior_samples(fit21.2) %>% 
@@ -602,11 +604,11 @@ $$\operatorname{logistic}(x) = \frac{1}{1 + \exp (−x)},$$
 
 and given the formula 
 
-$$\operatorname{logit}(\mu) = \log \left (\frac{\mu}{1 - \mu} \right), $$
+$$\operatorname{logit}(\mu) = \log \left (\frac{\mu}{1 - \mu} \right),$$
 
 where
 
-$$0 < \mu < 1, $$
+$$0 < \mu < 1,$$
 
 it may or may not be clear that the results of our logistic regression models have a nonlinear relation with the actual parameter of interest, $\mu$, which, recall, is the probability our criterion variable is 1 (e.g., `male == 1`). To get a sense of that nonlinear relation, we might make a plot.
 
@@ -1068,7 +1070,7 @@ d <-
 
 To fit the interaction model, let's go back to the Bernoulli likelihood.
 
-```{r ffit21.6}
+```{r fit21.6}
 fit21.6 <-
   brm(data = d, 
       family = bernoulli,
@@ -1116,7 +1118,7 @@ f %>%
             aes(label = y, color = y == 1),
             size = 2.75, show.legend = F) +
   scale_color_manual(values = pm[c(8, 1)]) +
-  scale_fill_gradientn(colours = pnw_palette(name = "Mushroom", n = 101),
+  scale_fill_gradientn("m", colours = pnw_palette(name = "Mushroom", n = 101),
                        limits = c(0, 1)) +
   scale_x_continuous(expand = c(0, 0)) +
   scale_y_continuous(expand = c(0, 0)) +
@@ -1124,7 +1126,7 @@ f %>%
                   ylim = range(nd$x2))
 ```
 
-Instead of a simple threshold line, we get to visualize our interaction as a checkerboard-like probability plane.
+Instead of a simple threshold line, we get to visualize our interaction as a checkerboard-like probability plane. If you look back to Figure 21.7, you'll see this is our 2D version of Kruschke's wireframe plot on the top right.
 
 ## Robust logistic regression
 
@@ -1512,7 +1514,184 @@ glimpse(my_data)
 
 #### The model.
 
-I'm not aware that Kruschke's modeling approach, here, will work well within the **brms** paradigm. I suggest we fit a simple hierarchical logistic regression model, instead. With this approach, we use the statistical model
+I'm not aware that Kruschke's modeling approach for this example will work well within the **brms** paradigm. Accordingly, our version of the hierarchical model diagram in Figurer 21.12 will differ in important ways from the one in the text.
+
+```{r, fig.width = 3.5, fig.height = 5.25}
+# bracket
+p1 <-
+  tibble(x = .4,
+         y = .25,
+         label = "{_}") %>% 
+  
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(size = 10, color = pm[3], family = "Times") +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 1)) +
+  ylim(0, 1) +
+  theme_void()
+
+# normal density
+p2 <-
+  tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
+  geom_ribbon(fill = pm[5], size = 0) +
+  annotate(geom = "text",
+           x = 0, y = .2,
+           label = "normal",
+           size = 7, color = pm[1]) +
+  annotate(geom = "text",
+           x = c(0, 1.5), y = .6,
+           label = c("italic(M)[0]", "italic(S)[0]"), 
+           size = 7, color = pm[1], hjust = 0, family = "Times", parse = T) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5),
+        plot.background = element_rect(fill = pm[8], color = "white", size = 1))
+
+# second normal density
+p3 <-
+  tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
+  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
+  geom_ribbon(fill = pm[5], size = 0) +
+  annotate(geom = "text",
+           x = 0, y = .2,
+           label = "normal",
+           size = 7, color = pm[1]) +
+  annotate(geom = "text",
+           x = c(0, 1.5), y = .6,
+           label = c("0", "sigma[beta]"), 
+           size = 7, color = pm[1], hjust = 0, family = "Times", parse = T) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5),
+        plot.background = element_rect(fill = pm[8], color = "white", size = 1))
+
+#  plain arrow
+p4 <-
+  tibble(x    = .4,
+         y    = 1,
+         xend = .4,
+         yend = .25) %>%
+  
+  ggplot(aes(x = x, xend = xend,
+             y = y, yend = yend)) +
+  geom_segment(arrow = my_arrow, color = pm[1]) +
+  xlim(0, 1) +
+  theme_void()
+
+# likelihood formula
+p5 <-
+  tibble(x = .5,
+         y = .3,
+         label = "logistic(beta[0]+sum()[italic(j)]*beta['['*italic(j)*']']*italic(x)['['*italic(j)*']'](italic(i)))") %>% 
+  
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(size = 7, color = pm[1], parse = T, family = "Times") +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 1)) +
+  ylim(0, 1) +
+  theme_void()
+  
+# two annotated arrows
+p6 <-
+  tibble(x    = c(.2, .8),
+         y    = 1,
+         xend = c(.4, .6),
+         yend = .1) %>%
+  
+  ggplot(aes(x = x, xend = xend,
+             y = y, yend = yend)) +
+  geom_segment(arrow = my_arrow, color = pm[1]) +
+  annotate(geom = "text",
+           x = c(.25, .62, .75), y = .55,
+           label = c("'~'", "'~'", "italic(j)"),
+           size = c(10, 10, 7), color = pm[1], family = "Times", parse = T) +
+  xlim(0, 1) +
+  theme_void()
+
+# binomial density
+p7 <-
+tibble(x = 0:7) %>% 
+  ggplot(aes(x = x, 
+             y = (dbinom(x, size = 7, prob = .625)) / max(dbinom(x, size = 7, prob = .625)))) +
+  geom_col(fill = pm[5], width = .4) +
+  annotate(geom = "text",
+           x = 3.5, y = .2,
+           label = "binomial",
+           size = 7) +
+  annotate(geom = "text",
+           x = 7, y = .85,
+           label = "italic(N)[italic(i)*'|'*italic(j)]",
+           size = 7, family = "Times", parse = TRUE) +
+  coord_cartesian(xlim = c(-1, 8),
+                  ylim = c(0, 1.2)) +
+  theme_void() +
+  theme(axis.line.x = element_line(size = 0.5),
+        plot.background = element_rect(fill = pm[8], color = pm[8]))
+
+# one annotated arrow
+p8 <-
+  tibble(x     = c(.375, .5),
+         y     = c(.75, .3),
+         label = c("'='", "mu[italic(i)*'|'*italic(j)]")) %>% 
+  
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(size = c(10, 7), color = pm[1], parse = T, family = "Times") +
+  geom_segment(x = .5, xend = .5,
+               y = 1, yend = .4,
+               arrow = my_arrow, color = pm[1]) +
+  xlim(0, 1) +
+  theme_void()
+
+# another annotated arrow
+p9 <-
+  tibble(x     = c(.375, .625),
+         y     = c(1/3, 1/3),
+         label = c("'~'", "italic(i)*'|'*italic(j)")) %>% 
+  
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(size = c(10, 7), color = pm[1], parse = T, family = "Times") +
+  geom_segment(x = .5, xend = .5,
+               y = 1, yend = 0,
+               arrow = my_arrow, color = pm[1]) +
+  xlim(0, 1) +
+  theme_void()
+
+# some text
+p10 <-
+  tibble(x     = 1,
+         y     = .5,
+         label = "italic(y[i])['|'][italic(j)]") %>% 
+  
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(size = 7, color = pm[1], parse = T, family = "Times") +
+  xlim(0, 2) +
+  theme_void()
+
+# define the layout
+layout <- c(
+  area(t = 1, b = 2, l = 6, r = 8),
+  
+  area(t = 4, b = 5, l = 1, r = 3),
+  area(t = 4, b = 5, l = 5, r = 7),
+  
+  area(t = 3, b = 4, l = 6, r = 8),
+  area(t = 7, b = 8, l = 1, r = 7),
+  area(t = 6, b = 7, l = 1, r = 7),
+  
+  area(t = 11, b = 12, l = 3, r = 5),
+  area(t = 9, b = 11, l = 3, r = 5),
+  
+  area(t = 13, b = 14, l = 3, r = 5),
+  area(t = 15, b = 15, l = 3, r = 5)
+)
+
+# combine and plot!
+(p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8 + p9 + p10) + 
+  plot_layout(design = layout) &
+  ylim(0, 1) &
+  theme(plot.margin = margin(0, 5.5, 0, 5.5))
+```
+
+I recommend we fit a simple hierarchical logistic regression model in place of the one Kruschke used. With this approach, we might express the statistical model as
 
 \begin{align*}
 \text{Hits}_i               & \sim \operatorname{Binomial}(\text{AtBats}_i, p_i) \\
@@ -1716,7 +1895,7 @@ sessionInfo()
 
 ```{r, message = F, echo = F}
 # Here we'll remove our objects
-rm(pm, p1, p2, my_arrow, p3, p4, p5, p6, p7, p8, p9, layout, my_data, p, fit21.1, length, n_iter, nd, f, thresholds, stat_wilke, fit21.2, post, b0, b1, n, d_rare, fit21.3, d_not_rare, fit21.4, s, m, d, b2, fit21.5, different_seed, my_upper, my_diag, my_lower, b3, fit21.6, fit21.7, logistic, positions, fit21.8)
+rm(pm, p1, p2, my_arrow, p3, p4, p5, p6, p7, p8, p9, layout, my_data, p, fit21.1, length, n_iter, nd, f, thresholds, stat_wilke, fit21.2, post, b0, b1, n, d_rare, fit21.3, d_not_rare, fit21.4, s, m, d, b2, fit21.5, different_seed, my_upper, my_diag, my_lower, b3, fit21.6, fit21.7, logistic, positions, p10, fit21.8)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
