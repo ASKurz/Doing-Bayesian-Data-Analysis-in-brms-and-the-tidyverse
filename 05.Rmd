@@ -25,11 +25,11 @@ I do recommend checking out McGrayne's book It's an easy and entertaining read. 
 
 With Equations 5.5 and 5.6, Kruschke gave us Bayes' rule in terms of $c$ and $r$. Equation 5.5 was
 
-$$p(c|r) = \frac{p(r|c)p(c)}{p(r)}.$$
+$$p(c|r) = \frac{p(r|c) \; p(c)}{p(r)}.$$
 
 Since $p(r) = \sum_{c^*}p(r|c^*)p(c^*)$, we can re-express that as Equation 5.6:
 
-$$p(c|r) = \frac{p(r|c)p(c)}{\sum_{c^*}p(r|c^*)p(c^*)},$$
+$$p(c|r) = \frac{p(r|c) \; p(c)}{\sum_{c^*}p(r|c^*) \; p(c^*)},$$
 
 where $c^*$ "in the denominator is a variable that takes on all possible values" of $c$ (p. 101).
 
@@ -38,13 +38,12 @@ where $c^*$ "in the denominator is a variable that takes on all possible values"
 Here we get those equations re-expressed in the terms data analysts tend to think with, parameters (i.e., $\theta$) and data (i.e., $D$).
 
 \begin{align*}
-p(\theta|D) & = \frac{p(D|\theta)p(\theta)}{p(D)} \;\; \text{and since} \\
-p(D)        & = \sum\limits_{\theta^*}p(D|\theta^*)p(\theta^*) \;\; \text{it's also the case that} \\
-p(\theta|D) & = \frac{p(D|\theta)p(\theta)}{\sum\limits_{\theta^*}p(D|\theta^*)p(\theta^*)}.
+p(\theta|D) & = \frac{p(D|\theta) \; p(\theta)}{p(D)} \;\; \text{and since} \\
+p(D)        & = \sum\limits_{\theta^*}p(D|\theta^*) \; p(\theta^*) \;\; \text{it's also the case that} \\
+p(\theta|D) & = \frac{p(D|\theta) \; p(\theta)}{\sum\limits_{\theta^*}p(D|\theta^*) \; p(\theta^*)}.
 \end{align*}
 
-As in the previous section where we spoke in terms of $r$ and $c$, our updated $\theta^*$ notation is meant to indicate all possible values of $\theta$. For practice, it's worth repeating how Kruschke broke this down with Equation 5.7, 
-
+As in the previous section where we spoke in terms of $r$ and $c$, our updated $\theta^*$ notation is meant to indicate all possible values of $\theta$. For practice, it's worth repeating how Kruschke broke this down with Equation 5.7,
 
 $$
 \underbrace{p(\theta|D)}_\text{posterior} \; = \; \underbrace{p(D|\theta)}_\text{likelihood} \;\; \underbrace{p(\theta)}_\text{prior} \; / \; \underbrace{p(D)}_\text{evidence}.
@@ -81,7 +80,11 @@ tibble(prior = c(seq(from = 0,   to = .2, length.out = 6),
   summarise(s = sum(prior))
 ```
 
-If we follow Kruschke's equation 5.10 (i.e., the Bernoulli function) closely, we can express it as a function in **R**.
+In Equation 5.10 (p. 109), Kruschke defined the Bernoulli function as 
+
+$$p(y | \theta) = \theta^y (1 - \theta)^{(1 - y)}.$$
+
+We can express it as a function in **R** like this.
 
 ```{r}
 bernoulli <- function(theta, y) {
@@ -97,7 +100,7 @@ theta_sequence <- seq(from = 0, to = 1, by = .1)
 bernoulli(theta = theta_sequence, y = 1)
 ```
 
-Notice how our `theta_sequence` corresponds nicely with the sequence of $\theta$ values on the x-axes of Figure 5.1. We can combine `theta_sequence` and our `bernoulli()` function to make the middle panel of Figure 5.1
+Notice how our `theta_sequence` corresponds nicely with the sequence of $\theta$ values on the $x$-axes of Figure 5.1. We can combine `theta_sequence` and our `bernoulli()` function to make the middle panel of Figure 5.1
 
 ```{r, fig.width = 4, fig.height = 2}
 tibble(x = theta_sequence) %>%
@@ -129,9 +132,11 @@ tibble(theta = theta_sequence,
   theme(panel.grid = element_blank())
 ```
 
+> The posterior is a compromise between the prior distribution and the likelihood function. Sometimes this is loosely stated as a compromise between the prior and the data. The compromise favors the prior to the extent that the prior distribution is sharply peaked and the data are few. The compromise favors the likelihood function (i.e., the data) to the extent that the prior distribution is flat and the data are many. (p. 112)
+
 ### Influence of sample size on the posterior.
 
-In order to follow along with this section, we're going to have to update our Bernoulli likelihood function so it can accommodate more than a single trial. We'll anticipate Chapter 6 and call our more general function the `bernoulli_likelihood()`.
+In order to follow along with this section, we're going to have to update our Bernoulli likelihood function so it can accommodate more than a single trial. In anticipation of [Chapter 6][Inferring a Binomial Probability via Exact Mathematical Analysis], we'll call our more general function the `bernoulli_likelihood()`.
 
 ```{r}
 bernoulli_likelihood <- function(theta, data) {
@@ -170,7 +175,7 @@ tibble(theta =   seq(from = 0,     to = 1, by = .001),
   facet_wrap(~key, scales = "free_y", ncol = 1)
 ```
 
-We’ll follow the same procedure to make the right portion of Figure 5.2. The only difference is how we switched from `small_data` to `large_data`.
+Just follow the same overall procedure to make the right portion of Figure 5.2. The only difference is how we switch from `small_data` to `large_data`.
 
 ```{r, fig.width = 4, fig.height = 4}
 large_data <- rep(0:1, times = c(30, 10))
@@ -194,7 +199,7 @@ tibble(theta = seq(from = 0, to = 1, by = .001),
   facet_wrap(~key, scales = "free_y", ncol = 1)
 ```
 
-With just an $N = 40$, the likelihood already dominated the posterior. But this is also a function of our fairly gentle prior.
+With just an $N = 40$, the likelihood already dominated the posterior. But this is also a function of our fairly gentle prior. "In general, the more data we have, the more precise is the estimate of the parameter(s) in the model. Larger sample sizes yield greater precision or certainty of estimation" (p. 113).
 
 ### Influence of prior on the posterior.
 
@@ -253,9 +258,9 @@ tibble(theta = seq(from = 0, to = 1, by = .001),
 
 ## Why Bayesian inference can be difficult
 
-> Determining the posterior distribution directly from Bayes, rule involves computing the evidence (a.k.a. marginal likelihood) in Equations 5.8 and 5.9. In the usual case of continuous parameters, the integral in Equation 5.9 can be impossible to solve analytically. Historically, the difficulty of the integration was addressed by restricting models to relatively simple likelihood functions with corresponding formulas for prior distributions, called *conjugate* priors, that "played nice" with the likelihood function to produce a tractable integral. (p. 115, *emphasis* in the original)
+> Determining the posterior distribution directly from Bayes' rule involves computing the evidence (a.k.a. marginal likelihood) in Equations 5.8 and 5.9. In the usual case of continuous parameters, the integral in Equation 5.9 can be impossible to solve analytically. Historically, the difficulty of the integration was addressed by restricting models to relatively simple likelihood functions with corresponding formulas for prior distributions, called *conjugate* priors, that "played nice" with the likelihood function to produce a tractable integral. (p. 115, *emphasis* in the original)
 
-However, the simple model + conjugate prior approach has its limitations. As we'll see, we often want to fit complex models without shackling ourselves with conjugate priors—which can be quite a pain to work with. Happily, 
+However, the simple model + conjugate prior approach has its limitations. As we'll see, we often want to fit complex models without shackling ourselves with conjugate priors—which can be quite a pain to work with. Happily,
 
 > another kind of approximation involves randomly sampling a large number of representative combinations of parameter values from the posterior distribution. In recent decades, many such algorithms have been developed, generally referred to as Markov chain Monte Carlo (MCMC) methods. What makes these methods so useful is that they can generate representative parameter-value combinations from the posterior distribution of complex models *without* computing the integral in Bayes' rule. It is the development of these MCMC methods that has allowed Bayesian statistical methods to gain practical use. (pp. 115--116, *emphasis* in the original)
 
@@ -271,10 +276,7 @@ rm(bernoulli, theta_sequence, bernoulli_likelihood, small_data, large_data)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
-pacman::p_unload(pacman::p_loaded(), character.only = TRUE)
-
 ggplot2::theme_set(ggplot2::theme_grey())
-
-bayesplot::color_scheme_set("blue")
+pacman::p_unload(pacman::p_loaded(), character.only = TRUE)
 ```
 
