@@ -123,7 +123,7 @@ d %>%
 >
 > For continuous outcome spaces, we can *discretize* the space into a finite set of mutually exclusive and exhaustive "bins." (p. 78, *emphasis* in the original)
 
-In order to recreate Figure 4.2, we need to generate the heights data. In his `HtWtDataDenerator.R` script, Kruschke provided the code for a function that will generate height data of the kind in his text. Here is the code:
+In order to recreate Figure 4.2, we need to generate the heights data. In his `HtWtDataDenerator.R` script, Kruschke provided the code for a function that will generate height data of the kind in his text. Here is the code.
 
 ```{r}
 HtWtDataGenerator <- function(n_subj, rndsd = NULL, male_prob = 0.50) {
@@ -207,7 +207,7 @@ d %>%
 
 For Figure 4.2, we'll make extensive use of the `case_when()` syntax, which you can learn more about from [hrbrmstr](https://twitter.com/hrbrmstr)'s blog post, [*Making a case for case_when*](https://rud.is/b/2017/03/10/making-a-case-for-case_when/).
 
-```{r, fig.height = 2, fig.width = 7}
+```{r, fig.height = 2, fig.width = 7, message = F}
 d_bin <-
   d %>%
   mutate(bin = case_when(
@@ -267,7 +267,7 @@ d %>%
 
 Our data binning approach for Figure 4.2.c will be a little different than what we did, above. Here we'll make our bins with the `round()` function.
 
-```{r, fig.height = 2, fig.width = 7}
+```{r, fig.height = 2, fig.width = 7, message = F}
 d_bin <-
   d %>%
   mutate(bin = round(height, digits = 0)) %>%   
@@ -351,7 +351,7 @@ head(d_bin)
 
 We've labeled our `bin` levels by their upper bounds. Note how they are saved as factors. To make use of those values in our plot, we'll need to convert them to numerals. Here we make that conversion and complete the data wrangling.
 
-```{r}
+```{r, message = F}
 d_bin <-
   d_bin %>% 
   mutate(bin = as.character(bin) %>% as.double()) %>% 
@@ -421,7 +421,7 @@ tibble(x = seq(from = -.8, to = .8, by = .02)) %>%
 The equation for the normal probability density follows the form
 
 $$
-p(x) = \frac{1}{\sigma \sqrt{2 \pi}} \exp \Bigg ( - \frac{1}{2} \bigg [ \frac{x - \mu}{\sigma}^2 \bigg ] \Bigg ),
+p(x) = \frac{1}{\sigma \sqrt{2 \pi}} \exp \Bigg ( - \frac{1}{2} \left [ \frac{x - \mu}{\sigma}^2 \right ] \Bigg ),
 $$
 
 where $\mu$ governs the mean and $\sigma$ governs the standard deviation.
@@ -513,7 +513,7 @@ tibble(x = seq(from = -3.5, to = 3.5, by = .05)) %>%
   theme(panel.grid = element_blank())
 ```
 
-As far as I could tell, Figure 4.5.b is of a beta distribution, which Kruschke covers in greater detail starting in Chapter 6. I got the `shape1` and `shape2` values from playing around. If you have a more principled approach, [do share](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues). But anyway, we can use our `hdi_of_icdf()` funciton to ge the correct values.
+As far as I could tell, Figure 4.5.b is of a beta distribution, which Kruschke covers in greater detail starting in Chapter 6. I got the `shape1` and `shape2` values from playing around. If you have a more principled approach, [do share](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues). But anyway, we can use our `hdi_of_icdf()` function to ge the correct values.
 
 ```{r}
 h <-
@@ -617,9 +617,7 @@ ggplot(data = dens,
                           ends = "both",
                           type = "closed"),
             color = "grey92") +
-  annotate(geom = "text", x = 1.5, y = .1, 
-           label = "95% HDI", color = "grey92") +
-  annotate(geom = "text", x = 4.75, y = .1, 
+  annotate(geom = "text", x = c(1.5, 4.75), y = .1, 
            label = "95% HDI", color = "grey92") +
   scale_x_continuous(breaks = 0:6, limits = c(0, 6.3)) +
   scale_y_continuous("p(x)", breaks = c(0, .1, .2, .3, .4, .5)) +
@@ -697,10 +695,8 @@ rm(n, p_heads, d, end_prop, HtWtDataGenerator, d_bin, hdi_of_icdf, h, dens)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
-pacman::p_unload(pacman::p_loaded(), character.only = TRUE)
-
 ggplot2::theme_set(ggplot2::theme_grey())
-
 bayesplot::color_scheme_set("blue")
+pacman::p_unload(pacman::p_loaded(), character.only = TRUE)
 ```
 
