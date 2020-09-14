@@ -44,24 +44,24 @@ hdi_of_icdf <- function(name, width = .95, tol = 1e-8, ... ) {
 }
 ```
 
-Our `hdi_of_icdf()` function will compute the analytic 95% HDIs for the distribution under consideration in Figure 7.1, $\operatorname{beta} (\theta | 15, 7)$.
+Our `hdi_of_icdf()` function will compute the analytic 95% highest density intervals (HDIs) for the distribution under consideration in Figure 7.1, $\operatorname{beta}(\theta | 15, 7)$.
 
 ```{r}
-(
-  h <-
-    hdi_of_icdf(name = qbeta,
-                shape1 = 15,
-                shape2 = 7)
-)
+h <-
+  hdi_of_icdf(name = qbeta,
+              shape1 = 15,
+              shape2 = 7)
+
+h
 ```
 
-Using an equation from Chapter 6, $\omega = (a − 1) / (a + b − 2)$, we can compute the corresponding mode.
+Using an equation from [Chapter 6][Specifying a beta prior.], $\omega = (a − 1) / (a + b − 2)$, we can compute the corresponding mode.
 
 ```{r}
 (omega <- (15 - 1) / (15 + 7 - 2))
 ```
 
-To get the density in the upper left panel of Figure 7.1, we'll make use of `dbeta()`. And we'll also make use of our `h[1:2]` and `omega` values.
+To get the density in the upper left panel of Figure 7.1, we'll make use of the `dbeta()` function and of our `h[1:2]` and `omega` values.
 
 ```{r, fig.width = 3, fig.height = 2.5, warning = F, message = F}
 library(tidyverse)
@@ -86,7 +86,7 @@ tibble(theta = seq(from = 0, to = 1, length.out = 100)) %>%
   theme_cowplot()
 ```
 
-Note how we're continuing to use `theme_cowplot()`, which we introduced in the last chapter. Anyway, the remaining panels in Figure 7.1 require we simulate the data.
+Note how we're continuing to use `theme_cowplot()`, which we introduced in the last chapter. The remaining panels in Figure 7.1 require we simulate the data.
 
 ```{r}
 set.seed(7)
@@ -141,9 +141,7 @@ my_mode_simulation <- function(seed) {
 
 Here we put our `my_mode_simulation()` function to work.
 
-, fig.width = 8, fig.height = 2.75, warning = F, message = F
-
-```{r sim, cache = T}
+```{r sim, fig.width = 8, fig.height = 2.75, warning = F, message = F, cache = T}
 # we need an index of the values we set our seed with in our `my_mode_simulation()` function
 sim <-
   tibble(seed = 1:1e3) %>% 
@@ -176,7 +174,7 @@ The answer, my friends, is MCMC.
 
 ### A politician stumbles upon the Metropolis algorithm.
 
-If we denote $P_\text{proposed}$ as the population of the proposed island and $P_\text{current}$ as the population of the current island, then
+I’m not going to walk out Kruschke’s politician example in any detail, here. But if we denote $P_\text{proposed}$ as the population of the proposed island and $P_\text{current}$ as the population of the current island, then
 
 $$p_\text{move} = \frac{P_\text{proposed}}{P_\text{current}}.$$
 
@@ -248,13 +246,15 @@ tibble(x = 1:7,
   theme_cowplot()
 ```
 
+> Notice that the sampled relative frequencies closely mimic the actual relative populations in the bottom panel! In fact, a sequence generated this way will converge, as the sequence gets longer, to an arbitrarily close approximation of the actual relative probabilities. (p. 149)
+
 ### General properties of a random walk.
 
 > The tajectory shown in Figure 7.2 is just one possible sequence of positions when the movement heuristic is applied. At each time step, the direction of the proposed move is random, and if the relative probability of the proposed position is less than that of the current position, then acceptance of the proposed move is also random. Because of the randomness, if the process were started over again, then the specific trajectory would almost certainly be different. Regardless of the specific trajectory, in the long run the relative frequency of visits mimics the target distribution.
 >
 > Figure 7.3 shows the probability of being in each position as a function of time. (p. 149)
 
-I was initially stumped on how to reproduce the simulation depicted in Figure 7.3. However, [Cardy Moten III](https://github.com/cmoten) kindly [shared a solution](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues/14) which was itself based on Kruschke's blog post from 2012, [*Metropolis algorithm: Discrete position probabilities*](https://doingbayesiandataanalysis.blogspot.com/2012/08/metropolis-algorithm-discrete-position.html). Here's a mild reworking of their solutions. First, we simulate.
+I was initially stumped on how to reproduce the simulation depicted in Figure 7.3. However, fellow enthusiast [Cardy Moten III](https://github.com/cmoten) kindly [shared a solution](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues/14) which was itself based on Kruschke's blog post from 2012, [*Metropolis algorithm: Discrete position probabilities*](https://doingbayesiandataanalysis.blogspot.com/2012/08/metropolis-algorithm-discrete-position.html). Here's a mild reworking of their solutions. First, we simulate.
 
 ```{r}
 nslots   <- 7
@@ -300,7 +300,7 @@ data <-
 
 # loop through the requisite time indexes
 # update the data and transition vector
-for(time_idx in 1:15) {
+for(time_idx in 1:99) {
   
   p[[time_idx]] <- data
   
@@ -320,14 +320,15 @@ Now we wrangle and plot.
 ```{r, fig.width = 10, fig.height = 8}
 p %>% 
   as_tibble_col() %>% 
-  mutate(facet = str_c("italic(t)==", 1:15)) %>% 
+  mutate(facet = str_c("italic(t)==", 1:99)) %>% 
+  slice(c(1:14, 99)) %>% 
   unnest(value) %>% 
   bind_rows(
     tibble(position = 1:nslots, 
            prob     = p_target, 
            facet    = "target")
   ) %>% 
-  mutate(facet = factor(facet, levels = c(str_c("italic(t)==", 1:15), "target"))) %>% 
+  mutate(facet = factor(facet, levels = c(str_c("italic(t)==", c(1:14, 99)), "target"))) %>% 
   
   # plot!
   ggplot(aes(x = position, y = prob, fill = facet == "target")) +
@@ -345,13 +346,13 @@ Through the simple magic of the random walk procedure,
 
 >  we are able to do *indirectly* something we could not necessarily do directly: We can generate random samples from the target distribution. Moreover, we can generate those random samples from the target distribution even when the target distribution is not normalized.
 >
-> This technique is profoundly useful when the target distribution $P(\theta)$ is a posterior proportional to $p(D | \theta) p(\theta)$. Merely by evaluating $p(D | \theta) p(\theta)$, without normalizing it by $p(D)$, we can generate random representative values from the posterior distribution. This result is wonderful because the method obviates direct computation of the evidence $p(D)$, which, as you’ll recall, is one of the most difficult aspects of Bayesian inference. By using MCMC techniques, we can do Bayesian inference in rich and complex models. It has only been with the development of MCMC algorithms and software that Bayesian inference is applicable to complex data analysis, and it has only been with the production of fast and cheap computer hardware that Bayesian inference is accessible to a wide audience. (p. 152, *emphasis* in the original)
+> This technique is profoundly useful when the target distribution $P(\theta)$ is a posterior proportional to $p(D | \theta) p(\theta)$. Merely by evaluating $p(D | \theta) p(\theta)$, without normalizing it by $p(D)$, we can generate random representative values from the posterior distribution. This result is wonderful because the method obviates direct computation of the evidence $p(D)$, which, as you'll recall, is one of the most difficult aspects of Bayesian inference. By using MCMC techniques, we can do Bayesian inference in rich and complex models. It has only been with the development of MCMC algorithms and software that Bayesian inference is applicable to complex data analysis, and it has only been with the production of fast and cheap computer hardware that Bayesian inference is accessible to a wide audience. (p. 152, *emphasis* in the original)
 
 ## The Metropolis algorithm more generally
 
 "The procedure described in the previous section was just a special case of a more general procedure known as the Metropolis algorithm, named after the first author of a famous article [@metropolisEquationStateCalculations1953]" (p. 156).
 
-Here's how to generate a proposed jump from a zero-mean normal distribuiton with a standard deviation of 0.2.
+Here's how to generate a proposed jump from a zero-mean normal distribution with a standard deviation of 0.2.
 
 ```{r}
 rnorm(1, mean = 0, sd = 0.2)
@@ -553,7 +554,7 @@ d %>%
   facet_wrap(~ proposal_sd, ncol = 3)
 ```
 
-The modes are the points and the lines depict the 95% HDIs. Also, did you notice our use of the `cowplot::panel_border()` funciton? The settings from `theme_cowplot()` can make it difficult to differentiate among subplots when faceting. By throwing in a call to `panel_border()` after `theme_cowplot()`, we added in lightweight panel borders.
+The modes are the points and the lines depict the 95% HDIs. Also, did you notice our use of the `cowplot::panel_border()` function? The settings from `theme_cowplot()` can make it difficult to differentiate among subplots when faceting. By throwing in a call to `panel_border()` after `theme_cowplot()`, we added in lightweight panel borders.
 
 Here's the middle of Figure 7.4.
 
@@ -585,6 +586,8 @@ d %>%
   facet_wrap(~proposal_sd, ncol = 3)
 ```
 
+> Regardless of the which proposal distribution in Figure 7.4 is used, the Metropolis algorithm will eventually produce an accurate representation of the posterior distribution, as is suggested by the histograms in the upper row of Figure 7.4. What differs is the efficiency of achieving a good approximation. (p. 160)
+
 ### Summary of Metropolis algorithm.
 
 > The motivation for methods like the Metropolis algorithm is that they provide a high-resolution picture of the posterior distribution, even though in complex models we cannot explicitly solve the mathematical integral in Bayes' rule. The idea is that we get a handle on the posterior distribution by generating a large sample of representative values. The larger the sample, the more accurate is our approximation. As emphasized previously, this is a sample of representative credible parameter values from the posterior distribution; it is not a resampling of data (there is a fixed data set).
@@ -597,7 +600,7 @@ d %>%
 
 ### Prior, likelihood and posterior for two biases.
 
-> We are considering situations in which there are two underlying biases, namely $\theta_1$ and $\theta_2$, for the two coins. We are trying to determine what we should believe about these biases after we have observed some data from the two coins. Recall that [Kruschke used] the term "bias" as the name of the parameter $\theta$, and not to indicate that the value of $\theta$ deviates from 0.5...
+> We are considering situations in which there are two underlying biases, namely $\theta_1$ and $\theta_2$, for the two coins. We are trying to determine what we should believe about these biases after we have observed some data from the two coins. Recall that [Kruschke used] the term "bias" as the name of the parameter $\theta$, and not to indicate that the value of $\theta$ deviates from 0.5....
 >
 > What we have to do next is specify a particular mathematical form for the prior distribution. We will work through the mathematics of a particular case for two reasons: First, it will allow us to explore graphical displays of two-dimensional parameter spaces, which will inform our intuitions about Bayes' rule and sampling from the posterior distribution. Second, the mathematics will set the stage for a specific example of Gibbs sampling. Later in the book when we do applied Bayesian analysis, we will *not* be doing any of this sort of mathematics. We are doing the math now, for simple cases, to understand how the methods work so we can properly interpret their outputs in realistically complex cases. (pp. 163--165, *emphasis* in the original)
 
@@ -621,7 +624,7 @@ betas %>%
   theme_cowplot()
 ```
 
-Instead of the contour lines, one might use color to depict the density variable, instead.
+Instead of the contour lines, one might use color to depict the density variable.
 
 ```{r, fig.height = 3}
 betas %>% 
@@ -720,7 +723,7 @@ d_likelihood <-
                                              data  = theta_2_data)) %>% 
   expand(nesting(theta_1, likelihood_1), nesting(theta_2, likelihood_2))
 
-# here we cobine `d_prior` and `d_likelihood`
+# here we combine `d_prior` and `d_likelihood`
 d_prior %>% 
   left_join(d_likelihood, by = c("theta_1", "theta_2")) %>% 
   # we need the marginal likelihood, the denominator in Bayes' rule
@@ -731,7 +734,7 @@ d_prior %>%
   # plot!
   ggplot(aes(x = theta_1, y = theta_2, fill = posterior)) +
   geom_tile() +
-  scale_fill_viridis_c(option = "A") +
+  scale_fill_viridis_c(expression(italic(p)(theta[1]*', '*theta[2]*'|'*D)), option = "A") +
   scale_x_continuous(expression(theta[1]), expand = expansion(mult = 0)) +
   scale_y_continuous(expression(theta[2]), expand = expansion(mult = 0)) +
   coord_equal() +
@@ -748,7 +751,7 @@ I've got nothing on this. But we're here to learn HMC anyways. Read on.
 
 ### ~~Gibbs~~ Hamiltonian Monte Carlo sampling.
 
-Figure 7.7 is still out of my skill set. But let's fit the model with our primary package, **brms**. First we need to laod **brms**.
+Figure 7.7 is still out of my skill set. But let's fit the model with our primary package, **brms**. First we need to load **brms**.
 
 ```{r, warning = F, message = F}
 library(brms)
@@ -884,7 +887,7 @@ Given that we used both a different likelihood function, which necessitated a di
 
 ### Terminology: MCMC.
 
-> Any simulation that samples a lot of random values from a distribution is called a Monte Carlo simulation, named after the dice and spinners and shufflings of the famous casino locale. The appellation "Monte Carlo" is attributed [@eckhardtStanUlamJohn1987] to the mathematicians Stanislaw Ulam (1909–1984) and John von Neumann (1903–1957). (p. 177)
+> Any simulation that samples a lot of random values from a distribution is called a Monte Carlo simulation, named after the dice and spinners and shufflings of the famous casino locale. The appellation "Monte Carlo" is attributed [@eckhardtStanUlamJohn1987] to the mathematicians [Stanislaw Ulam](https://en.wikipedia.org/wiki/Stanislaw_Ulam) (1909--1984) and [John von Neumann](https://en.wikipedia.org/wiki/John_von_Neumann) (1903--1957). (p. 177)
 
 In case you didn't know, **brms** is a user-friendly interface for the [Stan probabilistic programing language](https://mc-stan.org/) [Stan; @carpenterStanProbabilisticProgramming2017] and Stan is named after Stanislaw Ulam.
 
@@ -898,7 +901,7 @@ In case you didn't know, **brms** is a user-friendly interface for the [Stan pro
 
 ### MCMC representativeness.
 
-Here are our data.
+Kruschke defined our data in the note for Figure 7.10.
 
 ```{r}
 z <- 35
@@ -925,7 +928,7 @@ On page 179, Kruschke discussed *burn-in* steps within the Gibbs framework:
 
 > The preliminary steps, during which the chain moves from its unrepresentative initial value to the modal region of the posterior, is called the *burn-in* period. For realistic applications, it is routine to apply a burn-in period of several hundred to several thousand steps.
 
-For each HMC chain, the first $n$ iterations are calles "warmups." In this example, $n = 500$ (i.e., `warmup = 500`). Within the Stan-HMC paradigm, [warmups are somewhat analogous to but not synonymous with burn-in iterations](https://andrewgelman.com/2017/12/15/burn-vs-warm-iterative-simulation-algorithms/) as done by the Gibbs sampling in JAGS. But HMC warmups are like Gibbs burn-ins in that both are discarded and not used to describe the posterior. For more on warmup, check out McElreath's lecture, [starting here](https://www.youtube.com/watch?v=13mEekRdOcQ&t=75s&frags=pl%2Cwn) or, for more detail, the [*HMC Algorithm Parameters* section (15.2)](https://mc-stan.org/docs/2_23/reference-manual/hmc-algorithm-parameters.html) of the *Stan reference manual*, version 2.23 [@standevelopmentteamStanReferenceManual2020].
+For each HMC chain, the first $n$ iterations are called "warmups." In this example, $n = 500$ (i.e., `warmup = 500`). Within the Stan-HMC paradigm, [warmups are somewhat analogous to but not synonymous with burn-in iterations](https://andrewgelman.com/2017/12/15/burn-vs-warm-iterative-simulation-algorithms/) as done by the Gibbs sampling in JAGS. But HMC warmups are like Gibbs burn-ins in that both are discarded and not used to describe the posterior. For more on warmup, check out McElreath's lecture, [starting here](https://www.youtube.com/watch?v=13mEekRdOcQ&t=75s&frags=pl%2Cwn) or, for more detail, the [*HMC Algorithm Parameters* section (15.2)](https://mc-stan.org/docs/2_24/reference-manual/hmc-algorithm-parameters.html) of the *Stan reference manual*, version 2.24 [@standevelopmentteamStanReferenceManual2020].
 
 It appears that the upshot of all this is some of the packages in the Stan ecosystem don't make it easy to extract the warmup values. For example, the `brms::plot()` function excludes them from the trace plot without the option to include them.
 
@@ -933,7 +936,7 @@ It appears that the upshot of all this is some of the packages in the Stan ecosy
 plot(fit7.2)
 ```
 
-Notice how the x-axis on the trace plot ranges from 0 to 9,500. Now recall that our model code included `iter = 10000, warmup = 500`. Those 9,500 iterations in the trace plot are excluding the first 500 warmup iterations. This code is a little janky, but if you really want those warmup iterations, you can extract them from the `fit2` object like this.
+Notice how the $x$-axis on the trace plot ranges from 0 to 9,500. Now recall that our model code included `iter = 10000, warmup = 500`. Those 9,500 iterations in the trace plot are excluding the first 500 warmup iterations. This code is a little janky, but if you really want those warmup iterations, you can extract them from the `fit7.2` object like this.
 
 ```{r}
 warmups <-
@@ -1043,7 +1046,7 @@ Here are the overlaid densities.
 mcmc_dens_overlay(post, pars = c("b_Intercept"))
 ```
 
-And now that we're focusing on the post-warmup iterations, we can make a shrink factor plot. We'll do so with the `coda::gelman.plot()` function. But you can't just dump your `brm()` fit object into `coda::gelman.plot()`. It's the wrong object type. However, **brms** offers the `as.mcmc()` function which will convert `brm()` objects for use in coda package functions.
+Now that we're focusing on the post-warmup iterations, we can make a shrink factor plot. We'll do so with the `coda::gelman.plot()` function. But you can't just dump your `brm()` fit object into `coda::gelman.plot()`. It's the wrong object type. However, **brms** offers the `as.mcmc()` function which will convert `brm()` objects for use in coda package functions.
 
 ```{r, message = F, warning = F}
 fit7.2_c <- as.mcmc(fit7.2)
@@ -1057,7 +1060,7 @@ With our freshly-converted `fit2_c` object in hand, we’re ready to plot.
 coda::gelman.plot(fit7.2_c[, "b_Intercept", ])
 ```
 
-Looks great. As Kruschke explained on page 181, that plot is based on the potential scale reduction factor, or $\hat R$ as it's typically referred to in the Stan ecosystem. Happily, **brms** reports the $\hat R$ values for the major model parameters using `print()` or `summary()`.
+Looks great. As Kruschke explained on page 181, that plot is based on the potential scale reduction factor, or $\widehat R$ as it's typically referred to in the Stan ecosystem. Happily, **brms** reports the $\widehat R$ values for the major model parameters using `print()` or `summary()`.
 
 ```{r}
 print(fit7.2)
