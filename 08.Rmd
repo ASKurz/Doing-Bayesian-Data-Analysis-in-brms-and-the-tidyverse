@@ -18,11 +18,11 @@ We, of course, will be using **brms** in place of JAGS.
 
 ## ~~JAGS~~ brms and its relation to R
 
-In the opening prargraph in his [GitHub repository for **brms**](https://github.com/paul-buerkner/brms), Bürkner explained:
+In the opening paragraph in his [GitHub repository for **brms**](https://github.com/paul-buerkner/brms), Bürkner explained:
 
 > The **brms** package provides an interface to fit Bayesian generalized (non-)linear multivariate multilevel models using Stan, which is a C++ package for performing full Bayesian inference (see [http://mc-stan.org/](http://mc-stan.org/)). The formula syntax is very similar to that of the package lme4 to provide a familiar and simple interface for performing regression analyses. A wide range of response distributions are supported, allowing users to fit -- among others -- linear, robust linear, count data, survival, response times, ordinal, zero-inflated, and even self-defined mixture models all in a multilevel context. Further modeling options include non-linear and smooth terms, auto-correlation structures, censored data, missing value imputation, and quite a few more. In addition, all parameters of the response distribution can be predicted in order to perform distributional regression. Multivariate models (i.e., models with multiple response variables) can be fit, as well. Prior specifications are flexible and explicitly encourage users to apply prior distributions that actually reflect their beliefs. Model fit can easily be assessed and compared with posterior predictive checks, cross-validation, and Bayes factors. (**emphasis** in the original)
 
-Bürkner's **brms** repository includes many helpful links, such as to where [**brms** lives on CRAN](https://cran.r-project.org/web/packages/brms/index.html), a [list of blog posts](https://paul-buerkner.github.io/blog/brms-blogposts/) highlighting **brms**, and [a forum](https://discourse.mc-stan.org) where users can ask questions about **brms** in specific or about Stan in general.
+Bürkner's **brms** repository includes many helpful links, such as to where [**brms** lives on CRAN](https://CRAN.R-project.org/package=brms), a [list of blog posts](https://paul-buerkner.github.io/blog/brms-blogposts/) highlighting **brms**, and [a forum](https://discourse.mc-stan.org) where users can ask questions about **brms** in specific or about Stan in general.
 
 You can install the current official version of **brms** in the same way you would any other **R** package (i.e., `install.packages("brms", dependencies = T)`). If you want the current developmental version, you could download it from GitHub by executing the following.
 
@@ -132,7 +132,7 @@ p5 <-
   theme_void()
 ```
 
-```{r, fig.width = 2, fig.height = 3.5}
+```{r fig.height = 3.5, fig.width = 2}
 layout <- c(
   area(t = 1, b = 2, l = 1, r = 1),
   area(t = 3, b = 3, l = 1, r = 1),
@@ -147,20 +147,22 @@ layout <- c(
   theme(plot.margin = margin(0, 5.5, 0, 5.5))
 ```
 
+> Diagrams like Figure 8.2 should be scanned from the bottom up. This is because models of data always start with the data, then conceive of a likelihood function that describes the data values in terms of meaningful parameters, and finally determine a prior distribution over the parameters. (p. 196)
+
 ### Load data.
 
 "Logically, models of data start with the data. We must know their basic scale and structure to conceive of a descriptive model" (p. 197).
 
 Here we load the data with the `readr::read_csv()` function, the **tidyverse** version of base **R** `read.csv()`.
 
-```{r}
+```{r, message = F}
 my_data <- read_csv("data.R/z15N50.csv")
 ```
 
 Unlike what Kruschke wrote about JAGS, the **brms** package does not require us to convert the data into a list. It can handle data in lists or data frames, of which [tibbles are a special case](https://cran.r-project.org/web/packages/tibble/vignettes/tibble.html). Here are what the data look like.
 
 ```{r}
-head(my_data)
+glimpse(my_data)
 ```
 
 We might visualize them in a bar plot.
@@ -196,10 +198,11 @@ Let's open **brms**.
 library(brms)
 ```
 
-The **brms** package doesn't have code blocks following the JAGS format or the sequence in Kurschke's diagrams. Rather, its syntax is modeled in part after the popular frequentist mixed-effects package, [**lme4**](https://cran.r-project.org/web/packages/lme4/index.html). To learn more about how **brms** compares to **lme4**, see Bürkner's [-@burknerBrmsPackageBayesian2017] overview, [*brms: An R package for Bayesian multilevel models
+The **brms** package does not have code blocks following the JAGS format or the sequence in Kurschke's diagrams. Rather, its syntax is modeled in part after the popular frequentist mixed-effects package, [**lme4**](https://cran.r-project.org/web/packages/lme4/index.html). To learn more about how **brms** compares to **lme4**, see Bürkner's [-@burknerBrmsPackageBayesian2017] overview, [*brms: An R package for Bayesian multilevel models
 using Stan*](https://cran.r-project.org/web/packages/brms/vignettes/brms_overview.pdf). 
 
 The primary function in **brms** is `brm()`. Into this one function we will specify the data, the model, the likelihood function, the prior(s), and any technical settings such as the number of MCMC chains, iterations, and so forth. You can order the arguments in any way you like. My typical practice is to start with `data`, `family` (i.e., the likelihood function), the model `formula`, and my `prior`s. If there are any technical specifications such as the number of MCMC iterations I'd like to change from their default values, I usually do that last.
+
 Here's how to fit the model.
 
 ```{r fit8.1}
@@ -213,11 +216,11 @@ fit8.1 <-
       file = "fits/fit08.01")
 ```
 
-For a more detailed explanation of the `brms::brm()` function, spend some time with the `brm` section of the [**brms** reference manual](https://CRAN.R-project.org/package=brms) [@R-brms].
+Also note our use of the `file` argument. This automatically saved my fit object as an external file. You don't have to do that and you can avoid doing so by omitting the `file` argument. For a more detailed explanation of the `brms::brm()` function, spend some time with the `brm` section of the [**brms** reference manual](https://CRAN.R-project.org/package=brms) [@R-brms].
 
 ### Initialize chains.
 
-In Stan, and in **brms** by extension, the initial values have default settings. In the [Initialization section of the Program Execution chapter](https://mc-stan.org/docs/2_23/reference-manual/initialization.html) in the *Stan reference manual, Version 2.23* [@standevelopmentteamStanReferenceManual2020] we read
+In Stan, and in **brms** by extension, the initial values have default settings. In the [Initialization section of the Program Execution chapter](https://mc-stan.org/docs/2_24/reference-manual/initialization.html) in the *Stan reference manual, Version 2.24* [@standevelopmentteamStanReferenceManual2020] we read
 
 > If there are no user-supplied initial values, the default initialization strategy is to initialize the unconstrained parameters directly with values drawn uniformly from the interval $(−2, 2)$. The bounds of this initialization can be changed but it is always symmetric around 0. The value of 0 is special in that it represents the median of the initialization. An unconstrained value of 0 corresponds to different parameter values depending on the constraints declared on the parameters.
 
@@ -229,11 +232,11 @@ If you want to play around with this, have at it. In my experience, the only tim
 
 ### Generate chains.
 
-By default, **brms** will use 4 chains of 2,000 iterations each. The type of MCMC **brms** uses is Hamiltonian Monte Carlo (HMC). You can learn more about HMC at the Stan website, [https://mc-stan.org](https://mc-stan.org), which includes resources such as the [*Stan user's guide*](https://mc-stan.org/docs/2_21/stan-users-guide/index.html) [@standevelopmentteamStanUserGuide2020], the [*Stan reference manual*](https://mc-stan.org/docs/2_21/reference-manual/index.html#overview) [@standevelopmentteamStanReferenceManual2020], and a list of [tutorials](https://mc-stan.org/users/documentation/tutorials.html). McElreath has a [nice intro lecture](https://www.youtube.com/watch?v=BWEtS3HuU5A&t=163s&frags=pl%2Cwn) on MCMC in general and HMC in particular. Michael Bentacourt has some good lectures on Stan and HMC, such as [here](https://www.youtube.com/watch?v=pHsuIaPbNbY&t=2638s&frags=pl%2Cwn) and [here](https://www.youtube.com/watch?v=jUSZboSq1zg&t=1325s&frags=pl%2Cwn). And, of course, we will cover HMC with Kruschke in Chapter 14.
+By default, **brms** will use 4 chains of 2,000 iterations each. The type of MCMC **brms** uses is Hamiltonian Monte Carlo (HMC). You can learn more about HMC at the Stan website, [https://mc-stan.org](https://mc-stan.org), which includes resources such as the [*Stan user's guide*](https://mc-stan.org/docs/2_24/stan-users-guide/index.html) [@standevelopmentteamStanUserGuide2020], the [*Stan reference manual*](https://mc-stan.org/docs/2_24/reference-manual/) [@standevelopmentteamStanReferenceManual2020], and a list of [tutorials](https://mc-stan.org/users/documentation/tutorials). McElreath has a [nice intro lecture](https://www.youtube.com/watch?v=BWEtS3HuU5A&t=163s&frags=pl%2Cwn) on MCMC in general and HMC in particular. Michael Bentacourt has some good lectures on Stan and HMC, such as [here](https://www.youtube.com/watch?v=pHsuIaPbNbY&t=2638s&frags=pl%2Cwn) and [here](https://www.youtube.com/watch?v=jUSZboSq1zg&t=1325s&frags=pl%2Cwn). And, of course, we will cover HMC with Kruschke in [Chapter 14][Stan].
 
 Within each HMC chain, the first $n$ iterations are warmups. Within the Stan-HMC paradigm, [warmups are somewhat analogous to but not synonymous with burn-in iterations](https://andrewgelman.com/2017/12/15/burn-vs-warm-iterative-simulation-algorithms/) as done by the Gibbs sampling in JAGS. But HMC warmups are like Gibbs burn-ins in that both are discarded and not used to describe the posterior. As such, the **brms** default settings yield 1,000 post-warmup iterations for each of the 4 HMC chains. However, we specified `iter = 500 + 3334, warmup = 500, chains = 3`. Thus instead of defaults, we have 3 HMC chains. Each chain has 500 + 3,334 = 3,834 total iterations, of which 500 were discarded `warmup` iterations.
 
-To learn more about the warmup stage in Stan, check out the [HMC Algorithm Parameters section of the MCMC Sampling chapter](https://mc-stan.org/docs/2_23/reference-manual/hmc-algorithm-parameters.html) of the *Stan reference manual*.
+To learn more about the warmup stage in Stan, check out the [HMC Algorithm Parameters section of the MCMC Sampling chapter](https://mc-stan.org/docs/2_24/reference-manual/hmc-algorithm-parameters.html) of the *Stan reference manual*.
 
 ### Examine chains.
 
@@ -282,6 +285,8 @@ fit8.1_c <- as.mcmc(fit8.1)
 
 coda::gelman.plot(fit8.1_c[, "b_Intercept", ])
 ```
+
+For whatever reason, many of the package developers within the Stan/**brms** ecosystem don't seem interested in shrink factor plots, like this.
 
 #### ~~The `plotPost` function~~ How to plot your brms posterior distributions.
 
@@ -412,7 +417,7 @@ post %>%
         title = element_text(size = 10.5))
 ```
 
-Similar, yet distinct. To get a sense of the full variety of ways **tidybayes** allows users to summarize and plot the results of a Bayesian model, check out Kay's [-@kaySlabIntervalStats2020] vignette, [*Slab + interval stats and geoms*](https://mjskay.github.io/tidybayes/articles/slabinterval.html). Also, did you notice how we switched to `theme_minimal_vgrid()`? That's how we added the vertical grid lines in the absence of horizontal grid lines.
+Similar, yet distinct. To get a sense of the full variety of ways **tidybayes** allows users to summarize and plot the results of a Bayesian model, check out Kay's [-@kaySlabIntervalStats2020] vignette, [*Slab + interval stats and geoms*](https://mjskay.github.io/ggdist/articles/slabinterval.html). Also, did you notice how we switched to `theme_minimal_vgrid()`? That's how we added the vertical grid lines in the absence of horizontal grid lines.
 
 ## Simplified scripts for frequently used analyses
 
