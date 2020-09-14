@@ -75,7 +75,7 @@ tibble(k = seq(from = 10, to = 200, by = 10)) %>%
   theme_minimal_hgrid()
 ```
 
-Holding $\omega$ constant, the density gets more concentrated around $\omega$ as $\kappa$ increases. But back to the text" "Now we make the essential expansion of our scenario into the realm of hierarchical models. Instead of thinking of $\omega$ as fixed by prior knowledge, we think of it as another parameter to be estimated" (p. 224).
+Holding $\omega$ constant, the density gets more concentrated around $\omega$ as $\kappa$ increases. But back to the text: "Now we make the essential expansion of our scenario into the realm of hierarchical models. Instead of thinking of $\omega$ as fixed by prior knowledge, we think of it as another parameter to be estimated" (p. 224). In the hierarchical model diagram of Figure 9.1, Kruschke depicted how we might treat $\omega$ as a parameter controlled by the prior distribution, $\operatorname{beta}(A_\omega, B_\omega)$. Here's our version of the diagram.
 
 ```{r, fig.width = 3.9, fig.height = 5, message = F}
 library(ggforce)
@@ -216,11 +216,13 @@ layout <- c(
   theme(plot.margin = margin(0, 5.5, 0, 5.5))
 ```
 
+Note that whereas this model includes a hierarchical prior for $\omega$, the hyperparameter $K$ is fixed across cases.
+
 ### Posterior via grid approximation.
 
 > When the parameters extend over a finite domain, and there are not too many of them, then we can approximate the posterior via grid approximation. In our present situation, we have the parameters $\theta$ and $\omega$ that both have finite domains, namely the interval $[0, 1]$. Therefore, a grid approximation is tractable and the distributions can be readily graphed. (p. 226)
 
-Given $\alpha$ and $\beta$, we can compute the corresponding mode $\omega$. To foreshadow, consider $\text{beta} (2, 2)$.
+Given $\alpha$ and $\beta$, we can compute the corresponding mode $\omega$. To foreshadow, consider $\text{beta}(2, 2)$.
 
 ```{r}
 alpha <- 2
@@ -229,7 +231,7 @@ beta  <- 2
 (alpha - 1) / (alpha + beta - 2)
 ```
 
-That is, the mode of $\operatorname{beta} (2, 2)$ is $.5$. 
+That is, the mode of $\operatorname{beta}(2, 2)$ is $.5$. 
 
 We won't be able to make the wireframe plots on the left of Figure 9.2, but we can make the others. We'll make the initial data following Kruschke's (p. 226) formulas.
 
@@ -548,6 +550,8 @@ d %>%
   facet_wrap(~label, ncol = 1, labeller = label_parsed, scales = "free")
 ```
 
+In the next example depicted in Figure 9.3, we consider what happens when we combine the same data of 9 heads out of 12 trials to the same Bernoulli likelihood $p(y | \theta)$, but his time with a much lower $K$ values expressing greater uncertainty in the $\operatorname{beta} \big (\theta | \omega (6 - 2) + 1, (1 - \omega) (6 - 2) + 1 \big )$ portion of the joint prior and with a more certain hyperprior for $\omega$, $\operatorname{beta}(\omega | 20, 20)$.
+
 To repeat the process for Figure 9.3, we'll first compute the new joint prior.
 
 ```{r}
@@ -568,7 +572,7 @@ d %>%
        y = expression(omega))
 ```
 
-That higher certainty in $\omega$ resulted in a two-dimensional density plot where the values on the y-axis were concentrated near .5. This will have down-the-road consequences for the posterior. But before we get there, we'll average over `omega` and `theta` to plot their marginal prior distributions.
+That higher certainty in $\omega$ resulted in a two-dimensional density plot where the values on the $y$-axis were concentrated near .5. This will have down-the-road consequences for the posterior. But before we get there, we'll average over `omega` and `theta` to plot their marginal prior distributions.
 
 ```{r, fig.width = 3.5, fig.height = 3, message = F}
 # for omega
@@ -823,13 +827,15 @@ layout <- c(
   theme(plot.margin = margin(0, 5.5, 0, 5.5))
 ```
 
+The diagram accounts for multiple coins with the $s$ index.
+
 ### Posterior via grid approximation.
 
 Now we have two coins,
 
 > the full prior distribution is a joint distribution over three parameters: $\omega$, $\theta_1$, and $\theta_2$. In a grid approximation, the prior is specified as a three-dimensional (3D) array that holds the prior probability at various grid points in the 3D space. (p. 233)
 
-So we're going to have to update our `make_prior()` function. It was originally designed to handle two dimensions, $\theta$ and $\omega$. But now we have to update it to handle our three dimensions.
+The biases for both coins, $\theta_1$, and $\theta_2$, have the same prior $\operatorname{beta}\big (\theta _j| \omega (5 - 2) + 1, (1 - \omega)(5 - 2) + 1 \big) $, which, if it's not apparent, is marked by the rather uncertain $K = 5$. As in our first example depicted in Figure 9.2, we have a gentle hyperprior $\operatorname{beta}(\omega | 2, 2)$, which centers the posterior mode for $\omega$ at .5. To express this in plots, we're going to have to update our `make_prior()` function. It was originally designed to handle two dimensions, $\theta$ and $\omega$. But now we have to update it to handle our three dimensions.
 
 ```{r}
 make_prior <- function(theta1, theta2, omega, alpha, beta, kappa) {
@@ -964,7 +970,7 @@ d %>%
        y = expression(omega))
 ```
 
-The likelihoods look good. Next we compute the posterior in the same way we’ve done before: multiply the prior and the likelihood and then divide by their sum in order to convert the results to a probability metric.
+The likelihoods look good. Next we compute the posterior in the same way we've done before: multiply the prior and the likelihood and then divide by their sum in order to convert the results to a probability metric.
 
 ```{r, fig.height = 3, warning = F, message = F}
 # compute
@@ -1032,7 +1038,7 @@ d %>%
        y = expression(p(theta[2]*"|"*D)))
 ```
 
-We'll do this dog and pony one more time for Figure 9.6, which uses different priors on the same data. First, we make our new data object, `d`.
+We'll do this dog and pony one more time for Figure 9.6. Keeping the data and likelihood constant, we now set $K = 75$ and but retain both $A_\omega = 2$ and $B_\omega = 2$. First, we make our new data object, `d`.
 
 ```{r}
 d <-
@@ -1043,7 +1049,7 @@ d <-
   mutate(prior = prior / sum(prior))
 ```
 
-Note how the only thing we changed from the last time was increasing `kappa` to 75. Also like last time, the plots in the left and middle columns of the top row are the same save for their indices. But unlike last time, we'll make both in preparation for a grand plotting finale. You'll see.
+Again, note how the only thing we changed from the last time was increasing `kappa` to 75. Also like last time, the plots in the left and middle columns of the top row are the same save for their indices. But unlike last time, we'll make both in preparation for a grand plotting finale. You'll see.
 
 One more step: for the 2D density plots in this section, we'll omit the `coord_equal()` line from our custom `geom_2dd()` geom. This will help us with the formatting of our final plot.
 
@@ -1623,13 +1629,13 @@ Let's open **brms**.
 library(brms)
 ```
 
-In applied statistics, the typical way to model a Bernoulli variable is with logistic regression. Instead of going through the pain of setting up a model in **brms** that mirrors the one in the text, I’m going to set up a hierarchical logistic regression model, instead. 
+In applied statistics, the typical way to model a Bernoulli variable is with logistic regression. Instead of going through the pain of setting up a model in **brms** that mirrors the one in the text, I'm going to set up a hierarchical logistic regression model, instead. 
 
-Note the `family = bernoulli(link = logit)` argument. In work-a-day regression with vanilla Gaussian variables, the prediction space is unbounded. But when we want to model the probability of a success for a Bernoulli variable (i.e., $\theta$), we need to constrain the model to only produce predictions between 0 and 1. With logistic regression, we use a link function to do just that. The consequence is that instead of modeling the probability, $\theta$, we’re modeling the logit probability.
+Note the `family = bernoulli(link = logit)` argument. In work-a-day regression with vanilla Gaussian variables, the prediction space is unbounded. But when we want to model the probability of a success for a Bernoulli variable (i.e., $\theta$), we need to constrain the model to only produce predictions between 0 and 1. With logistic regression, we use a link function to do just that. The consequence is that instead of modeling the probability, $\theta$, we're modeling the logit probability.
 
 In case you're curious, the logit of $\theta$ follows the formula
 
-$$\operatorname{logit}(\theta) = \log \big (\theta/(1 - \theta) \big ).$$
+$$\operatorname{logit}(\theta) = \log (\theta/[1 - \theta] ).$$
 
 But anyway, we'll be doing logistic regression using the logit link. Kruschke will cover this in detail in Chapter 21.
 
@@ -1684,7 +1690,7 @@ The $N_{eff}/N$ ratio values for our model parameters were excellent. Here's a n
 print(fit9.1)
 ```
 
-We'll need `brms::inv_logit_scaled()` to convert the model parameters to predict $\theta$ rather than $\operatorname{logit} (\theta)$. After the conversions, we'll be ready to make the histograms in the lower portion of Figure 9.10.
+We'll need `brms::inv_logit_scaled()` to convert the model parameters to predict $\theta$ rather than $\operatorname{logit}(\theta)$. After the conversions, we'll be ready to make the histograms in the lower portion of Figure 9.10.
 
 ```{r, fig.width = 8, fig.height = 4, warning = F, message = F}
 library(tidybayes)
@@ -1832,11 +1838,9 @@ coef(fit9.1, summary = F)$s %>%
 
 Did you see how we slipped in the `color_scheme_set()` and `bayesplot_theme_set()` lines at the top? Usually, the plots made with **bayesplot** are easy to modify with **ggplot2** syntax. Plots made with `mcmc_pairs()` function are one notable exception. On the back end, these made by combining multiple **ggplot** into a grid, a down-the-line result of which is they are difficult to modify. Happily, one can make some modifications beforehand by altering the global settings with the `color_scheme_set()` and `bayesplot_theme_set()` functions. You can learn more in the discussion on [issue #128](https://github.com/stan-dev/bayesplot/issues/128) on the **bayesplot** GitHub repo.
 
-Kruschke used a $\operatorname{Beta}(1, 1)$ prior for $\omega$. If you randomly draw from that prior and plot a histogram, you’ll see it was flat.
+Kruschke used a $\operatorname{Beta}(1, 1)$ prior for $\omega$. If you randomly draw from that prior and plot a histogram, you'll see it was flat.
 
 ```{r, fig.width = 3.5, fig.height = 3}
-theme_set(theme_grey())
-
 set.seed(1)
 tibble(prior = rbeta(n = 1e5, 1, 1)) %>% 
   ggplot(aes(x = prior)) +
@@ -1850,7 +1854,7 @@ tibble(prior = rbeta(n = 1e5, 1, 1)) %>%
 
 You'll note that plot corresponds to the upper right panel of Figure 9.11. 
 
-Recall that we used a logistic regression model with a `normal(0, 1.5)` prior on the intercept. If you sample from `normal(0, 1.5)` and then convert the draws using `brms::inv_logit_scaled()`, you'll discover that our `normal(0, 1.5)` prior was virtually flat on the probability scale. Here we'll show the consequence of a variety of zero-mean Gaussian priors for the intercept of a logistic regression model:
+Recall that we used a logistic regression model with a `normal(0, 1.5)` prior on the intercept. If you sample from `normal(0, 1.5)` and then convert the draws using `brms::inv_logit_scaled()`, you'll discover that our `normal(0, 1.5)` prior was virtually flat on the probability scale. Here we'll show the consequence of a variety of zero-mean Gaussian priors for the intercept of a logistic regression model.
 
 ```{r prior_sim, cache = T, fig.width = 8, fig.height = 6}
 # define a function
@@ -2069,7 +2073,7 @@ brm(data = my_data,
 stop_time_binomial <- proc.time()
 ```
 
-See how we're using `proc.time()` to record when we began and finished evaluating our `brm()` code? The last time we covered that was way back in Chapter 3. In Chapter 3 we also learned how subtracting the former from the latter yields the total elapsed time.
+See how we're using `proc.time()` to record when we began and finished evaluating our `brm()` code? The last time we covered that was way back in [Section 3.7.5][Measuring processing time]. In that section, we also learned how subtracting the former from the latter yields the total elapsed time.
 
 ```{r}
 stop_time_bernoulli - start_time_bernoulli
@@ -2078,13 +2082,13 @@ stop_time_binomial - start_time_binomial
 
 If you wanted to be rigorous about this, you could do this multiple times in a mini simulation.
 
-As to the issue of parallel processing, we've been doing this all along. Note our `chains = 4, cores = 4` code.
+As to the issue of parallel processing, we've been doing this all along. Note our `chains = 4, cores = 4` arguments.
 
 ## Extending the hierarchy: Subjects within categories
 
 > Many data structures invite hierarchical descriptions that may have multiple levels. Software such as ~~JAGS~~ [**brms**] makes it easy to implement hierarchical models, and Bayesian inference makes it easy to interpret the parameter estimates, even for complex nonlinear hierarchical models. Here, we take a look at one type of extended hierarchical model. (p. 251)
 
-As we will address below, our version of Figure 9.13 will look rather different from Kruschke's. It's something of a combination of the sensibilities from Figures 20.2 and 21.10. Even still, the diagram is of three-level model that shares many similarities to Kruschkes and, as we will see, yields very similar results.
+As we will address below, our version of Figure 9.13 will look rather different from Kruschke's. It's something of a combination of the sensibilities from Figures 20.2 and 21.10. Even still, the diagram is of three-level model that shares many similarities to Kruschke's and, as we will see, yields very similar results.
 
 ```{r, fig.width = 6.5, fig.height = 5, warning = F, message = F}
 # half-normal density
@@ -2222,34 +2226,34 @@ p8 <-
 
 # a second annotated arrow
 p9 <-
-  tibble(x     = .375,
-         y     = .7,
-         label = "'='") %>% 
+  tibble(x     = c(.375, .5),
+         y     = c(.75, .3),
+         label = c("'='", "mu[italic(i)*'|'*italic(sc)]")) %>%
   
   ggplot(aes(x = x, y = y, label = label)) +
-  geom_text(size = 10, parse = T, family = "Times") +
+  geom_text(size = c(10, 7), parse = T, family = "Times") +
   geom_segment(x = .5, xend = .5,
                y = 1, yend = .4,
                arrow = my_arrow) +
   xlim(0, 1) +
   theme_void()
 
-# bar plot of Bernoulli data
+# binomial density
 p10 <-
-  tibble(x = 0:1,
-         d = (dbinom(x, size = 1, prob = .6)) / max(dbinom(x, size = 1, prob = .6))) %>% 
-  
-  ggplot(aes(x = x, y = d)) +
+tibble(x = 0:7) %>% 
+  ggplot(aes(x = x, 
+             y = (dbinom(x, size = 7, prob = .625)) / max(dbinom(x, size = 7, prob = .625)))) +
   geom_col(fill = a_purple, width = .4) +
   annotate(geom = "text",
-           x = .5, y = .2,
-           label = "Bernoulli",
+           x = 3.5, y = .2,
+           label = "binomial",
            size = 7) +
   annotate(geom = "text",
-           x = .5, y = .94,
-           label = "mu[italic(i)]", 
-           size = 7, family = "Times", parse = T) +
-  xlim(-.75, 1.75) +
+           x = 7, y = .85,
+           label = "italic(N)[italic(i)*'|'*italic(s)]",
+           size = 7, family = "Times", parse = TRUE) +
+  coord_cartesian(xlim = c(-1, 8),
+                  ylim = c(0, 1.2)) +
   theme_void() +
   theme(axis.line.x = element_line(size = 0.5))
 
@@ -2292,7 +2296,8 @@ layout <- c(
   
   area(t = 7, b = 8, l = 1, r = 11),
   area(t = 6, b = 7, l = 1, r = 11),
-
+  
+  # change
   area(t = 11, b = 12, l = 5, r = 7),
   area(t = 9, b = 11, l = 5, r = 7),
 
