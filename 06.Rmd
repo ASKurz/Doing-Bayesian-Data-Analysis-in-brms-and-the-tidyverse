@@ -28,7 +28,7 @@ If we denote a set of possible outcomes as $\{y_i\}$  Kruschke's Bernoulli likel
 
 $$p(\{y_i\} | \theta) = \theta^z \cdot (1 - \theta) ^ {N - z},$$
 
-where $z$ is the number of 1s in the data (i.e., heads in a series of coin flips) and the sole parameter a given observation will be a 1 is $\theta$ (i.e., the probability; $p(y_i = 1 | \theta)$).
+where $z$ is the number of 1's in the data (i.e., heads in a series of coin flips) and the sole parameter a given observation will be a 1 is $\theta$ (i.e., the probability; $p(y_i = 1 | \theta)$).
 
 If you follow that equation closely, here is how we might express it in **R**.
 
@@ -57,7 +57,7 @@ When we want a conjugate prior for $\theta$ of the Bernoulli likelihood, the *be
 
 \begin{align*}
 p(\theta | a, b) & = \operatorname{beta} (\theta | a, b) \\
-                 & = \frac{\theta^{(a - 1)} (1 - \theta)^{(b - 1)}}{B(a, b)},
+                 & = \frac{\theta^{(a - 1)} \; (1 - \theta)^{(b - 1)}}{B(a, b)},
 \end{align*}
 
 where $B(a, b)$ is a normalizing constant, keeping the results in a probability metric, and $B(.)$ is the Beta function. Kruschke then clarified that the beta distribution and the Beta function are not the same. In **R**, we use the beta density with the `dbeta()` function, whereas we use the Beta function with `beta()`. In this project, we'll primarily use `dbeta()`. But to give a sense, notice that when given the same input for $a$ and $b$, the two functions return very different values.
@@ -108,18 +108,19 @@ d %>%
             color = "grey50", size = 1.25) +
   scale_x_continuous(expression(theta), breaks = c(0, .5, 1)) +
   coord_cartesian(ylim = c(0, 3)) +
-  ylab(expression(p(theta*"|"*a*", "*b))) +
+  labs(title = "Examples of the beta distribution",
+       y = expression(p(theta*"|"*a*", "*b))) +
   theme(panel.grid = element_blank()) +
   facet_grid(b~a)
 ```
 
 > Notice that as $a$ gets bigger (left to right across columns of Figure 6.1), the bulk of the distribution moves rightward over higher values of $\theta$, but as $b$ gets bigger (top to bottom across rows of Figure 6.1), the bulk of the distribution moves leftward over lower values of $\theta$. Notice that as $a$ and $b$ get bigger together, the beta distribution gets narrower. (p. 127).
 
-We have a lot of practice with the beta distribution waiting for us in the chapters to come. But if you like informal tutorials, you might also check out [Karin Knudson](https://twitter.com/karinknudson)'s nice blog post, [*Beta distributions, Dirichlet distributions and Dirichlet processes*](https://karinknudson.com/dirichletprocesses.html). 
+We have a lot of practice with the beta distribution waiting for us in the chapters to come. If you like informal tutorials, you might also check out [Karin Knudson](https://twitter.com/karinknudson)'s nice blog post, [*Beta distributions, Dirichlet distributions and Dirichlet processes*](https://karinknudson.com/dirichletprocesses.html). 
 
 ### Specifying a beta prior.
 
-> It is useful to know the central tendency and spread of the beta distribution expressed in terms of $a$ and $b$. It turns out that the mean of the $\text{beta} (\theta | a, b)$ distribution is $\mu = a / (a + b)$ and the mode is $\omega = (a − 1) / (a + b − 2)$ for $a > 1$ and $b > 1$ ($\mu$ is Greek letter mu and $\omega$ is Greek letter omega)... The spread of the beta distribution is related to the "concentration" $\kappa = a + b$ ($\kappa$ is Greek letter kappa). You can see from Figure 6.1 that as $\kappa = a + b$ gets larger, the beta distribution gets narrower or more concentrated. (p. 129)
+> It is useful to know the central tendency and spread of the beta distribution expressed in terms of $a$ and $b$. It turns out that the mean of the $\operatorname{beta}(\theta | a, b)$ distribution is $\mu = a / (a + b)$ and the mode is $\omega = (a − 1) / (a + b − 2)$ for $a > 1$ and $b > 1$ ($\mu$ is Greek letter mu and $\omega$ is Greek letter omega)... The spread of the beta distribution is related to the "concentration" $\kappa = a + b$ ($\kappa$ is Greek letter kappa). You can see from Figure 6.1 that as $\kappa = a + b$ gets larger, the beta distribution gets narrower or more concentrated. (p. 129)
 
 As such, if you'd like to specify a beta distribution in terms of $\omega$ and $\kappa$, it'd follow the form
 
@@ -219,11 +220,13 @@ beta_param$a
 beta_param$b
 ```
 
+We'll find this trick quite handy in the sections to come.
+
 ## The posterior beta
 
 I'm not going to reproduce all of Formula 6.8. But this a fine opportunity to re-express Bayes' rule in terms of $z$ and $N$,
 
-$$p(\theta | z, N) = \frac{p(z, N | \theta) p(\theta)}{p(z, N)}.$$
+$$p(\theta | z, N) = \frac{p(z, N | \theta) \; p(\theta)}{p(z, N)}.$$
 
 ### Posterior is compromise of prior and likelihood.
 
@@ -262,7 +265,7 @@ hdi_of_icdf <- function(name, width = .95, tol = 1e-8, ... ) {
 }
 ```
 
-Recall it's based off of the `HDIofICDF()` function from Kruschke's `DBDA2E-utilities.R` file. I've altered Kruschke's formatting a little bit, but the guts of the code are unchanged. Our `hdi_of_icdf()` function will take the `name` of an "inverse cumulative density function" and its parameters and then return an HDI range, as defined by the `width` parameter. Since the prior at the top of Figure 6.3 is $\operatorname{beta} (5, 5)$, we can use `hdi_of_icdf()` to calculate the HDI like so.
+Recall it's based off of the `HDIofICDF()` function from Kruschke's `DBDA2E-utilities.R` file. I've altered Kruschke's formatting a little bit, but the guts of the code are unchanged. Our `hdi_of_icdf()` function will take the `name` of an "inverse cumulative density function" and its parameters and then return an HDI range, as defined by the `width` parameter. Since the prior at the top of Figure 6.3 is $\operatorname{beta}(5, 5)$, we can use `hdi_of_icdf()` to calculate the HDI like so.
 
 ```{r}
 hdi_of_icdf(name = qbeta,
@@ -366,43 +369,89 @@ d %>%
   theme_cowplot()
 ```
 
-Note how we loaded the [**cowplot** package](https://wilkelab.org/cowplot) [@R-cowplot]. We played around a bit with plotting conventions in the previous chapters. From this chapter onward we'll explore plotting conventions in a more deliberate fashion. One quick way to alter the look and feel of a plot is by altering its theme. The **cowplot** package includes several theme options. In this chapter, we'll focus on making simple and conventional looking plots with `theme_cowplot()`.
+Note how we loaded the [**cowplot** package](https://wilkelab.org/cowplot) [@R-cowplot]. We played around a bit with plotting conventions in the previous chapters. From this chapter onward we'll explore plotting conventions in a more deliberate fashion. One quick way to alter the look and feel of a plot is by altering its theme. The **cowplot** package includes several theme options. In this chapter, we'll focus on making simple and conventional looking plots with the `theme_cowplot()` function.
 
 ## Examples
 
 ### Prior knowledge expressed as a beta distribution.
 
-Here are the results Kruschke reported in the first paragraph of this subsection.
+If you flip an unaltered freshly-minted coin 20 times and end up with 17 heads, 85% of those trials are heads.
 
 ```{r}
-beta_param <- betaABfromModeKappa(mode = .5, kappa = 500)
-
-beta_param$a
-beta_param$b
+ 100 * (17 / 20)
 ```
 
-Confusingly, Kruschke switched from `dbeta(250, 250)` in the prose to `dbeta(100, 100)` in Figure 6.4.a, which he acknowledged in his [Corrigenda](https://sites.google.com/site/doingbayesiandataanalysis/corrigenda). We'll stick with `dbeta(100, 100)`.
+In the first paragraph of this section, Kruschke suggested we consider a beta prior with a mode of $\omega = .5$ and an effective sample size $\kappa = 500$. We might use Kruschke's `betaABfromModeKappa()` function to use those values to compute the corresponding $a$ and $b$ parameters for the beta distribution.
 
-```{r, fig.width = 4.5, fig.height = 2}
+```{r}
+betaABfromModeKappa(mode = .5, kappa = 500)
+```
+
+Confusingly, Kruschke switched from $\operatorname{beta(250, 250)}$ in the prose to $\operatorname{beta(100, 100)}$ in Figure 6.4.a, which he acknowledged in his [Corrigenda](https://sites.google.com/site/doingbayesiandataanalysis/corrigenda). We'll stick with $\operatorname{beta(100, 100)}$, which corresponds to $\omega = .5$ and $\kappa = 200$.
+
+```{r}
+betaABfromModeKappa(mode = .5, kappa = 200)
+```
+
+Here's how to use those values and some of the equations from above to make the data necessary for the left column of Figure 6.4.
+
+```{r}
+# define the prior
 beta_param <- betaABfromModeKappa(mode = .5, kappa = 200)
 
-beta_param$a
-beta_param$b
+# compute the corresponding HDIs
+prior_hdi <-
+  hdi_of_icdf(name = qbeta,
+              shape1 = beta_param$a,
+              shape2 = beta_param$b,
+              width = .95)
 
-ggplot(data = tibble(x = seq(from = 0, to = 1, by = .001)),
-       aes(x = x, ymin = 0, ymax = dbeta(x, 
-                                         shape1 = beta_param$a, 
-                                         shape2 = beta_param$b))) +
+# define the data
+n <- 20
+z <- 17
+
+trial_data <- c(rep(0, times = n - z), rep(1, times = z))
+
+# compute the HDIs for the posterior
+post_hdi <-
+  hdi_of_icdf(name = qbeta,
+              shape1 = z + beta_param$a,
+              shape2 = n - z + beta_param$b,
+              width = .95)
+
+# use the above to compute the prior, the likelihood, and the posterior
+# densities using the grid approximation approach
+d <-
+  tibble(theta = seq(from = 0, to = 1, length.out = 1e3)) %>% 
+  mutate(prior      = dbeta(theta, 
+                            shape1 = beta_param$a, 
+                            shape2 = beta_param$b),
+         likelihood = bernoulli_likelihood(theta = theta, 
+                                           data  = trial_data),
+         posterior  = dbeta(theta, 
+                            shape1 = z + beta_param$a, 
+                            shape2 = n - z + beta_param$b))
+
+# what have we done?
+glimpse(d)
+```
+
+We're finally ready to plot the prior, the likelihood, and the posterior for the left column of Figure 6.4.
+
+```{r, fig.width = 4.5, fig.height = 2}
+## Figure 6.4, left column
+# prior
+d %>% 
+  ggplot(aes(x = theta, ymin = 0, ymax = prior)) +
   geom_ribbon(fill = "steelblue", alpha = 1/2) +
-  geom_ribbon(data = tibble(x = seq(from = .5 - .069, to = .5 + .069, by = .001)),
+  geom_ribbon(data = . %>% filter(theta > prior_hdi[1] & theta < prior_hdi[2]),
               fill = "steelblue") +
-  geom_line(data = tibble(x = c(.5 - .069 + .005, .5 + .069 - .005),
-                          y = 1.7),
-            aes(y = y),
-            arrow = arrow(length = unit(.15,"cm"), 
-                          ends = "both", 
-                          type = "closed"),
-            color = "white") +
+  geom_segment(x = prior_hdi[1] + .005, xend = prior_hdi[2] - .005,
+               y = 1.8, yend = 1.8,
+               arrow = arrow(length = unit(.15,"cm"), 
+                             ends = "both", 
+                             type = "closed"),
+               color = "white") +
   annotate(geom = "text", x = .5, y = 3.5, 
            label = "95% HDI", color = "white") +
   labs(title = "Prior (beta)",
@@ -410,209 +459,235 @@ ggplot(data = tibble(x = seq(from = 0, to = 1, by = .001)),
        y = expression(dbeta(theta*"|"*100*", "*100))) +
   coord_cartesian(ylim = c(0, 12)) +
   theme_cowplot()
-```
 
-Here are those HDI values.
-
-```{r}
-hdi_of_icdf(name = qbeta,
-            shape1 = 100,
-            shape2 = 100,
-            width = .95)
-```
-
-Here are our $a$ and $b$ parameters for Kruschke's free throw example
-
-```{r}
-beta_param <- betaABfromModeKappa(mode = .75, kappa = 25)
-
-beta_param$a
-beta_param$b
-```
-
-Behold Figure 6.4.b. 
-
-```{r, fig.width = 4.5, fig.height = 2}
-ggplot(data = tibble(x = seq(from = 0, to = 1, by = .001)),
-       aes(x = x, ymin = 0, ymax = dbeta(x, 
-                                         shape1 = beta_param$a, 
-                                         shape2 = beta_param$b))) +
-  geom_ribbon(fill = "steelblue", alpha = 1/2) +
-  geom_ribbon(data = tibble(x = seq(from = .558, to = .892, by = .001)),
-              fill = "steelblue") +
-  geom_line(data = tibble(x = c(.558 + .005, .892 - .005),
-                          y = .75),
-            aes(y = y),
-            arrow = arrow(length = unit(.15,"cm"), 
-                          ends = "both", 
-                          type = "closed"),
-            color = "white") +
-  annotate(geom = "text", x = .73, y = 1.5, 
-           label = "95% HDI", color = "white") +
-  ylim(0, 6) +
-  labs(title = "Prior (beta)",
-       x = expression(theta),
-       y = expression(dbeta(theta*"|"*18.25*", "*6.75))) +
-  theme_cowplot()
-```
-
-Here are those HDI values.
-
-```{r}
-hdi_of_icdf(name = qbeta,
-            shape1 = beta_param$a,
-            shape2 = beta_param$b,
-            width = .95)
-```
-
-But we can be a little more organized and plot the top row of Figure 6.4 all at once. 
-
-```{r, fig.width = 10, fig.height = 2}
-# the data for the in-plot lines
-line <-
-  tibble(theta      = c(.431 + .005, .569 - .005, .558 + .005, .892 - .005),
-         value      = rep(c(1.9, .8), each = 2),
-         xintercept = c(.431, .569, .558, .892),
-         exemplar   = rep(c("dbeta(theta, 100, 100)", "dbeta(theta, 18.25, 6.75)"), each = 2)) %>%
-  mutate(exemplar = factor(exemplar, levels = c("dbeta(theta, 100, 100)", "dbeta(theta, 18.25, 6.75)", "dbeta(theta, 1, 1)")))
-  
-# the data for the annotation
-text <-
-  tibble(theta    = c(.5, .735),
-         value    = c(3.6, 1.45),
-         label    = "95% HDI",
-         exemplar = c("dbeta(theta, 100, 100)", "dbeta(theta, 18.25, 6.75)")) %>%
-  mutate(exemplar = factor(exemplar, levels = c("dbeta(theta, 100, 100)", "dbeta(theta, 18.25, 6.75)", "dbeta(theta, 1, 1)")))
-
-# our main data tibble
-tibble(theta = seq(from = 0, to = 1, length.out = 100) %>% rep(., times = 3),
-       a     = rep(c(100, 18.25, 1), each = 100),
-       b     = rep(c(100, 6.75, 1),  each = 100)) %>% 
-  mutate(exemplar = ifelse(a == 18.25, str_c("dbeta(theta, ", a, ", ", b, ")"),
-                           str_c("dbeta(theta, ", a %>% round(0), ", ", b %>% round(0), ")")),
-         density  = dbeta(theta, shape1 = a, shape2 = b)) %>% 
-  mutate(exemplar = factor(exemplar, levels = c("dbeta(theta, 100, 100)", "dbeta(theta, 18.25, 6.75)", "dbeta(theta, 1, 1)"))) %>% 
-  
-  # finally, the plot code!
-  ggplot(aes(x = theta)) +
-  geom_ribbon(aes(ymin = 0, ymax = density),
-              size = 0, fill = "steelblue") +
-  geom_vline(data = line,
-             aes(xintercept = xintercept), 
-             linetype = 2, color = "white") +
-  geom_line(data = line,
-            aes(y = value),
-            arrow = arrow(length = unit(.15,"cm"), 
-                          ends = "both", 
-                          type = "closed"),
-            color = "white") +
-  geom_text(data = text,
-            aes(y = value, label = label),
-            color = "white") +
-  labs(title = "Prior (beta)", 
-       x = expression(theta), 
-       y = expression(p(D*"|"*theta))) +
-  theme_cowplot() +
-  facet_wrap(~exemplar, scales = "free_y", ncol = 3)
-```
-
-If you look closely, you'll notice the middle row is the same for each column. So we'll just plot it once.
-
-```{r, fig.width = 3.5, fig.height = 2}
-n <- 20
-z <- 17
-
-trial_data <- c(rep(0, times = n - z), rep(1, times = z))
-
-tibble(theta = seq(from = 0, to = 1, length.out = 100)) %>% 
-  mutate(likelihood = bernoulli_likelihood(theta = theta, data = trial_data)) %>% 
-  
+# likelihood
+d %>%   
   ggplot(aes(x = theta, ymin = 0, ymax = likelihood)) +
   geom_ribbon(size = 0, fill = "steelblue") +
   labs(title = "Likelihood (Bernoulli)",
-       subtitle = "This is the same for all 3 exemplars, so\nthere's no need to plot this thrice.",
        x = expression(theta),
        y = expression(p(D*"|"*theta))) +
   theme_cowplot()
+
+# posterior
+d %>% 
+  ggplot(aes(x = theta, ymin = 0, ymax = posterior)) +
+  geom_ribbon(fill = "steelblue", alpha = 1/2) +
+  geom_ribbon(data = . %>% filter(theta > post_hdi[1] & theta < post_hdi[2]),
+              fill = "steelblue") +
+  geom_segment(x = post_hdi[1] + .005, xend = post_hdi[2] - .005,
+               y = 2, yend = 2,
+               arrow = arrow(length = unit(.15, "cm"), 
+                             ends = "both", 
+                             type = "closed"),
+               color = "white") +
+  annotate(geom = "text", x = .532, y = 3.5, 
+           label = "95% HDI", color = "white") +
+  labs(title = "Posterior (beta)",
+       x = expression(theta),
+       y = expression(dbeta(theta*"|"*117*", "*103))) +
+  coord_cartesian(ylim = c(0, 12)) +
+  theme_cowplot()
+```
+Here are the exact HDI values for the prior and posterior densities.
+
+```{r}
+prior_hdi
+post_hdi
 ```
 
-The bottom row:
+If you double back to page 129 in the text, you'll see Kruschke defined the mode of a beta density as
 
-```{r, fig.width = 10, fig.height = 2}
-# the data for the in-plot lines
-line <-
-  tibble(theta = c(.466 + .005, .597 - .005, 
-                   .663 + .004, .897 - .005,
-                   .660 + .005, .959 - .003),
-         value = rep(c(1.9, 1.1, .85), each = 2),
-         xintercept = c(.466, .597, 
-                        .663, .897,
-                        .660, .959),
-         exemplar = rep(c("dbeta(theta, 117, 103)", "dbeta(theta, 35.25, 9.75)", "dbeta(theta, 18, 4)"), each = 2)) %>% 
-  mutate(exemplar = factor(exemplar, levels = c("dbeta(theta, 117, 103)", "dbeta(theta, 35.25, 9.75)", "dbeta(theta, 18, 4)")))
-  
-# the data for the annotation
-text <-
-  tibble(theta    = c(.532, .78, .82),
-         value    = c(3.5, 2, 1.6),
-         label    = "95% HDI",
-         exemplar = c("dbeta(theta, 117, 103)", "dbeta(theta, 35.25, 9.75)", "dbeta(theta, 18, 4)")) %>%
-  mutate(exemplar = factor(exemplar, levels = c("dbeta(theta, 117, 103)", "dbeta(theta, 35.25, 9.75)", "dbeta(theta, 18, 4)")))
+$$\omega_\text{beta} = (a - 1) / (a + b - 2)$$
 
-# our main data tibble
-tibble(theta = seq(from = 0, to = 1, length.out = 100) %>% rep(., times = 3),
-       a     = rep(c(117, 35.25, 18), each = 100),
-       b     = rep(c(103, 9.75, 4),   each = 100)) %>% 
-  mutate(exemplar = ifelse(a == 35.25, str_c("dbeta(theta, ", a, ", ", b, ")"),
-                           str_c("dbeta(theta, ", a %>% round(0), ", ", b %>% round(0), ")")),
-         density  = dbeta(theta, shape1 = a, shape2 = b)) %>% 
-  mutate(exemplar = factor(exemplar, levels = c("dbeta(theta, 117, 103)", "dbeta(theta, 35.25, 9.75)", "dbeta(theta, 18, 4)"))) %>% 
-  
-  # the plot
-  ggplot(aes(x = theta)) +
-  geom_ribbon(aes(ymin = 0, ymax = density),
-              size = 0, fill = "steelblue") +
-  geom_vline(data = line,
-             aes(xintercept = xintercept), 
-             linetype = 2, color = "white") +
-  geom_line(data = line,
-            aes(y = value),
-            arrow = arrow(length = unit(.15,"cm"), 
-                          ends = "both", 
-                          type = "closed"),
-            color = "white") +
-  geom_text(data = text,
-            aes(y = value, label = label),
-            color = "white") +
-  labs(title = "Posterior (beta)", 
-       x = expression(theta), 
-       y = expression(p(theta*"|"*D))) +
-  theme_cowplot() +
-  facet_wrap(~exemplar, scales = "free_y", ncol = 3)
+whenever $a > 1$ and $b > 1$. Thus we can compute the modes for our prior and posterior densities like this.
+
+```{r}
+(beta_param$a - 1) / (beta_param$a + beta_param$b - 2)
+(z + beta_param$a - 1) / (z + beta_param$a + n - z + beta_param$b - 2)
 ```
 
-And if you wanted those HDI values in bulk, you might wrap the `hdi_of_icdf()` into another function for use in `purrr::map2()`.
+For the next example, we consider the probability a professional basketball player will make free a throw. We have the same likelihood based on 17 successes our of 20 trials, but this time our prior is based on $\omega = .75$ and $\kappa = 25$. Here we update those values and our `d` data for the plot.
 
-```{r, warning = F, message = F}
-# new function
-get_hdi <- function(a, b) {
-  
+```{r}
+# update the beta parameters for the prior
+beta_param$a <- 18.25
+beta_param$b <- 6.75
+
+# update the HDIs
+prior_hdi <-
   hdi_of_icdf(name = qbeta,
-              shape1 = a,
-              shape2 = b,
-              width = .95) %>% 
-    as_tibble() %>% 
-    mutate(key = c("lower level", "upper level")) %>% 
-    spread(key = key, value = value)
-  
-}
+              shape1 = beta_param$a,
+              shape2 = beta_param$b,
+              width = .95)
 
-# put it to work
-tibble(`figure position` = c("left", "middle", "right"),
-       a                 = c(117, 35.25, 18),
-       b                 = c(103, 9.75, 4)) %>% 
-  mutate(hdi = purrr::map2(a, b, get_hdi)) %>% 
-  unnest(hdi)
+post_hdi <-
+  hdi_of_icdf(name = qbeta,
+              shape1 = z + beta_param$a,
+              shape2 = n - z + beta_param$b,
+              width = .95)
+
+# update the data
+d <-
+  d %>% 
+  mutate(prior     = dbeta(theta, 
+                           shape1 = beta_param$a, 
+                           shape2 = beta_param$b),
+         posterior = dbeta(theta, 
+                           shape1 = z + beta_param$a, 
+                           shape2 = n - z + beta_param$b))
+```
+
+With our updated values in hand, we're ready to make our versions of the middle column of Figure 6.4.
+
+```{r, fig.width = 4.5, fig.height = 2}
+## plot Figure 6.4, middle column!
+# prior
+d %>% 
+  ggplot(aes(x = theta, ymin = 0, ymax = prior)) +
+  geom_ribbon(fill = "steelblue", alpha = 1/2) +
+  geom_ribbon(data = . %>% filter(theta > prior_hdi[1] & theta < prior_hdi[2]),
+              fill = "steelblue") +
+  geom_segment(x = prior_hdi[1] + .005, xend = prior_hdi[2] - .005,
+               y = 0.75, yend = 0.75,
+               arrow = arrow(length = unit(.15,"cm"), 
+                             ends = "both", 
+                             type = "closed"),
+               color = "white") +
+  annotate(geom = "text", x = .75, y = 1.5, 
+           label = "95% HDI", color = "white") +
+  labs(title = "Prior (beta)",
+       x = expression(theta),
+       y = expression(dbeta(theta*"|"*18.25*", "*6.75))) +
+  coord_cartesian(ylim = c(0, 7)) +
+  theme_cowplot()
+
+# likelihood, which is the same as the last time
+d %>%   
+  ggplot(aes(x = theta, ymin = 0, ymax = likelihood)) +
+  geom_ribbon(size = 0, fill = "steelblue") +
+  labs(title = "Likelihood (Bernoulli)",
+       x = expression(theta),
+       y = expression(p(D*"|"*theta))) +
+  theme_cowplot()
+
+# posterior
+d %>% 
+  ggplot(aes(x = theta, ymin = 0, ymax = posterior)) +
+  geom_ribbon(fill = "steelblue", alpha = 1/2) +
+  geom_ribbon(data = . %>% filter(theta > post_hdi[1] & theta < post_hdi[2]),
+              fill = "steelblue") +
+  geom_segment(x = post_hdi[1] + .005, xend = post_hdi[2] - .005,
+               y = 1, yend = 1,
+               arrow = arrow(length = unit(.15, "cm"), 
+                             ends = "both", 
+                             type = "closed"),
+               color = "white") +
+  annotate(geom = "text", x = .797, y = 2, 
+           label = "95% HDI", color = "white") +
+  labs(title = "Posterior (beta)",
+       x = expression(theta),
+       y = expression(dbeta(theta*"|"*35.25*", "*9.75))) +
+  coord_cartesian(ylim = c(0, 7)) +
+  theme_cowplot()
+```
+
+Here are the exact HDI values for the prior and posterior densities.
+
+```{r}
+prior_hdi
+post_hdi
+```
+
+Here are the the modes for our prior and posterior densities.
+
+```{r}
+(beta_param$a - 1) / (beta_param$a + beta_param$b - 2)
+(z + beta_param$a - 1) / (z + beta_param$a + n - z + beta_param$b - 2)
+```
+
+For our final example, we consider the tendency of a newly discovered substance on a distant planet to be blue versus green. Just as in the previous two examples, we discover 17 out of 20 trials come up positive (i.e., blue). This time we have a noncommittal uniform prior, $\operatorname{beta}(1, 1)$. Here's how to plot the results, as shown in the right column of Figure 6.4.
+
+```{r, fig.width = 4.5, fig.height = 2}
+# update beta_param
+beta_param$a <- 1
+beta_param$b <- 1
+
+# update the HDIs
+prior_hdi <-
+  hdi_of_icdf(name = qbeta,
+              shape1 = beta_param$a,
+              shape2 = beta_param$b,
+              width = .95)
+
+post_hdi <-
+  hdi_of_icdf(name = qbeta,
+              shape1 = z + beta_param$a,
+              shape2 = n - z + beta_param$b,
+              width = .95)
+
+# update the data
+d <-
+  d %>% 
+  mutate(prior     = dbeta(theta, 
+                           shape1 = beta_param$a, 
+                           shape2 = beta_param$b),
+         posterior = dbeta(theta, 
+                           shape1 = z + beta_param$a, 
+                           shape2 = n - z + beta_param$b))
+
+
+## plot Figure 6.4, rightmost column!
+# prior
+d %>% 
+  ggplot(aes(x = theta, ymin = 0, ymax = prior)) +
+  geom_ribbon(fill = "steelblue") +
+  labs(title = "Prior (beta)",
+       x = expression(theta),
+       y = expression(dbeta(theta*"|"*1*", "*1))) +
+  coord_cartesian(ylim = c(0, 5)) +
+  theme_cowplot()
+
+# likelihood, which is the same as the last two examples
+d %>%   
+  ggplot(aes(x = theta, ymin = 0, ymax = likelihood)) +
+  geom_ribbon(size = 0, fill = "steelblue") +
+  labs(title = "Likelihood (Bernoulli)",
+       x = expression(theta),
+       y = expression(p(D*"|"*theta))) +
+  theme_cowplot()
+
+# posterior
+d %>% 
+  ggplot(aes(x = theta, ymin = 0, ymax = posterior)) +
+  geom_ribbon(fill = "steelblue", alpha = 1/2) +
+  geom_ribbon(data = . %>% filter(theta > post_hdi[1] & theta < post_hdi[2]),
+              fill = "steelblue") +
+  geom_segment(x = post_hdi[1] + .005, xend = post_hdi[2] - .005,
+               y = 0.8, yend = 0.8,
+               arrow = arrow(length = unit(.15, "cm"), 
+                             ends = "both", 
+                             type = "closed"),
+               color = "white") +
+  annotate(geom = "text", x = (post_hdi[1] + post_hdi[2]) / 2, y = 1.5, 
+           label = "95% HDI", color = "white") +
+  labs(title = "Posterior (beta)",
+       x = expression(theta),
+       y = expression(dbeta(theta*"|"*18*", "*4))) +
+  coord_cartesian(ylim = c(0, 5)) +
+  theme_cowplot()
+```
+
+Here are the exact HDI values for the posterior density.
+
+```{r}
+post_hdi
+```
+
+Because both the $a$ and $b$ parameters for our beta prior are 1, we can't use the formula from above to compute the mode. I hope this makes sense if you look back at the plot. The density for $\operatorname{beta}(1, 1)$ is uniform and has no mode. We can, at least, compute the mode for the posterior.
+
+```{r}
+(z + beta_param$a - 1) / (z + beta_param$a + n - z + beta_param$b - 2)
 ```
 
 ### Prior knowledge that cannot be expressed as a beta distribution.
@@ -951,7 +1026,7 @@ library(patchwork)
 p1 / p2 / p3
 ```
 
-You can learn more about how to use **patchwork** [here](https://patchwork.data-imaginist.com/articles/patchwork.html). Plus we'll have many more opportunities to practice as we progress through the chapters.
+We could have taken this same approach to combine all our subplots from the three columns and three rows of Figure 6.4. You can learn more about how to use **patchwork** this way [here](https://patchwork.data-imaginist.com/articles/patchwork.html). We'll have many more opportunities to practice as we progress through the chapters.
 
 ## Summary
 
@@ -959,7 +1034,7 @@ You can learn more about how to use **patchwork** [here](https://patchwork.data-
 >
 > Unfortunately, there are two severe limitations with this approach... Thus, although it is interesting and educational to see how Bayes' rule can be solved analytically, we will have to abandon exact mathematical solutions when doing complex applications. We will instead use Markov chain Monte Carlo (MCMC) methods. (p. 139)
 
-And if you're looking at this project, I imagine that's exactly what you're looking for. We want to use the power of a particular kind of MCMC, Hamiltonian Monte Carlo, through the interface of the [**brms** package](https://github.com/paul-buerkner/brms). Get excited. It's coming.
+And if you're using this project, I imagine that's exactly what you're looking for. We want to use the power of a particular kind of MCMC, Hamiltonian Monte Carlo, through the interface of the [**brms** package](https://github.com/paul-buerkner/brms). Get excited. It's coming.
 
 ## Session info {-}
 
@@ -967,8 +1042,8 @@ And if you're looking at this project, I imagine that's exactly what you're look
 sessionInfo()
 ```
 
-```{r, echo = F, eval = F}
-rm(length, bernoulli_likelihood, theta, a, b, betaABfromMeanKappa, betaABfromModeKappa, betaABfromMeanSD, beta_param, hdi_of_icdf, n, z, proportion_heads, prior_mean, posterior_mean, trial_data, d, line, text, get_hdi, p_theta, BernGrid, Data, p1, p2, p3)
+```{r, echo = F}
+rm(bernoulli_likelihood, theta, a, b, length, d, betaABfromMeanKappa, betaABfromModeKappa, betaABfromMeanSD, beta_param, hdi_of_icdf, n, z, proportion_heads, prior_mean, posterior_mean, trial_data, line, text, prior_hdi, post_hdi, p_theta, BernGrid, Data, p1, p2, p3)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
