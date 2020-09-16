@@ -21,7 +21,7 @@ It's worth repeating a couple paragraphs from page 298 [@kruschkeDoingBayesianDa
 
 ## Paved with good intentions
 
-This is a little silly, but I wanted to challenge myself to randomly generate a series of 24 `H` and `T` characters for which there were 7 `H`s. The base **R** `sample()` function gets us part of the way there.
+Kruschke started off this section with a random sequence of 7 heads (H) and 17 tails (T). This is a little silly, but I wanted to challenge myself to randomly generate a series of 24 `H` and `T` characters for which there were 7 `H`s. The base **R** `sample()` function gets us part of the way there.
 
 ```{r}
 sample(c("H", "T"), size = 24, replace = T)
@@ -55,11 +55,7 @@ sample(c("H", "T"), size = 24, replace = T)
 
 The sequence isn't in the exact order as the data from page 300, but they do have the crucial ratio of heads to tails. We'll plot that in a moment.
 
-```{r}
-lisa::artwork
-```
-
-Before we plot, let's talk theme and color scheme. In the last chapter, we experimented with making global alterations to the default **ggplot2** theme using the `theme_set()` function and based our new color settings on an iconic woodblock print of the see. We'll extend that nautical theme in this chapter by basing our color scheme on [*RIFT SCULL*](https://www.jamesjean.com/riftscull) by contemporary artist, [James Jean](https://www.jamesjean.com/about-1) [-@jeanRiftScull2009]. We can get a prearranged color palette based on *RIFT SCULL* from the [**lisa** package](https://github.com/tyluRp/lisa).
+Before we plot, let's talk theme and color scheme. In the last chapter, we experimented with making global alterations to the default **ggplot2** theme using the `theme_set()` function and based our new color settings on an iconic woodblock print of the sea. We'll extend that nautical theme in this chapter by basing our color scheme on [*RIFT SCULL*](https://www.jamesjean.com/riftscull) by contemporary artist, [James Jean](https://www.jamesjean.com/about-1) [-@jeanRiftScull2009]. We can get a prearranged color palette based on *RIFT SCULL* from the [**lisa** package](https://github.com/tyluRp/lisa).
 
 ```{r, warning = F, message = F, fig.width = 3, fig.height = 1}
 library(lisa)
@@ -90,7 +86,7 @@ jj <- lisa_palette("JamesJean")
 jj
 ```
 
-You can undo the above with `ggplot2::theme_set(ggplot2::theme_grey())`. Here's the bar plot.
+You can undo the above with `ggplot2::theme_set(ggplot2::theme_grey())`. Here's the bar plot of our 24 flips.
 
 ```{r, fig.width = 3.5, fig.height = 3}
 set.seed(115)
@@ -102,6 +98,8 @@ tibble(flips = sample(c("H", "T"), size = 24, replace = T)) %>%
   scale_y_continuous(breaks = c(0, 7, 17), expand = expansion(mult = c(0, 0.05)))
 ```
 
+> It seems that there were fewer heads than what we would expect from the hypothesis of fairness. We would like to derive the probability of getting a proportion of heads that is 7/24 or smaller if the null hypothesis is true. (p. 300)
+
 ### Definition of $p$ value.
 
 > In summary, the likelihood function defines the probability for a single measurement, and the intended sampling process defines the cloud of possible sample outcomes. The null hypothesis is the likelihood function with its specific value for parameter $\theta$, and the cloud of possible samples is defined by the stopping and testing intentions, denoted $I$. Each imaginary sample generated from the null hypothesis is summarized by a descriptive statistic, denoted $D_{\theta, I}$. In the case of a sample of coin flips, the descriptive summary statistic is $z / N$ , the proportion of heads in the sample. Now, imagine generating infinitely many samples from the null hypothesis using stopping and testing intention $I$ ; this creates a cloud of possible summary values $D_{\theta, I}$, each of which has a particular probability. The probability distribution over the cloud of possibilities is the sampling distribution: $p (D_{\theta, I} | \theta, I )$.
@@ -112,15 +110,74 @@ tibble(flips = sample(c("H", "T"), size = 24, replace = T)) %>%
 >
 > where "$\succcurlyeq$" in this context means "as extreme as or more extreme than, relative to the expected value from the hypothesis." Most introductory applied statistics textbooks suppress the sampling intention $I$ from the definition, but precedents for making the sampling intention explicit can be found in Wagenmakers [-@wagenmakers2007practical, Online Supplement A)] and additional references cited therein. (p. 301)
 
+Here's how one might make a version of the grids of Figure 11.2.
+
+```{r, fig.width = 8, fig.height = 2.75, warning = F, message = F}
+library(patchwork)
+
+level <- c(0:8, "...")
+
+d <-
+  crossing(N = factor(level, levels = level),
+           z = factor(level, levels = level)) %>%
+  mutate(
+    label = case_when(
+      N == "..." ~ "...",
+      z == "..." ~ "...",
+      as.double(z) > as.double(N) ~ "-",
+      as.double(z) <= as.double(N) ~ ""
+    ),
+    fill = case_when(
+      N == "5" ~ 1,
+      N %in% c("4", "6") ~ 2,
+      N %in% c("3", "7") ~ 3,
+      N %in% c("1", "2", "8", "...") ~ 4
+    )) %>% 
+  mutate(z = fct_rev(z)) %>% 
+  filter(N != "0") 
+
+p1 <-
+  d %>% 
+  ggplot(aes(N, z, label = label, fill = N == "5")) +
+  geom_tile(color = alpha(jj[2], .25)) +
+  geom_text(color = jj[2]) + 
+  scale_fill_manual(values = jj[c(4, 1)], breaks = NULL) +
+  scale_x_discrete(position = "top", expand = c(0, 0)) +
+  scale_y_discrete(expand = c(0, 0)) +
+  theme(axis.ticks = element_blank())
+
+p2 <-
+  d %>% 
+  ggplot(aes(N, z, label = label, fill = z == "4")) +
+  geom_tile(color = alpha(jj[2], .25)) +
+  geom_text(color = jj[2]) + 
+  scale_fill_manual(values = jj[c(4, 1)], breaks = NULL) +
+  scale_x_discrete(position = "top", expand = c(0, 0)) +
+  scale_y_discrete(expand = c(0, 0)) +
+  theme(axis.ticks = element_blank())
+
+p3 <-
+  d %>% 
+  ggplot(aes(N, z, label = label, fill = fill)) +
+  geom_tile(color = alpha(jj[2], .25)) +
+  geom_text(color = jj[2]) + 
+  scale_fill_gradient(low = jj[1], high = jj[4], breaks = NULL) +
+  scale_x_discrete(position = "top", expand = c(0, 0)) +
+  scale_y_discrete(expand = c(0, 0)) +
+  theme(axis.ticks = element_blank())
+
+# combine and plot
+p1 | p2 | p3
+```
+
 ### With intention to fix $N$.
 
-In this subsection, "the space of possible outcomes is restricted to combinations of $z$ and $N$ for which $N$ is fixed at $N = 24$" (p. 302).
+In this section, "the space of possible outcomes is restricted to combinations of $z$ and $N$ for which $N$ is fixed at $N = 24$" (p. 302).
 
-> What is the probability of getting a particular number of heads when N is fixed? The answer is provided by the *binomial probability distribution*, which states that the probability of getting z heads out of N flips is
+> What is the probability of getting a particular number of heads when $N$ is fixed? The answer is provided by the *binomial probability distribution*, which states that the probability of getting $z$ heads out of $N$ flips is
 >
 > $$ p(z | N, \theta) = \begin{pmatrix} N \\ z \end{pmatrix} \theta^z (1 - \theta)^{N - z}$$
->
-where the notation $\begin{pmatrix} N \\ z \end{pmatrix}$ [is a shorthand notation defined in more detail in the text. It has to do with factorials and, getting more to the point,] the number of ways of allocating $z$ heads among $N$ flips, without duplicate counting of equivalent allocations, is $N !/[(N − z)!z!]$. This factor is also called the number of ways of choosing $z$ items from $N$ possibilities, or "$N$ choose $z$" for short, and is denoted $\begin{pmatrix} N \\ z \end{pmatrix}$. Thus, the overall probability of getting $z$ heads in $N$ flips is the probability of any particular sequence of $z$ heads in $N$ flips times the number of ways of choosing $z$ slots from among the $N$ possible flips. (p. 303, *emphasis* in the original)
+> where the notation $\begin{pmatrix} N \\ z \end{pmatrix}$ [is a shorthand notation defined in more detail in the text. It has to do with factorials and, getting more to the point,] the number of ways of allocating $z$ heads among $N$ flips, without duplicate counting of equivalent allocations, is $N !/[(N − z)!z!]$. This factor is also called the number of ways of choosing $z$ items from $N$ possibilities, or "$N$ choose $z$" for short, and is denoted $\begin{pmatrix} N \\ z \end{pmatrix}$. Thus, the overall probability of getting $z$ heads in $N$ flips is the probability of any particular sequence of $z$ heads in $N$ flips times the number of ways of choosing $z$ slots from among the $N$ possible flips. (p. 303, *emphasis* in the original)
 
 To do factorials in **R**, use the `factorial()` function. E.g., we can use the formula $N! / [(N − z)!z!]$ like so:
 
@@ -145,10 +202,18 @@ Now we can employ our `n_choose_z()` function to help make the data we'll use fo
 flips <-
   tibble(z = 0:24) %>% 
   mutate(n_choose_z = n_choose_z(n, z)) %>% 
-  mutate(`p(z/N)`                = n_choose_z / sum(n_choose_z),
+  mutate(`p(z/N)`                = n_choose_z / sum(n_choose_z),  # this just rescales `n_choose_z`
          `Sample Proportion z/N` = z / n)
 
 head(flips, n = 10)
+```
+
+Instead of our custom `n_choose_z()` function, we could have also used the base **R** choose function. Here's a quick comparison.
+
+```{r}
+tibble(z = 0:5) %>% 
+  mutate(n_choose_z = n_choose_z(n, z),
+         choose     = choose(n, z))
 ```
 
 Now here's the histogram of that sampling distribution.
@@ -196,13 +261,28 @@ flips %>%
   filter(z == 7)
 ```
 
-It was already sitting there in our `p(z/N)` column.
+It was already sitting there in our `p(z/N)` column. Well okay, fine, you do have to multiply it by 100 to convert it to a percentage the way Kruschke presented it at the bottom of page 304.
+
+```{r}
+flips %>% 
+  filter(z == 7) %>% 
+  summarise(`probability in a percentage metric` = (100 * `p(z/N)`) %>% round(digits = 3))
+```
+
+Kruschke then pointed out that this is a one-tailed $p$-value. We often reject or fail to reject the null hypothesis based on two-sided $p$-values. In practice, we can convert a one-sided $p$-value to a two-sided $p$-value by multiplying it by 2. Here's what that looks like in this case.
+
+```{r}
+flips %>% 
+  filter(z <= 7) %>% 
+  summarise(`one-sided p-value` = sum(`p(z/N)`),
+            `two-sided p-value` = 2 * sum(`p(z/N)`))
+```
 
 > Here's the conclusion for our particular case. The actual observation was $z/N = 7/24$. The one-tailed probability is $p = 0.032$, which was computed from Equation 11.4, and is shown in Figure 11.3. Because the $p$ value is not less than 2.5%, we do *not* reject the null hypothesis that $\theta = 0.5$. In NHST parlance, we would say that the result "has failed to reach significance." This does not mean we *accept* the null hypothesis; we merely suspend judgment regarding rejection of this particular hypothesis. Notice that we have not determined any degree of belief in the hypothesis that $\theta = 0.5$. The hypothesis might be true or might be false; we suspend judgment. (p. 305, *emphasis* in the original)
 
 ### With intention to fix $z$.
 
-In this subsection, "$z$ is fixed in advance and $N$ is the random variable. We don’t talk about the probability of getting $z$ heads out of $N$ flips, we instead talk about the probability of taking $N$ flips to get $z$ heads" (p. 306).
+In this subsection, "$z$ is fixed in advance and $N$ is the random variable. We don't talk about the probability of getting $z$ heads out of $N$ flips, we instead talk about the probability of taking $N$ flips to get $z$ heads" (p. 306).
 
 This time we're interested in
 
@@ -214,7 +294,7 @@ This time we're interested in
 >                  & = \frac{z}{N} \begin{pmatrix} N \\ z \end{pmatrix} \theta^z (1 - \theta)^{N - z}
 > \end{align*}
 > 
-> (This distribution is sometimes called the "negative binomial" but that term sometimes refers to other formulations and can be confusing, so I will not use it here.) This is a sampling distribution, like the binomial distribution, because it specifies the relative probabilities of all the possible data outcomes for the hypothesized fixed value of $\theta$ and the intended stopping rule. (p. 306, *emphasis* added)
+> (This distribution is sometimes called the "negative binomial" [^3] but that term sometimes refers to other formulations and can be confusing, so I will not use it here.) This is a sampling distribution, like the binomial distribution, because it specifies the relative probabilities of all the possible data outcomes for the hypothesized fixed value of $\theta$ and the intended stopping rule. (p. 306, *emphasis* added)
 
 With that formula in hand, here's how to generate the data for Figure 11.4.b.
 
@@ -257,17 +337,20 @@ flips %>%
 
 Our Figure 11.4.a is the same as Figure 11.3.a, above. I won't repeat it, here.
 
-We got the formula for that last variable, `p(N|z,theta)`, from formula 11.6 on page 306. You'll note how Kruschke continued to refer to it as $p(z|N)$ in his Figure 11.4. It's entirely opaque, to me, how $p(z|N) = p(N|z, \theta)$. I'm just going with it.  
+We got the formula for that last variable, `p(N|z,theta)`, from Formula 11.6 on page 306. You'll note how Kruschke continued to refer to it as $p(z|N)$ in his Figure 11.4. It's entirely opaque, to me, how $p(z|N) = p(N|z, \theta)$. I'm just going with it.  
 
-Here's the $p$-value.
+Here's the $p$-value, expressed two ways.
 
 ```{r}
 flips %>% 
   filter(n >= 24) %>% 
-  summarise(p_value = sum(`p(N|z,theta)`) %>% round(digits = 3))
+  summarise(`one-sided p-value` = sum(`p(N|z,theta)`) %>% round(digits = 3),
+            `two-sided p-value` = (2 * sum(`p(N|z,theta)`)) %>% round(digits = 3))
 ```
 
-If you experiment a bit with the `highest_n` value from above, you'll see that the exact value for the $p$-value is dependent on what $N$ you go up to. 
+If you experiment a bit with the `highest_n` value from above, you'll see that the exact value for the $p$-value is dependent on what $N$ you go up to.
+
+Even though our data ($z = 2, N = 24$) is the same as in the last section, we came ended up with different $p$-values and different conclusions about the null hypothesis. Though we failed to reject the null in the last section, we rejected it here. As Kruschke warned us in the beginning of the chapter, NHST depends on sampling intentions.
 
 ### With intention to fix duration.
 
@@ -277,7 +360,7 @@ In this subsection,
 >
 > The key to analyzing this scenario is specifying how various combinations of $z$ and $N$ can arise when sampling for a fixed duration. There is no single, uniquely "correct" specification, because there are many different real-world constraints on sampling through time. But one approach is to think of the sample size $N$ as a random value. (p. 308).
 
-Here's a glance at the Poisson distribution for which $\lambda = 24$. The mean is colored orange.
+Here's a glance at the Poisson distribution for which $\lambda = 24$. The mean is colored yellow.
 
 ```{r, fig.width = 5, fig.height = 3.25}
 tibble(x = 1:50) %>%
@@ -288,6 +371,7 @@ tibble(x = 1:50) %>%
   geom_col(width = .5) +
   scale_fill_manual(values = jj[1:2]) +
   scale_color_manual(values = jj[1:2]) +
+  scale_x_continuous(expand = expansion(mult = c(0, 0.05)), limits = c(0, NA)) +
   scale_y_continuous(NULL, breaks = NULL, expand = expansion(mult = c(0, 0.05))) +
   theme(legend.position = "none")
 ```
@@ -311,7 +395,7 @@ flips <-
 flips
 ```
 
-As indicate in our `n` column, by chance we drew a 21. We then computed the same values for all possible values of `z`, ranging from 0 to 21. But this doesn't make for a very interesting plot, nor does it make for the same kind of plot Kruschke made in Figure 11.5.b.
+As indicated in our `n` column, by chance we drew a 21. We then computed the same values for all possible values of `z`, ranging from 0 to 21. But this doesn't make for a very interesting plot, nor does it make for the same kind of plot Kruschke made in Figure 11.5.b.
 
 ```{r, fig.width = 5, fig.height = 3.25, warning = F}
 flips %>%
@@ -351,23 +435,26 @@ flips %>%
   theme(legend.position = "none")
 ```
 
-I played around with the simulation a bit, and this is about as good as I've gotten. If you have a solution that more faithfully reproduces what Kruschke did, please share your code in my [GitHub issue #16](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues/16).
+I played around with the simulation a bit and this is about as good as I've gotten. If you have a solution that more faithfully reproduces what Kruschke did, please share your code in my [GitHub issue #16](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues/16).
 
-Here's my attempt at the $p$ value.
+Here's my attempt at the $p$-value.
 
 ```{r}
 flips %>% 
   filter(z <= 7) %>% 
-  summarise(p_value = sum(`p(z/N)`))
+  summarise(`one-sided p-value` = sum(`p(z/N)`))
 ```
 
 It's unclear, to me, why it's so much lower than the one Kruschke reported in the text.
 
 ### With intention to make multiple tests.
 
-I'm not sure how to do the simulation for this section. This, for example, doesn't get the job done.
+> In the preceding sections we have seen that when a coin is flipped $N = 24$ times and comes up $z = 7$ heads, the $p$ value can be 0.032 or 0.017 or 0.024 or other values. The change in $p$ is caused by the dependence of the imaginary cloud of possibilities on the stopping intention. Typical NHST textbooks never mention the dependency of $p$ values on the stopping intention, but they often do discuss the dependency of $p$ values on the testing intention. In this section we will see how testing intentions affect the imaginary cloud of possibilities that determines the $p$ value. (p. 310)
 
-```{r}
+Kruschke then went into an example of flipping two coins and how this would require we consider an *overall* false-positive rate based on proportions from *either* of the two coins. With respect to the probabilities of two independent events, I do recall that $p(A \text{ or } B) = p(A) + p(B)$. But sadly, I'm not sure how to incorporate this knowledge to reproduce the simulation for this section. If you know how to do the simulation properly, please share your code in my [GitHub issue #17](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues/17).
+
+```{r, echo = F, eval = F}
+# This, for example, doesn't get the job done.
 flips <-
   crossing(z    = 0:24,
            coin = letters[1:2]) %>% 
@@ -377,11 +464,9 @@ flips <-
          `Sample Proportion z/N` = z / n)
 
 head(flips, n = 10)
-```
 
-The result is a failed attempt at Figure 11.6:
+# The result is a failed attempt at Figure 11.6:
 
-```{r, fig.width = 5, fig.height = 3.25}
 flips %>% 
   ggplot(aes(x = `Sample Proportion z/N`, y = `p(z/N)`,
              fill = z <= 7, color = z <= 7)) +
@@ -393,7 +478,35 @@ flips %>%
   theme(legend.position = "none")
 ```
 
-If you know how to do the simulation properly, please share your code in my [GitHub issue #17](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues/17).
+```{r, echo = F, eval = F}
+# maybe this is closer
+# I just couldn't figure out how to combine these properly to remake the figure
+z1 <- 7
+z2 <- 7
+n1 <- 24
+n2 <- 24
+
+
+# flips <-
+  tibble(z1 = 0:n1,
+         z2 = 0:n2) %>% 
+  mutate(n_choose_z1 = n_choose_z(n, z1),
+         n_choose_z2 = n_choose_z(n, z2)) %>% 
+  mutate(`p(z1/N1)`                = n_choose_z1 / sum(n_choose_z1),
+         `p(z2/N2)`                = n_choose_z2 / sum(n_choose_z2),
+         `Sample Proportion z1/N1` = z1 / n1,
+         `Sample Proportion z2/N2` = z2 / n2)
+```
+
+In his footnote #4 on page 311, Kruschke reported there was a direct relation between the $p$-values in this section and in those from the simulation for Figure 11.3. They follow the equation
+
+$$p_\text{figure 11.6} = 1 - (1 - p_\text{figure 11.3})^2.$$
+
+Using code, we get this.
+
+```{r}
+1 - (1 - 0.03195733)^2
+```
 
 ### Soul searching.
 
@@ -405,15 +518,15 @@ Happily for us, "the Bayesian interpretation of data does not depend on the cove
 
 ## Prior knowledge 
 
-Nothing for us, here.
+The main thing to note in this section is Kruschke changed the motivating example to one of flipping a flat-headed nail. Now we're considering it "heads" when the nail lands on its head and "tails" when the nail lands such that its point is touching the ground. It's still the case that $N = 24, z = 7$.
 
 ### NHST analysis.
 
-More nothing.
+Nothing for us, here.
 
 ### Bayesian analysis.
 
-If you recall from Chapter 6, we need a function to compute the Bernoulli likelihood.
+If you recall from [Chapter 6][Inferring a Binomial Probability via Exact Mathematical Analysis], we need a function to compute the Bernoulli likelihood.
 
 ```{r}
 bernoulli_likelihood <- function(theta, data) {
@@ -425,6 +538,8 @@ bernoulli_likelihood <- function(theta, data) {
   
 }
 ```
+
+We now consider the analysis based on two priors. The first, $\operatorname{beta}(2, 20)$, expresses the assumption the nail is biased towards "tails." The second, $\operatorname{beta}(11, 11)$, expresses the assumption the nail is fair.
 
 There are a handful of steps before we can use our `bernoulli_likelihood()` function to make the plot data. All these are repeats from Chapter 6.
 
@@ -482,12 +597,10 @@ p3 <-
        x = expression(theta),
        y = expression(dbeta(theta*"|"*9*", "*37)))
 
-library(patchwork)
-
 (p1 / p2 / p3) & theme(panel.grid = element_blank())
 ```
 
-If we'd like the 95% HDIs, we'll need to redifine the `hdi_of_icdf()` function.
+If we'd like the 95% HDIs, we'll need to redefine the `hdi_of_icdf()` function.
 
 ```{r}
 hdi_of_icdf <- function(name = qbeta, width = .95, tol = 1e-8, ... ) {
@@ -588,7 +701,7 @@ In this subsection's opening paragraph, Kruschke opined:
 
 > The primary goal of NHST is determining whether a particular "null" value of a parameter can be rejected. One can also ask what *range* of parameter values would not be rejected. This range of nonrejectable parameter values is called the CI. (There are different ways of defining an NHST CI; this one is conceptually the most general and coherent with NHST precepts.) The 95% CI consists of all values of $\theta$ that would not be rejected by a (two-tailed) significance test that allows 5% false alarms. (p. 318, *emphasis* in the original)
 
-Here's the upper- and lower-left panels of Figure 11.8.
+Figure 11.8 depicts the sampling distributions for $\theta = .126$ (top row) and $\theta = .511$ (bottom row). Here's the upper- and lower-left panels of Figure 11.8.
 
 ```{r, fig.width = 2.5, fig.height = 6}
 p1 <-
@@ -645,7 +758,7 @@ p2 <-
   theme(legend.position = "none")
 ```
 
-We'll continue to develop our **patchwork** skills by plotting Figure 11.9 all at once. But before the big reveal, we'll make the subplots in two phases. Here are the two on the left.
+Figure 11.9 considers the sampling distributions for two hypothetical populations, $\theta = .126$ (top row) and $\theta = .484$ (bottom row). This time the assumption is $z$ is fixed at 7. For this figure, we'll continue to develop our **patchwork** skills. Before the big reveal, we'll make the subplots in two phases. Here are the two on the left.
 
 ```{r, fig.width = 2.75, fig.height = 6}
 p1 <-
@@ -726,7 +839,7 @@ Here we arrange all four of the Figure 11.9 subplots.
 (p1 + p3 + p2 + p4) + plot_layout(widths = c(2, 4))
 ```
 
-We'll follow the same procedure for Figure 11.10. Here are the subplots on the left.
+Figure 11.10 is a depiction of when an experimenter intended to stop when a fixed duration expired. This time the two rows are based on $\theta = .135$ (top row) and $\theta = .497$ (bottom row). We'll follow the same general procedure from the last figure. Here are the subplots on the left.
 
 ```{r, fig.width = 2.75, fig.height = 3.5}
 p1 <-
@@ -810,7 +923,7 @@ p4 <-
 
 ```{r , fig.width = 1.33, fig.height = 3, eval = F, echo = F}
 # If and when you figure out the simulations for the right panels,
-# here is how to make the middel plots with the text
+# here is how to make the middle plots with the text
 
 p5 <- tibble(x = 1.5,
          y = c(.925, .8, .7, .4),
@@ -890,7 +1003,7 @@ It's worth quoting Kruschke at length:
 
 > In NHST, we have to take into account all comparisons we intend for the whole experiment. Suppose we set a criterion for rejecting the null such that each decision has a "per-comparison" (PC) false alarm rate of $\alpha_\text{PC}$, e.g., 5%. Our goal is to determine the overall false alarm rate when we conduct several comparisons. To get there, we do a little algebra. First, suppose the null hypothesis is true, which means that the groups are identical, and we get apparent differences in the samples by chance alone. This means that we get a false alarm on a proportion $\alpha_\text{PC}$ of replications of a comparison test. Therefore, we do *not* get a false alarm on the complementary proportion $1 - \alpha_\text{PC}$ of replications. If we run *c* independent comparison tests, then the probability of not getting a false alarm on *any* of the tests is $(1 - \alpha_\text{PC})^c$. Consequently, the probability of getting at least one false alarm is $1 - (1 - \alpha_\text{PC})^c$. We call that probability of getting at least one false alarm, across all the comparisons in the experiment, the "experimentwise" false alarm rate, denoted $\alpha_\text{EW}$. (pp. 325--326, *emphasis* in the original)
 
-Here's what this looks like in action.
+Here's what this looks like in when $\alpha_\text{PC} = .05$ and $c = 36$.
 
 ```{r}
 alpha_pc <- .05
@@ -972,7 +1085,7 @@ tibble(c = 1:100) %>%
   theme(panel.grid = element_blank())
 ```
 
-But just look at how low the values on the $y$-axis get.
+But just look at how low the values on the $y$-axis get. Frequentists have other correction procedures available to them. The Bayesian approach is different.
 
 ### Just one Bayesian posterior no matter how you look at it.
 
@@ -980,7 +1093,7 @@ But just look at how low the values on the $y$-axis get.
 
 ### How Bayesian analysis mitigates false alarms.
 
-From page 329: "How, then, does a Bayesian analysis address the problem of false alarms? By incorporating prior knowledge into the structure of the model." In addition, we use heirarchical models when possible [e.g., @gelman2012we]. 
+From page 329: "How, then, does a Bayesian analysis address the problem of false alarms? By incorporating prior knowledge into the structure of the model." One of the more powerful ways to do so is by using hierarchical models whenever possible [e.g., @gelman2012we]. 
 
 ## What a sampling distribution is good for 
 
@@ -1002,7 +1115,7 @@ sessionInfo()
 
 ```{r, message = F, warning = F, echo = F}
 # Here we'll remove our objects
-rm(h_counter, coins, jj, n, z, n_choose_z, flips, highest_n, bernoulli_likelihood, trial_data, d_nail, d_coin, p1, p2, p3, p4, hdi_of_icdf, theta, alpha_pc, c, z_maker, n_iter)
+rm(h_counter, coins, jj, level, d, n, z, n_choose_z, flips, highest_n, bernoulli_likelihood, trial_data, d_nail, d_coin, p1, p2, p3, p4, hdi_of_icdf, theta, alpha_pc, c, z_maker, n_iter)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
@@ -1010,4 +1123,6 @@ ggplot2::theme_set(ggplot2::theme_grey())
 bayesplot::color_scheme_set("blue")
 pacman::p_unload(pacman::p_loaded(), character.only = TRUE)
 ```
+
+[^3]: When your criterion variable is a count, you typically model it with the Poisson likelihood. We'll get some practice with the Poisson likelihood in [Chapter 24][Count Predicted Variable]. Though we won't cover this in this text, it turns out the Poisson makes some strong assumptions. The negative binomial likelihood is sometimes used as a robust alternative to the Poisson when those assumptions are violated. Sadly, we won't cover negative-binomial regression at all in this ebook. If you'd like to learn more, check out either edition of McElreath's *Statistical Rethinking* [-@mcelreathStatisticalRethinkingBayesian2015; -@mcelreathStatisticalRethinkingBayesian2020], my **brms** translations of those texts [@kurzStatisticalRethinkingBrms2020; @kurzStatisticalRethinkingSecondEd2020], the authoritative text by Agresti [-@agrestiFoundationsLinearGeneralized2015], or the great tutorial paper by @atkinsTutorialOnCount2013.
 
