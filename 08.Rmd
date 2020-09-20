@@ -554,19 +554,15 @@ fit8.2 <-
   brm(data = my_data, 
       family = bernoulli(identity),
       y ~ 0 + s,
-      prior = c(prior(beta(2, 2), class = b, coef = sReginald),
-                prior(beta(2, 2), class = b, coef = sTony)),
-      iter = 6000, warmup = 5000, cores = 4, chains = 4,
-      # this line isn't always necessary, but it will let us use `prior_samples()` later
-      sample_prior = T,
-      control = list(adapt_delta = .999),
+      prior(beta(2, 2), class = b, lb = 0, ub = 1),
+      iter = 2000, warmup = 500, cores = 4, chains = 4,
       seed = 8,
       file = "fits/fit08.02")
 ```
 
 More typically, we'd parameterize the model as `y ~ 1 + s`. This form would yield an intercept and a slope. Behind the scenes, **brms** would treat the nominal `s` variable as an 0-1 coded dummy variable. One of the nominal levels would become the reverence category, depicted by the `Intercept`, and the difference between that and the other category would be the `s` slope. However, with our `y ~ 0 + s` syntax, we've suppressed the typical model intercept. The consequence is that each level of the nominal variable `s` gets its own intercept or [i] index, if you will. This is analogous to Kruschke's `y[i] ∼ dbern(theta[s[i]])` code.
 
-Also, notice our use of the `control = list(adapt_delta = .999)` argument. By default, `adapt_delta = .8`. Leaving it at its default for this model resulted in "divergent transitions after warmup" warnings, which urged me to increase "adapt_delta above 0.8." The model fit well after raising it to .999 and increasing the number of `warmup` samples. See the [**brms** reference manual](https://CRAN.R-project.org/package=brms/brms.pdf) [@brms2020RM] for more on `adapt_delta`.
+Also, notice how we set `lb = 0` and `ub = 1` within the `prior()` function. These told **brms** that the lower and upper boundaries for our two intercept parameters are 0 and 1, respectively. The current version of **brms** will allow you to fit the model with out explicitly setting these. However, it will throw a warning. This is because there are no natural boundaries for the parameters of `class = b` on a model like this. Or at least, there aren't any that **brms** has been made aware of. However, those beta priors presume the lower and upper boundaries of 0 and 1. As we'll see later on in this ebook, we won't usually fit models using the identity link and the Bernoulli likelihood for data like these. But that's for another section...
 
 All that aside, here are the chains.
 
@@ -641,17 +637,32 @@ In this context, the `mode_hdi()` summary yields:
 
 ## Sampling from the prior distribution in ~~JAGS~~ brms
 
-The `sample_prior = T` argument in our `brm()` code allowed us to extract prior samples with the well-named `prior_samples()` function.
+There are a few ways to sample from the prior distribution with **brms**. Here we'll do so by setting `sample_prior = "only"`. As a consequence, `brm()` will ignore the likelihood and return samples based solely on the model priors.
+
+```{r fit8.3}
+fit8.3 <-
+  brm(data = my_data, 
+      family = bernoulli(identity),
+      y ~ 0 + s,
+      prior = c(prior(beta(2, 2), class = b, coef = sReginald),
+                prior(beta(2, 2), class = b, coef = sTony)),
+      iter = 2000, warmup = 500, cores = 4, chains = 4,
+      sample_prior = "only",
+      seed = 8,
+      file = "fits/fit08.03")
+```
+
+Because we set `sample_prior = "only"`, the `posterior_samples()` will now return samples from the priors.
 
 ```{r}
-prior <- prior_samples(fit8.2)
+prior <- posterior_samples(fit8.3) %>% select(-lp__)
 
 head(prior)
 ```
 
 With `prior` in hand, we're almost ready to make the prior histograms of Figure 8.7. But first we'll want to determine the $z/N$ values in order to mark them off in the plots. [You'll note Kruschke did so with gray plus marks in his.]
 
-```{r}
+```{r, message = F}
 my_data %>% 
   group_by(s) %>% 
   summarise(z = sum(y),
@@ -739,11 +750,8 @@ fit8.2 <-
   brm(data = my_data, 
       family = bernoulli(identity),
       y ~ 0 + s,
-      prior = c(prior(beta(2, 2), class = b, coef = sReginald),
-                prior(beta(2, 2), class = b, coef = sTony)),
-      iter = 6000, warmup = 5000, cores = 4, chains = 4,
-      sample_prior = T,
-      control = list(adapt_delta = .999),
+      prior(beta(2, 2), class = b, lb = 0, ub = 1),
+      iter = 2000, warmup = 500, cores = 4, chains = 4,
       seed = 8,
       file = "fits/fit08.02")
 ```
@@ -764,7 +772,7 @@ sessionInfo()
 
 ```{r, message = F, warning = F, echo = F}
 # Here we'll remove our objects
-rm(p1, my_arrow, p2, p3, p4, p5, layout, my_data, fit8.1, post, fit8.1_c, estimate_mode, my_breaks, fit8.2, gathered_post, prior, d_line)
+rm(p1, my_arrow, p2, p3, p4, p5, layout, my_data, fit8.1, post, fit8.1_c, estimate_mode, my_breaks, fit8.2, gathered_post, fit8.3, prior, d_line)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
