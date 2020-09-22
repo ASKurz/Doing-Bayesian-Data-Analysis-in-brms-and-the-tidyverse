@@ -1,8 +1,8 @@
 --- 
 title: "*Doing Bayesian Data Analysis* in brms and the tidyverse"
-subtitle: "version 0.2.0"
+subtitle: "version 0.3.0"
 author: ["A Solomon Kurz"]
-date: "2020-05-19"
+date: "2020-09-22"
 site: bookdown::bookdown_site
 output: 
   bookdown::gitbook:
@@ -40,18 +40,25 @@ I released the 0.1.0 version of this project in February 17, 2020. It was the fi
 
 ### Version 0.2.0. {-}
 
-Welcome to version 0.2.0! Noteworthy changes include:
+The 0.2.0 update came in May 19, 2020. Noteworthy changes included:
 
-* finally reproducing the simulation necessary for Figure 7.3 (see [GitHub issue #14](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues/14)) with help from Cardy Moten III ([\@cmoten](https://github.com/cmoten));
-* with guidance from Bjørn Peare Bartholdy ([\@bbartholdy](https://github.com/bbartholdy)), Mladen Jovanović ([\@mladenjovanovic](https://github.com/mladenjovanovic)), Cory Whitney ([\@CWWhitney](https://github.com/CWWhitney)), and Brenton M. Wiernik ([\@bwiernik](https://github.com/bwiernik)), we have improved in-text citations and reference sections using [BibTex](http://www.bibtex.org/) [@BibTeX2020], [Better BibTeX](https://github.com/retorquere/zotero-better-bibtex) [@BetterBibTeXZotero2020], and [zotero](https://www.zotero.org/) [@ZoteroYourPersonal2020];
-* increased the plot resolution with `fig.retina = 2.5`;
-* small updates to broken **ggplot2** code;
-* refreshed hyperlinks; and
-* various typo corrections.
+* reproducing the simulation necessary for Figure 7.3 (see [GitHub issue #14](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues/14)) with help from Cardy Moten III ([\@cmoten](https://github.com/cmoten));
+* with guidance from Bjørn Peare Bartholdy ([\@bbartholdy](https://github.com/bbartholdy)), Mladen Jovanović ([\@mladenjovanovic](https://github.com/mladenjovanovic)), Cory Whitney ([\@CWWhitney](https://github.com/CWWhitney)), and Brenton M. Wiernik ([\@bwiernik](https://github.com/bwiernik)), we improved in-text citations and reference sections using [BibTex](http://www.bibtex.org/) [@BibTeX2020], [Better BibTeX](https://github.com/retorquere/zotero-better-bibtex) [@BetterBibTeXZotero2020], and [zotero](https://www.zotero.org/) [@ZoteroYourPersonal2020];
+* the plot resolution increased with `fig.retina = 2.5`; and
+* small code, hyperlink, and typo corrections.
+
+### Version 0.3.0. {-}
+
+Welcome to version 0.3.0! Noteworthy changes include:
+
+* adding the [Kruschke-style model diagrams](https://solomonkurz.netlify.app/post/make-model-diagrams-kruschke-style/) throughout the text (e.g., [Figure 8.5][Example: Difference of biases]);
+* adding chapter-specific plotting schemes with help from the [**cowplot** package](https://wilkelab.org/cowplot) [@R-cowplot], Wilke's [-@wilkeFundamentalsDataVisualization2019] [*Fundamentals of data visualization*](https://clauswilke.com/dataviz/), and many other great color-scheme packages; 
+* an overhaul to the plotting workflow in [Section 6.4.1][Prior knowledge expressed as a beta distribution.]; and
+* updating all model fits to the current version of **brms** (2.13.5).
 
 ### We're not done yet and I could use your help. {-}
 
-There are some minor improvements I'd like to add in future versions, such as prettying up the plots with custom themes. More importantly, I'd like to patch up the content holes. A few simulations, figures, and models are beyond my current skill set. I've opened separate GitHub issues for the most important ones and they are as follows:
+There are some minor improvements I'd like to add in future versions. Most importantly, I'd like to patch up the content holes. A few simulations, figures, and models are beyond my current skill set. I've opened separate GitHub issues for the most important ones and they are as follows:
 
 * the effective-sample-size simulations in Section 7.5.2 and the corresponding plots in Figures 7.13 and 7.14 ([issue #15](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues/15)),
 * several of the simulations in Sections 11.1.4, 11.3.1, and 11.3.2 and their corresponding figures (issues [#16](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues/16), [#17](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues/17), [#18](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues/18), and [#19](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues/19)),
@@ -75,7 +82,7 @@ Before we enter the primary text, I'd like to thank the following for their help
 * Lukas Neugebauer ([\@LukasNeugebauer](https://github.com/LukasNeugebauer)),
 * Demetri Pananos ([\@Dpananos](https://github.com/dpananos)),
 * Aki Vehtari ([\@avehtari](https://github.com/avehtari)),
-* Matti Vuorre ([\@mvuorre](https://github.com/mvuorre)), 
+* Matti Vuorre ([\@mvuorre](https://github.com/mvuorre)),
 * Cory Whitney ([\@CWWhitney](https://github.com/CWWhitney)), and
 * Brenton M. Wiernik ([\@bwiernik](https://github.com/bwiernik)).
 
