@@ -2721,15 +2721,15 @@ fitted_players %>%
   mutate_if(is.double, round, digits = 3)
 ```
 
-To make our version of Figure 19.7, we'll have to switch gears from player-specific effects to those specific to positions averaged over individual players. The `fitted()` approach will probably make this the easiest. This will require two caveats. Recall our model was based on aggregated data with the number of trials indexed by the `AtBats` column. In order to get the `PriPos`-specific estimates, we'll have to assign each one an `AtBats` value. You could do this any number of ways, including a theoretically-meaningful value, a numerically-simple value (e.g., 100), the grand mean of the `AtBats` values, or even `AtBats` values based on the `PriPos`-specific means. We'll take that last approach.
+To make our version of Figure 9.7, we'll have to switch gears from player-specific effects to those specific to positions averaged over individual players. The `fitted()` approach will probably make this the easiest. To do this, we'll need to specify values for `AtBats`, which will need to be a positive integer . However, since we're asking for fitted values of the linear predictors by setting `scale = "linear"`, any value meeting the positive-integer criterion will return the same results. We'll keep things simple and set `AtBats = 1`.
 
 Another consideration is if we'd like to use `fitted()` to average across one of the hierarchical grouping parameters (i.e., `(1 | PriPos:Player)`), we'll need to employ the `re_formula` argument. With the line `re_formula = ~ (1 | PriPos)`, we'll instruct `fitted()` to return the `PriPos`-specific effects after averaging across levels of `Player`. The rest is quire similar to our method from above.
 
 ```{r, message = F}
 nd <-
   my_data %>% 
-  group_by(PriPos) %>% 
-  summarise(AtBats = mean(AtBats) %>% round(digits = 0))
+  distinct(PriPos,
+           AtBats = 1)
 
 fitted_positions <-
   fitted(fit9.2, 
@@ -2738,7 +2738,7 @@ fitted_positions <-
          scale = "linear",
          summary = F) %>% 
   as_tibble() %>% 
-  set_names(distinct(my_data, PriPos) %>% arrange(PriPos) %>% pull()) %>% 
+  set_names(distinct(my_data, PriPos) %>% pull()) %>% 
   mutate_all(inv_logit_scaled)
     
 glimpse(fitted_positions)
