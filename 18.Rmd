@@ -10,6 +10,8 @@ output:
 library(tidyverse)
 library(ggridges)
 library(cowplot)
+library(tidybayes)
+library(ggdist)
 
 scale <- 1.25
 
@@ -32,8 +34,133 @@ ggplot(iris, aes(x = Sepal.Length, y = Species)) +
                     breaks = NULL) +
   theme_minimal_hgrid()
 
-# keep a lookout at https://github.com/mjskay/ggdist/issues/11
+# keep a lookout at https://github.com/mjskay/tidybayes/issues/136#issuecomment-686033107
 ```
+
+```{r, eval = F, echo = F}
+set.seed(1234)
+df = tribble(
+    ~group, ~subgroup, ~value,
+    "a",          "h", rnorm(1000, mean = 5),
+    "b",          "h", rnorm(1000, mean = 7, sd = 1.5),
+    "c",          "h", rnorm(1000, mean = 8),
+    "c",          "i", rnorm(1000, mean = 9),
+    "c",          "j", rnorm(1000, mean = 7)
+  ) %>%
+  unnest(value)
+
+df %>%
+  ggplot(aes(y = group, x = value)) +
+  stat_halfeye(aes(fill_ramp = stat(cut_cdf_qi(cdf, 
+                                               .width = c(.8, .95, .99),
+                                               labels = scales::percent_format(accuracy = 1)))),
+               .width = 0, height = 1.25,
+               size = 5, slab_size = 1/2, fill_alpha = .8,
+               slab_color = "steelblue4", fill = "steelblue4", color = "chocolate3") +
+  scale_fill_ramp_discrete(range = c(1, .4)) +
+  labs(fill_ramp = "Intervals") +
+  cowplot::theme_minimal_hgrid()
+```
+
+
+```{r, eval = F, echo = F}
+df %>%
+  ggplot(aes(y = group, x = value)) +
+  stat_slab(aes(fill_ramp = stat(
+    cut_cdf_qi(cdf, 
+               .width = c(.8, .95, .99),
+               labels = scales::percent_format(accuracy = 1)))), 
+    height = 1.25, slab_alpha = .75, fill = "steelblue4") +
+  stat_halfeye(.width = 0, height = 1.25,
+               size = 5, slab_size = 1/2,
+               slab_color = "steelblue4", fill = NA, color = "chocolate3") +
+  scale_fill_ramp_discrete(range = c(1, .4), na.translate = F,
+                           guide = guide_legend(
+                             direction = "horizontal",
+                             keywidth = unit(0.925, "cm"),
+                             label.hjust = 0.5,
+                             label.position = "bottom",
+                             title = "posterior prob.",
+                             title.hjust = 0.5,
+                             title.position = "top")) +
+  theme_minimal_hgrid() +
+  theme(legend.background = element_rect(fill = "white"),
+        legend.position = c(.8, .15),
+        legend.text = element_text(margin = margin(-0.2, 0, -0.2, 0, "cm")),
+        legend.title = element_text(margin = margin(-0.2, 0, -0.2, 0, "cm")))
+
+```
+
+```{r, eval = F, echo = F}
+df %>%
+  ggplot(aes(y = group, x = value)) +
+  # fill
+  stat_slab(aes(fill_ramp = stat(
+    cut_cdf_qi(cdf, 
+               .width = c(.8, .95, .99),
+               labels = scales::percent_format(accuracy = 1)))), 
+    height = 1.25, slab_alpha = .75, fill = "steelblue4") +
+  # slat_line and brown dot
+  stat_halfeye(.width = 0, height = 1.25,
+               size = 5, slab_size = 1/2,
+               slab_color = "steelblue4", fill = NA, color = "chocolate3") +
+  scale_fill_ramp_discrete(range = c(1, .4), na.translate = F) +
+  # customize the guide settings
+  guides(fill_ramp = 
+           guide_legend(
+             direction = "horizontal",
+             keywidth = unit(0.925, "cm"),
+             label.hjust = 0.5,
+             label.position = "bottom",
+             title = "posterior prob.",
+             title.hjust = 0.5,
+             title.position = "top")) +
+  # adjust the theme
+  cowplot::theme_minimal_hgrid() +
+  theme(legend.background = element_rect(fill = "white"),
+        legend.position = c(.82, .15),
+        legend.text = element_text(margin = margin(-0.2, 0, -0.2, 0, "cm")),
+        legend.title = element_text(margin = margin(-0.2, 0, -0.2, 0, "cm")))
+```
+
+```{r, eval = F, echo = F}
+library(tidyverse)
+library(ggdist)
+
+# reproduce Matt's data
+set.seed(1234)
+data.frame(x = rnorm(2000, c(1,2), c(1,2)), y = c("a","b")) %>%
+  
+  ggplot(aes(x, y)) +
+  # fill
+  stat_slab(aes(fill_ramp = stat(
+    cut_cdf_qi(cdf, 
+               .width = c(.8, .95, .99),
+               labels = scales::percent_format(accuracy = 1)))), 
+    height = 1.25, slab_alpha = .75, fill = "steelblue4") +
+  # slat_line and brown dot
+  stat_halfeye(.width = 0, height = 1.25,
+               size = 6, slab_size = 1/2,
+               slab_color = "steelblue4", fill = NA, color = "chocolate3") +
+  scale_fill_ramp_discrete(range = c(1, .4), na.translate = F) +
+  # customize the guide settings
+  guides(fill_ramp = 
+           guide_legend(
+             direction = "horizontal",
+             keywidth = unit(0.925, "cm"),
+             label.hjust = 0.5,
+             label.position = "bottom",
+             title = "posterior prob.",
+             title.hjust = 0.5,
+             title.position = "top")) +
+  # adjust the theme
+  cowplot::theme_minimal_hgrid() +
+  theme(legend.background = element_rect(fill = "white"),
+        legend.position = c(.81, .21),
+        legend.text = element_text(margin = margin(-0.2, 0, -0.2, 0, "cm")),
+        legend.title = element_text(margin = margin(-0.2, 0, -0.2, 0, "cm")))
+```
+
 ```{r, eval = F, echo = F}
 stat_wilke <- function(height = 1.25, ...) {
   list(
@@ -640,6 +767,53 @@ Before we make the figure, we'll update our overall plot theme to `cowplot::them
 
 ```{r, warning = F, message = F}
 library(tidybayes)
+library(ggdist)
+library(cowplot)
+
+# update the default theme setting
+theme_set(theme_minimal_grid())
+
+# define the function
+stat_wilke <- function(height = 1.25, point_size = 5, ...) {
+  
+  list(
+    # for the graded fill
+    stat_slab(aes(fill_ramp = stat(
+      cut_cdf_qi(cdf, 
+                 .width = c(.8, .95, .99),
+                 labels = scales::percent_format(accuracy = 1)))), 
+      height = height, slab_alpha = .75, fill = "steelblue4", 
+      ...),
+    # for the top outline and the mode dot
+    stat_halfeye(.width = 0, point_interval = mode_qi,
+                 height = height, size = point_size, slab_size = 1/3,
+                 slab_color = "steelblue4", fill = NA, color = "chocolate3", 
+                 ...),
+    # fill settings
+    scale_fill_ramp_discrete(range = c(1, .4), na.translate = F),
+    # adjust the guide_legend() settings
+    guides(fill_ramp = 
+             guide_legend(
+               direction = "horizontal",
+               keywidth = unit(0.925, "cm"),
+               label.hjust = 0.5,
+               label.position = "bottom",
+               title = "posterior prob.",
+               title.hjust = 0.5,
+               title.position = "top")),
+    # ensure we're using `cowplot::theme_minimal_hgrid()` as a base theme
+    theme_minimal_hgrid(),
+    # adjust the legend settings
+    theme(legend.background = element_rect(fill = "white"),
+          legend.text = element_text(margin = margin(-0.2, 0, -0.2, 0, "cm")),
+          legend.title = element_text(margin = margin(-0.2, 0, -0.2, 0, "cm")))
+  )
+  
+}
+```
+
+```{r, warning = F, message = F, eval = F, echo = F}
+library(tidybayes)
 library(cowplot)
 
 # update the default theme setting
@@ -678,6 +852,7 @@ post %>%
   xlab(NULL) +
   coord_cartesian(ylim = c(-0.01, NA)) +
   panel_border() +
+  theme(legend.position = c(.72, .2)) +
   facet_wrap(~key, scales = "free", ncol = 3)
 ```
 
@@ -702,7 +877,7 @@ bayes_R2(fit18.1)
 
 I'm not going to go into the technical details here, but you should be aware that the Bayeisan $R^2$ returned from the `bayes_R2()` function is not calculated the same as it is with OLS. If you want to dive in, check out the paper by @gelmanRsquaredBayesianRegression2019, [*R-squared for Bayesian regression models*](https://stat.columbia.edu/~gelman/research/published/bayes_R2_v3.pdf). Anyway, if you'd like to view the Bayesian $R^2$ distribution rather than just get the summaries, specify `summary = F`, convert the output to a tibble, and plot as usual.
 
-```{r, fig.width = 2, fig.height = 2}
+```{r, fig.width = 3.5, fig.height = 2.25}
 bayes_R2(fit18.1, summary = F) %>% 
   as_tibble() %>% 
   
@@ -711,11 +886,12 @@ bayes_R2(fit18.1, summary = F) %>%
   scale_y_continuous(NULL, breaks = NULL) +
   labs(subtitle = expression(paste("Bayesian ", italic(R)^2)),
        x = NULL) +
-  coord_cartesian(xlim = c(.6, 1),
-                  ylim = c(-0.01, NA))
+  coord_cartesian(xlim = c(0, 1),
+                  ylim = c(-0.01, NA)) +
+  theme(legend.position = c(.01, .8))
 ```
 
-Since the `brms::bayes_R2()` function is not identical with Kruschke’s method in the text, the results might differ a bit.
+Since the `brms::bayes_R2()` function is not identical with Kruschke's method in the text, the results might differ a bit.
 
 We can get a sense of the scatter plots with `bayesplot::mcmc_pairs()`.
 
@@ -760,7 +936,7 @@ my_upper <- function(data, mapping, ...) {
 
 my_diag <- function(data, mapping, ...) {
   ggplot(data = data, mapping = mapping) + 
-    stat_wilke() +
+    stat_wilke(point_size = 2) +
     scale_x_continuous(NULL, breaks = NULL) +
     scale_y_continuous(NULL, breaks = NULL) +
     coord_cartesian(ylim = c(-0.01, NA)) +
@@ -917,12 +1093,13 @@ post %>%
   
   ggplot(aes(x = value, y = key)) +
   geom_vline(xintercept = 0, color = "white") +
-  stat_wilke(normalize = "xy") +
+  stat_wilke(normalize = "xy", point_size = 3) +
   labs(x = NULL, 
        y = NULL) +
   coord_cartesian(xlim = c(-5, 5),
-                  ylim = c(1.5, NA)) +
-  theme(axis.text.y = element_text(hjust = 0))
+                  ylim = c(1.4, NA)) +
+  theme(axis.text.y = element_text(hjust = 0),
+        legend.position = c(.76, .8))
 ```
 
 Yeah, on the standardized scale those are some ridiculous estimates. Let's update our `make_beta_0()` function.
@@ -984,6 +1161,8 @@ post %>%
   xlab(NULL) +
   coord_cartesian(ylim = c(-0.01, NA)) +
   panel_border() +
+  theme(legend.position = "none",
+        axis.text.x = element_text(size = 8)) +
   facet_wrap(~key, scales = "free", ncol = 3)
 ```
 
@@ -1043,6 +1222,8 @@ prior %>%
   xlab(NULL) +
   coord_cartesian(ylim = c(-0.01, NA)) +
   panel_border() +
+  theme(legend.position = "none",
+        axis.text.x = element_text(size = 8)) +
   facet_wrap(~key, scales = "free", ncol = 3)
 ```
 
@@ -1079,6 +1260,7 @@ post %>%
   xlab(NULL) +
   coord_cartesian(ylim = c(-0.01, NA)) +
   panel_border() +
+  theme(legend.position = "none") +
   facet_grid(key~parameter, scales = "free")
 ```
 
@@ -1193,7 +1375,7 @@ post <-
 glimpse(post)
 ```
 
-Now we've done the conversions, here are the histograms of Figure 18.9.
+Now we've done the conversions, here are our versions of the histograms of Figure 18.9.
 
 ```{r, fig.width = 6, fig.height = 4}
 post %>% 
@@ -1205,6 +1387,7 @@ post %>%
   xlab(NULL) +
   coord_cartesian(ylim = c(-0.01, NA)) +
   panel_border() +
+  theme(legend.position = "none") +
   facet_wrap(~key, scales = "free", ncol = 3)
 ```
 
@@ -1674,7 +1857,7 @@ post <-
 glimpse(post)
 ```
 
-Okay, here are the histograms of Figure 18.11.
+Okay, here are our versions of the histograms of Figure 18.11.
 
 ```{r, fig.width = 6, fig.height = 7}
 post %>% 
@@ -1692,12 +1875,14 @@ post %>%
   xlab(NULL) +
   coord_cartesian(ylim = c(-0.01, NA)) +
   panel_border() +
+  theme(legend.position = c(.72, .09),
+        axis.text.x = element_text(size = 9)) +
   facet_wrap(~key, scales = "free", ncol = 3)
 ```
 
-And here's the final histogram depicting the Bayesian $R^2$.
+And here's the final density plot depicting the Bayesian $R^2$.
 
-```{r, fig.width = 2, fig.height = 2}
+```{r, fig.width = 3.5, fig.height = 2.25}
 bayes_R2(fit18.4, summary = F) %>% 
   as_tibble() %>% 
   
@@ -1706,8 +1891,9 @@ bayes_R2(fit18.4, summary = F) %>%
   scale_y_continuous(NULL, breaks = NULL) +
   labs(subtitle = expression(paste("Bayesian ", italic(R)^2)),
        x = NULL) +
-  coord_cartesian(xlim = c(.6, 1),
-                  ylim = c(-0.01, NA))
+  coord_cartesian(xlim = c(0, 1),
+                  ylim = c(-0.01, NA)) +
+  theme(legend.position = c(.01, .8))
 ```
 
 Note that unlike the one Kruschke displayed in the text, our `brms::bayes_R2()`-based $R^2$ distribution did not exceed the logical right bound of 1.
@@ -1722,14 +1908,14 @@ post %>%
   
   ggplot(aes(x = value, y = key)) +
   geom_vline(xintercept = 0, color = "grey25", linetype = 2) +
-  stat_pointinterval(point_interval = mode_hdi, .width = .95, point_size = 5,
+  stat_pointinterval(point_interval = mode_hdi, .width = .95, point_size = 4,
                      color = "steelblue4", point_color = "chocolate3") +
   labs(x = NULL,
        y = NULL) +
   theme(axis.text.y = element_text(hjust = 0))
 ```
 
-Now we can see that by chance alone, the coefficients for `x_rand_8` and `x_rand_9` are clearly distinct from zero. OUr `stat_wilke()` function can be informative, too.
+Now we can see that by chance alone, the coefficients for `x_rand_8` and `x_rand_9` are clearly distinct from zero. Our `stat_wilke()` function can be informative, too.
 
 ```{r, fig.width = 8, fig.height = 3, warning = F, message = F}
 post %>% 
@@ -1738,11 +1924,12 @@ post %>%
   
   ggplot(aes(x = value, y = reorder(key, value), group = reorder(key, value))) +
   geom_vline(xintercept = 0, color = "grey25", linetype = 2) +
-  stat_wilke(height = 10) +
+  stat_wilke(height = 10, point_size = 3) +
   labs(x = NULL,
        y = NULL) +
   coord_cartesian(ylim = c(1.25, 14.5)) +
-  theme(axis.text.y = element_text(hjust = 0)) 
+  theme(axis.text.y = element_text(hjust = 0),
+        legend.position = c(.785, .13)) 
 ```
 
 With **brms**, we can fit something like the model Kruschke displayed in Figure 18.12 with the `horseshoe()` prior. From the `horseshoe` section of the [**brms** reference manual](https://CRAN.R-project.org/package=brms/brms.pdf):
@@ -1869,7 +2056,7 @@ post <-
 glimpse(post)
 ```
 
-And here are the majority of the histograms of Figure 18.12.
+And here are our `stat_wilke()` plot versions of the majority of the histograms of Figure 18.12.
 
 ```{r, fig.width = 6, fig.height = 7}
 post %>% 
@@ -1887,6 +2074,8 @@ post %>%
   xlab(NULL) +
   coord_cartesian(ylim = c(-0.01, NA)) +
   panel_border() +
+  theme(axis.text.x = element_text(size = 10),
+        legend.position = c(.72, .09)) +
   facet_wrap(~key, scales = "free", ncol = 3)
 ```
 
@@ -1901,16 +2090,16 @@ post %>%
   
   ggplot(aes(x = value, y = reorder(key, value))) +
   geom_vline(xintercept = 0, color = "grey25", linetype = 2) +
-  stat_pointinterval(point_interval = mode_hdi, .width = .95, point_size = 5,
+  stat_pointinterval(point_interval = mode_hdi, .width = .95, point_size = 4,
                      color = "steelblue4", point_color = "chocolate3") +
   labs(x = NULL,
        y = NULL) +
   theme(axis.text.y  = element_text(hjust = 0))
 ```
 
-But anyways, here's that final Bayesian $R^2$ histogram for Figure 18.12.
+But anyways, here's that final Bayesian $R^2$ density for Figure 18.12.
 
-```{r, fig.width = 2, fig.height = 2}
+```{r, fig.width = 3.5, fig.height = 2.25}
 bayes_R2(fit18.5, summary = F) %>% 
   as_tibble() %>% 
   
@@ -1919,8 +2108,9 @@ bayes_R2(fit18.5, summary = F) %>%
   scale_y_continuous(NULL, breaks = NULL) +
   labs(subtitle = expression(paste("Bayesian ", italic(R)^2)),
        x = NULL) +
-  coord_cartesian(xlim = c(.6, 1),
-                  ylim = c(-0.01, NA))
+  coord_cartesian(xlim = c(0, 1),
+                  ylim = c(-0.01, NA)) +
+  theme(legend.position = c(.01, .8))
 ```
 
 Just recall, though, that our `fit18.5` was not exactly like Kruschke's model. Whereas we hard coded the scale of our Student-$t$ horseshoe prior to be 1, Kruschke estimated it with help from the gamma distribution. I'm not aware that's currently possible in **brms**. If I'm at fault and you know how to do it, [please share your code](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues).
@@ -2046,6 +2236,7 @@ posterior_samples(fit18.1) %>%
   xlab(NULL) +
   coord_cartesian(ylim = c(-0.01, NA)) +
   panel_border() +
+  theme(legend.position = c(.12, .23)) +
   facet_grid(model~key, scales = "free")
 ```
 
@@ -2164,7 +2355,7 @@ loo_compare(fit18.13, fit18.14, fit18.15, fit18.16) %>%
   print(simplify = F)
 ```
 
-The LOO difference score patterns were also about the same across the $SD$s on our $\beta_j$ priors. Let's finish up with the histograms comparing the model predictors. Here's the code for those in the top portion of Figure 18.14.
+The LOO difference score patterns were also about the same across the $SD$s on our $\beta_j$ priors. Let's finish up with our version of the histograms comparing the model predictors. Here's the code for those in the top portion of Figure 18.14.
 
 ```{r, fig.width = 6, fig.height = 3}
 # first we'll get the posterior draws from `fit18.9` and wrangle them
@@ -2196,10 +2387,12 @@ posterior_samples(fit18.9) %>%
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(NULL) +
   coord_cartesian(ylim = c(-0.01, NA)) +
-  panel_border() +facet_grid(model~key, scales = "free")
+  panel_border() +
+  theme(legend.position = c(.12, .23)) +
+  facet_grid(model~key, scales = "free")
 ```
 
-And now we'll do the histograms for the bottom portion of Figure 18.14.
+And now we'll do our version of the histograms for the bottom portion of Figure 18.14.
 
 ```{r, fig.width = 6, fig.height = 3}
 posterior_samples(fit18.13) %>% 
@@ -2226,7 +2419,9 @@ posterior_samples(fit18.13) %>%
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(NULL) +
   coord_cartesian(ylim = c(-0.01, NA)) +
-  panel_border() +facet_grid(model~key, scales = "free")
+  theme(legend.position = c(.12, .23)) +
+  panel_border() +
+  facet_grid(model~key, scales = "free")
 ```
 
 Kurschke concluded this subsection with
@@ -2515,16 +2710,17 @@ posterior_samples(fit18.0100) %>%
   
   # finally, the plot!
   ggplot(aes(x = value, y = 0)) +
-  stat_wilke(normalize = "panels") +
+  stat_wilke(normalize = "panels", point_size = 4) +
   scale_fill_viridis_d(option = "D", begin = .2, end = .8) +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(NULL) +
   coord_cartesian(ylim = c(-0.01, NA)) +
   panel_border() +
+  theme(legend.position = "none") +
   facet_grid(fit~key, scales = "free")
 ```
 
-Like Kruschke's results in the text, `PrcntTake` was the most prominant predictor.
+Like Kruschke's results in the text, `PrcntTake` was the most prominent predictor.
 
 ### What to report and what to conclude.
 
@@ -2538,7 +2734,7 @@ In the final paragraph of the subsection, Kruschke wrote:
 
 > When the goal is prediction of $y$ for interesting values of the predictors, as opposed to parsimonious explanation, then it is usually not appropriate to use only the single most probable model. Instead, predictions should be based on as much information as possible, using all models to the extent that they are credible. This approach is called Bayesian model averaging (BMA). (p. 547)
 
-It's worth it to walk this out a bit. With **brms**, one can use `brms::pp_average()` to get the weighted posterior distributions for the model parameters. This is a natural extension of our model weights comparisons. 
+It's worth it to walk this out a bit. With **brms**, one can use `brms::pp_average()` to get the weighted posterior distributions for the model parameters. This is a natural extension of our model weights comparisons.
 
 ```{r 18_pp_average_1, cache = T, warning = F}
 # how many points on the x-axis?
@@ -2565,7 +2761,7 @@ str(pp)
 ```
 
 The `pp` object will require a little wrangling before it's of use for **ggplot2**.
-       
+
 ```{r, fig.width = 6, fig.height = 2}
 pp %>% 
   as_tibble() %>%
