@@ -111,12 +111,12 @@ d %>%
   labs(title = "Examples of the beta distribution",
        y = expression(p(theta*"|"*a*", "*b))) +
   theme(panel.grid = element_blank()) +
-  facet_grid(b~a)
+  facet_grid(b ~ a)
 ```
 
 > Notice that as $a$ gets bigger (left to right across columns of Figure 6.1), the bulk of the distribution moves rightward over higher values of $\theta$, but as $b$ gets bigger (top to bottom across rows of Figure 6.1), the bulk of the distribution moves leftward over lower values of $\theta$. Notice that as $a$ and $b$ get bigger together, the beta distribution gets narrower. (p. 127).
 
-We have a lot of practice with the beta distribution waiting for us in the chapters to come. If you like informal tutorials, you might also check out [Karin Knudson](https://twitter.com/karinknudson)'s nice blog post, [*Beta distributions, Dirichlet distributions and Dirichlet processes*](https://karinknudson.com/dirichletprocesses.html). 
+We have a lot of practice with the beta distribution waiting for us in the chapters to come. If you like informal tutorials, you might also check out [Karin Knudson](https://twitter.com/karinknudson)'s nice blog post, [*Beta distributions, Dirichlet distributions and Dirichlet processes*](https://karinknudson.com/dirichletprocesses.html).
 
 ### Specifying a beta prior.
 
@@ -169,7 +169,7 @@ d %>%
   ylab(expression(p(theta*"|"*a*", "*b))) +
   coord_cartesian(ylim = c(0, 5)) +
   theme(panel.grid = element_blank()) +
-  facet_grid(mu_omega~kappa, labeller = label_parsed)
+  facet_grid(mu_omega ~ kappa, labeller = label_parsed)
 ```
 
 In lines 264 to 290 in his `DBDA2E-utilities.R` file, Kruschke provided a series of `betaABfrom...()` functions that will allow us to compute the $a$ and $b$ parameters from measures of central tendency (i.e., mean and mode) and of spread (i.e., $\kappa$ and $\sigma$). Here are those bits of his code.
@@ -297,7 +297,7 @@ b <- 5
 (posterior_mean <- (z + a) / (n + a + b))
 ```
 
-In order to make the plots for Figure 6.3, we'll want to compute the prior, likelihood, and posterior density values across a densely-packed range of $\theta$ values. 
+In order to make the plots for Figure 6.3, we'll want to compute the prior, likelihood, and posterior density values across a densely-packed range of $\theta$ values.
 
 ```{r}
 trial_data <- c(rep(0, 9), 1)
@@ -347,8 +347,7 @@ d %>%
   
   ggplot(aes(x = theta, y = value, )) +
   # densities
-  geom_ribbon(aes(ymin = 0, ymax = value),
-              fill = "steelblue") +
+  geom_area(fill = "steelblue") +
   # dashed vertical lines
   geom_vline(data = line,
              aes(xintercept = xintercept), 
@@ -365,7 +364,7 @@ d %>%
             color = "white") +
   labs(x = expression(theta),
        y = NULL) +
-  facet_wrap(~key, scales = "free_y", ncol = 1) +
+  facet_wrap(~ key, scales = "free_y", ncol = 1) +
   theme_cowplot()
 ```
 
@@ -442,10 +441,10 @@ We're finally ready to plot the prior, the likelihood, and the posterior for the
 ## Figure 6.4, left column
 # prior
 d %>% 
-  ggplot(aes(x = theta, ymin = 0, ymax = prior)) +
-  geom_ribbon(fill = "steelblue", alpha = 1/2) +
-  geom_ribbon(data = . %>% filter(theta > prior_hdi[1] & theta < prior_hdi[2]),
-              fill = "steelblue") +
+  ggplot(aes(x = theta, y = prior)) +
+  geom_area(fill = "steelblue", alpha = 1/2) +
+  geom_area(data = . %>% filter(theta > prior_hdi[1] & theta < prior_hdi[2]),
+            fill = "steelblue") +
   geom_segment(x = prior_hdi[1] + .005, xend = prior_hdi[2] - .005,
                y = 1.8, yend = 1.8,
                arrow = arrow(length = unit(.15,"cm"), 
@@ -462,8 +461,8 @@ d %>%
 
 # likelihood
 d %>%   
-  ggplot(aes(x = theta, ymin = 0, ymax = likelihood)) +
-  geom_ribbon(size = 0, fill = "steelblue") +
+  ggplot(aes(x = theta, y = likelihood)) +
+  geom_area(fill = "steelblue") +
   labs(title = "Likelihood (Bernoulli)",
        x = expression(theta),
        y = expression(p(D*"|"*theta))) +
@@ -471,10 +470,10 @@ d %>%
 
 # posterior
 d %>% 
-  ggplot(aes(x = theta, ymin = 0, ymax = posterior)) +
-  geom_ribbon(fill = "steelblue", alpha = 1/2) +
-  geom_ribbon(data = . %>% filter(theta > post_hdi[1] & theta < post_hdi[2]),
-              fill = "steelblue") +
+  ggplot(aes(x = theta, y = posterior)) +
+  geom_area(fill = "steelblue", alpha = 1/2) +
+  geom_area(data = . %>% filter(theta > post_hdi[1] & theta < post_hdi[2]),
+            fill = "steelblue") +
   geom_segment(x = post_hdi[1] + .005, xend = post_hdi[2] - .005,
                y = 2, yend = 2,
                arrow = arrow(length = unit(.15, "cm"), 
@@ -489,6 +488,7 @@ d %>%
   coord_cartesian(ylim = c(0, 12)) +
   theme_cowplot()
 ```
+
 Here are the exact HDI values for the prior and posterior densities.
 
 ```{r}
@@ -544,10 +544,10 @@ With our updated values in hand, we're ready to make our versions of the middle 
 ## plot Figure 6.4, middle column!
 # prior
 d %>% 
-  ggplot(aes(x = theta, ymin = 0, ymax = prior)) +
-  geom_ribbon(fill = "steelblue", alpha = 1/2) +
-  geom_ribbon(data = . %>% filter(theta > prior_hdi[1] & theta < prior_hdi[2]),
-              fill = "steelblue") +
+  ggplot(aes(x = theta, y = prior)) +
+  geom_area(fill = "steelblue", alpha = 1/2) +
+  geom_area(data = . %>% filter(theta > prior_hdi[1] & theta < prior_hdi[2]),
+            fill = "steelblue") +
   geom_segment(x = prior_hdi[1] + .005, xend = prior_hdi[2] - .005,
                y = 0.75, yend = 0.75,
                arrow = arrow(length = unit(.15,"cm"), 
@@ -564,8 +564,8 @@ d %>%
 
 # likelihood, which is the same as the last time
 d %>%   
-  ggplot(aes(x = theta, ymin = 0, ymax = likelihood)) +
-  geom_ribbon(size = 0, fill = "steelblue") +
+  ggplot(aes(x = theta, y = likelihood)) +
+  geom_area(fill = "steelblue") +
   labs(title = "Likelihood (Bernoulli)",
        x = expression(theta),
        y = expression(p(D*"|"*theta))) +
@@ -573,10 +573,10 @@ d %>%
 
 # posterior
 d %>% 
-  ggplot(aes(x = theta, ymin = 0, ymax = posterior)) +
-  geom_ribbon(fill = "steelblue", alpha = 1/2) +
-  geom_ribbon(data = . %>% filter(theta > post_hdi[1] & theta < post_hdi[2]),
-              fill = "steelblue") +
+  ggplot(aes(x = theta, y = posterior)) +
+  geom_area(fill = "steelblue", alpha = 1/2) +
+  geom_area(data = . %>% filter(theta > post_hdi[1] & theta < post_hdi[2]),
+            fill = "steelblue") +
   geom_segment(x = post_hdi[1] + .005, xend = post_hdi[2] - .005,
                y = 1, yend = 1,
                arrow = arrow(length = unit(.15, "cm"), 
@@ -640,8 +640,8 @@ d <-
 ## plot Figure 6.4, rightmost column!
 # prior
 d %>% 
-  ggplot(aes(x = theta, ymin = 0, ymax = prior)) +
-  geom_ribbon(fill = "steelblue") +
+  ggplot(aes(x = theta, y = prior)) +
+  geom_area(fill = "steelblue") +
   labs(title = "Prior (beta)",
        x = expression(theta),
        y = expression(dbeta(theta*"|"*1*", "*1))) +
@@ -650,8 +650,8 @@ d %>%
 
 # likelihood, which is the same as the last two examples
 d %>%   
-  ggplot(aes(x = theta, ymin = 0, ymax = likelihood)) +
-  geom_ribbon(size = 0, fill = "steelblue") +
+  ggplot(aes(x = theta, y = likelihood)) +
+  geom_area(fill = "steelblue") +
   labs(title = "Likelihood (Bernoulli)",
        x = expression(theta),
        y = expression(p(D*"|"*theta))) +
@@ -659,10 +659,10 @@ d %>%
 
 # posterior
 d %>% 
-  ggplot(aes(x = theta, ymin = 0, ymax = posterior)) +
-  geom_ribbon(fill = "steelblue", alpha = 1/2) +
-  geom_ribbon(data = . %>% filter(theta > post_hdi[1] & theta < post_hdi[2]),
-              fill = "steelblue") +
+  ggplot(aes(x = theta, y = posterior)) +
+  geom_area(fill = "steelblue", alpha = 1/2) +
+  geom_area(data = . %>% filter(theta > post_hdi[1] & theta < post_hdi[2]),
+            fill = "steelblue") +
   geom_segment(x = post_hdi[1] + .005, xend = post_hdi[2] - .005,
                y = 0.8, yend = 0.8,
                arrow = arrow(length = unit(.15, "cm"), 
@@ -984,9 +984,8 @@ With our nice tibble in hand, we'll plot the prior, likelihood, and posterior on
 # prior
 (p1 <-
   d %>% 
-  ggplot(aes(x = theta)) +
-  geom_ribbon(aes(ymin = 0, ymax = Prior),
-              fill = "steelblue") +
+  ggplot(aes(x = theta, y = Prior)) +
+  geom_area(fill = "steelblue") +
   labs(title = "Prior",
        x = expression(theta),
        y = expression(p(theta))) +
@@ -996,9 +995,8 @@ With our nice tibble in hand, we'll plot the prior, likelihood, and posterior on
 # likelihood
 (p2 <-
   d %>% 
-  ggplot(aes(x = theta)) +
-  geom_ribbon(aes(ymin = 0, ymax = Likelihood),
-              fill = "steelblue") +
+  ggplot(aes(x = theta, y = Likelihood)) +
+  geom_area(fill = "steelblue") +
   labs(title = "Likelihood",
        x = expression(theta),
        y = expression(p(D*"|"*theta))) +
@@ -1008,9 +1006,8 @@ With our nice tibble in hand, we'll plot the prior, likelihood, and posterior on
 # posterior
 (p3 <-
   d %>% 
-  ggplot(aes(x = theta)) +
-  geom_ribbon(aes(ymin = 0, ymax = Posterior),
-              fill = "steelblue") +
+  ggplot(aes(x = theta, y = Posterior)) +
+  geom_area(fill = "steelblue") +
   labs(title = "Posterior",
        x = expression(theta),
        y = expression(p(theta*"|"*D))) +
