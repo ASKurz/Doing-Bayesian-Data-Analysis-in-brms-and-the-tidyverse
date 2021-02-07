@@ -70,8 +70,8 @@ library(cowplot)
 tibble(theta = seq(from = 0, to = 1, length.out = 100)) %>% 
   
   ggplot() +
-  geom_ribbon(aes(x = theta, ymin = 0, ymax = dbeta(theta, shape1 = 15, shape2 = 7)),
-              fill = "steelblue") +
+  geom_area(aes(x = theta, y = dbeta(theta, shape1 = 15, shape2 = 7)),
+            fill = "steelblue") +
   geom_segment(aes(x = h[1], xend = h[2], y = 0, yend = 0),
                size = .75) +
   geom_point(aes(x = omega, y = 0),
@@ -111,7 +111,7 @@ d %>%
   scale_x_continuous(expression(theta), limits = c(0, 1)) +
   scale_y_continuous(NULL, breaks = NULL) +
   theme_cowplot() +
-  facet_wrap(~key, ncol = 3, scales = "free")
+  facet_wrap(~ key, ncol = 3, scales = "free")
 ```
 
 If we want the exact values for the mode and 95% HDIs, we can use the `tidybayes::mode_hdi()` function.
@@ -337,7 +337,7 @@ p %>%
   scale_x_continuous(expression(theta), breaks = 1:7) +
   scale_y_continuous(expression(italic(p)(theta)), expand = expansion(mult = c(0, 0.05))) +
   theme_cowplot() +
-  facet_wrap(~facet, scales = "free_y", labeller = label_parsed)
+  facet_wrap(~ facet, scales = "free_y", labeller = label_parsed)
 ```
 
 ### Why we care.
@@ -383,7 +383,7 @@ tibble(proposed_jump = rnorm(n, mean = mu, sd = sigma)) %>%
   theme_cowplot()
 ```
 
-Anyway, 
+Anyway,
 
 > having generated a proposed new position, the algorithm then decides whether or not to accept the proposal. The decision rule is exactly what was already specified in Equation 7.1. In detail, this is accomplished by computing the ratio $p_\text{move} = P(\theta_\text{proposed}) / P(\theta_\text{current})$. Then a random number from the uniform interval $[0, 1]$ is generated; in R, this can be accomplished with the command `runif(1)`. If the random number is between 0 and pmove, then the move is accepted. (p. 157)
 
@@ -568,7 +568,7 @@ d %>%
   ggtitle("End of Chain") +
   theme_cowplot() +
   panel_border() +
-  facet_wrap(~proposal_sd, ncol = 3)
+  facet_wrap(~ proposal_sd, ncol = 3)
 ```
 
 The bottom:
@@ -583,7 +583,7 @@ d %>%
   ggtitle("End of Chain") +
   theme_cowplot() +
   panel_border() +
-  facet_wrap(~proposal_sd, ncol = 3)
+  facet_wrap(~ proposal_sd, ncol = 3)
 ```
 
 > Regardless of the which proposal distribution in Figure 7.4 is used, the Metropolis algorithm will eventually produce an accurate representation of the posterior distribution, as is suggested by the histograms in the upper row of Figure 7.4. What differs is the efficiency of achieving a good approximation. (p. 160)
@@ -776,7 +776,7 @@ model_1 <- bf(z1 | trials(n1) ~ 1)
 model_2 <- bf(z2 | trials(n2) ~ 1)
 ```
 
-Before we fit, we'll have to address a technicality. The **brms** package does allow for multivariate Bernoulli models. However, it does not support such models with different numbers of trials across the variables. Since our first variable is of 8 trials and the second is of 7, **brms** will not support this model using the Bernoulli likelihood. However, we can fit the model in **brms** as an aggregated binomial [^2] model. The main difficulty is that the regularizing `beta(2, 2)` prior won't make sense, here. So we'll opt for the regularizing `normal(0, 1)`, instead.
+Before we fit, we'll have to address a technicality. The **brms** package does allow for multivariate Bernoulli models. However, it does not support such models with different numbers of trials across the variables. Since our first variable is of 8 trials and the second is of 7, **brms** will not support this model using the Bernoulli likelihood. However, we can fit the model in **brms** as an aggregated binomial[^2] model. The main difficulty is that the regularizing `beta(2, 2)` prior won't make sense, here. So we'll opt for the regularizing `normal(0, 1)`, instead.
 
 ```{r fit7.1}
 fit7.1 <-
@@ -1016,7 +1016,7 @@ mcmc_acf(warmups)$data %>%
   theme(legend.position = "none")
 ```
 
-Here are the overlaid densities. 
+Here are the overlaid densities.
 
 ```{r, fig.width = 4, fig.height = 2}
 mcmc_dens_overlay(warmups, pars = c("b_Intercept"))
@@ -1054,7 +1054,7 @@ fit7.2_c <- as.mcmc(fit7.2)
 fit7.2_c %>% glimpse()
 ```
 
-With our freshly-converted `fit2_c` object in hand, we’re ready to plot.
+With our freshly-converted `fit2_c` object in hand, we're ready to plot.
 
 ```{r, fig.width = 4, fig.height = 3.25}
 coda::gelman.plot(fit7.2_c[, "b_Intercept", ])
@@ -1094,8 +1094,7 @@ lagged_post <-
   mutate(lag_1  = lag(lag_0, 1),
          lag_5  = lag(lag_0, 5),
          lag_10 = lag(lag_0, 10)) %>% 
-  pivot_longer(-iter,
-               names_to = "key") 
+  pivot_longer(-iter, names_to = "key") 
 
 head(lagged_post)
 ```
