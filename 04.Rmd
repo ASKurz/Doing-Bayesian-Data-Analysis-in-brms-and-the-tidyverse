@@ -421,7 +421,7 @@ tibble(x = seq(from = -.8, to = .8, by = .02)) %>%
 The equation for the normal probability density follows the form
 
 $$
-p(x) = \frac{1}{\sigma \sqrt{2 \pi}} \exp \Bigg ( - \frac{1}{2} \left [ \frac{x - \mu}{\sigma}^2 \right ] \Bigg ),
+p(x) = \frac{1}{\sigma \sqrt{2 \pi}} \exp \left ( - \frac{1}{2} \left [ \frac{x - \mu}{\sigma}^2 \right ] \right ),
 $$
 
 where $\mu$ governs the mean and $\sigma$ governs the standard deviation.
@@ -490,18 +490,18 @@ h <-
 h
 ```
 
-Now we've saved those values in `h`, we can use then to make our version of Figure 4.5.a. 
+Now we've saved those values in `h`, we can use then to make our version of Figure 4.5.a.
 
-```{r, fig.width = 4.5, fig.height = 2}
+```{r, fig.width = 4.5, fig.height = 2, warning = F}
 tibble(x = seq(from = -3.5, to = 3.5, by = .05)) %>% 
+  mutate(d = dnorm(x, mean = 0, sd = 1)) %>% 
   
-  ggplot(aes(x = x, ymin = 0, ymax = dnorm(x, mean = 0, sd = 1))) +
-  geom_ribbon(fill = "grey75") +
-  geom_ribbon(data = . %>% filter(x >= h[1] & x <= h[2]),
-              fill = "grey50") +
+  ggplot(aes(x = x, y = d)) +
+  geom_area(fill = "grey75") +
+  geom_area(data = . %>% filter(x >= h[1] & x <= h[2]),
+            fill = "grey50") +
   geom_line(data = tibble(x = c(h[1] + .02, h[2] - .02),
-                          y = c(.059, .059)),
-            aes(y = y),
+                          d = c(.059, .059)),
             arrow = arrow(length = unit(.2, "cm"), 
                           ends = "both", 
                           type = "closed"),
@@ -513,7 +513,7 @@ tibble(x = seq(from = -3.5, to = 3.5, by = .05)) %>%
   theme(panel.grid = element_blank())
 ```
 
-As far as I could tell, Figure 4.5.b is of a beta distribution, which Kruschke covers in greater detail starting in Chapter 6. I got the `shape1` and `shape2` values from playing around. If you have a more principled approach, [do share](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues). But anyway, we can use our `hdi_of_icdf()` function to ge the correct values.
+As far as I could tell, Figure 4.5.b is of a beta distribution, which Kruschke covered in greater detail starting in [Chapter 6][Inferring a Binomial Probability via Exact Mathematical Analysis]. I got the `shape1` and `shape2` values from playing around. If you have a more principled approach, [do share](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues). But anyway, we can use our `hdi_of_icdf()` function to ge the correct values.
 
 ```{r}
 h <-
@@ -526,16 +526,16 @@ h
 
 Let's put those `h` values to work.
 
-```{r, fig.width = 4.5, fig.height = 2}
+```{r, fig.width = 4.5, fig.height = 2, warning = F}
 tibble(x = seq(from = 0, to = 1, by = .01)) %>% 
+  mutate(d = dbeta(x, shape1 = 15, shape2 = 4)) %>% 
   
-  ggplot(aes(x = x, ymin = 0, ymax = dbeta(x, shape1 = 15, shape2 = 4))) +
-  geom_ribbon(fill = "grey75") +
-  geom_ribbon(data = . %>% filter(x >= h[1] & x <= h[2]),
-              fill = "grey50") +
+  ggplot(aes(x = x, y = d)) +
+  geom_area(fill = "grey75") +
+  geom_area(data = . %>% filter(x >= h[1] & x <= h[2]),
+           fill = "grey50") +
   geom_line(data = tibble(x = c(h[1] + .01, h[2] - .002),
-                          y = c(.75, .75)),
-            aes(y = y),
+                          d = c(.75, .75)),
             arrow = arrow(length = unit(.2, "cm"),
                           ends = "both",
                           type = "closed"),
@@ -558,7 +558,7 @@ d <-
 glimpse(d)
 ```
 
-As you'll see, it's not exactly right. But it's close enough to give you a sense of what's going on. But anyway, since we're working with simulated data rather than an analytic solution, we'll want to use a powerful convenience function from the **tidybayes** package. 
+As you'll see, it's not exactly right. But it's close enough to give you a sense of what's going on. But anyway, since we're working with simulated data rather than an analytic solution, we'll want to use a powerful convenience function from the **tidybayes** package.
 
 ```{r, warning = F, message = F}
 library(tidybayes)
@@ -580,7 +580,7 @@ h
 
 Usually, `mode_hdi()` will return a tibble with just one row. But in this case, since we had a bimodal distribution, it returned two rows—one for each of the two distinct regions. Oh, and in case it wasn't clear, that first column `x` is the measure of central tendency—the mode, in this case. Though I acknowledge, it's a little odd to speak of central tendency in a bimodal distribution. Again, this won't happen much.
 
-In order to fill the bimodal density with the split HDIs, you need to use the `density()` function to transform the `d` data to a tibble with the values for the $x$-axis in an `x` vector and the corresponding density values in a `y` vector. 
+In order to fill the bimodal density with the split HDIs, you need to use the `density()` function to transform the `d` data to a tibble with the values for the $x$-axis in an `x` vector and the corresponding density values in a `y` vector.
 
 ```{r}
 dens <-
@@ -595,16 +595,15 @@ We're finally ready to plot. Forgive me. It's a monster.
 
 ```{r, fig.width = 4.5, fig.height = 2, warning = F, message = F}
 ggplot(data = dens,
-       aes(x = x, y = y,
-           ymin = 0, ymax = y)) +
-  geom_ribbon(size = 0, fill = "grey75") +
+       aes(x = x, y = y)) +
+  geom_area(fill = "grey75") +
   # note the use of `pull()`, which extracts the values, rather than return a tibble  
-  geom_ribbon(data = dens %>% filter(x > h[1, 2] %>% pull() & 
-                                       x < h[1, 3] %>% pull()),
-              size = 0, fill = "grey50") +
-  geom_ribbon(data = dens %>% filter(x > h[2, 2] %>% pull() & 
-                                       x < h[2, 3] %>% pull()),
-              size = 0, fill = "grey50") +
+  geom_area(data = dens %>% filter(x > h[1, 2] %>% pull() & 
+                                     x < h[1, 3] %>% pull()),
+            fill = "grey50") +
+  geom_area(data = dens %>% filter(x > h[2, 2] %>% pull() & 
+                                     x < h[2, 3] %>% pull()),
+            fill = "grey50") +
   geom_line(data = tibble(x = c(h[1, 2] %>% pull(), h[1, 3] %>% pull()),
                           y = c(.06, .06)),
             arrow = arrow(length = unit(.2,"cm"),
