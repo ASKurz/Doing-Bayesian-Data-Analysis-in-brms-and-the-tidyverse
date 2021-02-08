@@ -198,9 +198,9 @@ n <- 300
 
 set.seed(18)
 d <-
-  tibble(x_1 = runif(n = n, 0, 10),
-         x_2 = runif(n = n, 0, 10)) %>% 
-  mutate(y   = rnorm(n = n, mean = 10 + x_1 + 2 * x_2))
+  tibble(x_1 = runif(n = n, min = 0, max = 10),
+         x_2 = runif(n = n, min = 0, max = 10)) %>% 
+  mutate(y = rnorm(n = n, mean = 10 + x_1 + 2 * x_2, sd = 1))
 
 head(d)  
 ```
@@ -472,8 +472,8 @@ library(patchwork)
 # normal density
 p1 <-
   tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
-  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
-  geom_ribbon(fill = "steelblue4", color = "steelblue4", alpha = .6) +
+  ggplot(aes(x = x, y = (dnorm(x)) / max(dnorm(x)))) +
+  geom_area(fill = "steelblue4", color = "steelblue4", alpha = .6) +
   annotate(geom = "text",
            x = 0, y = .2,
            label = "normal",
@@ -489,8 +489,8 @@ p1 <-
 # a second normal density
 p2 <-
   tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
-  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
-  geom_ribbon(fill = "steelblue4", color = "steelblue4", alpha = .6) +
+  ggplot(aes(x = x, y = (dnorm(x)) / max(dnorm(x)))) +
+  geom_area(fill = "steelblue4", color = "steelblue4", alpha = .6) +
   annotate(geom = "text",
            x = 0, y = .2,
            label = "normal",
@@ -525,8 +525,8 @@ p3 <-
 # exponential density
 p4 <-
   tibble(x = seq(from = 0, to = 1, by = .01)) %>% 
-  ggplot(aes(x = x, ymin = 0, ymax = (dexp(x, 2) / max(dexp(x, 2))))) +
-  geom_ribbon(fill = "steelblue4", color = "steelblue4", alpha = .6) +
+  ggplot(aes(x = x, y = (dexp(x, 2) / max(dexp(x, 2))))) +
+  geom_area(fill = "steelblue4", color = "steelblue4", alpha = .6) +
   annotate(geom = "text",
            x = .5, y = .2,
            label = "exp",
@@ -554,8 +554,8 @@ p5 <-
   # half-normal density
 p6 <-
   tibble(x = seq(from = 0, to = 3, by = .01)) %>% 
-  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
-  geom_ribbon(fill = "steelblue4", color = "steelblue4", alpha = .6) +
+  ggplot(aes(x = x, y = (dnorm(x)) / max(dnorm(x)))) +
+  geom_area(fill = "steelblue4", color = "steelblue4", alpha = .6) +
   annotate(geom = "text",
            x = 1.5, y = .2,
            label = "half-normal",
@@ -592,8 +592,8 @@ p7 <-
 # student-t density
 p8 <-
   tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
-  ggplot(aes(x = x, ymin = 0, ymax = (dt(x, 3) / max(dt(x, 3))))) +
-  geom_ribbon(fill = "steelblue4", color = "steelblue4", alpha = .6) +
+  ggplot(aes(x = x, y = (dt(x, 3) / max(dt(x, 3))))) +
+  geom_area(fill = "steelblue4", color = "steelblue4", alpha = .6) +
   annotate(geom = "text",
            x = 0, y = .2,
            label = "student t",
@@ -853,7 +853,7 @@ post %>%
   coord_cartesian(ylim = c(-0.01, NA)) +
   panel_border() +
   theme(legend.position = c(.72, .2)) +
-  facet_wrap(~key, scales = "free", ncol = 3)
+  facet_wrap(~ key, scales = "free", ncol = 3)
 ```
 
 > The slope on spending has a mode of about 13, which suggests that SAT scores rise by about 13 points for every extra $1000 spent per pupil. The slope on percentage taking the exam (PrcntTake) is also credibly non-zero, with a mode around −2.8, which suggests that SAT scores fall by about 2.8 points for every additional 1% of students who take the test. (p. 517)
@@ -1161,9 +1161,9 @@ post %>%
   xlab(NULL) +
   coord_cartesian(ylim = c(-0.01, NA)) +
   panel_border() +
-  theme(legend.position = "none",
-        axis.text.x = element_text(size = 8)) +
-  facet_wrap(~key, scales = "free", ncol = 3)
+  theme(axis.text.x = element_text(size = 8),
+        legend.position = "none") +
+  facet_wrap(~ key, scales = "free", ncol = 3)
 ```
 
 Their scatter plots are as follows.
@@ -1172,7 +1172,7 @@ Their scatter plots are as follows.
 post %>% 
   set_names("Intercept~(beta[0])", "Spend~(beta[1])", "Percent~Take~(beta[2])", "Percent~Not~Take~(beta[3])", "sigma", "log10(nu)") %>% 
   ggpairs(upper = list(continuous = my_upper),
-          diag  = list(continuous = my_diag),
+          diag = list(continuous = my_diag),
           lower = list(continuous = my_lower),
           labeller = label_parsed) +
   theme(strip.text = element_text(size = 7))
@@ -1222,9 +1222,9 @@ prior %>%
   xlab(NULL) +
   coord_cartesian(ylim = c(-0.01, NA)) +
   panel_border() +
-  theme(legend.position = "none",
-        axis.text.x = element_text(size = 8)) +
-  facet_wrap(~key, scales = "free", ncol = 3)
+  theme(axis.text.x = element_text(size = 8),
+        legend.position = "none") +
+  facet_wrap(~ key, scales = "free", ncol = 3)
 ```
 
 Since we used the half-Gaussian prior for our $\sigma$, our `Scale` histogram looks different from Kruschke's. Otherwise, everything's on the up and up. Here are the pairs plots at the bottom of Figure 18.7.
@@ -1233,7 +1233,7 @@ Since we used the half-Gaussian prior for our $\sigma$, our `Scale` histogram lo
 prior %>% 
   set_names("Intercept~(beta[0])", "Spend~(beta[1])", "Percent~Take~(beta[2])", "Percent~Not~Take~(beta[3])", "sigma", "log10(nu)") %>% 
   ggpairs(upper = list(continuous = my_upper),
-          diag  = list(continuous = my_diag),
+          diag = list(continuous = my_diag),
           lower = list(continuous = my_lower),
           labeller = label_parsed) +
   theme(strip.text = element_text(size = 7))
@@ -1261,7 +1261,7 @@ post %>%
   coord_cartesian(ylim = c(-0.01, NA)) +
   panel_border() +
   theme(legend.position = "none") +
-  facet_grid(key~parameter, scales = "free")
+  facet_grid(key ~ parameter, scales = "free")
 ```
 
 Kruschke was right. The posterior distributions are only slightly narrower than the priors for those two. With our combination of data and model, we learned virtually nothing beyond the knowledge we encoded in those priors.
@@ -1388,7 +1388,7 @@ post %>%
   coord_cartesian(ylim = c(-0.01, NA)) +
   panel_border() +
   theme(legend.position = "none") +
-  facet_wrap(~key, scales = "free", ncol = 3)
+  facet_wrap(~ key, scales = "free", ncol = 3)
 ```
 
 "To properly understand the credible slopes on the two predictors, we must consider the credible slopes on each predictor as a function of the value of the other predictor" (p. 528). This is our motivation for the middle panel of Figure 18.9. To make it, we'll need to `expand()` our `post`, wrangle a bit, and plot with `geom_pointrange()`.
@@ -1483,8 +1483,8 @@ p2 <-
 # normal density
 p3 <-
   tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
-  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
-  geom_ribbon(fill = "steelblue4", color = "steelblue4", alpha = .6) +
+  ggplot(aes(x = x, y = (dnorm(x)) / max(dnorm(x)))) +
+  geom_area(fill = "steelblue4", color = "steelblue4", alpha = .6) +
   annotate(geom = "text",
            x = 0, y = .2,
            label = "normal",
@@ -1500,8 +1500,8 @@ p3 <-
 # a student-t density
 p4 <-
   tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
-  ggplot(aes(x = x, ymin = 0, ymax = (dt(x, 3) / max(dt(x, 3))))) +
-  geom_ribbon(fill = "steelblue4", color = "steelblue4", alpha = .6) +
+  ggplot(aes(x = x, y = (dt(x, 3) / max(dt(x, 3))))) +
+  geom_area(fill = "steelblue4", color = "steelblue4", alpha = .6) +
   annotate(geom = "text",
            x = 0, y = .2,
            label = "student t",
@@ -1534,8 +1534,8 @@ p5 <-
 # exponential density
 p6 <-
   tibble(x = seq(from = 0, to = 1, by = .01)) %>% 
-  ggplot(aes(x = x, ymin = 0, ymax = (dexp(x, 2) / max(dexp(x, 2))))) +
-  geom_ribbon(fill = "steelblue4", color = "steelblue4", alpha = .6) +
+  ggplot(aes(x = x, y = (dexp(x, 2) / max(dexp(x, 2))))) +
+  geom_area(fill = "steelblue4", color = "steelblue4", alpha = .6) +
   annotate(geom = "text",
            x = .5, y = .2,
            label = "exp",
@@ -1563,8 +1563,8 @@ p7 <-
   # half-normal density
 p8 <-
   tibble(x = seq(from = 0, to = 3, by = .01)) %>% 
-  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
-  geom_ribbon(fill = "steelblue4", color = "steelblue4", alpha = .6) +
+  ggplot(aes(x = x, y = (dnorm(x)) / max(dnorm(x)))) +
+  geom_area(fill = "steelblue4", color = "steelblue4", alpha = .6) +
   annotate(geom = "text",
            x = 1.5, y = .2,
            label = "half-normal",
@@ -1601,8 +1601,8 @@ p9 <-
 # a second student-t density
 p10 <-
   tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
-  ggplot(aes(x = x, ymin = 0, ymax = (dt(x, 3) / max(dt(x, 3))))) +
-  geom_ribbon(fill = "steelblue4", color = "steelblue4", alpha = .6) +
+  ggplot(aes(x = x, y = (dt(x, 3) / max(dt(x, 3))))) +
+  geom_area(fill = "steelblue4", color = "steelblue4", alpha = .6) +
   annotate(geom = "text",
            x = 0, y = .2,
            label = "student t",
@@ -1669,18 +1669,18 @@ Make our random noise predictors with `rnorm()`.
 set.seed(18)
 my_data <-
   my_data %>% 
-  mutate(x_rand_1  = rnorm(n = n(), 0, 1),
-         x_rand_2  = rnorm(n = n(), 0, 1),
-         x_rand_3  = rnorm(n = n(), 0, 1),
-         x_rand_4  = rnorm(n = n(), 0, 1),
-         x_rand_5  = rnorm(n = n(), 0, 1),
-         x_rand_6  = rnorm(n = n(), 0, 1),
-         x_rand_7  = rnorm(n = n(), 0, 1),
-         x_rand_8  = rnorm(n = n(), 0, 1),
-         x_rand_9  = rnorm(n = n(), 0, 1),
-         x_rand_10 = rnorm(n = n(), 0, 1),
-         x_rand_11 = rnorm(n = n(), 0, 1),
-         x_rand_12 = rnorm(n = n(), 0, 1))
+  mutate(x_rand_1  = rnorm(n = n(), mean = 0, sd = 1),
+         x_rand_2  = rnorm(n = n(), mean = 0, sd = 1),
+         x_rand_3  = rnorm(n = n(), mean = 0, sd = 1),
+         x_rand_4  = rnorm(n = n(), mean = 0, sd = 1),
+         x_rand_5  = rnorm(n = n(), mean = 0, sd = 1),
+         x_rand_6  = rnorm(n = n(), mean = 0, sd = 1),
+         x_rand_7  = rnorm(n = n(), mean = 0, sd = 1),
+         x_rand_8  = rnorm(n = n(), mean = 0, sd = 1),
+         x_rand_9  = rnorm(n = n(), mean = 0, sd = 1),
+         x_rand_10 = rnorm(n = n(), mean = 0, sd = 1),
+         x_rand_11 = rnorm(n = n(), mean = 0, sd = 1),
+         x_rand_12 = rnorm(n = n(), mean = 0, sd = 1))
 
 glimpse(my_data)
 ```
@@ -1875,9 +1875,9 @@ post %>%
   xlab(NULL) +
   coord_cartesian(ylim = c(-0.01, NA)) +
   panel_border() +
-  theme(legend.position = c(.72, .09),
-        axis.text.x = element_text(size = 9)) +
-  facet_wrap(~key, scales = "free", ncol = 3)
+  theme(axis.text.x = element_text(size = 9),
+        legend.position = c(.72, .09)) +
+  facet_wrap(~ key, scales = "free", ncol = 3)
 ```
 
 And here's the final density plot depicting the Bayesian $R^2$.
@@ -2076,7 +2076,7 @@ post %>%
   panel_border() +
   theme(axis.text.x = element_text(size = 10),
         legend.position = c(.72, .09)) +
-  facet_wrap(~key, scales = "free", ncol = 3)
+  facet_wrap(~ key, scales = "free", ncol = 3)
 ```
 
 Based on the distributions for the random predictors, it looks like our **brms** horseshoe prior regularized more aggressively than Kruschke’s hierarchical prior in the text. And interestingly, look how our marginal posterior for `Spend` is bimodal.
@@ -2237,7 +2237,7 @@ posterior_samples(fit18.1) %>%
   coord_cartesian(ylim = c(-0.01, NA)) +
   panel_border() +
   theme(legend.position = c(.12, .23)) +
-  facet_grid(model~key, scales = "free")
+  facet_grid(model ~ key, scales = "free")
 ```
 
 ### Inclusion probability is strongly affected by vagueness of prior.
@@ -2329,7 +2329,7 @@ mw %>%
   coord_cartesian(xlim = c(0, 1)) +
   theme(panel.grid = element_blank()) +
   panel_border() +
-  facet_grid(prior~.)
+  facet_grid(prior ~ .)
 ```
 
 So unlike in the depictions in Figure 18.14, the stacking method was *insensitive* to the $SD$s on our $\beta_j$ priors. We might compare LOO difference scores, too.
@@ -2389,7 +2389,7 @@ posterior_samples(fit18.9) %>%
   coord_cartesian(ylim = c(-0.01, NA)) +
   panel_border() +
   theme(legend.position = c(.12, .23)) +
-  facet_grid(model~key, scales = "free")
+  facet_grid(model ~ key, scales = "free")
 ```
 
 And now we'll do our version of the histograms for the bottom portion of Figure 18.14.
@@ -2421,7 +2421,7 @@ posterior_samples(fit18.13) %>%
   coord_cartesian(ylim = c(-0.01, NA)) +
   theme(legend.position = c(.12, .23)) +
   panel_border() +
-  facet_grid(model~key, scales = "free")
+  facet_grid(model ~ key, scales = "free")
 ```
 
 Kurschke concluded this subsection with
@@ -2467,8 +2467,8 @@ That gamma distribution looks like this.
 
 ```{r, fig.width = 4, fig.height = 2}
 tibble(x = seq(from = 0, to = 65, length.out = 1e3)) %>% 
-  ggplot(aes(x = x, ymin = 0, ymax = dgamma(x, p[1], p[2]))) +
-  geom_ribbon(color = "steelblue4", fill = "steelblue4", alpha = .6) +
+  ggplot(aes(x = x, y = dgamma(x, p[1], p[2]))) +
+  geom_area(color = "steelblue4", fill = "steelblue4", alpha = .6) +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab("Our gamma prior") +
   coord_cartesian(xlim = c(0, 60))
@@ -2487,7 +2487,7 @@ stanvars <-
 Note that last `stanvar()` line. Bürkner recently posted an [exemplar of how to set a hierarchical prior on a regression coefficient](https://github.com/paul-buerkner/brms/issues/459) in a `brm()` model:
 
 ```{r, eval = F}
-# define a hierachical prior on the regression coefficients
+# define a hierarchical prior on the regression coefficients
 bprior <- set_prior("normal(0, tau)", class = "b") +
   set_prior("target += normal_lpdf(tau | 0, 10)", check = FALSE)
 
@@ -2717,7 +2717,7 @@ posterior_samples(fit18.0100) %>%
   coord_cartesian(ylim = c(-0.01, NA)) +
   panel_border() +
   theme(legend.position = "none") +
-  facet_grid(fit~key, scales = "free")
+  facet_grid(fit ~ key, scales = "free")
 ```
 
 Like Kruschke's results in the text, `PrcntTake` was the most prominent predictor.
@@ -2834,7 +2834,7 @@ pp %>%
   facet_grid(predictor ~ ., scales = "free")
 ```
 
-Based on the weighted average across the models, the `PrcntTake_z` predictor was the pmost potent.
+Based on the weighted average across the models, the `PrcntTake_z` predictor was the most potent.
 
 ### Caution: Computational methods.
 
