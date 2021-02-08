@@ -84,8 +84,8 @@ library(patchwork)
 p1 <-
   tibble(x = seq(from = .01, to = .99, by = .01),
        d = (dbeta(x, 2, 2)) / max(dbeta(x, 2, 2))) %>% 
-  ggplot(aes(x = x, ymin = 0, ymax = d)) +
-  geom_ribbon(fill = "grey67", size = 0) +
+  ggplot(aes(x = x, y = d)) +
+  geom_area(fill = "grey67") +
   annotate(geom = "text",
            x = .5, y = .2,
            label = "beta",
@@ -124,8 +124,8 @@ p2 <-
 p3 <-
   tibble(x = seq(from = .01, to = .99, by = .01),
          d = (dbeta(x, 2, 2)) / max(dbeta(x, 2, 2))) %>% 
-  ggplot(aes(x = x, ymin = 0, ymax = d)) +
-  geom_ribbon(fill = "grey67", size = 0) +
+  ggplot(aes(x = x, y = d)) +
+  geom_area(fill = "grey67") +
   annotate(geom = "text",
            x = .5, y = .2,
            label = "beta",
@@ -231,7 +231,7 @@ beta  <- 2
 (alpha - 1) / (alpha + beta - 2)
 ```
 
-That is, the mode of $\operatorname{beta}(2, 2)$ is $.5$. 
+That is, the mode of $\operatorname{beta}(2, 2)$ is $.5$.
 
 We won't be able to make the wireframe plots on the left of Figure 9.2, but we can make the others. We'll make the initial data following Kruschke's (p. 226) formulas.
 
@@ -333,8 +333,8 @@ d %>%
   group_by(omega) %>% 
   summarise(prior = sum(prior)) %>% 
   
-  ggplot(aes(x = omega, ymin = 0, ymax = prior)) +
-  geom_ribbon(fill = a_purple) +
+  ggplot(aes(x = omega, y = prior)) +
+  geom_area(fill = a_purple) +
   scale_x_continuous(expand = c(0, 0), limits = c(0, 1), breaks = 0:5 / 5) +
   scale_y_continuous(expand = c(0, 0), limits = c(0, 0.035)) +
   labs(x = expression(omega),
@@ -359,7 +359,7 @@ Anyway, since we are going to be making a lot of plots like this in this chapter
 geom_marginal <- function(ul, ...) {
   
   list(
-    geom_ribbon(fill = viridis_pal(option = "A")(9)[4]),
+    geom_area(fill = viridis_pal(option = "A")(9)[4]),
     scale_x_continuous(expand = c(0, 0), limits = c(0, 1), breaks = 0:5 / 5),
     scale_y_continuous(expand = c(0, 0), limits = c(0, ul)),
     theme_cowplot(...),
@@ -377,7 +377,7 @@ d %>%
   group_by(omega) %>% 
   summarise(prior = sum(prior)) %>% 
   
-  ggplot(aes(x = omega, ymin = 0, ymax = prior)) +
+  ggplot(aes(x = omega, y = prior)) +
   geom_marginal(ul = 0.035) +
   labs(x = expression(omega),
        y = expression(Marginal~p(omega))) +
@@ -391,7 +391,7 @@ d %>%
   group_by(theta) %>% 
   summarise(prior = sum(prior)) %>% 
   
-  ggplot(aes(x = theta, ymin = 0, ymax = prior)) +
+  ggplot(aes(x = theta, y = prior)) +
   geom_marginal(ul = 0.035) +
   labs(x = expression(theta),
        y = expression(Marginal~p(theta)))
@@ -407,11 +407,11 @@ d %>%
   mutate(label = factor(str_c("omega==", omega), 
                         levels = c("omega==0.75", "omega==0.25"))) %>% 
   
-  ggplot(aes(x = theta, ymin = 0, ymax = prior)) +
+  ggplot(aes(x = theta, y = prior)) +
   geom_marginal(ul = 0.095) +
   labs(x = expression(theta),
        y = expression(p(theta*"|"*omega))) +
-  facet_wrap(~label, ncol = 1, labeller = label_parsed)
+  facet_wrap(~ label, ncol = 1, labeller = label_parsed)
 ```
 
 As Kruschke pointed out at the top of page 228, these are indeed beta densities. Here's proof.
@@ -432,7 +432,7 @@ tibble(theta = rep(parameter_space, times = 2),
   
   # the plot
   ggplot(aes(x = theta, fill = omega)) +
-  geom_ribbon(aes(ymin = 0, ymax = dbeta(x = theta, shape1 = alpha, shape2 = beta))) +
+  geom_area(aes(y = dbeta(x = theta, shape1 = alpha, shape2 = beta))) +
   geom_text(data = text,
             aes(y = y, label = label, color = omega)) +
   scale_fill_viridis_d(option = "A", begin = 2/9, end = 6/9) +
@@ -515,7 +515,7 @@ d %>%
   group_by(omega) %>% 
   summarise(posterior = sum(posterior)) %>% 
   
-  ggplot(aes(x = omega, ymin = 0, ymax = posterior)) +
+  ggplot(aes(x = omega, y = posterior)) +
   geom_marginal(ul = 0.035) +
   labs(x = expression(omega),
        y = expression(Marginal~p(omega*"|"*D))) +
@@ -526,7 +526,7 @@ d %>%
   group_by(theta) %>% 
   summarise(posterior = sum(posterior)) %>% 
   
-  ggplot(aes(x = theta, ymin = 0, ymax = posterior)) +
+  ggplot(aes(x = theta, y = posterior)) +
   geom_marginal(ul = 0.035) +
   labs(x = expression(theta),
        y = expression(Marginal~p(theta*"|"*D))) +
@@ -543,11 +543,11 @@ d %>%
   mutate(label = factor(str_c("omega==", omega),
                         levels = c("omega==0.75", "omega==0.25"))) %>% 
   
-  ggplot(aes(x = theta, ymin = 0, ymax = posterior)) +
+  ggplot(aes(x = theta, y = posterior)) +
   geom_marginal(ul = 0.1) +
   labs(x = expression(theta),
        y = expression(p(theta*"|"*omega))) +
-  facet_wrap(~label, ncol = 1, labeller = label_parsed, scales = "free")
+  facet_wrap(~ label, ncol = 1, labeller = label_parsed, scales = "free")
 ```
 
 In the next example depicted in Figure 9.3, we consider what happens when we combine the same data of 9 heads out of 12 trials to the same Bernoulli likelihood $p(y | \theta)$, but his time with a much lower $K$ values expressing greater uncertainty in the $\operatorname{beta} \big (\theta | \omega (6 - 2) + 1, (1 - \omega) (6 - 2) + 1 \big )$ portion of the joint prior and with a more certain hyperprior for $\omega$, $\operatorname{beta}(\omega | 20, 20)$.
@@ -580,7 +580,7 @@ d %>%
   group_by(omega) %>% 
   summarise(prior = sum(prior)) %>% 
   
-  ggplot(aes(x = omega, ymin = 0, ymax = prior)) +
+  ggplot(aes(x = omega, y = prior)) +
   geom_marginal(ul = 0.052) +
   labs(x = expression(omega),
        y = expression(Marginal~p(omega))) +
@@ -591,7 +591,7 @@ d %>%
   group_by(theta) %>% 
   summarise(prior = sum(prior)) %>% 
   
-  ggplot(aes(x = theta, ymin = 0, ymax = prior)) +
+  ggplot(aes(x = theta, y = prior)) +
   geom_marginal(ul = 0.039) +
   labs(x = expression(theta),
        y = expression(Marginal~p(theta)))
@@ -607,11 +607,11 @@ d %>%
   mutate(label = factor(str_c("omega == ", omega), 
                         levels = c("omega == 0.75", "omega == 0.25"))) %>%
   
-  ggplot(aes(x = theta, ymin = 0, ymax = prior)) +
+  ggplot(aes(x = theta, y = prior)) +
   geom_marginal(ul = 0.039) +
   labs(x = expression(theta),
        y = expression(p(theta*"|"*omega))) +
-  facet_wrap(~label, ncol = 1, labeller = label_parsed)
+  facet_wrap(~ label, ncol = 1, labeller = label_parsed)
 ```
 
 Now we're ready for the likelihood.
@@ -655,7 +655,7 @@ d %>%
   group_by(omega) %>% 
   summarise(posterior = sum(posterior)) %>% 
   
-  ggplot(aes(x = omega, ymin = 0, ymax = posterior)) +
+  ggplot(aes(x = omega, y = posterior)) +
   geom_marginal(ul = 0.052) +
   labs(x = expression(omega),
        y = expression(Marginal~p(omega*"|"*D))) +
@@ -666,7 +666,7 @@ d %>%
   group_by(theta) %>% 
   summarise(posterior = sum(posterior)) %>% 
   
-  ggplot(aes(x = theta, ymin = 0, ymax = posterior)) +
+  ggplot(aes(x = theta, y = posterior)) +
   geom_marginal(ul = 0.039) +
   labs(x = expression(theta),
        y = expression(Marginal~p(theta*"|"*D)))
@@ -682,11 +682,11 @@ d %>%
   mutate(label = factor(str_c("omega==", omega),
                         levels = c("omega==0.75", "omega==0.25"))) %>%
   
-  ggplot(aes(x = theta, ymin = 0, ymax = posterior)) +
+  ggplot(aes(x = theta, y = posterior)) +
   geom_marginal(ul = 0.039) +
   labs(x = expression(theta),
        y = expression(p(theta*"|"*omega))) +
-  facet_wrap(~label, ncol = 1, labeller = label_parsed, scales = "free")
+  facet_wrap(~ label, ncol = 1, labeller = label_parsed, scales = "free")
 ```
 
 > In summary, Bayesian inference in a hierarchical model is merely Bayesian inference on a joint parameter space, but we look at the joint distribution (e.g., $p(\theta, \omega)$) in terms of its marginal on a subset of parameters (e.g., $p(\omega)$) and its conditional distribution for other parameters (e.g., p$p(\theta | \omega)$. We do this primarily because it is meaningful in the context of particular models. (p. 230)
@@ -701,8 +701,8 @@ Kruschke broke down a model of this form with his diagram in Figure 9.4. Here's 
 p1 <-
   tibble(x = seq(from = .01, to = .99, by = .01),
        d = (dbeta(x, 2, 2)) / max(dbeta(x, 2, 2))) %>% 
-  ggplot(aes(x = x, ymin = 0, ymax = d)) +
-  geom_ribbon(fill = a_purple, size = 0) +
+  ggplot(aes(x = x, y = d)) +
+  geom_area(fill = a_purple) +
   annotate(geom = "text",
            x = .5, y = .2,
            label = "beta",
@@ -741,8 +741,8 @@ p2 <-
 p3 <-
   tibble(x = seq(from = .01, to = .99, by = .01),
          d = (dbeta(x, 2, 2)) / max(dbeta(x, 2, 2))) %>% 
-  ggplot(aes(x = x, ymin = 0, ymax = d)) +
-  geom_ribbon(fill = a_purple, size = 0) +
+  ggplot(aes(x = x, y = d)) +
+  geom_area(fill = a_purple) +
   annotate(geom = "text",
            x = .5, y = .2,
            label = "beta",
@@ -898,7 +898,7 @@ d %>%
   group_by(omega) %>% 
   summarise(prior = sum(prior)) %>% 
   
-  ggplot(aes(x = omega, ymin = 0, ymax = prior)) +
+  ggplot(aes(x = omega, y = prior)) +
   geom_marginal(ul = 0.041) +
   labs(x = expression(omega),
        y = expression(p(omega))) +
@@ -909,7 +909,7 @@ d %>%
   group_by(theta_1) %>% 
   summarise(prior = sum(prior)) %>% 
 
-  ggplot(aes(x = theta_1, ymin = 0, ymax = prior)) +
+  ggplot(aes(x = theta_1, y = prior)) +
   geom_marginal(ul = 0.041) +
   labs(x = expression(theta[1]),
        y = expression(p(theta[1])))
@@ -1007,7 +1007,7 @@ d %>%
   group_by(omega) %>% 
   summarise(posterior = sum(posterior)) %>%
   
-  ggplot(aes(x = omega, ymin = 0, ymax = posterior)) +
+  ggplot(aes(x = omega, y = posterior)) +
   geom_marginal(ul = 0.041) +
   labs(x = expression(omega),
        y = expression(p(omega*"|"*D))) +
@@ -1022,7 +1022,7 @@ d %>%
   group_by(theta_1) %>% 
   summarise(posterior = sum(posterior)) %>% 
   
-  ggplot(aes(x = theta_1, ymin = 0, ymax = posterior)) +
+  ggplot(aes(x = theta_1, y = posterior)) +
   geom_marginal(ul = 0.041) +
   labs(x = expression(theta[1]),
        y = expression(p(theta[1]*"|"*D)))
@@ -1032,7 +1032,7 @@ d %>%
   group_by(theta_2) %>% 
   summarise(posterior = sum(posterior)) %>% 
   
-  ggplot(aes(x = theta_2, ymin = 0, ymax = posterior)) +
+  ggplot(aes(x = theta_2, y = posterior)) +
   geom_marginal(ul = 0.041) +
   labs(x = expression(theta[2]),
        y = expression(p(theta[2]*"|"*D)))
@@ -1109,7 +1109,7 @@ p13 <-
   group_by(omega) %>% 
   summarise(prior = sum(prior)) %>% 
   
-  ggplot(aes(x = omega, ymin = 0, ymax = prior)) +
+  ggplot(aes(x = omega, y = prior)) +
   geom_marginal(ul = 0.041, font_size = 10) +
   labs(x = expression(omega),
        y = expression(p(omega))) +
@@ -1121,7 +1121,7 @@ p21 <-
   group_by(theta_1) %>% 
   summarise(prior = sum(prior)) %>% 
 
-  ggplot(aes(x = theta_1, ymin = 0, ymax = prior)) +
+  ggplot(aes(x = theta_1, y = prior)) +
   geom_marginal(ul = 0.041, font_size = 10) +
   labs(x = expression(theta[1]),
        y = expression(p(theta[1])))
@@ -1132,7 +1132,7 @@ p22 <-
   group_by(theta_2) %>% 
   summarise(prior = sum(prior)) %>% 
 
-  ggplot(aes(x = theta_2, ymin = 0, ymax = prior)) +
+  ggplot(aes(x = theta_2, y = prior)) +
   geom_marginal(ul = 0.041, font_size = 10) +
   labs(x = expression(theta[2]),
        y = expression(p(theta[2])))
@@ -1238,7 +1238,7 @@ p43 <-
   group_by(omega) %>% 
   summarise(posterior = sum(posterior)) %>% 
   
-  ggplot(aes(x = omega, ymin = 0, ymax = posterior)) +
+  ggplot(aes(x = omega, y = posterior)) +
   geom_marginal(ul = 0.041, font_size = 10) +
   labs(x = expression(omega),
        y = expression(p(omega*"|"*D))) +
@@ -1256,7 +1256,7 @@ p51 <-
   group_by(theta_1) %>% 
   summarise(posterior = sum(posterior)) %>% 
   
-  ggplot(aes(x = theta_1, ymin = 0, ymax = posterior)) +
+  ggplot(aes(x = theta_1, y = posterior)) +
   geom_marginal(ul = 0.041, font_size = 10) +
   labs(x = expression(theta[1]),
        y = expression(p(theta[1]*"|"*D)))
@@ -1267,7 +1267,7 @@ p52 <-
   group_by(theta_2) %>% 
   summarise(posterior = sum(posterior)) %>% 
   
-  ggplot(aes(x = theta_2, ymin = 0, ymax = posterior)) +
+  ggplot(aes(x = theta_2, y = posterior)) +
   geom_marginal(ul = 0.041, font_size = 10) +
   labs(x = expression(theta[2]),
        y = expression(p(theta[2]*"|"*D)))
@@ -1353,8 +1353,8 @@ In this section, Kruschke freed up the previously fixed value of $K$, now lettin
 p1 <-
   tibble(x = seq(from = .01, to = .99, by = .01),
          d = (dbeta(x, 2, 2)) / max(dbeta(x, 2, 2))) %>% 
-  ggplot(aes(x = x, ymin = 0, ymax = d)) +
-  geom_ribbon(fill = a_purple, size = 0) +
+  ggplot(aes(x = x, y = d)) +
+  geom_area(fill = a_purple) +
   annotate(geom = "text",
            x = .5, y = .2,
            label = "beta",
@@ -1371,8 +1371,8 @@ p1 <-
 p2 <-
   tibble(x = seq(from = 0, to = 5, by = .01),
          d = (dgamma(x, 1.75, .85) / max(dgamma(x, 1.75, .85)))) %>% 
-  ggplot(aes(x = x, ymin = 0, ymax = d)) +
-  geom_ribbon(fill = a_purple, size = 0) +
+  ggplot(aes(x = x, y = d)) +
+  geom_area(fill = a_purple) +
   annotate(geom = "text",
            x = 2.5, y = .2,
            label = "gamma",
@@ -1417,8 +1417,8 @@ p3 <-
 p4 <-
   tibble(x = seq(from = .01, to = .99, by = .01),
          d = (dbeta(x, 2, 2)) / max(dbeta(x, 2, 2))) %>% 
-  ggplot(aes(x = x, ymin = 0, ymax = d)) +
-  geom_ribbon(fill = a_purple, size = 0) +
+  ggplot(aes(x = x, y = d)) +
+  geom_area(fill = a_purple) +
   annotate(geom = "text",
            x = .5, y = .2,
            label = "beta",
@@ -1521,10 +1521,8 @@ tibble(shape = c(.01, 1.56, 1, 6.25),
                        "\nmean = ", mean, ", sd = ", round(sd, 4))) %>%
   
   # plot
-  ggplot(aes(x = x, 
-             ymin = 0, 
-             ymax = dgamma(x = x, shape = shape, rate = rate))) +
-  geom_ribbon(aes(fill = label)) +
+  ggplot(aes(x = x, y = dgamma(x = x, shape = shape, rate = rate))) +
+  geom_area(aes(fill = label)) +
   scale_fill_viridis_d(option = "A", end = .9, breaks = NULL) +
   scale_x_continuous(expression(kappa), expand = expansion(mult = c(0, 0.05))) +
   scale_y_continuous(expression(p(kappa*"|"*s*","*r)), breaks = c(0, .01, .02),
@@ -1532,7 +1530,7 @@ tibble(shape = c(.01, 1.56, 1, 6.25),
   coord_cartesian(xlim = c(0, 150)) +
   theme_cowplot(line_size = 0) +
   panel_border() +
-  facet_wrap(~label)
+  facet_wrap(~ label)
 ```
 
 You can find the formulas for the mean and $SD$ for a given gamma distribution [here](https://astrostatistics.psu.edu/su07/R/html/stats/html/GammaDist.html). We used those formulas in the second `mutate()` statement for the data-prep stage of that last figure.
@@ -1605,7 +1603,7 @@ my_data %>%
   scale_x_continuous(breaks = 0:4 * 2, expand = c(0, NA), limits = c(0, 9)) +
   theme_minimal_vgrid() +
   panel_border() +
-  facet_wrap(~s, ncol = 7)
+  facet_wrap(~ s, ncol = 7)
 ```
 
 And here's our Figure 9.9.
@@ -1637,7 +1635,7 @@ In case you're curious, the logit of $\theta$ follows the formula
 
 $$\operatorname{logit}(\theta) = \log (\theta/[1 - \theta] ).$$
 
-But anyway, we'll be doing logistic regression using the logit link. Kruschke will cover this in detail in Chapter 21.
+But anyway, we'll be doing logistic regression using the logit link. Kruschke covered this in detail in [Chapter 21][Dichotomous Predicted Variable].
 
 The next new part of our syntax is `(1 | s)`. As in the popular frequentist [**lme4** package](https://CRAN.R-project.org/package=lme4) [@R-lme4; @batesFittingLinearMixedeffects2015], you specify random effects or group-level parameters with the `(|)` syntax in **brms**. On the left side of the `|`, you tell **brms** what parameters you'd like to make random (i.e., vary by group). On the right side of the `|`, you tell **brms** what variable you want to group the parameters by. In our case, we want the intercepts to vary over the grouping variable `s`.
 
@@ -1653,7 +1651,7 @@ fit9.1 <-
       file = "fits/fit09.01")
 ```
 
-As it turns out, the $N(0, 1.5)$ prior is flat in the probability space for the intercept in a logistic regression model. We'll explore that a little further down. The $N(0, 1)$ prior for the random effect is actually a half Normal. That's because **brms** defaults to bound $SD$ parameters to zero and above. The half Normal prior for a hierarchical $SD$ parameter in a logistic regression model is weakly regularizing and is conservative in the sense that it presumes some pooling is preferable to no pooling. If you wanted to take a lighter approach, you might use something like a `cauchy(0, 5)`, instead. See the [prior wiki](https://github.com/stan-dev/stan/wiki/Prior-Choice-Recommendations) by the Stan team for more ideas on priors. 
+As it turns out, the $N(0, 1.5)$ prior is flat in the probability space for the intercept in a logistic regression model. We'll explore that a little further down. The $N(0, 1)$ prior for the random effect is actually a half Normal. That's because **brms** defaults to bound $SD$ parameters to zero and above. The half Normal prior for a hierarchical $SD$ parameter in a logistic regression model is weakly regularizing and is conservative in the sense that it presumes some pooling is preferable to no pooling. If you wanted to take a lighter approach, you might use something like a `cauchy(0, 5)`, instead. See the [prior wiki](https://github.com/stan-dev/stan/wiki/Prior-Choice-Recommendations) by the Stan team for more ideas on priors.
 
 Here are the trace plots and posterior densities of the main parameters.
 
@@ -1719,7 +1717,7 @@ post_small %>%
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(NULL) +
   theme_minimal_hgrid() +
-  facet_wrap(~key, scales = "free", ncol = 3)
+  facet_wrap(~ key, scales = "free", ncol = 3)
 ```
 
 If you wanted the specific values of the posterior modes and 95% HDIs, you could execute this.
@@ -1819,7 +1817,7 @@ sigmas %>%
   theme_minimal_hgrid()
 ```
 
-And now you have a sense of how to do all those by hand, `bayesplot::mcmc_pairs()` offers a fairly quick way to get a good portion of Figure 9.10. 
+And now you have a sense of how to do all those by hand, `bayesplot::mcmc_pairs()` offers a fairly quick way to get a good portion of Figure 9.10.
 
 ```{r, fig.width = 5.5, fig.height = 5, warning = F, message = F}
 color_scheme_set("purple")
@@ -1827,7 +1825,7 @@ bayesplot_theme_set(theme_default() + theme_minimal_grid())
 
 coef(fit9.1, summary = F)$s %>% 
   inv_logit_scaled() %>% 
-  as_tibble() %>% 
+  data.frame() %>% 
   rename(`theta[1]`  = S01.Intercept, 
          `theta[14]` = S14.Intercept, 
          `theta[28]` = S28.Intercept) %>% 
@@ -1852,7 +1850,7 @@ tibble(prior = rbeta(n = 1e5, 1, 1)) %>%
   theme_minimal_hgrid()
 ```
 
-You'll note that plot corresponds to the upper right panel of Figure 9.11. 
+You'll note that plot corresponds to the upper right panel of Figure 9.11.
 
 Recall that we used a logistic regression model with a `normal(0, 1.5)` prior on the intercept. If you sample from `normal(0, 1.5)` and then convert the draws using `brms::inv_logit_scaled()`, you'll discover that our `normal(0, 1.5)` prior was virtually flat on the probability scale. Here we'll show the consequence of a variety of zero-mean Gaussian priors for the intercept of a logistic regression model.
 
@@ -1883,7 +1881,7 @@ tibble(sd = seq(from = .25, to = 3, by = .25)) %>%
   coord_cartesian(xlim = c(0, 1)) +
   theme_minimal_hgrid() +
   panel_border() +
-  facet_wrap(~sd)
+  facet_wrap(~ sd)
 ```
 
 It appears that as $\sigma$ goes lower than 1.25, the prior becomes increasingly regularizing, pulling the estimate for $\theta$ to a neutral .5. However, as the prior's $\sigma$ gets larger than 1.25, more and more of the probability mass ends up at extreme values.
@@ -1940,7 +1938,7 @@ prior_samples %>%
   coord_cartesian(xlim = c(0, 1)) +
   theme_minimal_hgrid() +
   panel_border() +
-  facet_wrap(~key)
+  facet_wrap(~ key)
 ```
 
 With a little subtraction, we can reproduce the plots in the upper triangle.
@@ -1958,7 +1956,7 @@ prior_samples %>%
   scale_y_continuous(NULL, breaks = NULL) +
   theme_minimal_hgrid() +
   panel_border() +
-  facet_wrap(~key)
+  facet_wrap(~ key)
 ```
 
 Those plots clarify our hierarchical logistic regression model was a little more regularizing than Kruschke's. The consequence of our priors was more aggressive regularization, greater shrinkage toward zero. The prose in the next section of the text clarifies this isn't necessarily a bad thing.
@@ -2023,13 +2021,13 @@ tibble(x = seq(from = 0, to = 1, by = .001)) %>%
   gather(key, value, - x) %>% 
   mutate(key = factor(key, levels = c("kappa==2.1", "kappa==15.8"))) %>% 
   
-  ggplot(aes(x = x, ymin = 0, ymax = value)) +
-  geom_ribbon(fill = a_purple) +
+  ggplot(aes(x = x, y = value)) +
+  geom_area(fill = a_purple) +
   scale_y_continuous(expression(dbeta(theta*"|"*omega*", "*kappa)), breaks = NULL) +
   xlab(expression(Data~Proportion~or~theta~value)) +
   theme_minimal_hgrid() +
   panel_border() +
-  facet_wrap(~key, labeller = label_parsed)
+  facet_wrap(~ key, labeller = label_parsed)
 ```
 
 ## Speeding up ~~JAGS~~ brms
@@ -2094,8 +2092,8 @@ As we will address below, our version of Figure 9.13 will look rather different 
 # half-normal density
 p1 <-
   tibble(x = seq(from = 0, to = 3, by = .01)) %>% 
-  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
-  geom_ribbon(fill = a_purple, size = 0) +
+  ggplot(aes(x = x, y = (dnorm(x)) / max(dnorm(x)))) +
+  geom_area(fill = a_purple) +
   annotate(geom = "text",
            x = 1.5, y = .2,
            label = "half-normal",
@@ -2111,8 +2109,8 @@ p1 <-
 # second half-normal density
 p2 <-
   tibble(x = seq(from = 0, to = 3, by = .01)) %>% 
-  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
-  geom_ribbon(fill = a_purple, size = 0) +
+  ggplot(aes(x = x, y = (dnorm(x)) / max(dnorm(x)))) +
+  geom_area(fill = a_purple) +
   annotate(geom = "text",
            x = 1.5, y = .2,
            label = "half-normal",
@@ -2144,8 +2142,8 @@ p3 <-
 # normal density
 p4 <-
   tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
-  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
-  geom_ribbon(fill = a_purple, size = 0) +
+  ggplot(aes(x = x, y = (dnorm(x)) / max(dnorm(x)))) +
+  geom_area(fill = a_purple) +
   annotate(geom = "text",
            x = 0, y = .2,
            label = "normal",
@@ -2162,8 +2160,8 @@ p4 <-
 # second normal density
 p5 <-
   tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
-  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
-  geom_ribbon(fill = a_purple, size = 0) +
+  ggplot(aes(x = x, y = (dnorm(x)) / max(dnorm(x)))) +
+  geom_area(fill = a_purple,) +
   annotate(geom = "text",
            x = 0, y = .2,
            label = "normal",
@@ -2180,8 +2178,8 @@ p5 <-
 # third normal density
 p6 <-
   tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
-  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
-  geom_ribbon(fill = a_purple, size = 0) +
+  ggplot(aes(x = x, y = (dnorm(x)) / max(dnorm(x)))) +
+  geom_area(fill = a_purple) +
   annotate(geom = "text",
            x = 0, y = .2,
            label = "normal",
@@ -2328,7 +2326,7 @@ my_data %>%
   arrange(desc(n))
 ```
 
-As these data are aggregated, we'll fit with an aggregated binomial model. This is still logistic regression. The Bernoulli distribution is a special case of the binomial distribution when the number of trials in each data point is 1 [see @Bürkner2020Parameterization for details]. Since our data are aggregated, the information encoded in `Hits` is a combination of multiple trials, which requires us to jump up to the more general binomial likelihood. Note the `Hits  | trials(AtBats)` syntax. With that bit, we instructed **brms** that our criterion, `Hits`, is an aggregate of multiple trials and the number of trials is encoded in `AtBats`. 
+As these data are aggregated, we'll fit with an aggregated binomial model. This is still logistic regression. The Bernoulli distribution is a special case of the binomial distribution when the number of trials in each data point is 1 [see @Bürkner2020Parameterization for details]. Since our data are aggregated, the information encoded in `Hits` is a combination of multiple trials, which requires us to jump up to the more general binomial likelihood. Note the `Hits  | trials(AtBats)` syntax. With that bit, we instructed **brms** that our criterion, `Hits`, is an aggregate of multiple trials and the number of trials is encoded in `AtBats`.
 
 Also note the `(1 | PriPos) + (1 | PriPos:Player)` syntax. In this model, we have two grouping factors, `PriPos` and `Player`. Thus we have two `(|)` arguments. But since players are themselves nested within positions, we have encoded that nesting with the `(1 | PriPos:Player)` syntax. For more on this style of syntax, see [Kristoffer Magnusson](https://twitter.com/krstoffr)'s handy blog post, [*Using R and lme/lmer to fit different two- and three-level longitudinal models*](https://rpsychologist.com/r-guide-longitudinal-lme-lmer). Since **brms** syntax is based on that from the earlier **lme4** package, the basic syntax rules apply. Bürkner [-@brms2020RM], of course, also covered these topics in the `brmsformula` subsection of the [**brms** reference manual](https://CRAN.R-project.org/package=brms/brms.pdf).
 
@@ -2487,7 +2485,7 @@ coef_primary_position <-
 str(coef_primary_position)
 ```
 
-Keep in mind that `coef()` returns the values in the logit scale when used for logistic regression models. So we'll have to use `brms::inv_logit_scaled()` to convert the estimates to the probability metric. After we’re done converting the estimates, we'll then make the difference distributions.
+Keep in mind that `coef()` returns the values in the logit scale when used for logistic regression models. So we'll have to use `brms::inv_logit_scaled()` to convert the estimates to the probability metric. After we're done converting the estimates, we'll then make the difference distributions.
 
 ```{r}
 coef_small <-
@@ -2767,7 +2765,7 @@ p1 <-
   coord_cartesian(xlim = c(.1, .28)) +
   theme_minimal_hgrid() +
   panel_border() +
-  facet_wrap(~name, nrow = 3, scales = "free_y")
+  facet_wrap(~ name, nrow = 3, scales = "free_y")
 ```
 
 In this code block, we'll make the subplot for the overall batting average. Given the size of the model, it's perhaps easiest to pull that information from the model with the `fixef()` function.
@@ -2789,7 +2787,7 @@ p2 <-
   coord_cartesian(xlim = c(.1, .28)) +
   theme_minimal_hgrid() +
   panel_border() +
-  facet_wrap(~name)
+  facet_wrap(~ name)
 ```
 
 Now combine the plots with a little **patchwork** magic.
