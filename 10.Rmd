@@ -25,7 +25,7 @@ So far we have spoken of
 
 * the data, denoted by $D$ or $y$;
 * the model parameters, generically denoted by $\theta$;
-* the likelihood function, denoted by $p(D | \theta)$; and 
+* the likelihood function, denoted by $p(D | \theta)$; and
 * the prior distribution, denoted by $p(\theta)$.
 
 Now we add to that $m$, which is a model index with $m = 1$ standing for the first model, $m = 2$ standing for the second model, and so on. So when we have more than one model in play, we might refer to the likelihood as $p_m(y | \theta_m, m)$ and the prior as $p_m(\theta_m | m)$. It's also the case, then, that each model can be given a prior probability $p(m)$.
@@ -42,7 +42,7 @@ Kruschke further explained that
 
 However, as with $p$-values, effect sizes, and so on, BF values exist within continua and might should be evaluated in terms of degree more so than as ordered kinds.
 
-## Example: Two factories of coins 
+## Example: Two factories of coins
 
 Kruschke considered the coin bias of two factories, each described by the beta distribution. We can organize how to derive the $\alpha$ and $\beta$ parameters from $\omega$ and $\kappa$ with a tibble.
 
@@ -118,14 +118,12 @@ d %>%
          theta = seq(from = 0, to = 1, length.out = length)) %>%
   mutate(label = str_c("factory ", factory)) %>% 
   
-  ggplot(aes(x = theta, 
-             ymin = 0, 
-             ymax = dbeta(x = theta, shape1 = alpha, shape2 = beta))) +
-  geom_ribbon(fill = kh[6]) +
+  ggplot(aes(x = theta, y = dbeta(x = theta, shape1 = alpha, shape2 = beta))) +
+  geom_area(fill = kh[6]) +
   scale_y_continuous(NULL, breaks = NULL,
                      expand = expansion(mult = c(0, 0.05))) +
   xlab(expression(theta)) +
-  facet_wrap(~label)
+  facet_wrap(~ label)
 ```
 
 We might recreate the top panel with `geom_col()`.
@@ -151,7 +149,7 @@ crossing(factory = str_c("factory ", 1:2),
   xlab(NULL) +
   theme(axis.ticks.x = element_blank(),
         panel.grid = element_blank()) +
-  facet_wrap(~factory)
+  facet_wrap(~ factory)
 ```
 
 But now
@@ -204,8 +202,8 @@ p2 <-
 p3 <-
   tibble(x = seq(from = .01, to = .99, by = .01),
          d = (dbeta(x, 5, 10) / max(dbeta(x, 5, 10)))) %>% 
-  ggplot(aes(x = x, ymin = 0, ymax = d)) +
-  geom_ribbon(fill = alpha(kh[4], .85), size = 0) +
+  ggplot(aes(x = x, y = d)) +
+  geom_area(fill = alpha(kh[4], .85)) +
   annotate(geom = "text",
            x = .5, y = .2,
            label = "beta",
@@ -221,8 +219,8 @@ p3 <-
 p4 <-
   tibble(x = seq(from = .01, to = .99, by = .01),
          d = (dbeta(x, 10, 5) / max(dbeta(x, 10, 5)))) %>% 
-  ggplot(aes(x = x, ymin = 0, ymax = d)) +
-  geom_ribbon(fill = kh[6], size = 0) +
+  ggplot(aes(x = x, y = d)) +
+  geom_area(fill = kh[6]) +
   annotate(geom = "text",
            x = .5, y = .2,
            label = "beta",
@@ -393,7 +391,7 @@ If for both our models $p(m) = .5$, then the BF is the same it was, before.
 (p_d_1 * .5) / (p_d_2 * .5)
 ```
 
-As Kruschke pointed out, because we're working in the probability metric, the sum of $p(m = 1 | D )$ and $p(m = 2 | D )$ must be 1. By simple algebra then, 
+As Kruschke pointed out, because we're working in the probability metric, the sum of $p(m = 1 | D )$ and $p(m = 2 | D )$ must be 1. By simple algebra then,
 
 $$p(m = 2 | D ) = 1 - p(m = 1 | D ).$$
 
@@ -483,13 +481,13 @@ p23 <-
   mutate(omega = factor(str_c("omega == ", omega),
                         levels = str_c("omega == ", c(.75, .25)))) %>%
   
-  ggplot(aes(x = theta, ymin = 0, ymax = prior)) +
-  geom_ribbon(fill = kh[4]) +
+  ggplot(aes(x = theta, y = prior)) +
+  geom_area(fill = kh[4]) +
   scale_x_continuous(expression(theta), breaks = 0:5 / 5,
                      expand = expansion(mult = c(0, 0))) +
   scale_y_continuous(expression(Marginal~p(theta*"|"*omega)),
                      expand = expansion(mult = c(0, 0.05)), limits = c(0, NA)) +
-  facet_wrap(~omega, ncol = 1, scales = "free", labeller = label_parsed)
+  facet_wrap(~ omega, ncol = 1, scales = "free", labeller = label_parsed)
 
 p23
 ```
@@ -503,8 +501,8 @@ p22 <-
          d_25 = dbeta(x = theta, shape1 = 3.5, shape2 = 8.5)) %>% 
   mutate(mean_prior = (d_75 + d_25) / 2) %>% 
 
-  ggplot(aes(x = theta, ymin = 0, ymax = mean_prior)) +
-  geom_ribbon(fill = kh[4]) +
+  ggplot(aes(x = theta, y = mean_prior)) +
+  geom_area(fill = kh[4]) +
   scale_x_continuous(expression(theta), breaks = 0:5 / 5, 
                      expand = expansion(mult = c(0, 0))) +
   scale_y_continuous(expression(Marginal~p(theta)), 
@@ -593,8 +591,8 @@ To make the middle bottom panel of Figure 10.3, we have to average the posterior
   group_by(theta) %>% 
   summarise(marginal_theta = mean(posterior)) %>% 
   
-  ggplot(aes(x = theta, ymin = 0, ymax = marginal_theta)) +
-  geom_ribbon(fill = kh[6]) +
+  ggplot(aes(x = theta, y = marginal_theta)) +
+  geom_area(fill = kh[6]) +
   scale_x_continuous(expression(theta), breaks = 0:5 / 5, 
                      expand = expansion(mult = c(0, 0))) +
   scale_y_continuous(expression(Marginal~p(theta*"|"*D)), 
@@ -613,13 +611,13 @@ p53 <-
                         levels = str_c("omega == ", c(.75, .25)))) %>%
   
 
-  ggplot(aes(x = theta, ymin = 0, ymax = posterior)) +
-  geom_ribbon(fill = kh[6]) +
+  ggplot(aes(x = theta, y = posterior)) +
+  geom_area(fill = kh[6]) +
   scale_x_continuous(expression(theta), breaks = 0:5 / 5, 
                      expand = expansion(mult = c(0, 0))) +
   scale_y_continuous(expression(Marginal~p(theta*"|"*omega*", "*D)), 
                      expand = expansion(mult = c(0, 0.05)), limits = c(0, NA)) + 
-  facet_wrap(~omega, ncol = 1, scales = "free", labeller = label_parsed)
+  facet_wrap(~ omega, ncol = 1, scales = "free", labeller = label_parsed)
 
 p53
 ```
@@ -631,13 +629,13 @@ d %>%
   filter(omega %in% c(.25, .75)) %>% 
   mutate(omega = str_c("omega == ", omega)) %>%
 
-  ggplot(aes(x = theta, ymin = 0, ymax = posterior)) +
-  geom_ribbon(fill = kh[6]) + 
+  ggplot(aes(x = theta, y = posterior)) +
+  geom_area(fill = kh[6]) + 
   scale_x_continuous(expression(theta), breaks = 0:5 / 5, 
                      expand = expansion(mult = c(0, 0))) +
   scale_y_continuous(expression(Marginal~p(theta*"|"*omega)), 
                      expand = expansion(mult = c(0, 0.05)), limits = c(0, NA)) + 
-  facet_wrap(~omega, ncol = 1, labeller = label_parsed)
+  facet_wrap(~ omega, ncol = 1, labeller = label_parsed)
 ```
 
 Hopefully that helps build the intuition of what Kruschke meant when he wrote "*visual inspection suggests that the ratio of the heights is about 5 to 1, which matches the Bayes factor of 4.68 that we computed exactly in the previous section*" (p. 273, *emphasis* in the original).
@@ -746,7 +744,7 @@ stanvars <-
   stanvar((1 - omega) * (kappa - 2) + 1, name = "my_beta")
 ```
 
-Now we have our `stanvars` object, we are ready to fit the first model (i.e., the model for which $\omega = .75$). 
+Now we have our `stanvars` object, we are ready to fit the first model (i.e., the model for which $\omega = .75$).
 
 ```{r fit10.1}
 fit10.1 <-
@@ -912,7 +910,7 @@ In addition to difference-score comparisons, you can also use the LOO or WAIC fo
 (mw <- model_weights(fit10.1, fit10.2))
 ```
 
-I don't know that I'd call these weights probabilities, but they do sum to one. In this case, the analysis suggests we put about five times more weight to `fit10.1` relative to `fit10.2`. 
+I don't know that I'd call these weights probabilities, but they do sum to one. In this case, the analysis suggests we put about five times more weight to `fit10.1` relative to `fit10.2`.
 
 ```{r}
 mw[1] / mw[2]
@@ -1048,9 +1046,8 @@ In case you were curious, here's what that default `gamma(2, 0.1)` prior on `nu`
 
 ```{r, fig.width = 4, fig.height = 2}
 tibble(x = seq(from = 1, to = 100, by = 1)) %>% 
-  ggplot(aes(x = x, ymin = 0,
-             ymax = dgamma(x, 2, 0.1))) +
-  geom_ribbon(size = 0, fill = kh[5]) +
+  ggplot(aes(x = x, y = dgamma(x, 2, 0.1))) +
+  geom_area(fill = kh[5]) +
   scale_y_continuous(NULL, breaks = NULL,
                      expand = expansion(mult = c(0, 0.05))) +
   scale_x_continuous(expression(italic(p)(nu)), expand = expansion(mult = c(0, 0.01)), limits = c(0, 100))
@@ -1080,7 +1077,7 @@ Based on the WAIC difference, we have some support for preferring the Student's 
 model_weights(fit10.3, fit10.4)
 ```
 
-Virtually all of the stacking weight was placed on the Student's-$t$ model, `fit10.4`. 
+Virtually all of the stacking weight was placed on the Student's-$t$ model, `fit10.4`.
 
 Remember what that $p(\nu)$ looked like? Here's our posterior distribution for $\nu$.
 
@@ -1212,15 +1209,15 @@ tibble(omega = .5,
                          shape2 = (1 - omega) * (kappa - 2) + 1)) %>% 
   
   # plot
-  ggplot(aes(x = theta, ymin = 0, ymax = density)) +
-  geom_ribbon(fill = kh[5]) + 
+  ggplot(aes(x = theta, y = density)) +
+  geom_area(fill = kh[5]) + 
   scale_x_continuous(expression(theta), expand = expansion(mult = c(0, 0)), 
                      breaks = 0:5 / 5, labels = c("0", ".2", ".4", ".6", ".8", "1"),
                      limits = c(0, 1)) +
   scale_y_continuous(NULL, breaks = NULL,
                      expand = expansion(mult = c(0, 0.05))) +
   labs(subtitle = "Note that in this case, their y-axes are on the same scale.") +
-  facet_wrap(~model)
+  facet_wrap(~ model)
 ```
 
 Here's how you might compute the $\alpha$ and $\beta$ values for the corresponding beta distributions.
@@ -1360,8 +1357,8 @@ tibble(alpha = c(1, .01),
                          shape2 = beta)) %>% 
   
   # plot
-  ggplot(aes(x = theta, ymin = 0, ymax = density)) +
-  geom_ribbon(fill = kh[3]) + 
+  ggplot(aes(x = theta, y = density)) +
+  geom_area(fill = kh[3]) + 
   scale_x_continuous(expression(theta), expand = expansion(mult = c(0, 0)), 
                      breaks = 0:5 / 5, labels = c("0", ".2", ".4", ".6", ".8", "1"),
                      limits = c(0, 1)) +
@@ -1369,7 +1366,7 @@ tibble(alpha = c(1, .01),
                      expand = expansion(mult = c(0, 0.05))) +
   labs(title = "We have two anything’s-possible models.",
        subtitle = "These y-axes are on the same scale.") +
-  facet_wrap(~model)
+  facet_wrap(~ model)
 ```
 
 Before we can complete the analyses of this subsection, we'll need to define our version of Kruschke's `HDIofICDF function()`, `hdi_of_icdf()`. Like we've done in previous chapters, here we mildly reformat the function.
@@ -1468,7 +1465,7 @@ p_d(z, n, a = 500 + 6, b = 500 + 10 - 6) / p_d(z, n, a = .01 + 6, b = .01 + 10 -
 
 Now the two Bayes Factors are nearly the same.
 
-It's not in the text, but let's compare these three models using **brms**, information criteria, model weights, model averaging, and posterior predictive checks. First, we'll save the $z$ and $N$ information as a tibble with a series of 0s and 1s.
+It's not in the text, but let's compare these three models using **brms**, information criteria, model weights, model averaging, and posterior predictive checks. First, we'll save the $z$ and $N$ information as a tibble with a series of 0's and 1's.
 
 ```{r}
 z <- 65
