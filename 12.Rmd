@@ -25,7 +25,7 @@ options(width = 100)
 Kruschke began: "A *region of practical equivalence* (ROPE) indicates a small range of parameter values that are considered to be practically equivalent to the null value for purposes of the particular application" (p. 336, *emphasis* in the original)
 
 Before we get to plotting, let's talk about themes and color. For the plots in this chapter, we'll take our color palette from the [**fishualize** package](https://CRAN.R-project.org/package=fishualize) [@R-fishualize], which provides a range of color palettes based on fish species. Our palette will be `"Ostorhinchus_angustatus"`, which is based on [Ostorhinchus angustatus](https://www.fishbase.se/summary/Ostorhinchus-angustatus.html).
-plot(lisa::lisa_palette("JamesJean"))
+
 ```{r, warning = F, message = F, fig.height = 3.5}
 # install.packages("fishualize", dependencies = T)
 
@@ -109,8 +109,8 @@ ggplot(data = d) +
   geom_rect(xmin = .45,  xmax = .55,
             ymin = -Inf, ymax = Inf,
             color = "transparent", fill = oa[2]) +
-  geom_ribbon(aes(x = theta, ymin = 0, ymax = posterior),
-              fill = oa[4]) +
+  geom_area(aes(x = theta, y = posterior),
+            fill = oa[4]) +
   annotate(geom = "text", x = .5, y = .01, 
            label = "ROPE", color = oa[5]) +
   scale_x_continuous(breaks = 0:5 / 5, expand = expansion(mult = 0), limits = c(0, 1)) +
@@ -166,9 +166,8 @@ tibble(theta = seq(from = 0, to = 1, length.out = 1e3)) %>%
   geom_rect(xmin = .45,  xmax = .55,
             ymin = -Inf, ymax = Inf,
             color = "transparent", fill = oa[2]) +
-  geom_ribbon(aes(x = theta, 
-                  ymin = 0, ymax = dbeta(theta, shape1 = alpha, shape2 = beta)),
-              fill = oa[4], size = 0) +
+  geom_area(aes(x = theta, y = dbeta(theta, shape1 = alpha, shape2 = beta)),
+            fill = oa[4]) +
   geom_segment(x = h[1], xend = h[2],
                y = 0, yend = 0,
                size = 1, color = oa[3]) +
@@ -200,8 +199,8 @@ tibble(theta = seq(from = 0, to = 1, length.out = 1e3)) %>%               # (i.e
   geom_rect(xmin = .45,  xmax = .55,
             ymin = -Inf, ymax = Inf,
             color = "transparent", fill = oa[2]) +
-  geom_ribbon(aes(x = theta, ymin = 0, ymax = posterior),
-              fill = oa[4]) +
+  geom_area(aes(x = theta, y = posterior),
+            fill = oa[4]) +
   scale_x_continuous(breaks = 0:5 / 5, expand = expansion(mult = 0), limits = c(0, 1)) +
   scale_y_continuous(NULL, breaks = NULL, expand = expansion(mult = c(0, 0.05))) +
   labs(title = "This posterior sits right within the ROPE.",
@@ -228,7 +227,7 @@ Kruschke then went on to compare the ROPE with frequentist equivalence tests. Th
 
 ### Some examples.
 
-Kruschke referenced an analysis from way back in Chapter 9. We'll need to re-fit the model. First we import data.
+Kruschke referenced an analysis from way back in [Chapter 9][Hierarchical Models]. We'll need to re-fit the model. First we import data.
 
 ```{r, warning = F, message = F}
 my_data <- read_csv("data.R/BattingAverage.csv")
@@ -300,7 +299,7 @@ c_small %>%
        x = expression(theta)) +
   coord_cartesian(xlim = c(-.125, .125)) +
   theme(legend.position = "none") +
-  facet_wrap(~name, scales = "free")
+  facet_wrap(~ name, scales = "free")
 ```
 
 In order to re-plot part of Figure 9.15, we'll need to employ `fitted()` to snatch the player-specific posteriors.
@@ -392,7 +391,7 @@ d %>%
                     breaks = 30, normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(expression(theta)) +
-  facet_wrap(~key, scales = "free_y", labeller = label_parsed)
+  facet_wrap(~ key, scales = "free_y", labeller = label_parsed)
 ```
 
 Here's the scatter plot, showing the correlation. I think we got pretty close!
@@ -429,7 +428,7 @@ d <- MASS::mvrnorm(n = 1000, mu = mu, Sigma = covariance_matrix) %>%
   set_names(str_c("theta[", 1:2, "]"))
 ```
 
-Here are our right-panel Figure 12.1 histograms. 
+Here are our right-panel Figure 12.1 histograms.
 
 ```{r, fig.width = 8, fig.height = 2.75}
 d %>% 
@@ -442,7 +441,7 @@ d %>%
                     breaks = 20, normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(expression(theta)) +
-  facet_wrap(~key, scales = "free_y",  labeller = label_parsed)
+  facet_wrap(~ key, scales = "free_y",  labeller = label_parsed)
 ```
 
 Behold the second scatter plot.
@@ -468,10 +467,8 @@ Though Kruschke told us Figure 12.2 was of a gamma distribution, he didn't tell 
 ```{r, fig.width = 4, fig.height = 2}
 tibble(x = seq(from = 0, to = 40, by = .1)) %>% 
   
-  ggplot(aes(x = x)) +
-  geom_ribbon(aes(ymin = 0,
-                  ymax = dgamma(x, 2, .2)),
-              fill = oa[4]) +
+  ggplot(aes(x = x, y = dgamma(x, 2, .2))) +
+  geom_area(fill = oa[4]) +
   scale_x_continuous(expand = expansion(mult = c(0, 0.05))) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.05))) +
   coord_cartesian(xlim = c(0, 35))
@@ -538,8 +535,8 @@ text <-
 # plot!
 tibble(x = seq(from = 0, to = 40, by = .1)) %>% 
   ggplot(aes(x = x)) +
-  geom_ribbon(aes(ymin = 0, ymax = dgamma(x, 2, .2)),
-              fill = oa[4]) +
+  geom_area(aes(y = dgamma(x, 2, .2)),
+            fill = oa[4]) +
   geom_path(data = lines,
             aes(y = y, color = interval),
             size = 1) +
@@ -605,7 +602,7 @@ d <-
          likelihood = bernoulli_likelihood(theta = theta,
                                            data = trial_data)) %>%
   # we have to slice off the first and last values because they go to infinity on the prior, 
-  # which creats problems when computing the denominator `sum(likelihood * prior)` (i.e., p(D))
+  # which creates problems when computing the denominator `sum(likelihood * prior)` (i.e., p(D))
   slice(2:999) %>% 
   mutate(posterior = likelihood * prior / sum(likelihood * prior))
 
@@ -617,9 +614,8 @@ Here's the left column of Figure 12.3.
 ```{r, fig.width = 4.5, fig.height = 7, warning = F, message = F}
 p1 <-
   d %>% 
-  ggplot(aes(x = theta)) +
-  geom_ribbon(aes(ymin = 0, ymax = prior),
-              fill = oa[4]) +
+  ggplot(aes(x = theta, y = prior)) +
+  geom_area(fill = oa[4]) +
   annotate(geom = "text", x = .1, y = 4, 
            label = expression(epsilon == 0.01), 
            size = 3.5, color = oa[5]) +
@@ -628,17 +624,15 @@ p1 <-
 
 p2 <-
   d %>% 
-  ggplot(aes(x = theta)) +
-  geom_ribbon(aes(ymin = 0, ymax = likelihood),
-              fill = oa[4]) +
+  ggplot(aes(x = theta, y = likelihood)) +
+  geom_area(fill = oa[4]) +
   labs(title = "Likelihood (Bernoulli)",
        y = expression(p(D*"|"*theta)))
 
 p3 <-
   d %>% 
-  ggplot(aes(x = theta)) +
-  geom_ribbon(aes(ymin = 0, ymax = posterior),
-              fill = oa[4]) +
+  ggplot(aes(x = theta, y = posterior)) +
+  geom_area(fill = oa[4]) +
   labs(title = "Posterior (beta)",
        y = expression("beta"*(theta*"|"*7.01*", "*17.01)))
 
@@ -683,25 +677,22 @@ Now here's the right column of Figure 12.3.
 ```{r, fig.width = 4.5, fig.height = 7, warning = F, message = F}
 p1 <-
   d %>% 
-  ggplot(aes(x = theta)) +
-  geom_ribbon(aes(ymin = 0, ymax = prior),
-              fill = oa[4]) +
+  ggplot(aes(x = theta, y = prior)) +
+  geom_area(fill = oa[4]) +
   labs(title = "Prior (beta)",
        y = expression("beta"*(theta*"|"*2*", "*4)))
 
 p2 <-
   d %>% 
-  ggplot(aes(x = theta)) +
-  geom_ribbon(aes(ymin = 0, ymax = likelihood),
-              fill = oa[4]) +
+  ggplot(aes(x = theta, y = likelihood)) +
+  geom_area(fill = oa[4]) +
   labs(title = "Likelihood (Bernoulli)",
        y = expression(p(D*"|"*theta)))
 
 p3 <-
   d %>% 
-  ggplot(aes(x = theta)) +
-  geom_ribbon(aes(ymin = 0, ymax = posterior),
-              fill = oa[4]) +
+  ggplot(aes(x = theta, y = posterior)) +
+  geom_area(fill = oa[4]) +
   labs(title = "Posterior (beta)",
        y = expression("beta"*(theta*"|"*9*", "*21)))
 
@@ -790,7 +781,7 @@ tibble(shape1 =     z + c(2, 1, .1, .01, .001, .0001, .00001),
   mutate_at(vars(ends_with("l")), .funs = ~round(., digits = 4))
 ```
 
-As Kruschke mused, 
+As Kruschke mused,
 
 > if we consider the posterior distribution instead of the Bayes' factor, we see that the posterior distribution on $\theta$ within the alternative model is only slightly affected by the prior... In all cases, the 95% HDI excludes the null value, although a wide ROPE might overlap the HDI. Thus, the explicit estimation of the bias parameter robustly indicates that the null value should be rejected, but perhaps only marginally. This contrasts with the Bayes' factor, model-comparison approach, which rejected the null or accepted the null depending on the alternative prior. 
 
@@ -821,9 +812,8 @@ d <-
 
 p1 <-
   d %>% 
-  ggplot(aes(x = theta)) +
-  geom_ribbon(aes(ymin = 0, ymax = prior),
-              fill = oa[4]) +
+  ggplot(aes(x = theta, y = prior)) +
+  geom_area(fill = oa[4]) +
   annotate(geom = "text", x = .1, y = 4, 
            label = expression(epsilon == 0.01), 
            size = 3.5, color = oa[5]) +
@@ -832,17 +822,15 @@ p1 <-
 
 p2 <-
   d %>% 
-  ggplot(aes(x = theta)) +
-  geom_ribbon(aes(ymin = 0, ymax = likelihood),
-              fill = oa[4]) +
+  ggplot(aes(x = theta, y = likelihood)) +
+  geom_area(fill = oa[4]) +
   labs(title = "Likelihood (Bernoulli)",
        y = expression(p(D*"|"*theta)))
 
 p3 <-
   d %>% 
-  ggplot(aes(x = theta)) +
-  geom_ribbon(aes(ymin = 0, ymax = posterior),
-              fill = oa[4]) +
+  ggplot(aes(x = theta, y = posterior)) +
+  geom_area(fill = oa[4]) +
   labs(title = "Posterior (beta)",
        y = expression("beta"*(theta*"|"*7.01*", "*17.01)))
 
@@ -896,25 +884,22 @@ d <-
 
 p1 <-
   d %>% 
-  ggplot(aes(x = theta)) +
-  geom_ribbon(aes(ymin = 0, ymax = prior),
-              fill = oa[4]) +
+  ggplot(aes(x = theta, y = prior)) +
+  geom_area(fill = oa[4]) +
   labs(title = "Prior (beta)",
        y = expression("beta"*(theta*"|"*1*", "*1)))
 
 p2 <-
   d %>% 
-  ggplot(aes(x = theta)) +
-  geom_ribbon(aes(ymin = 0, ymax = likelihood),
-              fill = oa[4]) +
+  ggplot(aes(x = theta, y = likelihood)) +
+  geom_area(fill = oa[4]) +
   labs(title = "Likelihood (Bernoulli)",
        y = expression(p(D*"|"*theta)))
 
 p3 <-
   d %>% 
-  ggplot(aes(x = theta)) +
-  geom_ribbon(aes(ymin = 0, ymax = posterior),
-              fill = oa[4]) +
+  ggplot(aes(x = theta, y = posterior)) +
+  geom_area(fill = oa[4]) +
   labs(title = "Posterior (beta)",
        y = expression("beta"*(theta*"|"*8*", "*8)))
 
@@ -961,12 +946,11 @@ d <- tibble(theta = seq(from = 0, to = 1, length.out = 1e3))
 # the Haldane-based plot
 p1 <-
   d %>% 
-  ggplot(aes(x = theta)) +
+  ggplot(aes(x = theta, y = dbeta(theta, shape1 = alpha, shape2 = beta))) +
   geom_rect(xmin = .48,  xmax = .52,
             ymin = -Inf, ymax = Inf,
             color = "transparent", fill = oa[2]) +
-  geom_ribbon(aes(ymin = 0, ymax = dbeta(theta, shape1 = alpha, shape2 = beta)),
-              fill = oa[4], size = 0) +
+  geom_area(fill = oa[4]) +
   annotate(geom = "text", x = .05, y = 35, 
            label = expression(epsilon == 0.01), size = 3.5) +
   ggtitle("This posterior used the Haldane prior.")
@@ -978,12 +962,11 @@ beta  <- n - z + 1
 # the Beta(1, 1)-based plot
 p2 <-
   d %>% 
-  ggplot(aes(x = theta)) +
+  ggplot(aes(x = theta, y = dbeta(theta, shape1 = alpha, shape2 = beta))) +
   geom_rect(xmin = .48,  xmax = .52,
             ymin = -Inf, ymax = Inf,
             color = "transparent", fill = oa[2]) +
-  geom_ribbon(aes(ymin = 0, ymax = dbeta(theta, shape1 = alpha, shape2 = beta)),
-              fill = oa[4], size = 0) +
+  geom_area(fill = oa[4]) +
   ggtitle("This time we used the flat beta (1, 1).")
 
 (p1 / p2) & 
@@ -1095,12 +1078,12 @@ post %>%
                     breaks = 30, normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   coord_cartesian(xlim = c(-.25, .25)) +
-  facet_wrap(~key, labeller = label_parsed)
+  facet_wrap(~ key, labeller = label_parsed)
 ```
 
-Also, do note we're working with the $\theta$ parameters in our aggregated binomial models, rather than $\omega$s. 
+Also, do note we're working with the $\theta$ parameters in our aggregated binomial models, rather than $\omega$s.
 
-Here's how you'd get the eact mode and HDI summaries.
+Here's how you'd get the actual exact and HDI summaries.
 
 ```{r}
 post %>% 
@@ -1156,7 +1139,7 @@ Recall that within a given comparison, the weights sum to 1, with better fitting
 
 #### Bonus: Hypothesis testing in brms.
 
-Disclaimer: I am not a fan of hypothesis texting within the Bayesian framework. Outside of pedagogical material, I do not use these methods. However, it'd seem negligent not to at least mention the convenience function designed for that purpose in **brms**: the `hypothesis()` function. From the `hypothesis.brmsfit` section in the [**brms** reference manual](https://CRAN.R-project.org/package=brms/brms.pdf) [@brms2020RM, p. 96] we read:
+Disclaimer: I am not a fan of hypothesis testing within the Bayesian framework. Outside of pedagogical material, I do not use these methods. However, it'd seem negligent not to at least mention the convenience function designed for that purpose in **brms**: the `hypothesis()` function. From the `hypothesis.brmsfit` section in the [**brms** reference manual](https://CRAN.R-project.org/package=brms/brms.pdf) [@brms2020RM, p. 96] we read:
 
 > Among others, `hypothesis` computes an evidence ratio (`Evid.Ratio`) for each hypothesis. For a one-sided hypothesis, this is just the posterior probability (`Post.Prob`) under the hypothesis against its alternative. That is, when the hypothesis is of the form `a > b`, the evidence ratio is the ratio of the posterior probability of `a > b` and the posterior probability of `a < b`. In this example, values greater than one indicate that the evidence in favor of `a > b` is larger than evidence in favor of `a < b`. For an two-sided (point) hypothesis, the evidence ratio is a Bayes factor between the hypothesis and its alternative computed via the Savage-Dickey density ratio method. That is the posterior density at the point of interest divided by the prior density at that point. Values greater than one indicate that evidence in favor of the point hypothesis has increased after seeing the data. In order to calculate this Bayes factor, all parameters related to the hypothesis must have proper priors and argument `sample_prior` of function brm must be set to `"yes"`. Otherwise Evid.Ratio (and Post.Prob) will be `NA`. Please note that, for technical reasons, we cannot sample from priors of certain parameters classes. Most notably, these include overall intercept parameters (prior class `"Intercept"`) as well as group-level coefficients. When interpreting Bayes factors, make sure that your priors are reasonable and carefully chosen, as the result will depend heavily on the priors. In particular, avoid using default priors.
 
@@ -1223,7 +1206,7 @@ sessionInfo()
 ```
 
 ```{r, echo = F}
-# Here we'll remove our objects
+# here we'll remove our objects
 rm(oa, bernoulli_likelihood, n, z, trial_data, d, alpha, beta, hdi_of_icdf, h, my_data, fit9.2, c, c_small, name_list, nd, correlation_matrix, mu, sd, covariance_matrix, ex, hx, ey, hy, lines, text, epsilon, p1, p2, p3, p_d_null, p_d, hdi_of_qbeta, a, b, n_g, n_t, fit12.1, post, fit12.2, f, theta)
 ```
 
