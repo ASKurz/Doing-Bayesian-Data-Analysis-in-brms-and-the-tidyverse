@@ -46,7 +46,7 @@ head(d)
 
 Instead of putting the coordinates for the three data points in our `d` tibble, I just threw them into their own tibble in the `geom_point()` function.
 
-Okay, let's talk color and theme. For this chapter, we'll take our color palette from the [**beyonce** package](https://github.com/dill/beyonce) [@R-beyonce]. As one might guess, the **beyonce** package provides an array of palettes based on pictures of [Beyoncé](https://www.beyonce.com/). The origins of the palettes come from [https://beyoncepalettes.tumblr.com/](https://beyoncepalettes.tumblr.com/). Our palette will be #126. 
+Okay, let's talk color and theme. For this chapter, we'll take our color palette from the [**beyonce** package](https://github.com/dill/beyonce) [@R-beyonce]. As one might guess, the **beyonce** package provides an array of palettes based on pictures of [Beyoncé](https://www.beyonce.com/). The origins of the palettes come from [https://beyoncepalettes.tumblr.com/](https://beyoncepalettes.tumblr.com/). Our palette will be #126.
 
 ```{r, warning = F, message = F, fig.width = 3, fig.height = 1}
 # devtools::install_github("dill/beyonce")
@@ -89,8 +89,8 @@ Here's Figure 16.1.
 ```{r}
 d %>% 
   ggplot(aes(x = y)) +
-  geom_ribbon(aes(ymin = 0, ymax = density),
-              fill = bp[2]) +
+  geom_area(aes(y = density),
+            fill = bp[2]) +
   geom_vline(xintercept = c(85, 100, 115), 
              linetype = 3, color = bp[5]) +
   geom_point(data = tibble(y = c(85, 100, 115)),
@@ -168,11 +168,11 @@ It's been a while since we used the `stanvar()` function, so we should review. T
 Kruschke mentioned that the "the conventional noncommittal gamma prior [for the precision] has shape and rate constants that are close to zero, such as Sh = 0.01 and R = 0.01" (p. 456). Here's what that looks like.
 
 ```{r, fig.width = 6, fig.height = 3}
-tibble(x   = seq(from = 0, to = 12, by = .025)) %>% 
+tibble(x = seq(from = 0, to = 12, by = .025)) %>% 
   mutate(d = dgamma(x, shape = 0.01, rate = 0.01)) %>% 
   
-  ggplot(aes(x = x, ymin = 0, ymax = d)) +
-  geom_ribbon(fill = bp[3]) +
+  ggplot(aes(x = x, y = d)) +
+  geom_area(fill = bp[3]) +
   geom_vline(xintercept = 1 / sd_y, linetype = 2, color = bp[5]) +
   labs(subtitle = "The grey density in the background is the conventional gamma prior for precision.\nThe dashed vertical line is our precision value.") +
   scale_x_continuous(expand = expansion(mult = c(0, 0.05))) +
@@ -189,8 +189,8 @@ Here we'll use the half normal. By "half normal," we mean that the mean is zero 
 tibble(x   = seq(from = 0, to = 110, by = .1)) %>% 
   mutate(d = dnorm(x, mean = 0, sd = sd_y)) %>% 
   
-  ggplot(aes(x = x, ymin = 0, ymax = d)) +
-  geom_ribbon(fill = bp[3]) +
+  ggplot(aes(x = x, y = d)) +
+  geom_area(fill = bp[3]) +
   geom_vline(xintercept = sd_y, linetype = 2, color = bp[5]) +
   scale_x_continuous(expand = expansion(mult = c(0, 0.05))) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.05)), breaks = NULL) +
@@ -205,11 +205,11 @@ This prior isn't quite as non-committal as the conventional gamma prior for prec
 On page 456, Kruschke gave an example of such a uniform prior with the code snip `dunif( sdY/1000 , sdY*1000 )`. Here's what that would look like with our data.
 
 ```{r, fig.width = 6, fig.height = 3}
-tibble(x   = 0:(sd_y * 1000)) %>% 
+tibble(x = 0:(sd_y * 1000)) %>% 
   mutate(d = dunif(x, min = sd_y / 1000, max = sd_y * 1000)) %>% 
   
-  ggplot(aes(x = x, ymin = 0, ymax = d)) +
-  geom_ribbon(fill = bp[3]) +
+  ggplot(aes(x = x, y = d)) +
+  geom_area(fill = bp[3]) +
   geom_vline(xintercept = sd_y, linetype = 2, color = bp[5]) +
   scale_x_continuous(expand = expansion(mult = c(0, 0.05))) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.05)), breaks = NULL) +
@@ -227,8 +227,8 @@ In case you're not following along closely in the text, we often use the normal 
 tibble(x = seq(from = -10000, to = 10000, by = 1)) %>% 
   mutate(d = dnorm(x, mean = mean_y, sd = sd_y * 100)) %>% 
   
-  ggplot(aes(x = x, ymin = 0, ymax = d)) +
-  geom_ribbon(fill = bp[3]) +
+  ggplot(aes(x = x, y = d)) +
+  geom_area(fill = bp[3]) +
   geom_vline(xintercept = mean_y, linetype = 2, color = bp[5]) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.05)), breaks = NULL) +
   labs(subtitle = "The grey density in the background is the normal prior for mu.\nThe dashed vertical line is our 'mean_y' value.")
@@ -242,8 +242,8 @@ library(patchwork)
 # normal density
 p1 <-
   tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
-  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
-  geom_ribbon(fill = bp[6], size = 0) +
+  ggplot(aes(x = x, y = (dnorm(x)) / max(dnorm(x)))) +
+  geom_area(fill = bp[6]) +
   annotate(geom = "text",
            x = 0, y = .2,
            label = "normal",
@@ -260,8 +260,8 @@ p1 <-
 p2 <-
   tibble(x = seq(from = 0, to = 3, by = .01),
          d = (dnorm(x)) / max(dnorm(x))) %>% 
-  ggplot(aes(x = x, ymin = 0, ymax = d)) +
-  geom_ribbon(fill = bp[6], size = 0) +
+  ggplot(aes(x = x, y = d)) +
+  geom_area(fill = bp[6]) +
   annotate(geom = "text",
            x = 1.5, y = .2,
            label = "half-normal",
@@ -297,8 +297,8 @@ p3 <-
 # a second normal density
 p4 <-
   tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
-  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
-  geom_ribbon(fill = bp[6], size = 0) +
+  ggplot(aes(x = x, y = (dnorm(x)) / max(dnorm(x)))) +
+  geom_area(fill = bp[6]) +
   annotate(geom = "text",
            x = 0, y = .2,
            label = "normal",
@@ -440,7 +440,7 @@ post %>%
             size = 2.5, color = bp[4]) +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(NULL) +
-  facet_wrap(~key, scales = "free", ncol = 3)
+  facet_wrap(~ key, scales = "free", ncol = 3)
 ```
 
 If we wanted those exact 95% HDIs, we'd execute this.
@@ -502,7 +502,7 @@ post %>%
                  fill = bp[2],
                  size = .2, binwidth = 5, boundary = 0) +
   geom_line(aes(y = density, group = iter),
-            size  = 1/4, alpha = 1/3, color = bp[6]) +
+            size = 1/4, alpha = 1/3, color = bp[6]) +
   scale_x_continuous("y", limits = c(50, 210)) +
   scale_y_continuous(NULL, breaks = NULL, expand = expansion(mult = c(0, 0.05))) +
   ggtitle("Data with Post. Pred.")
@@ -560,16 +560,14 @@ Here's Figure 16.5.a.
 ```{r, fig.width = 6, fig.height = 3}
 tibble(y = seq(from = -10, to = 20, length.out = 1e3)) %>% 
   ggplot(aes(x = y)) +
-  geom_ribbon(aes(ymin = 0,
-                  ymax = dnorm(y, mean = 2.5, sd = 5.73)),
-              color = "transparent", fill = bp[2], alpha = 1/2) +
-  geom_ribbon(aes(ymin = 0,
-                  ymax = metRology::dt.scaled(y, df = 1.14, mean = .12, sd = 1.47)),
-              color = "transparent", fill = bp[2], alpha = 1/2) +
+  geom_area(aes(y = dnorm(y, mean = 2.5, sd = 5.73)),
+            fill = bp[2], alpha = 1/2) +
+  geom_area(aes(y = metRology::dt.scaled(y, df = 1.14, mean = .12, sd = 1.47)),
+            fill = bp[2], alpha = 1/2) +
   geom_vline(xintercept = c(.12, 2.5), color = bp[5], linetype = 3) +
-  geom_point(data = tibble(y = c(-2:2, 15)),
-             aes(y = 0.002),
-             size = 2, color = bp[6]) +
+  annotate(geom = "point", 
+           x = c(-2:2, 15), y = 0.002,
+           size = 2, color = bp[6]) +
   scale_y_continuous(expression(p(y)), expand = expansion(mult = c(0, 0.05))) +
   ggtitle("Maximum Likelihood Estimates") +
   coord_cartesian(xlim = c(-5, 15))
@@ -592,9 +590,9 @@ tibble(y = seq(from = -3, to = 12, length.out = 1e3)) %>%
                  fill = bp[3],
                  size = .2, binwidth = .1) +
   geom_line(aes(y = dnorm(y, mean = 1.16, sd = 0.63)),
-              color = bp[2]) +
+            color = bp[2]) +
   geom_line(aes(y = metRology::dt.scaled(y, df = 2.63, mean = 1.11, sd = 0.15)),
-              color = bp[2]) +
+            color = bp[2]) +
   scale_x_continuous(breaks = seq(from = -2, to = 10, by = 2)) +
   scale_y_continuous(expression(p(y)), expand = expansion(mult = c(0, 0.05))) +
   ggtitle("Maximum Likelihood Estimates") +
@@ -640,12 +638,11 @@ d <-
 p1 <-
   d %>% 
   ggplot(aes(x = y)) +
-  geom_ribbon(aes(ymin = 0, ymax = dt(y, df = nu)),
-              fill = bp[2]) +
-  geom_ribbon(data = . %>% 
-                filter(y >= -1 & y <= 1),
-              aes(ymin = 0, ymax = dt(y, df = nu)),
-              fill = bp[1]) +
+  geom_area(aes(y = dt(y, df = nu)),
+            fill = bp[2]) +
+  geom_area(data = . %>% filter(y >= -1 & y <= 1),
+            aes(y = dt(y, df = nu)),
+            fill = bp[1]) +
   # note how this function has its own data
   geom_text(data = tibble(
     y     = 0,
@@ -656,7 +653,7 @@ p1 <-
   scale_y_continuous(expression(p(y)), expand = expansion(mult = c(0, 0.05)), breaks = c(0, .2, .4)) +
   labs(subtitle = "Shaded from y = - 1 to y = 1") +
   coord_cartesian(xlim = c(-6, 6)) +
-  facet_wrap(~label, ncol = 1, labeller = label_parsed)
+  facet_wrap(~ label, ncol = 1, labeller = label_parsed)
 ```
 
 Here's the code for the right column.
@@ -676,19 +673,20 @@ d <-
 p2 <-
   d %>% 
   ggplot(aes(x = y)) +
-  geom_ribbon(aes(ymin = 0, ymax = dt(y, df = nu)),
-              fill = bp[2]) +
-  geom_ribbon(data = . %>% 
-                # notice our `filter()` argument has changed
-                filter(y >= ymin & y <= ymax),
-              aes(ymin = 0, ymax = dt(y, df = nu)),
-              fill = bp[1]) +
-  annotate(geom = "text", x = 0, y = .175, 
+  geom_area(aes(y = dt(y, df = nu)),
+            fill = bp[2]) +
+  geom_area(data = . %>% 
+              # notice our `filter()` argument has changed
+              filter(y >= ymin & y <= ymax),
+            aes(y = dt(y, df = nu)),
+            fill = bp[1]) +
+  annotate(geom = "text", 
+           x = 0, y = .175, 
            label = "68%", color = "white") +
   scale_y_continuous(expression(p(y)), expand = expansion(mult = c(0, 0.05)), breaks = c(0, .2, .4)) +
   labs(subtitle = "Shaded for the middle 68.27%") +
   coord_cartesian(xlim = c(-6, 6)) +
-  facet_wrap(~label, ncol = 1, labeller = label_parsed)
+  facet_wrap(~ label, ncol = 1, labeller = label_parsed)
 ```
 
 Now we'll bind the two ggplots together with the **patchwork** package to make the full version of Figure 16.6.
@@ -811,7 +809,7 @@ post %>%
   geom_point(color = bp[6], size = 1/3, alpha = 1/3) +
   labs(x = expression(log10(nu)),
        y = NULL) +
-  facet_grid(key~., scales = "free", switch = "y")
+  facet_grid(key ~ ., scales = "free", switch = "y")
 ```
 
 If you want the Pearson's correlation coefficients, you can use base **R** `cor()`.
@@ -853,7 +851,7 @@ post %>%
                     normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(NULL) +
-  facet_wrap(~key, scales = "free", ncol = 2)
+  facet_wrap(~ key, scales = "free", ncol = 2)
 ```
 
 For the final panel of Figure 16.9, we'll make our $t$ lines in much the same way we did, earlier. But last time, we just took the first $\mu$ and $\sigma$ values from the first 63 rows of the `post` tibble. This time we'll use `dplyr::sample_n()` to take *random draws* from the `post` rows instead. We tell `sample_n()` how many draws we'd like with the `size` argument. Since `sample_n()` tells us which rows it drew from in the form of rownames, we then use the `tibble::rownames_to_column()` function to save those rownames in an actual column named `draw`--this is the variable we group the lines by in `geom_line()`.
@@ -867,7 +865,7 @@ n_lines <- 63
 # setting the seed makes the results from `sample_n()` reproducible
 set.seed(16)
 
-# wragle
+# wrangle
 post %>% 
   sample_n(size = n_lines) %>% 
   rownames_to_column("iter") %>% 
@@ -1008,7 +1006,7 @@ p2 <-
 p1 + p2
 ```
 
-It's subtle, but you might notice that the simulated CDFs from `fit16.1` have steeper slopes in the middle when compared to the original data in the dark blue. However, the `fit16.2`-based simulated CDFs match up more closely with the original data. This suggests an edge for `fit16.2`. Revisiting our skills from Chapter 10, we might also compare their model weights.
+It's subtle, but you might notice that the simulated CDFs from `fit16.1` have steeper slopes in the middle when compared to the original data in the dark blue. However, the `fit16.2`-based simulated CDFs match up more closely with the original data. This suggests an edge for `fit16.2`. Revisiting our skills from [Chapter 10][Model Comparison and Hierarchical Modeling], we might also compare their model weights.
 
 ```{r, warning = F, message = F}
 model_weights(fit16.1, fit16.2) %>% 
@@ -1027,8 +1025,8 @@ To get a sense of what this looks like, here's our version of the model diagram 
 # exponential density
 p1 <-
   tibble(x = seq(from = 0, to = 1, by = .01)) %>% 
-  ggplot(aes(x = x, ymin = 0, ymax = (dexp(x, 2) / max(dexp(x, 2))))) +
-  geom_ribbon(fill = bp[6], size = 0) +
+  ggplot(aes(x = x, y = (dexp(x, 2) / max(dexp(x, 2))))) +
+  geom_area(fill = bp[6]) +
   annotate(geom = "text",
            x = .5, y = .2,
            label = "exp",
@@ -1044,8 +1042,8 @@ p1 <-
 # normal density
 p2 <-
   tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
-  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
-  geom_ribbon(fill = bp[6], size = 0) +
+  ggplot(aes(x = x, y = (dnorm(x)) / max(dnorm(x)))) +
+  geom_area(fill = bp[6]) +
   annotate(geom = "text",
            x = 0, y = .2,
            label = "normal",
@@ -1062,8 +1060,8 @@ p2 <-
 p3 <-
   tibble(x = seq(from = 0, to = 3, by = .01),
          d = (dnorm(x)) / max(dnorm(x))) %>% 
-  ggplot(aes(x = x, ymin = 0, ymax = d)) +
-  geom_ribbon(fill = bp[6], size = 0) +
+  ggplot(aes(x = x, y = d)) +
+  geom_area(fill = bp[6]) +
   annotate(geom = "text",
            x = 1.5, y = .2,
            label = "half-normal",
@@ -1101,8 +1099,8 @@ p4 <-
 # student-t density
 p5 <-
   tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
-  ggplot(aes(x = x, ymin = 0, ymax = (dt(x, 3) / max(dt(x, 3))))) +
-  geom_ribbon(fill = bp[6], size = 0) +
+  ggplot(aes(x = x, y = (dt(x, 3) / max(dt(x, 3))))) +
+  geom_area(fill = bp[6]) +
   annotate(geom = "text",
            x = 0, y = .2,
            label = "student t",
@@ -1261,7 +1259,7 @@ post %>%
                     normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(NULL) +
-  facet_wrap(~key, scales = "free", ncol = 2)
+  facet_wrap(~ key, scales = "free", ncol = 2)
 ```
 
 Now let's make the upper two panels in the right column of Figure 16.12.
@@ -1277,7 +1275,7 @@ n_lines <- 63
 # setting the seed makes the results from `sample_n()` reproducible
 set.seed(16)
 
-# wragle
+# wrangle
 post %>% 
   sample_n(size = n_lines) %>% 
   rownames_to_column("iter") %>% 
@@ -1302,7 +1300,7 @@ post %>%
   labs(title = "Data with Post. Pred.",
        x = "y") +
   coord_cartesian(xlim = c(50, 210)) +
-  facet_wrap(~Group)
+  facet_wrap(~ Group)
 ```
 
 ### Analysis by NHST.
