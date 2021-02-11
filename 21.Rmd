@@ -103,8 +103,8 @@ library(patchwork)
 # normal density
 p1 <-
   tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
-  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
-  geom_ribbon(fill = pm[5], size = 0) +
+  ggplot(aes(x = x, y = (dnorm(x)) / max(dnorm(x)))) +
+  geom_area(fill = pm[5]) +
   annotate(geom = "text",
            x = 0, y = .2,
            label = "normal",
@@ -121,8 +121,8 @@ p1 <-
 # second normal density
 p2 <-
   tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
-  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
-  geom_ribbon(fill = pm[5], size = 0) +
+  ggplot(aes(x = x, y = (dnorm(x)) / max(dnorm(x)))) +
+  geom_area(fill = pm[5]) +
   annotate(geom = "text",
            x = 0, y = .2,
            label = "normal",
@@ -384,7 +384,7 @@ f %>%
   coord_cartesian(xlim = range(my_data$weight))
 ```
 
-We should discuss those thresholds (i.e., the verticla lines) a bit. Kruschke:
+We should discuss those thresholds (i.e., the vertical lines) a bit. Kruschke:
 
 > The spread of the logistic curves indicates the uncertainty of the estimate; the steepness of the logistic curves indicates the magnitude of the regression coefficient. The 50% probability threshold is marked by arrows that drop down from the logistic curve to the $x$-axis, near a weight of approximately 160 pounds. The threshold is the $x$ value at which $\mu = 0.5$, which is $x = -\beta_0 / \beta_1$. (p. 626)
 
@@ -410,7 +410,7 @@ post %>%
                slab_size = 1/2, size = 2, normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(NULL) +
-  facet_wrap(~name, scales = "free", ncol = 2)
+  facet_wrap(~ name, scales = "free", ncol = 2)
 ```
 
 And here are those exact posterior mode and 95% HDI values.
@@ -510,7 +510,7 @@ post %>%
   stat_wilke() +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(NULL) +
-  facet_wrap(~name, scales = "free", ncol = 3)
+  facet_wrap(~ name, scales = "free", ncol = 3)
 ```
 
 Did you notice our use of `stat_wilke()`? By now, you know how to use `mode_hdi()` to return those exact summary values if you'd like them.
@@ -602,7 +602,7 @@ Given the logit function is the inverse of the logistic, which itself is
 
 $$\operatorname{logistic}(x) = \frac{1}{1 + \exp (−x)},$$
 
-and given the formula 
+and given the formula
 
 $$\operatorname{logit}(\mu) = \log \left (\frac{\mu}{1 - \mu} \right),$$
 
@@ -745,7 +745,7 @@ posterior_samples(fit21.3) %>%
   stat_wilke() +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(NULL) +
-  facet_wrap(~name, scales = "free", ncol = 2)
+  facet_wrap(~ name, scales = "free", ncol = 2)
 ```
 
 Since our data were simulated without the benefit of knowing how Kruschke set his seed and such, our results will only approximate those in the text.
@@ -760,9 +760,9 @@ n <- 500
 
 set.seed(21)
 d_not_rare <-
-  tibble(x  = rnorm(n, mean = 0, sd = 1)) %>% 
+  tibble(x = rnorm(n, mean = 0, sd = 1)) %>% 
   mutate(mu = b0 + b1 * x) %>% 
-  mutate(y  = rbinom(n, size = 1, prob = 1 / (1 + exp(-mu))))
+  mutate(y = rbinom(n, size = 1, prob = 1 / (1 + exp(-mu))))
 
 glimpse(d_not_rare)
 ```
@@ -796,8 +796,7 @@ f <-
          summary = F,
          nsamples = n_iter) %>% 
   as_tibble() %>% 
-  pivot_longer(everything(), 
-               values_to = "y") %>% 
+  pivot_longer(everything(), values_to = "y") %>% 
   mutate(x    = rep(nd$x, times = n_iter),
          iter = rep(1:n_iter, each = length))
 
@@ -834,7 +833,7 @@ p2 <-
   stat_wilke() +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(NULL) +
-  facet_wrap(~name, scales = "free", ncol = 2)
+  facet_wrap(~ name, scales = "free", ncol = 2)
 ```
 
 This time we'll combine them with **patchwork**.
@@ -991,7 +990,7 @@ tibble(seed = 1:9) %>%
   coord_cartesian(xlim = c(-3, 3),
                   ylim = c(-3, 3)) +
   theme(legend.position = "none") +
-  facet_wrap(~seed)
+  facet_wrap(~ seed)
 ```
 
 To make our version of the pairs plots in Figure 21.6.b, we'll bring back some of our old tricks with **GGally**. First, we define our custom settings for the upper triangle, the diagonal, and lower triangle.
@@ -1143,10 +1142,8 @@ Here's what Kruschke's `beta(1, 9)` prior for $\alpha$ looks like.
 ```{r, fig.width = 3, fig.height = 2.75}
 tibble(x = seq(from = 0, to = 1, length.out = 200)) %>% 
   
-  ggplot(aes(x = x)) +
-  # check out this `ymax` trick?
-  geom_ribbon(aes(ymin = 0, ymax = dbeta(x, 1, 9)),
-              size = 0, fill = pm[4]) +
+  ggplot(aes(x = x, y = dbeta(x, 1, 9))) +
+  geom_area(fill = pm[4]) +
   scale_x_continuous(NULL, breaks = 0:5 / 5, expand = c(0, 0)) +
   scale_y_continuous(NULL, breaks = NULL, expand = expansion(mult = c(0, 0.05))) +
   ggtitle(expression("beta"*(1*", "*9)))
@@ -1250,7 +1247,7 @@ p2 <-
   stat_wilke() +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(NULL) +
-  facet_wrap(~name, scales = "free", ncol = 3)
+  facet_wrap(~ name, scales = "free", ncol = 3)
 ```
 
 Now combine them with **patchwork** and behold the glory.
@@ -1306,8 +1303,8 @@ To further explore what this means, we might make the model diagram in Figure 21
 ```{r, fig.width = 2.5, fig.height = 4.25, warning = F, message = F}
 p1 <-
   tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
-  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
-  geom_ribbon(fill = pm[5], size = 0) +
+  ggplot(aes(x = x, y = (dnorm(x)) / max(dnorm(x)))) +
+  geom_area(fill = pm[5]) +
   annotate(geom = "text",
            x = 0, y = .2,
            label = "normal",
@@ -1444,14 +1441,13 @@ crossing(m_0 = 0:1,
   mutate(sim = logistic(sim)) %>% 
   
   # plot
-  ggplot(aes(x = sim,
-             y = ..density..)) +
+  ggplot(aes(x = sim, y = ..density..)) +
   geom_histogram(color = pm[8], fill = pm[7],
                  size = 1/3, bins = 20, boundary = 0) +
   geom_line(stat = "density", size = 1, color = pm[3]) +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(expression(mu)) +
-  facet_wrap(~key, scales = "free_y", labeller = label_parsed)
+  facet_wrap(~ key, scales = "free_y", labeller = label_parsed)
 ```
 
 So the prior distribution doesn't even flatten out until you're somewhere between $S_0 = 1$ and $S_0 = 2$. Just for kicks, here we break that down a little further.
@@ -1466,14 +1462,13 @@ tibble(m_0 = 0,
   mutate(sim = logistic(sim)) %>% 
   
   # plot
-  ggplot(aes(x = sim,
-             y = ..density..)) +
+  ggplot(aes(x = sim, y = ..density..)) +
   geom_histogram(color = pm[8], fill = pm[7],
                  size = 1/3, bins = 20, boundary = 0) +
   geom_line(stat = "density", size = 1, color = pm[3]) +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(expression(mu)) +
-  facet_wrap(~key, scales = "free_y", labeller = label_parsed, ncol = 3)
+  facet_wrap(~ key, scales = "free_y", labeller = label_parsed, ncol = 3)
 ```
 
 Here's the basic **brms** analogue to Kruschke's JAGS code from the bottom of page 639.
@@ -1530,8 +1525,8 @@ p1 <-
 # normal density
 p2 <-
   tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
-  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
-  geom_ribbon(fill = pm[5], size = 0) +
+  ggplot(aes(x = x, y = (dnorm(x)) / max(dnorm(x)))) +
+  geom_area(fill = pm[5]) +
   annotate(geom = "text",
            x = 0, y = .2,
            label = "normal",
@@ -1548,8 +1543,8 @@ p2 <-
 # second normal density
 p3 <-
   tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
-  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
-  geom_ribbon(fill = pm[5], size = 0) +
+  ggplot(aes(x = x, y = (dnorm(x)) / max(dnorm(x)))) +
+  geom_area(fill = pm[5]) +
   annotate(geom = "text",
            x = 0, y = .2,
            label = "normal",
@@ -1850,7 +1845,7 @@ p1 <-
   stat_wilke() +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab("Difference (in b)") +
-  facet_wrap(~name, scales = "free", ncol = 2)
+  facet_wrap(~ name, scales = "free", ncol = 2)
 ```
 
 Now make our versions of the bottom two panels of Figure 21.13.
@@ -1870,7 +1865,7 @@ p2 <-
   stat_wilke() +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab("Difference (in probability)") +
-  facet_wrap(~name, scales = "free", ncol = 2)
+  facet_wrap(~ name, scales = "free", ncol = 2)
 ```
 
 Combine and plot.
