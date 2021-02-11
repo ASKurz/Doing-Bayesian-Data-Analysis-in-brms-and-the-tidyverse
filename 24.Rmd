@@ -169,7 +169,7 @@ tibble(lambda = c(1.8, 8.3, 32.1)) %>%
                  binwidth = 1, fill = hr[3]) +
   scale_x_continuous(expand = expansion(mult = c(0, 0.05))) +
   scale_y_continuous("p(y)", expand = expansion(mult = c(0, 0.05))) +
-  facet_wrap(~lambda, ncol = 1,
+  facet_wrap(~ lambda, ncol = 1,
              labeller = label_bquote(dpois(y*"|"*lambda == .(lambda))))
 ```
 
@@ -218,8 +218,8 @@ p2 <-
 # normal density
 p3 <-
   tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
-  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
-  geom_ribbon(fill = hr[2], size = 0) +
+  ggplot(aes(x = x, y = (dnorm(x)) / max(dnorm(x)))) +
+  geom_area(fill = hr[2]) +
   annotate(geom = "text",
            x = 0, y = .2,
            label = "normal",
@@ -236,8 +236,8 @@ p3 <-
 # second normal density
 p4 <-
   tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
-  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
-  geom_ribbon(fill = hr[2], size = 0) +
+  ggplot(aes(x = x, y = (dnorm(x)) / max(dnorm(x)))) +
+  geom_area(fill = hr[2]) +
   annotate(geom = "text",
            x = 0, y = .2,
            label = "normal",
@@ -254,8 +254,8 @@ p4 <-
 # third normal density
 p5 <-
   tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
-  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
-  geom_ribbon(fill = hr[2], size = 0) +
+  ggplot(aes(x = x, y = (dnorm(x)) / max(dnorm(x)))) +
+  geom_area(fill = hr[2]) +
   annotate(geom = "text",
            x = 0, y = .2,
            label = "normal",
@@ -272,8 +272,8 @@ p5 <-
 # fourth normal density
 p6 <-
   tibble(x = seq(from = -3, to = 3, by = .1)) %>% 
-  ggplot(aes(x = x, ymin = 0, ymax = (dnorm(x)) / max(dnorm(x)))) +
-  geom_ribbon(fill = hr[2], size = 0) +
+  ggplot(aes(x = x, y = (dnorm(x)) / max(dnorm(x)))) +
+  geom_area(fill = hr[2]) +
   annotate(geom = "text",
            x = 0, y = .2,
            label = "normal",
@@ -491,9 +491,9 @@ my_data %>%
   mutate(Eye = fct_rev(Eye)) %>% 
   
   # plot
-  ggplot(aes(x = Hair, y = Eye)) +
+  ggplot(aes(x = Hair, y = Eye, label = value)) +
   geom_raster(aes(fill = value)) +
-  geom_text(aes(label = value, color = value < 250)) +
+  geom_text(aes(color = value < 250)) +
   scale_fill_gradient(low = hr[9], high = hr[2]) +
   scale_color_manual(values = hr[c(9, 2)]) +
   scale_x_discrete(expand = c(0, 0), position = "top") +
@@ -510,7 +510,7 @@ library(brms)
 library(tidybayes)
 ```
 
-Now we'll make save the prepatory values necessary for the `stanvars`.
+Now we'll save the preparatory values necessary for the `stanvars`.
 
 ```{r}
 n_x1_level <- length(unique(my_data$Hair))
@@ -547,8 +547,8 @@ As a quick detour, it might be interesting to see what the kind of gamma distrib
 tibble(x = seq(from = 0, to = 70, length.out = 1e3)) %>% 
   mutate(density = dgamma(x, s_r$shape, s_r$rate)) %>% 
   
-  ggplot(aes(x = x, ymin = 0, ymax = density)) +
-  geom_ribbon(fill = hr[4]) +
+  ggplot(aes(x = x, y = density)) +
+  geom_area(fill = hr[4]) +
   scale_x_continuous(NULL, expand = expansion(mult = c(0, -0.05))) +
   scale_y_continuous(NULL, breaks = NULL, expand = expansion(mult = c(0, 0.05))) +
   ggtitle(expression("Kruschke's wide prior for "*sigma[beta*x]))
@@ -601,12 +601,12 @@ bind_rows(
   mutate(prior = rep(c("beta[0]", "sigma[beta*x]"), each = n() / 2)) %>% 
   
   # plot
-  ggplot(aes(x = x, ymin = 0, ymax = density)) +
-  geom_ribbon(fill = hr[6]) +
+  ggplot(aes(x = x, y = density)) +
+  geom_area(fill = hr[6]) +
   scale_y_continuous(NULL, breaks = NULL, expand = expansion(mult = c(0, 0.05))) +
   labs(title = "Priors",
        x = NULL) +
-  facet_wrap(~prior, scales = "free", labeller = label_parsed)
+  facet_wrap(~ prior, scales = "free", labeller = label_parsed)
 ```
 
 Update the `stanvars`.
@@ -677,12 +677,12 @@ f %>%
   scale_x_continuous(breaks = c(0, .1, .2)) +
   scale_y_continuous(NULL, breaks = NULL) +
   coord_cartesian(xlim = c(0, .25)) +
-  facet_wrap(~key, scales = "free_y")
+  facet_wrap(~ key, scales = "free_y")
 ```
 
 We'll have to work a bit to get the deflection differences. If this was a simple multilevel model with a single random grouping variable, we could just use the `ranef()` function to return the deflections. Like `fitted()`, it'll return summaries by default. But you can get the posterior draws with the `summary = F` argument. But since we used two grouping variables and their interaction, it'd be a bit of a pain to work that way. Happily, we do have a handy alternative. First, if we use the `scale = "linear"` argument, `fitted()` will return the draws in the $\lambda$ scale rather than the original count metric. With the group-level draws in the $\lambda$ metric, all we need to do is subtract the fixed effect (i.e., the grand mean, the population estimate) from each to convert them to the deflection metric. So below, we'll
 
-a) make a custom `make_deflection()` function to do the conversions, 
+a) make a custom `make_deflection()` function to do the conversions,
 b) redefine our `nd` data to make our naming conventions a little more streamlined,
 c) use `fitted()` and its `scale = "linear"` argument to get the draws in the $\lambda$ metric, 
 d) wrangle a touch, and 
@@ -725,15 +725,15 @@ deflections %>%
   transmute(`Blue − Brown @ Black` = `E:Blue H:Black` - `E:Brown H:Black`,
             `Blue − Brown @ Blond` = `E:Blue H:Blond` - `E:Brown H:Blond`) %>% 
   mutate(`Blue.v.Brown\n(x)\nBlack.v.Blond` = `Blue − Brown @ Black` - `Blue − Brown @ Blond`) %>% 
-  gather(key, difference) %>% 
-  
+  pivot_longer(everything(), values_to = "difference") %>% 
+
   ggplot(aes(x = difference, y = 0)) +
   stat_histinterval(point_interval = mode_hdi, .width = .95,
-                     fill = hr[9], color = hr[5],
-                     normalize = "panels") +
+                    fill = hr[9], color = hr[5],
+                    normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   theme(panel.grid = element_blank()) +
-  facet_wrap(~key, scales = "free")
+  facet_wrap(~ name, scales = "free")
 ```
 
 If you're curious, here are the precise summary values.
@@ -799,12 +799,12 @@ bind_rows(
 ) %>%
   mutate(prior = rep(c("beta[0]", "sigma[beta*x]"), each = n() / 2)) %>% 
   
-  ggplot(aes(x = x, ymin = 0, ymax = density)) +
-  geom_ribbon(fill = hr[6]) +
+  ggplot(aes(x = x, y = density)) +
+  geom_area(fill = hr[6]) +
   scale_y_continuous(NULL, breaks = NULL, expand = expansion(mult = c(0, 0.05))) +
   labs(title = "Priors",
        x = NULL) +
-  facet_wrap(~prior, scales = "free", labeller = label_parsed)
+  facet_wrap(~ prior, scales = "free", labeller = label_parsed)
 ```
 
 Fit the model.
@@ -835,14 +835,13 @@ We might plot our $\sigma_\text{<group>}$ posteriors against our prior to get a 
 posterior_samples(fit24.2) %>% 
   dplyr::select(starts_with("sd")) %>% 
   # set_names(str_c("expression(sigma", c("*a", "*ab", "*b"), ")")) %>% 
-  pivot_longer(everything(),
-               names_to = "sd") %>% 
+  pivot_longer(everything(), names_to = "sd") %>% 
   
   ggplot(aes(x = value)) +
   # prior
-  geom_ribbon(data = tibble(value = seq(from = 0, to = 3.5, by  =.01)),
-              aes(ymin = 0, ymax = dnorm(value, 0, 1)),
-              fill = hr[8]) +
+  geom_area(data = tibble(value = seq(from = 0, to = 3.5, by  =.01)),
+            aes(y = dnorm(value, 0, 1)),
+            fill = hr[8]) +
   # posterior
   geom_density(aes(fill = sd),
                size = 0, alpha = 2/3) +
@@ -853,8 +852,8 @@ posterior_samples(fit24.2) %>%
                     guide = guide_legend(label.hjust = 0)) +
   scale_x_continuous(NULL, expand = expansion(mult = c(0, 0.05))) +
   scale_y_continuous(NULL, breaks = NULL, expand = expansion(mult = c(0, 0.05))) +
-  theme(legend.position = c(.9, .8),
-        legend.background = element_rect(fill = "transparent"))
+  theme(legend.background = element_rect(fill = "transparent"),
+        legend.position = c(.9, .8))
 ```
 
 Our $\operatorname{Normal}^+ (0, 1)$ prior is that short dark shape in the background. The posteriors are the taller and more colorful mounds in the foreground. Here's the top part of Figure 24.4.
@@ -869,7 +868,7 @@ fitted(fit24.2,
        summary = F) %>% 
   data.frame() %>%
   set_names(pull(nd, strip)) %>% 
-  gather(key, count) %>% 
+  pivot_longer(everything(), values_to = "count") %>% 
   mutate(proportion = count / sum(my_data$count)) %>% 
   
   # plot!
@@ -880,7 +879,7 @@ fitted(fit24.2,
   scale_y_continuous(NULL, breaks = NULL) +
   coord_cartesian(xlim = c(0, .15)) +
   theme(panel.grid = element_blank()) +
-  facet_wrap(~key, scales = "free_y")
+  facet_wrap(~ name, scales = "free_y")
 ```
 
 Like before, we'll have to work a bit to get the deflection differences.
@@ -913,16 +912,16 @@ Now we're ready to define some of the difference columns and plot our version of
 deflections %>% 
   transmute(`a2 - a3 @ b2` = `a:a2 b:b2` - `a:a3 b:b2`,
             `a2 - a3 @ b3` = `a:a2 b:b3` - `a:a3 b:b3`) %>% 
-  transmute(`a2.v.a3\n(x)\nb2.v.b3` = `a2 - a3 @ b2` - `a2 - a3 @ b3`) %>% 
-  gather(key, difference) %>% 
-  
+  mutate(`a2.v.a3\n(x)\nb2.v.b3` = `a2 - a3 @ b2` - `a2 - a3 @ b3`) %>% 
+  pivot_longer(`a2.v.a3\n(x)\nb2.v.b3`, values_to = "difference") %>% 
+
   ggplot(aes(x = difference, y = 0)) +
   stat_histinterval(point_interval = mode_hdi, .width = .95,
                     fill = hr[7], color = hr[6]) +
   scale_y_continuous(NULL, breaks = NULL) +
   coord_cartesian(xlim = c(-.5, 2.5)) +
   theme(panel.grid = element_blank()) +
-  facet_wrap(~key, scales = "free")
+  facet_wrap(~ name, scales = "free")
 ```
 
 For Figure 24.4, bottom right, we average across the four cells in each quadrant and then compute the contrast.
@@ -936,8 +935,8 @@ deflections %>%
             bl = (`a:a3 b:b1` + `a:a3 b:b2` + `a:a4 b:b1` + `a:a4 b:b2`) / 4,
             br = (`a:a3 b:b3` + `a:a3 b:b4` + `a:a4 b:b3` + `a:a4 b:b4`) / 4) %>%
   # compute the contrast of interest
-  transmute(`A1.A2.v.A3.A4\n(x)\nB1.B2.v.B3.B4` = (tl - bl) - (tr - br)) %>% 
-  gather(key, difference) %>% 
+  mutate(`A1.A2.v.A3.A4\n(x)\nB1.B2.v.B3.B4` = (tl - bl) - (tr - br)) %>% 
+  pivot_longer(`A1.A2.v.A3.A4\n(x)\nB1.B2.v.B3.B4`, values_to = "difference") %>%
   
   # plot
   ggplot(aes(x = difference, y = 0)) +
@@ -946,7 +945,7 @@ deflections %>%
   scale_y_continuous(NULL, breaks = NULL) +
   coord_cartesian(xlim = c(-.5, 2.5)) +
   theme(panel.grid = element_blank()) +
-  facet_wrap(~key, scales = "free")
+  facet_wrap(~ name, scales = "free")
 ```
 
 > The model presented here has no way to conduct an "ominbus" test of interaction. However, like the ANOVA-style models presented in Chapters 19 and 20, it is easy to extend the model so it has an inclusion coefficient on the interaction deflections. The inclusion coefficient can have values of 0 or 1, and is given a Bernoulli prior. (p. 716)
@@ -1063,7 +1062,7 @@ fitted(fit24.4,
        summary = F) %>% 
   data.frame() %>%
   set_names(pull(nd, strip)) %>% 
-  gather(key, count) %>% 
+  pivot_longer(everything(), values_to = "count") %>% 
   mutate(proportion = count / sum(my_data$count)) %>% 
   
   # plot!
@@ -1074,7 +1073,7 @@ fitted(fit24.4,
   scale_y_continuous(NULL, breaks = NULL) +
   coord_cartesian(xlim = c(0, .15)) +
   theme(panel.grid = element_blank()) +
-  facet_wrap(~key, scales = "free_y")
+  facet_wrap(~ name, scales = "free_y")
 ```
 
 To further demonstrate the similarity of this approach to Kruschke's multilevel Poisson approach, let's compare the model-based cell estimates for each of the combinations of `a` and `b`, by both `fit24.2` and `fit24.4`.
