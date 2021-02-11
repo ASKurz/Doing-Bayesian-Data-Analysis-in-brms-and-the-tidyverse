@@ -61,24 +61,22 @@ Now plot!
 ```{r, fig.width = 3.5, fig.height = 5.5}
 p1 <-
   d %>% 
-  ggplot(aes(x = z)) +
-  geom_ribbon(data = . %>% filter(z <=1),
-              aes(ymin = 0, ymax = `p(z)`),
-              fill = sl[2]) +
-  geom_line(aes(y = `p(z)`),
-            size = 1, color = sl[3]) +
+  ggplot(aes(x = z, y = `p(z)`)) +
+  geom_area(aes(fill = z <= 1),
+            show.legend = F) +
+  geom_line(size = 1, color = sl[3]) +
+  scale_fill_manual(values = c("transparent", sl[2])) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.05))) + 
   labs(title = "Normal Density",
-       y = expression(p(italic(z)))) 
+       y = expression(p(italic(z))))
 
 p2 <-
   d %>% 
-  ggplot(aes(x = z)) +
-  geom_ribbon(data = . %>% filter(z <=1),
-              aes(ymin = 0, ymax = `Phi(z)`),
-              fill = sl[2]) +
-  geom_line(aes(y = `Phi(z)`),
-            size = 1, color = sl[3]) +
+  ggplot(aes(x = z, y = `Phi(z)`)) +
+  geom_area(aes(fill = z <= 1),
+            show.legend = F) +
+  geom_line(size = 1, color = sl[3]) +
+  scale_fill_manual(values = c("transparent", sl[2])) +
   scale_y_continuous(expand = expansion(mult = c(0, 0))) + 
   labs(title = "Cumulative Normal",
        y = expression(Phi(italic(z))))
@@ -162,24 +160,23 @@ Make the top subplot.
 
 ```{r, fig.width = 5, fig.height = 2.25}
 bar %>% 
-  ggplot(aes(x = y)) +
-  geom_ribbon(data = den,
-              aes(ymin = 0, ymax = percent),
-              fill = sl[3]) +
+  ggplot(aes(x = y, y = percent)) +
+  geom_area(data = den,
+            fill = sl[3]) +
   geom_vline(xintercept = theta_1, color = "white", linetype = 3) +
-  geom_col(aes(y = percent),
-           width = .5, alpha = .85, fill = sl[7]) +
+  geom_col(width = .5, alpha = .85, fill = sl[7]) +
   geom_text(aes(y = percent + 2, label = percent_label),
             size = 3.5) +
-  annotate(geom = "text", x = theta_1, y = -6.5,
-           label = theta_1, size = 3) +
+  annotate(geom = "text", 
+           x = theta_1, y = -6.5, label = theta_1, 
+           size = 3) +
   scale_x_continuous(NULL, expand = c(0, 0),
                      breaks = theta_1,
                      labels = parse(text = str_c("theta[", 1:6, "]"))) +
   scale_y_continuous(NULL, breaks = NULL, expand = expansion(mult = c(0, 0.05))) +
   coord_cartesian(ylim = c(0, 28.5), clip = F) +
   theme(plot.margin = margin(5.5, 5.5, 11, 5.5)) +
-  facet_wrap(~strip, labeller = label_parsed)
+  facet_wrap(~ strip, labeller = label_parsed)
 ```
 
 This method works okay for plotting one or two panels. The sheer number of code lines and moving parts seem unwieldy for plotting four. It'd be convenient if we could save the density information for all four panels in one data object. Here's one way how.
@@ -272,7 +269,7 @@ bar <-
   mutate(y = map2_dbl(draw, panel, make_ordinal)) %>% 
   group_by(panel, strip) %>% 
   count(y) %>% 
-  mutate(percent = (100 * n / sum(n)) %>% round(0))   %>% 
+  mutate(percent = (100 * n / sum(n)) %>% round(0)) %>% 
   mutate(percent_label = str_c(percent, "%"),
          percent_max   = max(percent))
 
@@ -288,9 +285,9 @@ plot_bar_den <- function(panel_n, theta, y_second_x, ylim_ub) {
     filter(panel == panel_n) %>% 
     
     ggplot(aes(x = y)) +
-    geom_ribbon(data = den %>% filter(panel == panel_n),
-                aes(ymin = 0, ymax = percent),
-                fill = sl[3]) +
+    geom_area(data = den %>% filter(panel == panel_n),
+              aes(y = percent),
+              fill = sl[3]) +
     geom_vline(xintercept = theta, color = "white", linetype = 3) +
     geom_linerange(aes(ymin = 0, ymax = percent),
                    color = sl[7], alpha = .85, size = 8) +
@@ -306,7 +303,7 @@ plot_bar_den <- function(panel_n, theta, y_second_x, ylim_ub) {
     coord_cartesian(ylim = c(0, ylim_ub), 
                     clip = F) +
     theme(plot.margin = margin(5.5, 5.5, 11, 5.5)) +
-    facet_wrap(~strip, labeller = label_parsed)
+    facet_wrap(~ strip, labeller = label_parsed)
   
 }
 ```
@@ -337,7 +334,7 @@ p4 <- plot_bar_den(panel_n    = 4,
 p1 / p2 / p3 / p4
 ```
 
-Oh mamma. "*The crucial concept in Figure 23.1 is that the probability of a particular ordinal outcome is the area under the normal curve between the thresholds of that outcome*" (p. 672, *emphasis* in the original). In each of the subplots, we used six thresholds to descritize the continuous data into seven categories. More generally, we need $K$ thresholds to make $K + 1$ ordinal categories. To make this work,
+Oh mamma. "*The crucial concept in Figure 23.1 is that the probability of a particular ordinal outcome is the area under the normal curve between the thresholds of that outcome*" (p. 672, *emphasis* in the original). In each of the subplots, we used six thresholds to discretize the continuous data into seven categories. More generally, we need $K$ thresholds to make $K + 1$ ordinal categories. To make this work,
 
 > the idea is that we consider the cumulative area under the normal up the high-side threshold, and subtract away the cumulative area under the normal up to the low-side threshold. Recall that the cumulative area under the standardized normal is denoted $\Phi(z)$, as was illustrated in Figure 15.8 [which we remade at the top of this chapter]. Thus, the area under the normal to the left of $\theta_k$ is $\Phi((\theta_k - \mu) / \sigma)$, and the area under the normal to the left of $\theta_{k - 1}$ is $\Phi((\theta_{k - 1} - \mu) / \sigma)$. Therefore, the area under the normal curve between the two thresholds, which is the probability of outcome $k$, is
 >
@@ -349,7 +346,7 @@ Oh mamma. "*The crucial concept in Figure 23.1 is that the probability of a part
 
 ## The case of a single group
 
-Given a model with no predictors, "if there are $K$ ordinal values, the model has $K + 1$ parameters: $\theta_1,...,\theta_{K - 1}, \mu$, and $\sigma$. If you think about it a moment, you’ll realize that the parameter values trade-off and are undetermined" (p. 675). The solution Kruschke took throughout this chapter was to fix the two thresholds at the ends, $\theta_1$  and $\theta_{K - 1}$, to the constants
+Given a model with no predictors, "if there are $K$ ordinal values, the model has $K + 1$ parameters: $\theta_1, \dots,\theta_{K - 1}, \mu$, and $\sigma$. If you think about it a moment, you’ll realize that the parameter values trade-off and are undetermined" (p. 675). The solution Kruschke took throughout this chapter was to fix the two thresholds at the ends, $\theta_1$  and $\theta_{K - 1}$, to the constants
 
 \begin{align*}
 \theta_1 \equiv 1 + 0.5 && \text{and}  && \theta_{K - 1} \equiv K - 0.5.
@@ -511,10 +508,10 @@ p %>%
   scale_color_scico_d(palette = "lajolla", begin = .25) +
   ylab("mean threshold") +
   theme(legend.position = "none") +
-  facet_wrap(~model, ncol = 1, scales = "free")
+  facet_wrap(~ model, ncol = 1, scales = "free")
 ```
 
-We can take our rescaling approach further to convert the posterior distributions for $\mu$ and $\sigma$ from the **brms** $\operatorname{Normal} (0, 1)$ constants to the metric from Kruschke's approach. Say $y_1$ and $y_2$ are two draws from some Gaussian and $z_1$ and $z_2$ are their corresponding $z$-scores. Here’s how to solve for $\sigma$.
+We can take our rescaling approach further to convert the posterior distributions for $\mu$ and $\sigma$ from the **brms** $\operatorname{Normal}(0, 1)$ constants to the metric from Kruschke's approach. Say $y_1$ and $y_2$ are two draws from some Gaussian and $z_1$ and $z_2$ are their corresponding $z$-scores. Here's how to solve for $\sigma$.
 
 \begin{align*}
 z_1 - z_2 & = \frac{(y_1 - \mu)}{\sigma} - \frac{(y_2 - \mu)}{\sigma} \\
@@ -546,15 +543,14 @@ post %>%
          sigma = (`y[1]` - `y[6]`) / (`b_Intercept[1]` - `b_Intercept[6]`)) %>% 
   mutate(`(mu-2)/sigma` = (mu - 2) / sigma) %>% 
   pivot_longer(mu:`(mu-2)/sigma`) %>% 
-  mutate(name = factor(name,
-                       levels = c("mu", "sigma", "(mu-2)/sigma"))) %>%
+  mutate(name = factor(name, levels = c("mu", "sigma", "(mu-2)/sigma"))) %>%
   
   ggplot(aes(x = value, y = 0)) +
   stat_halfeye(point_interval = mode_hdi, .width = .95,
                fill = sl[4], color = sl[8],
                normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
-  facet_wrap(~name, scales = "free", labeller = label_parsed)
+  facet_wrap(~ name, scales = "free", labeller = label_parsed)
 ```
 
 Our results are similar to Kruschke's. Given we used a different algorithm, a different parameterization, and different priors, I'm not terribly surprised. If you have more insight on the matter or have spotted a flaw in this method, [please share with the rest of us](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues).
@@ -592,7 +588,7 @@ post %>%
   
   ggplot(aes(x = value, y = Y)) +
   stat_halfeye(point_interval = mode_hdi, .width = .95, 
-               fill = sl[4], color = sl[8], size = 1/2) +
+               fill = sl[4], color = sl[8], size = 1/2, height = 2.5) +
   scale_x_continuous(expression(italic(p)*"["*Y==italic(i)*"]"),
                      breaks = 0:5 / 5,
                      expand = c(0, 0), limits = c(0, 1))
@@ -708,7 +704,7 @@ compare_thresholds <- function(data, lb = 1.5, ub = 6.5) {
     scale_color_scico_d(palette = "lajolla", begin = .25) +
     ylab("mean threshold") +
     theme(legend.position = "none") +
-    facet_wrap(~model, ncol = 1, scales = "free")
+    facet_wrap(~ model, ncol = 1, scales = "free")
   
 }
 ```
@@ -739,7 +735,7 @@ post %>%
                fill = sl[4], color = sl[8],
                normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
-  facet_wrap(~name, scales = "free", labeller = label_parsed)
+  facet_wrap(~ name, scales = "free", labeller = label_parsed)
 ```
 
 Use `pp_check()` to make our version of the upper-right panel of Figure 23.3.
@@ -855,7 +851,7 @@ posterior_samples(fit23.3) %>%
   stat_halfeye(point_interval = mode_hdi, .width = .95,
                fill = sl[4], color = sl[8], normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
-  facet_wrap(~name, scales = "free")
+  facet_wrap(~ name, scales = "free")
 ```
 
 Yes indeed, 2 is a credible value for the intercept. And as reported in the text, we got a very small $d$ effect size. Now we repeat the process for the second data set.
@@ -889,7 +885,7 @@ posterior_samples(fit23.4) %>%
   stat_halfeye(point_interval = mode_hdi, .width = .95,
                fill = sl[4], color = sl[8], normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
-  facet_wrap(~name, scales = "free")
+  facet_wrap(~ name, scales = "free")
 ```
 
 As in the text, our $d$ is centered around 0.3. Let's use a posterior predictive check to see how well `fit23.4` summarized these data.
@@ -993,7 +989,7 @@ tibble(mu    = 0,
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(NULL) +
   coord_cartesian(xlim = c(-4, 4)) +
-  facet_grid(name~label, labeller = label_parsed, switch = "y")
+  facet_grid(name ~ label, labeller = label_parsed, switch = "y")
 ```
 
 Put another way, here's how $\alpha$ and $\log (\alpha)$ scale on values of $\sigma$ ranging from 0.0001 to 10.
@@ -1009,7 +1005,7 @@ tibble(sigma = seq(from = 0.0001, to = 10, by = 0.01)) %>%
   geom_vline(xintercept = 0, color = sl[3], linetype = 2) +
   geom_line(size = 1.5, color = sl[7]) +
   coord_cartesian(ylim = c(-2, 10)) +
-  facet_grid(~labels, labeller = label_parsed)
+  facet_grid(~ labels, labeller = label_parsed)
 ```
 
 When $\sigma$ goes below 1, both explode upward. As $\sigma$ increases, $\alpha$ asymptotes at zero and $\log (\alpha)$ slowly descends below zero. Put another way, here is how $\sigma$ scales as a function of $\log (\alpha)$.
@@ -1027,7 +1023,7 @@ tibble(`log(alpha)` = seq(from = -3, to = 3, by = 0.01)) %>%
                   ylim = c(0, 10))
 ```
 
-In the context where the underlying distribution for the reference category will be the standard normal, it seems like a $\operatorname{Normal} (0, 1)$ prior would be fairly permissive for $\log (\alpha)$. This is what I will use going forward. Choose your priors with care.
+In the context where the underlying distribution for the reference category will be the standard normal, it seems like a $\operatorname{Normal}(0, 1)$ prior would be fairly permissive for $\log (\alpha)$. This is what I will use going forward. Choose your priors with care.
 
 ### Examples: Not funny.
 
@@ -1077,9 +1073,8 @@ tibble(X     = LETTERS[1:2],
          y = seq(from = -5, to = 5, by = 0.1)) %>% 
   mutate(d = dnorm(y, mu, sigma)) %>% 
   
-  ggplot(aes(x = y, ymin = 0, ymax = d)) +
-  geom_ribbon(aes(fill = X),
-              alpha = 2/3) +
+  ggplot(aes(x = y, y = d, fill = X)) +
+  geom_area(alpha = 2/3) +
   geom_vline(xintercept = fixef(fit23.5)[1:4, 1], linetype = 3, color = sl[9]) +
   scale_fill_scico_d(palette = "lajolla", begin = .33, end = .67) +
   scale_x_continuous(sec.axis = dup_axis(breaks = fixef(fit23.5)[1:4, 1] %>% as.double(),
@@ -1111,18 +1106,18 @@ post %>%
 It will no longer be straightforward to use the formulas from 23.2.2 to convert the output from our **brms** parameterization to match the way Kruschke parameterized his conditional means and standard deviations. I will leave the conversion up to the interested reader. Going forward, we will focus on the output from our **brms** parameterization.
 
 ```{r, fig.width = 8, fig.height = 6, eval = F, echo = F}
-# this does not work. I believe it's because the formulat do not apply to the non-reference group
+# this does not work. I believe it's because the formulas do not apply to the non-reference group
 
 post %>% 
   select(iter, b_disc_XB, `b_Intercept[1]`, `b_Intercept[4]`) %>% 
   mutate(`y[1]` = 1.5,
          `y[4]` = 4.5) %>% 
   mutate(`sigma[A]` = (`y[1]` - `y[4]`) / (`b_Intercept[1]` - `b_Intercept[4]`)) %>% 
-  mutate(`mu[A]`    = `y[1]` - (`b_Intercept[1]` * `sigma[A]`)) %>% 
+  mutate(`mu[A]` = `y[1]` - (`b_Intercept[1]` * `sigma[A]`)) %>% 
   mutate(`sigma[B]` = `sigma[A]` * (1 / exp(b_disc_XB))) %>% 
   mutate(`mu[B]` = `y[1]` - `b_Intercept[1]` * `sigma[B]`) %>% 
   
-  mutate(`mu[B]-mu[A]` = `mu[B]` - `mu[A]`,
+  mutate(`mu[B]-mu[A]`       = `mu[B]` - `mu[A]`,
          `sigma[B]-sigma[A]` = `sigma[B]` - `sigma[A]`) %>% 
   
   mutate(`(mu[B]-mu[A])/sqrt((sigma[A]^2+sigma[B]^2)/2)` = `mu[B]-mu[A]` / sqrt((`sigma[A]`^2 + `sigma[B]`^2) / 2)) %>% 
@@ -1138,7 +1133,7 @@ post %>%
   stat_halfeye(point_interval = mode_hdi, .width = .95,
                fill = sl[4], color = sl[8], normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
-  facet_wrap(~name, scales = "free", labeller = label_parsed)
+  facet_wrap(~ name, scales = "free", labeller = label_parsed)
 ```
 
 ```{r, fig.width = 8, fig.height = 6}
@@ -1166,7 +1161,7 @@ post %>%
                fill = sl[4], color = sl[8], normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(NULL) +
-  facet_wrap(~name, scales = "free", labeller = label_parsed)
+  facet_wrap(~ name, scales = "free", labeller = label_parsed)
 ```
 
 $\mu_A$ and $\sigma_A$ are both constants, which doesn't show up well with our `stat_halfeye()` approach with the scales freed across facets. If these plots really mattered for a scientific presentation or something for industry, you could experiment using either a common scale across all facets, or making the plots individually and then combining them with **patchwork** syntax. Returning to interpretation, because $\mu_A = 0$, it turns out that $\mu_B - \mu_A = \mu_B$, which is on display on the top row. Because $\sigma_A = 1$, it turns out that $\sigma_B - \sigma_A$ is just $\sigma_B$ moved over one unit to the left, which is hopefully clear in the panels of the second row. Very happily, the effect size formula worked with our **brms** parameters the same way it did for Kruschke's. Both yield an effect size of about 0.5, with 95% intervals extending about $\mp 0.5$.
@@ -1232,7 +1227,7 @@ posterior_samples(fit23.6) %>%
   scale_y_continuous(NULL, breaks = NULL) +
   labs(subtitle = "These are based on the conventional Gaussian model, NOT the cumulative-normal\nmodel Kruschke displayed in Figure 23.4",
        x = "Marginal posterior") +
-  facet_wrap(~name, scales = "free", ncol = 2)
+  facet_wrap(~ name, scales = "free", ncol = 2)
 ```
 
 Compare those results to those Kruschke reported from an NHST analysis in the note below Figure 23.4:
@@ -1258,7 +1253,7 @@ d %>%
   geom_bar(fill = sl[5]) +
   scale_x_continuous(breaks = 1:7) +
   scale_y_continuous(NULL, breaks = NULL, expand = expansion(mult = c(0, 0.05))) +
-  facet_wrap(~x, ncol = 1)
+  facet_wrap(~ x, ncol = 1)
 ```
 
 Here we fit the cumulative-normal model based on our version of the data, continuing to allow both $\mu$ and $\sigma$ (i.e., $1 / \exp(\log \alpha)$) to differ across groups.
@@ -1318,7 +1313,7 @@ post %>%
                normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(NULL) +
-  facet_wrap(~name, scales = "free", labeller = label_parsed)
+  facet_wrap(~ name, scales = "free", labeller = label_parsed)
 ```
 
 Here are our versions of the two panels in the upper right of Figure 23.5.
@@ -1386,7 +1381,7 @@ posterior_samples(fit23.8) %>%
   scale_y_continuous(NULL, breaks = NULL) +
   labs(subtitle = "These are based on the conventional Gaussian model, NOT the cumulative-normal\nmodel Kruschke displayed in Figure 23.5",
        x = "Marginal posterior") +
-  facet_wrap(~name, scales = "free", ncol = 2)
+  facet_wrap(~ name, scales = "free", ncol = 2)
 ```
 
 If you think you have a better approximation of Kruschke's data, [please share](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues).
@@ -1552,7 +1547,7 @@ rbind(
   scale_color_scico_d(palette = "lajolla", begin = .25) +
   scale_y_continuous(breaks = c(0, .5, 1), limits = c(0, 1), expand = c(0, 0)) +
   theme(legend.position = "none") +
-  facet_wrap(~rating, ncol = 7)
+  facet_wrap(~ rating, ncol = 7)
 ```
 
 So far, we've been plotting our model with the context of the default `scale = "response"` setting within `fitted()`. Within the context of the response variable `Y`, our model returns response probabilities. We can also look at the output within the context of `scale = "linear"`. We'll plot these fitted lines across our `nd` values two different ways. For the first, `p1`, we'll use summary statistics. For the second, `p2`, we'll set `summary = T`.
@@ -1609,8 +1604,8 @@ p3 <-
   tibble(x = seq(from = -3, to = 3, by = .01)) %>%
   mutate(d = dnorm(x)) %>% 
   
-  ggplot(aes(x = x, ymin = 0, ymax = d)) +
-  geom_ribbon(fill = sl[5]) +
+  ggplot(aes(x = x, y = d)) +
+  geom_area(fill = sl[5]) +
   # add the thresholds!
   geom_vline(xintercept = posterior_summary(fit23.9)[1:6, 1], 
              color = sl[9], linetype = 3) +
@@ -1632,7 +1627,7 @@ p3 <-
   plot_layout(widths = c(4, 4, 1))
 ```
 
-The lines intersecting the plots are the posterior means for thresholds, $\theta_1,...,\theta_6$.
+The lines intersecting the plots are the posterior means for thresholds, $\theta_1, \dots ,\theta_6$.
 
 *But these still aren't faithful depictions of the top panel of Figure 23.7*, you say. Okay, fine. One of the distinctive elements of that panel is the left-tilted bar-and-error plots. If you look closely at the vertical lines at their bases, you'll see that the leftmost subplot starts at the minimum value of `X` and the rightmost subplot starts at the maximum value of `X`. Since our plots, so far, have been based on `X_s`, we'll use the minimum and maximum values from that. Here are those values.
 
@@ -1689,7 +1684,7 @@ f %>%
   scale_y_reverse(NULL, position = "right", limits = c(1, 0), expand = c(0, 0),
                   breaks = c(1, .5, 0), labels = c("1", ".5", "0")) +
   coord_flip() +
-  facet_wrap(~X_s, ncol = 7, strip.position = "bottom")
+  facet_wrap(~ X_s, ncol = 7, strip.position = "bottom")
 ```
 
 The `X_s` values are depicted in the panel strips on the bottom. The response probabilities are scaled based on the axis on the top. The points and leftmost sides of the bars are the posterior means. The thin, dark horizontal lines are the percentile-based 95% intervals. Here we reformat `f` a little more to put those bar-and-error plots in a format more similar to that of Figure 23.7.
@@ -1970,11 +1965,10 @@ Here's a scatter plot of the data, with points colored by `Rating`.
 my_data %>% 
   mutate(Rating = factor(Rating)) %>% 
   
-  ggplot(aes(x = Year, y = Length)) +
+  ggplot(aes(x = Year, y = Length, label = Rating)) +
   geom_point(aes(color = Rating),
              size = 3) +
-  geom_text(aes(label = Rating),
-            size = 3) +
+  geom_text(size = 3) +
   scale_color_scico_d(palette = "lajolla", begin = .15, end = .7)
 ```
 
@@ -2029,7 +2023,7 @@ post %>%
                fill = sl[4], color = sl[8], normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab("effect size") +
-  facet_wrap(~name, scales = "free")
+  facet_wrap(~ name, scales = "free")
 ```
 
 Before we make the top panel from Figure 23.9, I'd like to wander a bit and look at something related. We'll use `fitted()`.
@@ -2086,7 +2080,7 @@ f %>%
   scale_y_continuous(breaks = seq(from = -2, to = 2, by = 2),
                      expand = c(0, 0)) +
   theme(legend.position = "bottom") +
-  facet_wrap(~strip, nrow = 1)
+  facet_wrap(~ strip, nrow = 1)
 ```
 
 This model didn't do a great job capturing the `Response` probabilities. If you're curious, you'll find you can do a little bit better if you allow the two predictors to interact (i.e., add `+ Year_s:Length_s` to the `formula` line). Even then, the model isn't great. I leave that as an exercise for the interested reader.
@@ -2147,7 +2141,7 @@ f %>%
   scale_y_continuous(breaks = seq(from = -2, to = 2, by = 2),
                      expand = c(0, 0)) +
   theme(legend.position = "bottom") +
-  facet_wrap(~strip, nrow = 1)
+  facet_wrap(~ strip, nrow = 1)
 ```
 
 For this model, however, we will follow Kruschke and make a more faithful version of the top panel of Figure 23.9. We'll need to wrangle our `post` data a bit to get things ready. Here's the work.
@@ -2200,7 +2194,7 @@ post %>%
                   ylim = range(my_data$Length_s)) +
   theme(legend.direction = "horizontal",
         legend.position = c(.75, .25)) +
-  facet_wrap(~iter, ncol = 2)
+  facet_wrap(~ iter, ncol = 2)
 ```
 
 Both our versions of the plot show what Kruschke pointed out in the text:
@@ -2255,11 +2249,10 @@ Like with the real movie data, we'll inspect these data with a colored scatter p
 my_data %>% 
   mutate(Rating = factor(Rating)) %>% 
   
-  ggplot(aes(x = Year, y = Length)) +
+  ggplot(aes(x = Year, y = Length, label = Rating)) +
   geom_point(aes(color = Rating),
              size = 3) +
-  geom_text(aes(label = Rating),
-            size = 3) +
+  geom_text(size = 3) +
   scale_color_scico_d(palette = "lajolla", begin = .15, end = .7)
 ```
 
@@ -2313,7 +2306,7 @@ post %>%
                fill = sl[4], color = sl[8], normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab("effect size") +
-  facet_wrap(~name, scales = "free")
+  facet_wrap(~ name, scales = "free")
 ```
 
 Make the top panel for Figure 23.10 just like we did for its analogue in Figure 23.9.
