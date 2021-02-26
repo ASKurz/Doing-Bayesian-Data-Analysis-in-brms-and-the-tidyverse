@@ -701,10 +701,10 @@ post %>%
                     slab_color = pp[5], slab_fill = pp[5], color = pp[4]) +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(subtitle = "Pregnant1.Pregnant8 vs None0",
-       x = "Difference")
+       x = expression(Difference~(mu[1]-mu[2])))
 ```
 
-Up to this point, our primary mode of showing marginal posterior distributions has either been minute variations on Kruschke’s typical histogram approach or with densities. We’ll use those again in the future, too. In this chapter and the next, we’ll veer a little further from the source material and depict our marginal posteriors with dot plots and their very close relatives, quantile plots. In the dot plot, above, each of the 4,000 posterior draws is depicted by one of the stacked brown dots. To stack the dots in neat columns like that, **tidybayes** has to round a little. Though we lose something in the numeric precision, we gain a lot in interpretability. We’ll have more to say in just a moment.
+Up to this point, our primary mode of showing marginal posterior distributions has either been minute variations on Kruschke's typical histogram approach or with densities. We'll use those again in the future, too. In this chapter and the next, we'll veer a little further from the source material and depict our marginal posteriors with dot plots and their very close relatives, quantile plots. In the dot plot, above, each of the 4,000 posterior draws is depicted by one of the stacked brown dots. To stack the dots in neat columns like that, **tidybayes** has to round a little. Though we lose something in the numeric precision, we gain a lot in interpretability. We'll have more to say in just a moment.
 
 In case you were curious, here are the HMC-based posterior mode and 95% HDIs.
 
@@ -715,7 +715,7 @@ post %>%
   mode_hdi(difference)
 ```
 
-Little difference, there. Now let's quantify the same contrast as an effect size.
+Little difference, there. Now let's quantify the same contrast as a standardized mean difference effect size.
 
 ```{r, fig.width = 3, fig.height = 2.5}
 post %>% 
@@ -727,10 +727,10 @@ post %>%
                     slab_size = 0, quantiles = 100) +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(subtitle = "Pregnant1.Pregnant8 vs None0",
-       x = "Effect Size")
+       x = expression(Effect~Size~("["*mu[1]-mu[2]*"]"/sigma[italic(y)])))
 ```
 
-Tiny.
+From a standardized-mean-difference perspective, that's tiny.
 
 Did you notice the `quantiles = 100` argument within `stat_dotsinterval()`? Instead of a dot plot with 4,000 tiny little dots, that argument converted the output to a quantile plot. The 4,000 posterior draws are now summarized by 100 dots, each of which represents $1\%$ of the total sample [see @kayWhenIshMy2016, @fernandesUncertaintyDisplaysUsing2018]. This quantile dot-plot method will be our main approach for the rest of the chapter.
 
@@ -769,7 +769,7 @@ differences %>%
                     slab_fill = pp[5], color = pp[4], 
                     slab_size = 0, quantiles = 100) +
   scale_y_continuous(NULL, breaks = NULL) +
-  xlab("Effect Size") +
+  xlab("Effect Size (Standardized mean difference)") +
   facet_wrap(~ key, scales = "free_x")
 ```
 
@@ -1303,7 +1303,7 @@ posterior_samples(fit19.1) %>%
                     slab_fill = pp[5], color = pp[4], 
                     slab_size = 0, quantiles = 100) +
   scale_y_continuous(NULL, breaks = NULL) +
-  xlab(expression(sigma[y])) +
+  xlab(expression(sigma[italic(y)])) +
   theme(panel.grid = element_blank())
 ```
 
@@ -1370,7 +1370,7 @@ posterior_samples(fit19.5) %>%
                     slab_fill = pp[5], color = pp[4], 
                     slab_size = 0, quantiles = 100) +
   scale_y_continuous(NULL, breaks = NULL) +
-  xlab(expression(sigma[y]))
+  xlab(expression(sigma[italic(y)]))
 ```
 
 Yep, sure did! Now our between-group comparisons should be more precise. Heck, if we wanted to we could even make a difference plot.
@@ -1391,7 +1391,7 @@ tibble(sigma1 = posterior_samples(fit19.1) %>% pull(sigma),
                     slab_size = 0, quantiles = 100) +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(title = "This is a difference distribution",
-       x = expression(sigma[y][" | fit19.1"]-sigma[y][" | fit19.5"]))
+       x = expression(sigma[italic(y)][" | fit19.1"]-sigma[italic(y)][" | fit19.5"]))
 ```
 
 If you want a quick and dirty plot of the relation between `thorax_c` and `Longevity`, you might employ `brms::conditional_effects()`.
@@ -1563,7 +1563,7 @@ fit19.5 <-
       file = "fits/fit19.05")
 ``` 
 
-It's easy to get lost in the differences in the priors and the technical details with the model chains and such. The main thing to notice, here, is the differences in the model formulas (i.e., the likelihoods). Both models had intercepts and slopes. But whereas the model from 17.3 set both parameters to random, only the intercept in our last model was random. The covariate `thorax_c` was fixed--it did not vary by group. Had we wanted it to, our `formula` syntax would have been something like `Longevity ~ 1 + thorax_c + (1 + thorax_c || CompanionNumber)`. And again, as noted in Chapter 17, the `||` portion of the syntax set the random intercepts and slopes to be orthogonal (i.e., correlate exactly at zero). As we'll see, this will often not be the case. But let's not get ahead of ourselves.
+It's easy to get lost in the differences in the priors and the technical details with the model chains and such. The main thing to notice, here, is the differences in the model formulas (i.e., the likelihoods). Both models had intercepts and slopes. But whereas the model from 17.3 set both parameters to random, only the intercept in our last model was random. The covariate `thorax_c` was fixed--it did not vary by group. Had we wanted it to, our `formula` syntax would have been something like `Longevity ~ 1 + thorax_c + (1 + thorax_c || CompanionNumber)`. And again, as noted in [Section 17.3.1][The model and implementation in ~~JAGS~~ brms.], the `||` portion of the syntax set the random intercepts and slopes to be orthogonal (i.e., correlate exactly at zero). As we'll see, this will often not be the case. But let's not get ahead of ourselves.
 
 > Conceptually, the main difference between the models is merely the focus of attention. In the hierarchical linear regression model, the focus was on the slope coefficient. In that case, we were trying to estimate the magnitude of the slope, simultaneously for individuals and overall. The intercepts, which describe the levels of the nominal predictor, were of ancillary interest. In the present section, on the other hand, the focus of attention is reversed. We are most interested in the intercepts and their differences between groups, with the slopes on the covariate being of ancillary interest. (p. 573)
 
@@ -2220,12 +2220,19 @@ p2 <-
 And here we make the plots of the corresponding effect sizes at the bottom of the Figure 19.8.
 
 ```{r, fig.width = 4, fig.height = 2.5}
+# first compute and save the sigma_j's, which will come in handy later 
+post <-
+  post %>% 
+  mutate(sigma_A = exp(b_sigma_Intercept + `r_Group__sigma[A,Intercept]`),
+         sigma_B = exp(b_sigma_Intercept + `r_Group__sigma[B,Intercept]`),
+         sigma_C = exp(b_sigma_Intercept + `r_Group__sigma[C,Intercept]`),
+         sigma_D = exp(b_sigma_Intercept + `r_Group__sigma[D,Intercept]`))
+
 p3 <-
   post %>% 
-  transmute(`D vs A` = (`r_Group[D,Intercept]` - `r_Group[A,Intercept]`) / 
-              exp((b_sigma_Intercept + `r_Group__sigma[D,Intercept]` + b_sigma_Intercept + `r_Group__sigma[A,Intercept]`) / 2),
-            `C vs B` = (`r_Group[C,Intercept]` - `r_Group[B,Intercept]`) /
-              exp((b_sigma_Intercept + `r_Group__sigma[C,Intercept]` + b_sigma_Intercept + `r_Group__sigma[B,Intercept]`) / 2)) %>% 
+  # note we're using pooled standard deviations to standardize our effect sizes, here
+  transmute(`D vs A` = (`r_Group[D,Intercept]` - `r_Group[A,Intercept]`) / sqrt((sigma_A^2 + sigma_D^2) / 2),
+            `C vs B` = (`r_Group[C,Intercept]` - `r_Group[B,Intercept]`) / sqrt((sigma_B^2 + sigma_C^2) / 2)) %>% 
   gather() %>%
   mutate(key = factor(key, levels = c("D vs A", "C vs B"))) %>% 
   
@@ -2249,11 +2256,13 @@ Notice that because (a) the sigma parameters were heterogeneous and (b) they wer
 "Finally, because each group has its own estimated scale (i.e., $\sigma_j$), we can investigate differences in scales across groups" (p. 578). That's not a bad idea. Even though Kruschke didn't show this in the text, we may as well give it a go.
 
 ```{r, fig.width = 8, fig.height = 2.5}
+# recall we computed the sigma_j's a couple blocks up;
+# now we put them to use
 post %>% 
-  transmute(`D vs A` = exp(b_sigma_Intercept + `r_Group__sigma[D,Intercept]`) - exp(b_sigma_Intercept + `r_Group__sigma[A,Intercept]`),
-            `C vs B` = exp(b_sigma_Intercept + `r_Group__sigma[C,Intercept]`) - exp(b_sigma_Intercept + `r_Group__sigma[B,Intercept]`),
-            `D vs C` = exp(b_sigma_Intercept + `r_Group__sigma[D,Intercept]`) - exp(b_sigma_Intercept + `r_Group__sigma[C,Intercept]`),
-            `B vs A` = exp(b_sigma_Intercept + `r_Group__sigma[B,Intercept]`) - exp(b_sigma_Intercept + `r_Group__sigma[A,Intercept]`)) %>% 
+  transmute(`D vs A` = sigma_D - sigma_A,
+            `C vs B` = sigma_C - sigma_B,
+            `D vs C` = sigma_D - sigma_C,
+            `B vs A` = sigma_B - sigma_A) %>% 
   gather() %>%
   mutate(key = factor(key, levels = c("D vs A", "C vs B", "D vs C", "B vs A"))) %>% 
   
@@ -2262,11 +2271,11 @@ post %>%
                     slab_fill = pp[5], color = pp[4],
                     slab_size = 0, quantiles = 100) +
   scale_y_continuous(NULL, breaks = NULL) +
-  xlab(expression(Differences~'in'~sigma)) +
+  xlab(expression(Differences~'in'~sigma[italic(j)])) +
   facet_wrap(~ key, scales = "free", ncol = 4)
 ```
 
-For more on models including a hierarchical structure on both the mean and scale structures, check out [Donald Williams](https://twitter.com/wdonald_1985) and colleagues' work on what they call Mixed Effect Location and Scale Models [MELSM; e.g., @williamsBayesianMultivariateMixedeffects2019; @williamsBayesianNonlinearMixedeffects2019]. They're quite handy and I've begun using them in my applied work (e.g., [here](https://osf.io/vekpf/)).
+For more on models including a hierarchical structure on both the mean and scale structures, check out [Donald Williams](https://twitter.com/wdonald_1985) and colleagues' work on what they call Mixed Effect Location and Scale Models [MELSM; e.g., @williamsBayesianMultivariateMixedeffects2019; @williamsBayesianNonlinearMixedeffects2019]. They're quite handy and I've begun using them in my applied work (e.g., [here](https://osf.io/vekpf/)). You can also find a brief introduction to MELSM's within the context of the multilevel growth model in [Section 14.6](https://bookdown.org/content/4857/adventures-in-covariance.html#summary-bonus-multilevel-growth-models-and-the-melsm) of my [-@kurzStatisticalRethinkingBrms2020] translation of McElreath's [-@mcelreathStatisticalRethinkingBayesian2020] second edition.
 
 ## ~~Exercises~~ Walk out an effect size
 
@@ -2274,11 +2283,11 @@ We computed a lot of effect sizes in this chapter. They were all standardized me
 
 > We need a "pure" number, one free of our original measurement unit, with which to index what can be alternately called the degree of departure from the null hypothesis of the alternate hypothesis, or the ES (effect size) we wish to detect. This is accomplished by standardizing the raw effect size as expressed in the measurement unit of the dependent variable by dividing it by the (common) standard deviation of the measures in their respective populations, the latter also in the original measurement unit. (p. 20)
 
-Though Cohen framed his discussion in terms of null-hypothesis significance testing, we can just as easily apply it to our Bayesian modeling framework. The main thing is we can use his definitions form above to define a particular kind of effect size—the standardized mean difference between two groups. This is commonly referred to as a Cohen's $d$, which follows the formula
+Though Cohen framed his discussion in terms of null-hypothesis significance testing, we can just as easily apply it to our Bayesian modeling framework. The main thing is we can use his definitions from above to define a particular kind of effect size--the standardized mean difference between two groups. This is commonly referred to as a Cohen's $d$, which follows the formula
 
-$$d = \frac{\bar y_A - \bar y_B}{s_y},$$
+$$d = \frac{\bar y_A - \bar y_B}{s_p},$$
 
-where the unstandardized means of the variable of interest $y$ are compared between two groups, A and B. From the raw data, we compute their two means, $\bar y_A$ and $\bar y_B$, and divide their difference by the common (i.e., pooled) standard deviation $s_y$. As is the typical case, the empirically-derived means and standard deviations are stand-ins (i.e., estimates) of the population parameters. If we're willing to ignore uncertainty, we can do this all by hand.
+where the unstandardized means of the variable of interest $y$ are compared between two groups, A and B. From the raw data, we compute their two means, $\bar y_A$ and $\bar y_B$, and divide their difference by the common (i.e., pooled) standard deviation $s_p$. In practice, the empirically-derived means and standard deviations are stand-ins (i.e., estimates) of the population parameters. If we're willing to ignore uncertainty, we can do this all by hand.
 
 Let's walk this out with the fruit-fly data from [Section 19.3.2][Example: Sex and death.].
 
@@ -2307,31 +2316,40 @@ my_data %>%
 If we're willing to treat the males in the `Virgin1` group as group "a" and those in the `Virgin8` group as group "b", we can save those mean values like so.
 
 ```{r}
-y_bar_a <- 56.76
-y_bar_b <- 38.72
+y_bar_a <- filter(my_data, CompanionNumber == "Virgin1") %>% summarise(y_bar = mean(Longevity)) %>% pull()
+y_bar_b <- filter(my_data, CompanionNumber == "Virgin8") %>% summarise(y_bar = mean(Longevity)) %>% pull()
 ```
 
 Now we'll compute their pooled standard deviation.
 
-```{r}
+```{r, message = F}
 my_data %>% 
   filter(str_detect(CompanionNumber, "Virgin")) %>% 
-  summarise(s = sd(Longevity))
+  group_by(CompanionNumber) %>% 
+  summarise(s = sd(Longevity)) %>% 
+  summarise(s_p = sqrt(sum(s^2) / 2))
 ```
 
 Save that value.
 
 ```{r}
-s_y <- 16.24533
+s_a <- filter(my_data, CompanionNumber == "Virgin1") %>% summarise(s = sd(Longevity)) %>% pull()
+s_b <- filter(my_data, CompanionNumber == "Virgin8") %>% summarise(s = sd(Longevity)) %>% pull()
+
+s_p <- sqrt((s_a^2 + s_b^2) / 2)
 ```
 
-Now computing Cohen's $d$ is just simple arithmetic.
+If you're confused by how we computed the pooled standard deviation, recall that when comparing two groups that may have different group-level standard deviations, the formula for the $s_p$ is 
+
+$$s_p = \sqrt{\frac{s_A^2 + s_B^2}{2}},$$
+
+where $s_A$ and $s_B$ are the group-level standard deviations. Kruschke introduced this formula back in [Section 16.3][Two groups] and we briefly emphasized it in our [Bonus Section 16.3.0.1][Bonus: Pooled standard deviation.]. Now we have the sample $s_p$ in hand, computing Cohen's $d$ is just simple arithmetic.
 
 ```{r}
-(y_bar_a - y_bar_b) / s_y
+(y_bar_a - y_bar_b) / s_p
 ```
 
-Though I'm not up on contemporary standards in fruit fly research, a Cohen’s $d$ of that size would be considered [conspicuously] large in most areas of my field (psychology). If we'd like to compute the $d$ estimates for any other combination of experimental conditions, we'd just follow the corresponding arithmetic.
+Though I'm not up on contemporary standards in fruit fly research, a Cohen's $d$ of that size would be considered [conspicuously] large in most areas of my field (psychology). If we'd like to compute the $d$ estimates for any other combination of experimental conditions, we'd just follow the corresponding arithmetic.
 
 As I hinted at earlier, the problem with this approach is it ignores uncertainty. Frequentists use various formulas to express this in terms of 95% confidence intervals. Our approach will be to express it with the posterior distribution of a Bayesian model. We've already accomplished this with our `fit19.1` from above. Here we'll use three other approaches.
 
@@ -2346,7 +2364,7 @@ mean_y <- (y_bar_a + y_bar_b) / 2
 
 stanvars <- 
   stanvar(mean_y, name = "mean_y") + 
-  stanvar(s_y,    name = "sd_y")
+  stanvar(s_p,    name = "sd_y")
 ```
 
 Fit the model with `brm()`.
@@ -2381,7 +2399,7 @@ Here we'll plot the three dimensions of the posterior, each with the correspondi
 ```{r, fig.width = 8, fig.height = 2.5}
 lines <-
   tibble(name  = c("b_CompanionNumberVirgin1", "b_CompanionNumberVirgin8", "sigma"),
-         value = c(y_bar_a, y_bar_b, s_y))
+         value = c(y_bar_a, y_bar_b, s_p))
 
 post %>% 
   pivot_longer(-lp__) %>% 
@@ -2398,23 +2416,23 @@ post %>%
   facet_wrap(~ name, scales = "free")
 ```
 
-The model did a great job capturing the group means. Notice how the posterior `sigma` is a bit lower than the value $s_y$. This is because $\sigma$ in the model is conditioned on the mean. Because we have two means, one for each group, that has 'explained some of the variation' in the criterion variable `Longevity`. Thus, our posterior for $\sigma$ might be more fully expressed as $\sigma | \text{CompanionNumber}$. If we would like to compute our Cohen's $d$ using the posterior iterations from `fit19.8`, we'd execute something like this.
+The model did a great job capturing all three parameters. If we would like to compute our Cohen's $d$ using the posterior iterations from `fit19.8`, we'd execute something like this.
 
 ```{r, fig.width = 3, fig.height = 2.5}
 post %>% 
-  mutate(d = (b_CompanionNumberVirgin1 - b_CompanionNumberVirgin8) / s_y) %>% 
+  mutate(d = (b_CompanionNumberVirgin1 - b_CompanionNumberVirgin8) / sigma) %>% 
   
   ggplot(aes(x = d, y = 0)) +
   stat_dotsinterval(point_interval = mode_hdi, .width = .95,
                     slab_fill = pp[2], color = pp[7],
                     slab_size = 0, quantiles = 100) +
-  geom_vline(xintercept = (y_bar_a - y_bar_b) / s_y,
+  geom_vline(xintercept = (y_bar_a - y_bar_b) / s_p,
              color = pp[13], linetype = 2) +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(expression("Cohen's"~italic(d)~"expressed as a posterior"))
 ```
 
-Similar to the previous plots, this time we superimposed the density with the estimate for $d$ we computed above, `(y_bar_a - y_bar_b) / s_y`. Happily, the hand-calculated estimate coheres nicely with the central tendency of our posterior distribution. But now we get a full measure of uncertainty. Notice how wide those 95% HDIs are. Hopefully this isn't a surprise given our noncommittal priors and only $n = 25$ for both groups. There's a lot of uncertainty in that posterior.
+Similar to the previous plots, this time we superimposed the posterior density with the sample estimate for $d$ we computed above, `(y_bar_a - y_bar_b) / s_p`. Happily, the hand-calculated estimate coheres nicely with the central tendency of our posterior distribution. But now we get a full measure of uncertainty. Notice how wide those 95% HDIs are. Hopefully this isn't a surprise given our noncommittal priors and only $n = 25$ for both groups. There's a lot of uncertainty in that posterior.
 
 A second way we might use a single-level model to compute a Cohen's $d$ effect size is using a dummy variable. We'll convert our nominal variable `CompanionNumber` into a binary variable `Virgin1` for which 1 corresponds to `CompanionNumber == Virgin1` and 0 corresponds to `CompanionNumber == Virgin8`. Compute the dummy.
 
@@ -2444,7 +2462,7 @@ fit19.9 <-
 print(fit19.9)
 ```
 
-With this parameterization, our posterior for `Intercept` is the same, within simulation variation, as `CompanionNumberVirgin8` from `fit7`. The posterior for `sigma` is about the same for both models, too. But focus on `Virgin1`. This is the unstandardized mean difference, what we called $\bar y_A - \bar y_B$ in our formula for Cohen's $d$. Here's a look at its posterior distribution with its empirical estimate superimposed with a vertical line.
+With this parameterization, our posterior for `Intercept` is the same, within simulation variation, as `CompanionNumberVirgin8` from `fit7`. The posterior for `sigma` is about the same for both models, too. But focus on `Virgin1`. This is the unstandardized mean difference, what we called $\bar y_A - \bar y_B$ when we computed Cohen's $d$ using sample statistics. Here's a look at its posterior distribution with its empirical estimate superimposed with a vertical line.
 
 ```{r, fig.width = 3, fig.height = 2.5}
 post <- posterior_samples(fit19.9)
@@ -2464,30 +2482,30 @@ Here's how to standardize that unstandardized effect size into a Cohen's-$d$ met
 
 ```{r, fig.width = 3, fig.height = 2.5}
 post %>% 
-  mutate(d = b_Virgin1 / s_y) %>% 
+  mutate(d = b_Virgin1 / sigma) %>% 
   
   ggplot(aes(x = d, y = 0)) +
   stat_dotsinterval(point_interval = mode_hdi, .width = .95,
                     slab_fill = pp[2], color = pp[7],
                     slab_size = 0, quantiles = 100) +
-  geom_vline(xintercept = (y_bar_a - y_bar_b) / s_y,
+  geom_vline(xintercept = (y_bar_a - y_bar_b) / s_p,
              color = pp[13], linetype = 2) +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(expression("Cohen's"~italic(d)~"expressed as a posterior"))
 ```
 
-Let's work this one more way. By simple algebra, a standardized mean difference is the same as the difference between two standardized means. If we standardize the criterion `Longevity` before fitting the model and continue using the dummy variable approach, the `Virgin1` posterior will be the same as a Cohen's $d$.
+Let's work this one more way. By simple algebra, a standardized mean difference is the same as the difference between two standardized means. The trick, though, is you have to use the pooled standard deviation ($s_p$) as your standardizer. Thus, if we standardize the criterion `Longevity` before fitting the model and continue using the dummy variable approach, the `Virgin1` posterior will be the same as a Cohen's $d$.
 
-Standardize the criterion.
+Standardize the criterion with `s_p`.
 
 ```{r}
 my_data <-
   my_data %>% 
-  mutate(Longevity_s = (Longevity - mean(Longevity)) / sd(Longevity))
+  mutate(Longevity_s = (Longevity - mean(Longevity)) / s_p)
 ```
 
 Because our criterion in a standardized metric, we no longer need our `stanvars`.
-
+      
 ```{r fit19.10}
 fit19.10 <-
   brm(data = my_data,
@@ -2511,29 +2529,25 @@ posterior_samples(fit19.10) %>%
   stat_dotsinterval(point_interval = mode_hdi, .width = .95,
                     slab_fill = pp[2], color = pp[7],
                     slab_size = 0, quantiles = 100) +
-  geom_vline(xintercept = (y_bar_a - y_bar_b) / s_y,
+  geom_vline(xintercept = (y_bar_a - y_bar_b) / s_p,
              color = pp[13], linetype = 2) +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(expression("Cohen's"~italic(d)~"expressed as a posterior"))
 ```
 
-If you work them through, the approaches we took for `fit19.8` and `fit19.9` can be generalized to models with more than two groups. You just need to be careful how to compute the $s_y$ for each comparison. The same cannot be said for our `fit19.10` approach. If you were to, say, fit a model that produced estimates for all five groups, you could not just standardize the data beforehand using the overall standard deviation. If you did, the pooled standard deviation you'd be basing your not-quite-Cohen's $d$ posteriors on would be pooled across all groups, not just the two groups entailed in a given two-group comparison.
+If you work them through, the three approaches we just took can be generalized to models with more than two groups. You just need to be careful how to compute the $s_p$ for each comparison.
 
 It's also the case the that standardized mean differences we computed for `fit19.1`, above, are not quite Cohen's $d$ effect sizes in the same way these have been. This is because the hierarchical approach we used partially pooled the estimates for each group toward the grand mean. You might say they were hierarchically-regularized Cohen's $d$s. But then again, Cohen's formula for his $d$ statistic did not account for Bayesian priors, either. So perhaps a purist would deny that any of the standardized mean differences we've computed in this chapter were proper Cohen's $d$ effect sizes. To be on the safe side, tell your readers exactly how you computed your models and what formulas you used to compute your effect sizes.
 
-### Populations and samples.
+### Your sample sizes may differ.
 
-You may have noticed that in our equation for $d$, above, we defined it in terms of sample statistics. Here it is again:
+In the examples, above, the two groups had equal sample sizes, which allowed us to be lazy with how we hand computed the sample estimate of the pooled standard deviation. When working with data for which $n_A \neq n_B$, it's a good idea to switch out the equation for the pooled standard deviation $s_p$ for $s_p^*$, which is robust to unequal sample sizes. We wan write the equation for the two-groups version of $s_p^*$ as
 
-$$d = \frac{\bar y_A - \bar y_B}{s_y}$$
+$$s_p^* = \sqrt{\frac{(n_A - 1)s_A^2 + (n_B - 1)s_B^2}{n_A + n_B - 2}},$$
 
-Sometimes we speak of the population parameter $\delta$, which is correspondingly defined as
+which strategically weights the sample estimate for the pooled standard deviation by sample size.
 
-$$\delta = \frac{\mu_A - \mu_B}{\sigma},$$
-
-where $\mu_A$ and $\mu_B$ are the population means for the two groups under consideration and $\sigma$ is the pooled standard deviation in the population. Often times we don't have access to these values, which is why we run experiments and fit statistical models. But sometimes we do have access to the population parameters. In those cases, we can just plug them into the formula rather than estimate them in our models or with our sample statistics.
-
-Back in [Section 16.1.2][Approximation by ~~MCMC in JAGS~~ HMC in brms.], we saw an example of this with the `TwoGroupIQ` data. Let's load them, again.
+We should practice with $s_p^*$, a bit, to see how it works together with our Bayesian modeling paradigm. Back in [Section 16.1.2][Approximation by ~~MCMC in JAGS~~ HMC in brms.], we saw an example of this with the `TwoGroupIQ` data. Let's load them, again.
 
 ```{r, message = F}
 my_data <- read_csv("data.R/TwoGroupIQ.csv")
@@ -2553,54 +2567,166 @@ my_data %>%
   coord_cartesian(ylim = c(1.5, 2.25))
 ```
 
-If we wanted to compute the point estimate for Cohen's $d$ by hand, we might extract the necessary sample statistics and go.
+Unlike the examples from the last section, the samples sizes are different for our two levels of `Group`.
+
+```{r}
+my_data %>% 
+  count(Group)
+```
+
+Here's how we can use that information to hand compute the sample estimate for Cohen's $d$.
 
 ```{r}
 # save the sample means for the groups
-y_bar_a <- filter(my_data, Group == "Smart Drug") %>% summarise(mean = mean(Score)) %>% pull()
-y_bar_b <- filter(my_data, Group == "Placebo")    %>% summarise(mean = mean(Score)) %>% pull()
+y_bar_a <- filter(my_data, Group == "Smart Drug") %>% summarise(m = mean(Score)) %>% pull()
+y_bar_b <- filter(my_data, Group == "Placebo")    %>% summarise(m = mean(Score)) %>% pull()
 
-# save the pooled standard deviation in the sample
-s_y <- sd(my_data$Score)
+# save the sample sizes for the groups 
+n_a <- filter(my_data, Group == "Smart Drug") %>% count() %>% pull()
+n_b <- filter(my_data, Group == "Placebo") %>% count() %>% pull()
+
+# save the sample standard deviations
+s_a <- filter(my_data, Group == "Smart Drug") %>% summarise(s = sd(Score)) %>% pull()
+s_b <- filter(my_data, Group == "Placebo")    %>% summarise(s = sd(Score)) %>% pull()
+
+# compute and save the sample pooled standard deviation
+s_p <- sqrt(((n_a - 1) * s_a^2 + (n_b - 1) * s_b^2) / (n_a + n_b - 2))
 
 # compute Cohen's d
-(y_bar_a - y_bar_b) / s_y
+(y_bar_a - y_bar_b) / s_p
 ```
 
-To get full posteriors for $d$, you might use any of the three methods we practiced with, above. Because we're only working with sample statistics, these are all only approximations of $\delta$. The thing about IQ scores is we actually know the population mean and standard deviation for IQ. They are 100 and 15, respectively. We know this because the people who make IQ tests design them that way. Let's see how well out sample statistics approximate the population parameters.
+Although it's a lot of work to compute a sample-size corrected Cohen's $d$ with unequally-sized sample data, it's straightforward to compute the effect size in a Bayesian model. We could use any of the three approaches, from above. Here we'll practice with the `Score ~ 0 + Group` syntax.
+
+```{r fit19.11}
+mean_y <- (y_bar_a + y_bar_b) / 2
+
+stanvars <- 
+  stanvar(mean_y, name = "mean_y") + 
+  stanvar(s_p,    name = "sd_y")
+
+fit19.11 <-
+  brm(data = my_data,
+      family = gaussian,
+      Score ~ 0 + Group,
+      prior = c(prior(normal(mean_y, sd_y * 5), class = b),
+                prior(cauchy(0, sd_y), class = sigma)),
+      iter = 3000, warmup = 1000, chains = 4, cores = 4,
+      seed = 19,
+      stanvars = stanvars,
+      file = "fits/fit19.11")
+```
+
+Review the model summary.
+
+```{r}
+print(fit19.11)
+```
+
+The $\sigma$ parameter within this model is an estimate of the population value for $\sigma_p$. Happily, it already accommodates the differences in sample sizes, which we tried to correct for, above, with $s_p^*$. To give a sense, here's a plot of the $\sigma$ posterior with our hand-computed `s_p` value superimposed as a dashed line.
+
+```{r, fig.width = 3, fig.height = 2.5}
+posterior_samples(fit19.11) %>% 
+  
+  ggplot(aes(x = sigma, y = 0)) +
+  stat_dotsinterval(point_interval = mode_hdi, .width = .95,
+                    slab_fill = pp[2], color = pp[7],
+                    slab_size = 0, quantiles = 100) +
+  geom_vline(xintercept = s_p,
+             color = pp[13], linetype = 2) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  xlab(expression(sigma[italic(p)]))
+```
+
+Nailed it! Now here's how we might use the posterior samples to then compute the standardized mean difference.
+
+```{r, fig.width = 3, fig.height = 2.5}
+posterior_samples(fit19.11) %>% 
+  mutate(d = (b_GroupSmartDrug - b_GroupPlacebo) / sigma) %>% 
+  
+  ggplot(aes(x = d, y = 0)) +
+  stat_dotsinterval(point_interval = mode_hdi, .width = .95,
+                    slab_fill = pp[2], color = pp[7],
+                    slab_size = 0, quantiles = 100) +
+  geom_vline(xintercept = (y_bar_a - y_bar_b) / s_p,
+             color = pp[13], linetype = 2) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  xlab(expression((mu[italic(B)]-mu[italic(A)])/sigma[italic(p)]*", where "*sigma[italic(p)]%~~%sqrt(((italic(n[A])-1)*italic(s)[italic(A)]^2+(italic(n[B])-1)*italic(s)[italic(B)]^2)/(italic(n[A])+italic(n[B])-2))))
+```
+
+Sometimes fitting a model is easier than computing estimates, by hand.
+
+### Populations and samples.
+
+You may have noticed that in our equation for $d$, above, we defined our standardized mean differences in terms of sample statistics,
+
+$$d = \frac{\bar y_A - \bar y_B}{s_p},$$
+
+where $s_p$ can either assume equal sample sizes, or it can be replaced with $s_p^*$ when sample sizes differ. Sometimes we speak of the true population effect size $\delta$, which is correspondingly defined as
+
+$$\delta = \frac{\mu_A - \mu_B}{\sigma},$$
+
+where $\mu_A$ and $\mu_B$ are the population means for the two groups under consideration and $\sigma$ is the pooled standard deviation in the population. Often times we don't have access to these values, which is why we run experiments and fit statistical models. But sometimes we do have access to the exact population parameters. In those cases, we can just plug them into the formula rather than estimate them in our models or with our sample statistics.
+
+In the case of our IQ score data from the last section, we actually know the population mean and standard deviation for IQ are 100 and 15, respectively. We know this because the people who make IQ tests design them that way. Let's see how well our sample statistics approximate the population parameters.
 
 ```{r, message = F}
 my_data %>% 
   group_by(Group) %>% 
   summarise(mean = mean(Score),
             sd = sd(Score))
+
+# pooled standard deviation
+s_p
 ```
 
-Unsurprisingly, the values for the `Smart Drug` group are notably different from the population parameters. But notice how close the values from the `Placebo` group are to the population parameters. If they weren't, we’d be concerned the `Placebo` condition was not a valid control. Looks like it was.
+Unsurprisingly, the values for the `Smart Drug` group are notably different from the population parameters. But notice how close the values from the `Placebo` group are to the population parameters. If they weren't, we'd be concerned the `Placebo` condition was not a valid control. Looks like it was.
 
 However, notice that the mean and standard deviation for the `Placebo` group are not the exact values of 100 and 15 the way they are in the population. If we wanted to compute a standardized mean difference between our `Smart Drug` group and folks in the population, we could just plug those values directly into our effect size equation. Here's what that would look like if we plug in the population mean for the control group.
 
 ```{r}
-(y_bar_a - 100) / s_y
+(y_bar_a - 100) / s_p
 ```
 
 The result is very close to the one above. But this time our equation for $d$ was
 
-$$d = \frac{\bar y_A - \mu_B}{s_y},$$
+$$d = \frac{\bar y_A - \mu_B}{s_p},$$
 
-where we used the population mean $\mu_B$, but the other two terms were based on values from the sample. As long as you are defining the `Placebo` control as a stand-in for the population, this is a more precise way to compute $d$. Going further, we can also replace our $s_y$ with $\sigma$ (i.e., 15).
+where we used the population mean $\mu_B$, but the other two terms were based on values from the sample. As long as you are defining the `Placebo` control as a stand-in for the population, this is a more precise way to compute $d$. Going further, we can also replace our sample estimate $s_p$ with the true value for $\sigma$, 15.
 
 ```{r}
 (y_bar_a - 100) / 15
 ```
 
-Now our estimate is quite different. *Why*? Recall that sample standard deviations for both groups were larger than 15. That resulted in a $s_y$ value that was larger than 15, which meant we divided the unstandardized difference by a larger denominator. That larger denominator returned a smaller product.
+Now our hand-computed estimate for $d$ is quite different. *Why*? Recall that sample standard deviations for both groups were larger than 15, which therefore produced an $s_p$ value that was larger than 15. When working with fractions, larger denominators return smaller products.
 
-We have more than simple algebra to contend with, though. Replacing $s_y$ with 15 actually changed the meaning of the effect size. We were no longer using a pooled standard deviation. Rather, we were using the unconditional population standard deviation. Again, as long as we're equating our `Placebo` group with the population, we might restate that 15 as $\sigma_B$. Sometimes you might see this expressed as $\sigma_C$, where $C$ indicates "Control" (i.e., the reference category). That changed our formula to this:
+Here's what this looks like if we work with the posterior from the last model, `fit19.11`.
 
-$$d = \frac{\bar y_A - \mu_B}{\sigma_B}$$
+```{r, fig.width = 3, fig.height = 2.5}
+posterior_samples(fit19.11) %>% 
+  mutate(d = (b_GroupSmartDrug - 100) / 15) %>% 
+  
+  ggplot(aes(x = d, y = 0)) +
+  stat_dotsinterval(point_interval = mode_hdi, .width = .95,
+                    slab_fill = pp[2], color = pp[7],
+                    slab_size = 0, quantiles = 100) +
+  geom_vline(xintercept = (y_bar_a - 100) / 15,
+             color = pp[13], linetype = 2) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  xlab(expression((mu[italic(B)]-100)/15))
+```
 
-So yes, that's right. We don't have to use pooled standard deviations to compute our standardized mean differences. If we have a good reference category, we could just use the sample estimate or population parameter for that, instead. Confusingly, you might see all these variants referred to as Cohen's $d$ within the literature. As with all the other decisions you make with experimental design and data analysis, use carefully reasoning to decide on how you'd like to compute your effect sizes, report them transparently to your audience, and prepare yourself for a collegial debate with Reviewer #2.
+Note how we've now changed our effect size formula to
+
+$$d = \frac{\bar y_A - \mu_B}{\sigma}.$$
+
+### Report your effect sizes effectively.
+
+Wrapping up, we've been practicing computing standardized mean differences ($d$'s) by hand with sample statistics, with posterior samples from our Bayesian models, and with combinations of the two. We've also seen that whereas unequal sample sizes can matter a lot for hand computing your $d$ estimates, the procedure is more straightforward when using the Bayesian posterior approach. Finally, we played around a bit with how we defined our formula for $d$, depending on whether we knew the true population values of any of the parameters.
+
+Confusingly, you might see all these variants, and more, referred to as Cohen's $d$ within the literature. As with all the other decisions you make with experimental design and data analysis, use carefully reasoning to decide on how you'd like to compute your effect sizes. To stave off confusion, report the formulas for your effect sizes transparently in your work.
+
+Though we've followed Kruschke's lead and focused on the Cohen's $d$ approach to effect sizes, there are many other ways to express effect sizes. Furthermore, $d$-type effect sizes aren't appropriate for some model types or for some research questions. To expand your effect size repertoire, you might brush up on Cohen's [-@cohenStatisticalPowerAnalysis1988] authoritative text or Cummings newer [-@cummingUnderstandingTheNewStatistics2012] text. For nice conceptual overview on effect sizes, I recommend Kelley and Preacher's [-@kelley2012effect] paper, [*On effect size*](https://www3.nd.edu/~kkelley/publications/articles/Kelley_and_Preacher_Psychological_Methods_2012.pdf). Also see Pek and Flora's [-@pekReportingEffectSizes2018] handy paper, [*Reporting effect sizes in original psychological research: A discussion and tutorial*](https://doi.apa.org/fulltext/2017-10871-001.html).
 
 ## Session info {-}
 
@@ -2610,7 +2736,7 @@ sessionInfo()
 
 ```{r, echo = F}
 # remove our objects
-rm(generate_data, n, grand_mean, d, densities, arrow, text, pp, p1, p2, my_arrow, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, layout, gamma_a_b_from_omega_sigma, sd_y, omega, sigma, s_r, my_data, mean_y, stanvars, fit19.1, post, n_draws, post_draws, fit19.2, mw, fit19.3, fit19.4, p13, my_small_data, sd_thorax_c, fit19.5, r, f, differences, p14, p15, p16, p17, fit19.6, fit19.7, y_bar_a, y_bar_b, s_y, fit19.8, lines, fit19.9, fit19.10)
+rm(generate_data, n, grand_mean, d, densities, arrow, text, pp, p1, p2, my_arrow, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, layout, gamma_a_b_from_omega_sigma, sd_y, omega, sigma, s_r, my_data, mean_y, stanvars, fit19.1, post, n_draws, post_draws, fit19.2, mw, fit19.3, fit19.4, p13, my_small_data, sd_thorax_c, fit19.5, r, f, differences, p14, p15, p16, p17, fit19.6, fit19.7, y_bar_a, y_bar_b, s_a, s_b, s_p, fit19.8, lines, fit19.9, fit19.10, n_a, n_b, fit19.11)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
