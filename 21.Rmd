@@ -335,46 +335,35 @@ Here's the model summary.
 print(fit21.1)
 ```
 
-Now let's get ready to make our version of Figure 21.3. First, we need to do some `fitted()`-oriented wrangling.
+Now let's get ready to make our version of Figure 21.3. First, we extract the posterior draws with `add_chain = TRUE`.
 
-```{r, warning = F}
+```{r}
+post <- posterior_samples(fit21.1, add_chain = T)
+```
+
+Now we wrangle a bit to make the top panel of Figure 21.3.
+
+```{r, fig.width = 4.5, fig.height = 3.75}
 length <- 200
 n_iter <- 20
 
-nd <- tibble(weight_z = seq(from = -2, to = 3.5, length.out = length))
-
-f <-
-  fitted(fit21.1,
-         newdata  = nd,
-         summary = F,
-         nsamples = n_iter) %>% 
-  as_tibble() %>%
-  mutate(iter = 1:n_iter) %>% 
-  pivot_longer(-iter) %>% 
-  mutate(weight_z = rep(nd$weight_z, times = n_iter)) %>% 
-  mutate(weight = weight_z * sd(my_data$weight) + mean(my_data$weight))
-
-head(f)
-```
-
-Here's a tricky way to get the threshold values.
-
-```{r}
-thresholds <-
-  f %>% 
-  filter(value < .5) %>% 
-  group_by(iter) %>% 
-  filter(value == max(value))
-```
-
-Using those `thresholds`, here's our version of the top panel of Figure 21.3.
-
-```{r, fig.width = 4.5, fig.height = 3.75}
-f %>% 
+post %>% 
+  # take 20 random samples of the posterior draws
+  slice_sample(n = n_iter) %>% 
+  # add in a sequence of weight_z
+  expand(nesting(b_Intercept, b_weight_z, iter),
+         weight_z = seq(from = -2, to = 3.5, length.out = length)) %>% 
+  # compute the estimates of interest
+  mutate(male   = inv_logit_scaled(b_Intercept + b_weight_z * weight_z),
+         weight = weight_z * sd(my_data$weight) + mean(my_data$weight),
+         thresh = -b_Intercept / b_weight_z * sd(my_data$weight) + mean(my_data$weight)) %>% 
+  
+  # plot!
   ggplot(aes(x = weight)) +
   geom_hline(yintercept = .5, color = pm[7], size = 1/2) +
-  geom_vline(xintercept = thresholds$weight, color = pm[6], size = 2/5, linetype = 2) +
-  geom_line(aes(y = value, group = iter),
+  geom_vline(aes(xintercept = thresh, group = iter),
+             color = pm[6], size = 2/5, linetype = 2) +
+  geom_line(aes(y = male, group = iter),
             color = pm[1], size = 1/3, alpha = 2/3) +
   geom_point(data = my_data,
              aes(y = male),
@@ -388,15 +377,16 @@ We should discuss those thresholds (i.e., the vertical lines) a bit. Kruschke:
 
 > The spread of the logistic curves indicates the uncertainty of the estimate; the steepness of the logistic curves indicates the magnitude of the regression coefficient. The 50% probability threshold is marked by arrows that drop down from the logistic curve to the $x$-axis, near a weight of approximately 160 pounds. The threshold is the $x$ value at which $\mu = 0.5$, which is $x = -\beta_0 / \beta_1$. (p. 626)
 
+It's important to realize that when you compute the thresholds with $-\beta_0 / \beta_1$, this returns the values *on the scale of the predictor*. In our case, the predictor was `weight_z`. But since we wanted to plot the data on the scale of the unstandardized variable, `weight`, we have to convert the thresholds to that metric by multiplying their values by $s_\text{weight}$ and then add the product to $\overline{\text{weight}}$. If you study it closely, you'll see that's what we did when computing the `thresh` values, above.
+
 Now here we show the marginal distributions in our versions of the lower panels of Figure 21.3.
 
 ```{r, fig.width = 6, fig.height = 2.5, warning = F, message = F}
 library(tidybayes)
 
-# extract the draws
 post <-
-  posterior_samples(fit21.1) %>% 
-  # convert the parameter draws to their natural metric following Equation 21.1
+  post %>% 
+  # convert the parameter draws to their natural metric following Equation 21.1 (pp. 624--625)
   transmute(Intercept = b_Intercept - (b_weight_z * mean(my_data$weight) / sd(my_data$weight)),
             weight    = b_weight_z / sd(my_data$weight)) %>% 
   pivot_longer(everything())
@@ -477,6 +467,7 @@ Here's our version of Figure 21.4.a.
 
 ```{r, fig.width = 4.25, fig.height = 4}
 set.seed(21)  # we need this for the `sample_n()` function
+
 post %>% 
   mutate(iter = 1:n()) %>% 
   sample_n(size = 20) %>% 
@@ -686,57 +677,46 @@ Recall that when you use the binomial distribution in newer versions of **brms**
 print(fit21.3)
 ```
 
-Looks like the model did a good job recapturing those data-generating `b0` and `b1` values. Here's the preparatory work to needed before we can make our version of the main plot in Figure 21.5.a.
+Looks like the model did a good job recapturing those data-generating `b0` and `b1` values. Now make the top left panel of Figure 21.5.
 
-```{r}
+```{r, fig.width = 4.5, fig.height = 3.75}
+post <- posterior_samples(fit21.3, add_chain = T)
+
 # unclear if Kruschke still used 20 draws or not
-# perhaps play with `n_iter` values.
+# perhaps play with the `n_iter` values
 n_iter <- 20
 length <- 100
 
-nd <- tibble(x = seq(from = -3.5, to = 3.5, length.out = length))
-
-# these will make the logistic curves
 set.seed(21)
-f <-
-  fitted(fit21.3,
-         newdata = nd,
-         summary = F,
-         nsamples = n_iter) %>% 
-  as_tibble() %>%
-  pivot_longer(everything(), 
-               values_to = "y") %>% 
-  mutate(x    = rep(nd$x, times = n_iter),
-         iter = rep(1:n_iter, each = length))
 
-# Here's just a little more work to get the thresholds
-thresholds <-
-  f %>% 
-  filter(y < .5) %>% 
-  group_by(iter) %>% 
-  filter(y == max(y))
-```
-
-We're ready to plot the top left panel of Figure 21.5.
-
-```{r, fig.width = 4.25, fig.height = 3.75}
-f %>%   
-  ggplot(aes(x = x, y = y)) +
+post %>% 
+  # take 20 random samples of the posterior draws
+  slice_sample(n = n_iter) %>% 
+  # add in a sequence of x
+  expand(nesting(b_Intercept, b_x, iter),
+         x = seq(from = -3.5, to = 3.5, length.out = length)) %>% 
+  # compute the estimates of interest
+  mutate(y      = inv_logit_scaled(b_Intercept + b_x * x),
+         thresh = -b_Intercept / b_x) %>% 
+  
+  # plot!
+  ggplot(aes(x = x)) +
   geom_hline(yintercept = .5, color = pm[7], size = 1/2) +
-  geom_vline(xintercept = thresholds$x, color = pm[6], size = 2/5, linetype = 2) +
-  geom_line(aes(group = iter),
+  geom_vline(aes(xintercept = thresh, group = iter),
+             color = pm[6], size = 2/5, linetype = 2) +
+  geom_line(aes(y = y, group = iter),
             color = pm[1], size = 1/3, alpha = 2/3) +
   geom_point(data = d_rare,
+             aes(y = y),
              alpha = 1/3, color = pm[1]) +
-  scale_x_continuous(breaks = -3:3) +
   ggtitle("Data with Post. Pred.") +
-  coord_cartesian(xlim = c(-3, 3))
+  coord_cartesian(xlim = range(d_rare$x))
 ```
 
 Here are the two subplots at the bottom, left.
 
 ```{r, fig.width = 6, fig.height = 2.5, warning = F, message = F}
-posterior_samples(fit21.3) %>% 
+post %>% 
   transmute(Intercept = b_Intercept,
             x         = b_x) %>% 
   pivot_longer(everything()) %>% 
@@ -787,34 +767,25 @@ print(fit21.4)
 Here's the code for the main plot in Figure 21.5.b.
 
 ```{r}
-nd <- tibble(x = seq(from = -3.5, to = 3.5, length.out = length))
+post <- posterior_samples(fit21.4, add_chain = T)
 
 set.seed(21)
-f <-
-  fitted(fit21.4,
-         newdata = nd,
-         summary = F,
-         nsamples = n_iter) %>% 
-  as_tibble() %>% 
-  pivot_longer(everything(), values_to = "y") %>% 
-  mutate(x    = rep(nd$x, times = n_iter),
-         iter = rep(1:n_iter, each = length))
-
-thresholds <-
-  f %>% 
-  filter(y < .5) %>% 
-  group_by(iter) %>% 
-  filter(y == max(y))
 
 p1 <-
-  f %>%   
+  post %>% 
+  slice_sample(n = n_iter) %>% 
+  expand(nesting(b_Intercept, b_x, iter),
+         x = seq(from = -3.5, to = 3.5, length.out = length)) %>% 
+  mutate(y      = inv_logit_scaled(b_Intercept + b_x * x),
+         thresh = -b_Intercept / b_x) %>% 
+  
   ggplot(aes(x = x, y = y)) +
   geom_hline(yintercept = .5, color = pm[7], size = 1/2) +
-  geom_vline(xintercept = thresholds$x, color = pm[6], size = 2/5, linetype = 2) +
+  geom_vline(aes(xintercept = thresh, group = iter),
+             color = pm[6], size = 2/5, linetype = 2) +
   geom_line(aes(group = iter),
             color = pm[1], size = 1/3, alpha = 2/3) +
-  geom_point(data = d_not_rare,
-             aes(y = y),
+  geom_point(data = d_rare,
              alpha = 1/3, color = pm[1]) +
   ggtitle("Data with Post. Pred.") +
   coord_cartesian(xlim = c(-3, 3))
@@ -824,7 +795,7 @@ Now make the two subplots at the bottom.
 
 ```{r}
 p2 <-
-  posterior_samples(fit21.4) %>% 
+  post %>% 
   transmute(Intercept = b_Intercept,
             x         = b_x) %>% 
   pivot_longer(everything()) %>% 
@@ -844,7 +815,6 @@ p3 <- plot_spacer()
 p1 / (p2 + p3 + plot_layout(widths = c(2, 1))) +
   plot_layout(height = c(4, 1))
 ```
-
 
 > You can see in Figure 21.5 that the estimate of the slope (and of the intercept) is more certain in the right panel than in the left panel. The 95% HDI on the slope, $\beta_1$, is much wider in the left panel than in the right panel, and you can see that the logistic curves in the left panel have greater variation in steepness than the logistic curves in the right panel. The analogous statements hold true for the intercept parameter.
 >
@@ -1189,54 +1159,40 @@ conditional_effects(fit21.7) %>%
        point_args = list(color = pm[1], alpha = 3/4))
 ```
 
-The way we prep for our version of Figure 21.8 is just the same as what we did for Figure 21.3, above.
-
-```{r}
-length <- 200
-
-nd <- tibble(weight_z = seq(from = -2, to = 3.5, length.out = length))
-
-f <-
-  fitted(fit21.7,
-         newdata = nd,
-         summary = F,
-         nsamples = n_iter) %>% 
-  as_tibble() %>% 
-  mutate(iter = 1:n_iter) %>% 
-  pivot_longer(-iter) %>% 
-  mutate(weight_z = rep(nd$weight_z, times = n_iter)) %>% 
-  mutate(weight   = weight_z * sd(my_data$weight) + mean(my_data$weight))
-
-thresholds <-
-  f %>% 
-  filter(value < .5) %>% 
-  group_by(iter) %>% 
-  filter(value == max(value))
-```
-
-Now make the top panel.
+The way we prep for our version of Figure 21.8 is a minor extension what we did for Figure 21.3, above. Here we make the top panel. The biggest change, from before, is our adjusted formula for computing `male`.
 
 ```{r, fig.width = 4.5, fig.height = 3.75}
-p1 <-
-  f %>% 
-  ggplot(aes(x = weight, y = value)) +
+post <- posterior_samples(fit21.7, add_chain = T)
+
+p1 <- 
+  post %>% 
+  slice_sample(n = n_iter) %>% 
+  expand(nesting(b_a_Intercept, b_b0_Intercept, b_b1_Intercept, iter),
+         weight_z = seq(from = -2, to = 3.5, length.out = length)) %>% 
+  # compare this to Kruschke's mu[i] code at the top of page 636
+  mutate(male   = 0.5 * b_a_Intercept + (1 - b_a_Intercept) * inv_logit_scaled(b_b0_Intercept + b_b1_Intercept * weight_z),
+         weight = weight_z * sd(my_data$weight) + mean(my_data$weight),
+         thresh = -b_b0_Intercept / b_b1_Intercept * sd(my_data$weight) + mean(my_data$weight)) %>% 
+  
+  ggplot(aes(x = weight, y = male)) +
   geom_hline(yintercept = .5, color = pm[7], size = 1/2) +
-  geom_vline(xintercept = thresholds$weight, color = pm[6], size = 2/5, linetype = 2) +
+  geom_vline(aes(xintercept = thresh, group = iter),
+             color = pm[6], size = 2/5, linetype = 2) +
   geom_line(aes(group = iter),
             color = pm[1], size = 1/3, alpha = 2/3) +
   geom_point(data = my_data,
-             aes(y = male),
              alpha = 1/3, color = pm[1]) +
   labs(title = "Data with Post. Pred.", 
        y = "male") +
   coord_cartesian(xlim = range(my_data$weight))
 ```
 
+
 Here we make the marginal-distribution plots for our versions of the lower panels of Figure 21.8.
 
 ```{r, fig.width = 8, fig.height = 2.5, warning = F, message = F}
 p2 <-
-  posterior_samples(fit21.7) %>% 
+  post %>% 
   transmute(Intercept = b_b0_Intercept - (b_b1_Intercept * mean(my_data$weight) / sd(my_data$weight)),
             weight    = b_b1_Intercept / sd(my_data$weight),
             guessing  = b_a_Intercept) %>% 
@@ -1884,7 +1840,7 @@ sessionInfo()
 
 ```{r, message = F, echo = F}
 # Here we'll remove our objects
-rm(pm, p1, p2, my_arrow, p3, p4, p5, p6, p7, p8, p9, layout, my_data, p, fit21.1, length, n_iter, nd, f, thresholds, stat_wilke, fit21.2, post, b0, b1, n, d_rare, fit21.3, d_not_rare, fit21.4, s, m, d, b2, fit21.5, different_seed, my_upper, my_diag, my_lower, b3, fit21.6, fit21.7, logistic, positions, p10, fit21.8)
+rm(pm, p1, p2, my_arrow, p3, p4, p5, p6, p7, p8, p9, layout, my_data, p, fit21.1, length, n_iter, nd, post, stat_wilke, fit21.2, f, b0, b1, n, d_rare, fit21.3, d_not_rare, fit21.4, s, m, d, b2, fit21.5, different_seed, my_upper, my_diag, my_lower, b3, fit21.6, fit21.7, logistic, positions, p10, fit21.8)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
