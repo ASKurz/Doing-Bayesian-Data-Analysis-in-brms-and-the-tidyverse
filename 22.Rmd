@@ -34,7 +34,7 @@ for which the subscripts $k$ indicate there's a linear model for each of the $k$
 \lambda_{[3]} & = \beta_{0, [3]} + \beta_{1, [3]} x.
 \end{align*}
 
-In this scenerio, what we want to know is the probability of $\lambda_{[1]}$, $\lambda_{[2]}$, and $\lambda_{[3]}$. The probability of a given outcome $k$ follows the formula
+In this scenario, what we want to know is the probability of $\lambda_{[1]}$, $\lambda_{[2]}$, and $\lambda_{[3]}$. The probability of a given outcome $k$ follows the formula
 
 $$\phi_k = \operatorname{softmax}_S (\{\lambda_k\}) = \frac{\exp (\lambda_k)}{\sum_{c \in S} \exp  (\lambda_c)}.$$
 
@@ -582,12 +582,12 @@ fitted(fit22.1,
        newdata = nd) %>% 
   as_tibble() %>% 
   select(contains("Estimate")) %>% 
-  set_names(str_c("lambda==", 1:4)) %>% 
+  set_names(str_c("Y==", 1:4)) %>% 
   bind_cols(nd) %>% 
-  pivot_longer(contains("lambda"),
-               values_to = "probability") %>% 
+  pivot_longer(contains("Y"),
+               values_to = "phi") %>% 
   
-  ggplot(aes(x = X1, y = X2, fill = probability)) +
+  ggplot(aes(x = X1, y = X2, fill = phi)) +
   geom_raster(interpolate = T) +
   scale_fill_gradientn(expression(phi[italic(k)*"|"*italic(S)]),
                        colours = pnw_palette(name = "Lake", n = 101),
@@ -601,6 +601,197 @@ Now use that plot while you walk through the final paragraph in this subsection.
 
 > It is easy to transform the estimated parameter values to a different reference category. Recall from Equation 22.3 (p. 651) that arbitrary constants can be added to all the regression coefficients without changing the model prediction. Therefore, to change the parameters estimates so they are relative to outcome $R$, we simply subtract $\beta_{j, R}$ from $\beta_{j, k}$ for all predictors $j$ and all outcomes $k$. We do this at every step in the MCMC chain. For example, in Figure 22.5, consider the regression coefficient on $x_1$ for outcome 2. Relative to reference outcome 1, this coefficient is positive, meaning that the probability of outcome 2 increases relative to outcome 1 when $x_1$ increases. You can see this in the data graph, as the region of 2's falls to right side (positive $x_1$ direction) of the region of 1's. But if the reference outcome is changed to outcome 4, then the coefficient on $x_1$ for outcome 2 changes to a negative value. Algebraically this happens because the coefficient on $x_1$ for outcome 4 is larger than for outcome 2, so when the coefficient for outcome 4 is subtracted, the result is a negative value for the coefficient on outcome 2. Visually, you can see this in the data graph, as the region of 2's falls to the left side (negative $x_1$ direction) of the region of 4's. Thus, *interpreting regression coefficients in a softmax model is rather different than in linear regression. In linear regression, a positive regression coefficient implies that* $y$ *increases when the predictor increases. But not in softmax regression, where a positive regression coefficient is only positive with respect to a particular reference outcome*. (p. 664, *emphasis* added)
 
+##### Bonus: Consider the interceps-only softmax model.
+
+Models like `fit22.1`, above, are great when you want to explore predictors for your nominal variables. However, these models are also really useful when you aren't interested in predictor variables. In these cases, the intercepts-only model will help you compute high-quality Bayesian intervals around the category percentages. Let's walk through an example to see what I mean. Fit an intercepts-only version of the model, above.
+
+```{r fit22.1}
+fit22.2 <-
+  brm(data = d1, 
+      family = categorical(link = logit),
+      Y ~ 1,
+      prior = c(prior(normal(0, 20), class = Intercept, dpar = mu2),
+                prior(normal(0, 20), class = Intercept, dpar = mu3),
+                prior(normal(0, 20), class = Intercept, dpar = mu4)),
+      iter = 2000, warmup = 1000, cores = 4, chains = 4,
+      seed = 22,
+      file = "fits/fit22.02")
+```
+
+Review the model summary.
+
+```{r}
+print(fit22.2)
+```
+
+Even with an intercepts-only model, the parameters in a softmax model are difficulty to interpret directly. Though you might be tempted to presume `mu2_Intercept` through `mu4_Intercept` were probabilities on the log-odds scale, they're not. This, recall, is due to their connection to the reference category. If we return to the equation from [Section 22.1][Softmax regression],
+
+$$\phi_k = \operatorname{softmax}_S (\{\lambda_k\}) = \frac{\exp (\lambda_k)}{\sum_{c \in S} \exp  (\lambda_c)},$$
+
+we can get a sense of how to convert these parameters to relative probabilities. Here's how to do so by hand with the posterior draws.
+
+```{r}
+posterior_samples(fit22.2) %>% 
+  transmute(iter        = 1:n(),
+            `lambda[1]` = 0,  # recall this is the default
+            `lambda[2]` = b_mu2_Intercept,
+            `lambda[3]` = b_mu3_Intercept,
+            `lambda[4]` = b_mu4_Intercept) %>% 
+  pivot_longer(-iter) %>% 
+  # the next two rows are where the magic happens
+  group_by(iter) %>% 
+  mutate(phi = exp(value) / sum(exp(value))) %>%
+  mutate(Y = str_extract(name, "\\d")) %>% 
+  group_by(Y) %>% 
+  mean_qi(phi) %>% 
+  mutate_if(is.double, round, digits = 2)
+```
+
+We can compute these relative probability values ($\phi_k$) much easier with `fitted()`.
+
+```{r}
+f <- fitted(fit22.2)
+
+f[1, , ] %>% 
+  t() %>% 
+  round(digits = 2)
+```
+
+Anyway, the reason you might want to go through the trouble of fitting an intercepts-only softmax model is to improve on the kinds of par plots people often report in their manuscripts. Consider these two:
+
+```{r, fig.width = 8, fig.height = 3.5}
+# descriptive statistics
+p1 <-
+  d1 %>% 
+  count(Y) %>%  
+  mutate(p = n / sum(n)) %>% 
+  
+  ggplot(aes(x = Y, y = p)) +
+  geom_col(fill = pl[6]) +
+  scale_y_continuous(NULL, labels = scales::percent, breaks = 0:4 / 10,
+                     expand = expansion(mult = c(0, 0.05)), limits = c(0, .4)) +
+  labs(subtitle = "sample statistics")
+
+# population percentages
+p2 <-
+  f[1, , ] %>% 
+  t() %>% 
+  data.frame() %>% 
+  rownames_to_column("level") %>% 
+  mutate(Y = str_extract(level, "\\d")) %>% 
+  
+  ggplot(aes(x = Y, y = Estimate)) +
+  geom_col(fill = pl[6]) +
+  geom_linerange(aes(ymin = Q2.5, ymax = Q97.5),
+                 color = pl[2], size = 1) +
+  scale_y_continuous(NULL, labels = scales::percent, breaks = 0:4 / 10,
+                     expand = expansion(mult = c(0, 0.05)), limits = c(0, .4)) +
+  labs(subtitle = "model-based population percentages\n(with 95% interval bars)")
+
+p1 + p2 + plot_annotation(title = "The softmax model adds information to the conventional sample-based bar plot.")
+```
+
+The plot on the left is the kind of sample data summary you'll see in countless articles and data presentations. Though it's a great way to quickly summarize the relative percentages of each category, it does nothing to express how (un)certain we are those sample statistics will describe the population. The intercepts-only softmax model returns the posterior distributions for the population probabilities. In the plot on the right, the bars mark off the posterior means and the vertical lines mark off the 95% intervals. This is why we want the intercepts-only softmax model.
+
+Okay, now just for kicks and giggles, I'd like to go on a plotting tangent. If data analysts broadly replaced the typical sample-based plots (on the left) for the model-based plots (on the right), it would be a great improvement. At a personal level, though, I think simple bar plots are over used. Let's explore four alternatives. In this block, we'll make and save the first three.
+
+```{r}
+# rotated bar plot
+p1 <-
+  f[1, , ] %>% 
+  t() %>% 
+  data.frame() %>% 
+  rownames_to_column("level") %>% 
+  mutate(Y = str_extract(level, "\\d")) %>% 
+  
+  ggplot(aes(x = Estimate, y = Y)) +
+  geom_col(fill = pl[6]) +
+  geom_linerange(aes(xmin = Q2.5, xmax = Q97.5),
+                 color = pl[2], size = 1) +
+  scale_x_continuous(NULL, labels = scales::percent,
+                     expand = expansion(mult = c(0, 0.05))) +
+  labs(subtitle = "rotated bar plot")
+
+# coefficient plot
+p2 <-
+  f[1, , ] %>% 
+  t() %>% 
+  data.frame() %>% 
+  rownames_to_column("level") %>% 
+  mutate(Y = str_extract(level, "\\d")) %>% 
+  
+  ggplot(aes(x = Y, y = Estimate)) +
+  geom_pointrange(aes(ymin = Q2.5, ymax = Q97.5),
+                 color = pl[2], size = 1, fatten = 2) +
+  scale_y_continuous(NULL, labels = scales::percent,
+                     expand = expansion(mult = c(0, 0.05)), limits = c(0, NA)) +
+  labs(subtitle = "coefficient plot")
+
+# CCDF bar plots
+p3 <-
+  fitted(fit22.2, summary = F)[, 1, ] %>% 
+  data.frame() %>% 
+  set_names(1:4) %>% 
+  pivot_longer(everything(), values_to = "p") %>% 
+  mutate(Y = factor(name)) %>% 
+  
+  ggplot(aes(x = Y, y = p)) +
+  stat_ccdfinterval(.width = .95, fill = pl[6], color = pl[2],
+                    size = 1.5, point_size = 2) +
+  scale_y_continuous(NULL, labels = scales::percent, breaks = 0:4 / 10,
+                     expand = expansion(mult = c(0, 0.05)), limits = c(0, .4)) +
+  labs(subtitle = "CCDF bar plot")
+```
+
+The fourth alternative is a little weird AND it's going to take a bit more work than the first three.
+
+```{r}
+# for annotation
+text <-
+ fitted(fit22.2)[1, , ] %>% 
+  t() %>% 
+  data.frame() %>% 
+  rownames_to_column("level") %>% 
+  mutate(y       = (Estimate / 2) + lag(cumsum(Estimate), default = 0),
+         summary = str_c(round(100 * Estimate, 1), "*'% ± '*", round(200 * Est.Error, 1)),
+         label_y = str_c("Y = ", 1:4))
+
+p4 <-
+  # wrangle
+  fitted(fit22.2, summary = F)[, 1, ] %>% 
+  data.frame() %>% 
+  set_names(1:4) %>% 
+  mutate(row = 1:n()) %>% 
+  pivot_longer(-row) %>% 
+  mutate(Y = fct_rev(name)) %>% 
+
+  # plot
+  ggplot(aes(x = row, y = value)) +
+  geom_col(aes(fill = Y),
+           position = "stack", size = 0, width = 1) +
+  geom_text(data = text,
+            aes(x = -2000, y = y, label = label_y),
+            color = pl[1]) +
+  geom_text(data = text,
+            aes(x = 6000, y = y, label = summary),
+            color = pl[1], parse = T) +
+  scale_fill_manual(values = pl[7:4], breaks = NULL) +
+  scale_x_continuous(NULL, breaks = NULL, limits = c(-4000, 8000)) +
+  scale_y_continuous(NULL, labels = scales::percent, expand = c(0, 0)) +
+  labs(subtitle = "stacked bar plot with uncertain boundaries")
+```
+
+Okay, now combine the four ggplots and behold!
+
+```{r, fig.width = 8, fig.height = 7.5}
+# combine
+p1 + p2 + p3 + p4 + 
+  plot_annotation(title = "Alternatives to the conventional bar plot",
+                  tag_levels = "a", tag_prefix = "(", tag_suffix = ")")
+```
+
+The rotated bar plot (a) is most useful when the names of the levels are longer character strings. For example, imagine that instead of `1` through `4`, the four levels were countries or pharmaceutical drugs. You wouldn't want to mess with formatting those on an $x$-axis. Use a rotated bar plot, instead. For my taste, the simple coefficient plot (b) gets the job done nicely without the unnecessary clutter of the bars. Matthew Kay's CCDF bar plots (c) provide a fuller expression of the shape of the posterior uncertainty in each percentage. If desired, you could even omit the dot intervals from those and the visual expression of uncertainty would still remain. The final stacked bar plot with the fuzzy boundaries (d) is the result of a little back-and-forth on twitter ([original tweet](https://twitter.com/SolomonKurz/status/1372632774285348864)). It's the oddball of the group, but what it does uniquely well is show how the percentages of the groups all depend on one another and must, be definition, sum to 100.
+
 #### Conditional logistic model.
 
 I'm not pursuing this model type at this time. If you work through the solution, please share your code in my [GitHub issue #22](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues/22).
@@ -611,13 +802,9 @@ These models can be generalized to include different kinds of predictors, varian
 
 ## Session info {-}
 
-```{r}
-sessionInfo()
-```
-
 ```{r, message = F, echo = F}
 # remove the objects
-rm(d1, d2, pl, d3, d4, p1, p2, my_arrow, p3, p4, p5, p6, p7, p8, p9, layout, a, c, b, fit22.1, post, nd)
+rm(d1, d2, pl, d3, d4, p1, p2, my_arrow, p3, p4, p5, p6, p7, p8, p9, layout, a, c, b, fit22.1, post, nd, fit22.2)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
