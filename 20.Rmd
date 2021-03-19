@@ -832,7 +832,7 @@ f %>%
   select(contrast:.upper) %>% 
   mutate_if(is.double, round, digits = 0)
 ```
-
+"year"
 For further discussion on marginal contrasts in **brms**, see the discussion in [issue #552]((https://github.com/paul-buerkner/brms/issues/552)) in the **brms** GitHub repo and [this discussion](https://discourse.mc-stan.org/t/how-do-i-get-marginal-effects-for-categorical-variables-to-condition-on-an-average-rather-than-a-category/5323) in the Stan user forums.
 
 ### Interaction contrasts and simple effects.
@@ -2085,15 +2085,20 @@ fit20.4 <- add_criterion(fit20.4, "loo")
 
 Executing that yielded the following warning message:
 
-> Found 4 observations with a pareto_k > 0.7 in model 'fit20.3'. It is recommended to set 'reloo = TRUE' in order to calculate the ELPD without the assumption that these observations are negligible. This will refit the model 4 times to compute the ELPDs for the problematic observations directly.
+> Found 4 observations with a pareto_k > 0.7 in model 'fit20.3'. It is recommended to set 'moment_match = TRUE' in order to perform moment matching for problematic observations. 
 
-Let's follow the diagnostic warnings to make sure the model comparison is robust to the outlying values.
+To use the `moment_match` approach, the model in question must have been fit with the setting `save_pars = save_pars(all = TRUE)` within the `brm()` call. The default is `save_pars = NULL` and we used the default settings, above. If you go through the trouble of refitting the model with those updated settings, you'll find that the `moment_match` approach didn't help in this case. For the sake of reducing clutter, I'm not going to show the code for refitting the model. However, the next warning message I got after executing `fit20.3 <- add_criterion(fit20.3, "loo", moment_match = T)` was:
+
+> Some Pareto k diagnostic values are too high. See help('pareto-k-diagnostic') for details.
+Found 4 observations with a pareto_k > 0.7 in model 'fit20.3'. It is recommended to set 'reloo = TRUE' in order to calculate the ELPD without the assumption that these observations are negligible. This will refit the model 4 times to compute the ELPDs for the problematic observations directly.
+
+So it's time to bring in the big guns. Let's use `reloo`. Be warned that, because this requires the model to be refit 4 times, this will take a few minutes.
 
 ```{r, eval = F}
-fit20.3 <- add_criterion(fit20.3, "loo", reloo = T)
+fit20.3 <- add_criterion(fit20.3, criterion = "loo", reloo = TRUE)
 ```
 
-We're finally ready for the LOO comparison.
+Okay, we're *finally* ready for the LOO comparison.
 
 ```{r}
 loo_compare(fit20.3, fit20.4) %>% 
