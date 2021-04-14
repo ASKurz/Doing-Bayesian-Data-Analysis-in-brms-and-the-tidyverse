@@ -740,7 +740,177 @@ $$p(\theta_1, \theta_2 | D) = \frac{p(D | \theta_1, \theta_2) p(\theta_1, \theta
 
 ### The posterior via the Metropolis algorithm.
 
-I've got nothing on this. But we're here to learn HMC anyways. Read on.
+I initially skipped over this section because the purpose of this book is to explore Kruschke's material with **brms**, which does not use the Metropolis algorithm (which really is primarily of historic interest, at this point). However, fellow enthusiast [Omid Ghasemi](https://github.com/OmidGhasemi21) worked it through and kindly shared his solution. The workflow, below, is based heavily on his, with a few small adjustments.
+
+To start off, we'll refresh our two data sources and define a few custom functions.
+
+```{r}
+# we've already defined these, but here they are again
+theta_1_data   <- rep(0:1, times = c(8 - 6, 6))
+theta_2_data   <- rep(0:1, times = c(7 - 2, 2))
+
+# define the bivariate Bernoulli likelihood
+bivariate_bernoulli_likelihood <- function(theta1, data1, theta2, data2) {
+  
+  z1 <- sum(data1)
+  n1 <- length(data1)
+  z2 <- sum(data2)
+  n2 <- length(data2)
+  p_data_given_theta <- (theta1^z1 * (1 - theta1)^(n1 - z1)) * (theta2^z2 * (1 - theta2)^(n2 - z2))
+  p_data_given_theta[theta1 > 1 | theta1 < 0] <- 0
+  p_data_given_theta[theta2 > 1 | theta2 < 0] <- 0
+  
+  return(p_data_given_theta)
+  
+}
+
+# we need to update the prior density function from above
+prior_d <- function(theta1, theta2) {
+  
+  p_theta <- dbeta(theta1, 1, 1) * dbeta(theta2, 1, 1)
+  p_theta[theta1 > 1 | theta1 < 0] = 0
+  p_theta[theta2 > 1 | theta2 < 0] = 0
+  
+  return(p_theta)
+  
+}
+
+# we also need to update how we define the relative probability of the target distribution
+target_rel_prob <- function(theta1, data1, theta2, data2) {
+  
+  l <- bivariate_bernoulli_likelihood(theta1, data1, theta2, data2)
+  p <- prior_d(theta1, theta2)
+  
+  target_rel_prob <- l * p
+  
+  return(target_rel_prob)
+}
+```
+
+The next bit defines how we'll apply the Metropolis algorithm to our bivariate binomial data. Although the guts contain a lot of moving parts, there are only two parameters at the top level. The `traj_length` argument is set to 50,000, which will be our default number of MCMC draws. Of greater interest is the `proposal_sd` argument. From the text, we read:
+
+> Recall that the Metropolis algorithm is a random walk through the parameter space that starts at some arbitrary point. We propose a jump to a new point in parameter space, with the proposed jump randomly generated from a proposal distribution from which it is easy to generate values. For our present purposes, the proposal distribution is a *bivariate* normal. (p. 168, *emphasis* in the original)
+
+For this exercise, the bivariate normal proposal distribution is centered at zero with an adjustable standard deviation. In the text, Kruschke compared the results for $\operatorname{Normal}(0, 0.02)$ and $\operatorname{Normal}(0, 0.2)$. For our `my_bivariate_metropolis()` function, the `proposal_sd` argument controls that $\sigma$ parameter.
+
+```{r}
+my_bivariate_metropolis <- function(proposal_sd = .02,
+                                    # specify the length of the trajectory (i.e., the number of jumps to try)
+                                    traj_length = 50000) {
+  
+  # initialize the vector that will store the results
+  trajectory1 <- rep(0, traj_length)
+  trajectory2 <- rep(0, traj_length)
+  
+  # specify where to start the trajectory:
+  trajectory1[1] <- 0.5 # another arbitrary value
+  trajectory2[1] <- 0.5 # another arbitrary value
+  
+  # specify the burn-in period
+  burn_in <- ceiling(0.0 * traj_length) # arbitrary number, less than `traj_length`
+  
+  # initialize accepted, rejected counters, just to monitor performance:
+  n_accepted <- 0
+  n_rejected <- 0
+  
+  for (t in 1:(traj_length - 1)) {
+    current_position1 <- trajectory1[t]
+    current_position2 <- trajectory2[t]
+    
+    # use the proposal distribution to generate a proposed jump
+    proposed_jump1 <- rnorm(1, mean = 0, sd = proposal_sd)
+    proposed_jump2 <- rnorm(1, mean = 0, sd = proposal_sd)
+    
+    # compute the probability of accepting the proposed jump
+    prob_accept <- min(1,
+                       target_rel_prob(current_position1 + proposed_jump1, theta_1_data,
+                                       current_position2 + proposed_jump2, theta_2_data)
+                       / target_rel_prob(current_position1, theta_1_data, current_position2, theta_2_data))
+    
+    # generate a random uniform value from the interval [0, 1] to
+    # decide whether or not to accept the proposed jump
+    if (runif(1) < prob_accept) {
+      # accept the proposed jump
+      trajectory1[t + 1] <- current_position1  + proposed_jump1
+      trajectory2[t + 1] <- current_position2  + proposed_jump2
+      # increment the accepted counter, just to monitor performance
+      if (t > burn_in) {n_accepted <- n_accepted + 1}
+    } else {
+      # reject the proposed jump, stay at current position
+      trajectory1[t + 1] <- current_position1
+      trajectory2[t + 1] <- current_position2
+      # increment the rejected counter, just to monitor performance
+      if (t > burn_in) {n_rejected <- n_rejected + 1}
+    }
+  }
+  
+  # extract the post-burn_in portion of the trajectory
+  accepted_traj1 <- trajectory1[(burn_in + 1) : length(trajectory1)]
+  accepted_traj2 <- trajectory2[(burn_in + 1) : length(trajectory2)]
+  
+  # collect the results
+  metrop_2d_data <- 
+    tibble(iter           = rep(1:traj_length),
+           accepted_traj1 = accepted_traj1,
+           accepted_traj2 = accepted_traj2,
+           n_accepted     = n_accepted, 
+           n_rejected     = n_rejected)
+  
+  return(metrop_2d_data)
+  
+}
+```
+
+Now we've defined `my_bivariate_metropolis()` let's apply it to our data with `proposal_sd == 0.02` and `proposal_sd == 0.2`. We'll save the results as `mh`.
+
+```{r}
+mh <-
+  tibble(proposal_sd = c(0.02, 0.2)) %>% 
+  mutate(mh = map(proposal_sd, my_bivariate_metropolis)) %>% 
+  unnest(mh)
+
+mh
+```
+
+If you look at the top of Figure 7.6, you'll see Kruschke summarized his results with the acceptance rate, $N_\text{acc} / N_\text{pro}$. Here are ours.
+
+```{r}
+mh %>% 
+  group_by(proposal_sd) %>% 
+  slice(1) %>% 
+  summarise(acceptance_rate = n_accepted / (n_accepted + n_rejected))
+```
+
+We can compute our effective sample sizes using the `effectiveSize()` function from the [**coda** package](https://CRAN.R-project.org/package=coda) [@R-coda; @plummerCODA2006].
+
+```{r, warning = F, message = F}
+library(coda)
+
+mh %>% 
+  group_by(proposal_sd) %>% 
+  summarise(ess_theta_1 = effectiveSize(accepted_traj1),
+            ess_theta_2 = effectiveSize(accepted_traj2))
+```
+
+We really won't use the **coda** package in this ebook beyond this chapter and the next. But it has a lot to offer and Kruschke uses it a bit in his code. Anyway, now we make our version of Figure 7.6.
+
+```{r, fig.height = 5, warning = F}
+mh %>% 
+  filter(iter < 1000) %>%
+  
+  ggplot(aes(x = accepted_traj1, y = accepted_traj2)) +
+  geom_path(size = 1/10, alpha = 1/2, color = "steelblue") +
+  geom_point(alpha = 1/4, color = "steelblue") +
+  scale_x_continuous(expression(theta[1]), breaks = 0:5 / 5, expand = c(0, 0), limits = c(0, 1)) +
+  scale_y_continuous(expression(theta[2]), breaks = 0:5 / 5, expand = c(0, 0), limits = c(0, 1)) +
+  coord_equal() +
+  theme_cowplot() +
+  panel_border() +
+  theme(panel.spacing = unit(0.75, "cm")) +
+  facet_wrap(~ proposal_sd, labeller = label_both)
+```
+
+> In the limit of infinite random walks, the Metropolis algorithm yields arbitrarily accurate representations of the underlying posterior distribution. The left and right panels of Figure 7.6 would eventually converge to an identical and highly accurate approximation to the posterior distribution. But in the real world of finite random walks, we care about how efficiently the algorithm generates an accurate representative sample. We prefer to use the proposal distribution from the right panel of Figure 7.6 because it will, typically, produce a more accurate approximation of the posterior than the proposal distribution from left panel, for the same number of proposed jumps. (p. 170)
 
 ### ~~Gibbs~~ Hamiltonian Monte Carlo sampling.
 
@@ -1039,7 +1209,7 @@ Here are the overlaid densities.
 mcmc_dens_overlay(post, pars = c("b_Intercept"))
 ```
 
-Now that we're focusing on the post-warmup iterations, we can make a shrink factor plot. We'll do so with the `coda::gelman.plot()` function. But you can't just dump your `brm()` fit object into `coda::gelman.plot()`. It's the wrong object type. However, **brms** offers the `as.mcmc()` function which will convert `brm()` objects for use in coda package functions.
+Now that we're focusing on the post-warmup iterations, we can make a shrink factor plot. We'll do so with the `coda::gelman.plot()` function. But you can't just dump your `brm()` fit object into `gelman.plot()`. It's the wrong object type. However, **brms** offers the `as.mcmc()` function which will convert `brm()` objects for use in functions from the **coda** package.
 
 ```{r, message = F, warning = F}
 fit7.2_c <- as.mcmc(fit7.2)
@@ -1050,7 +1220,7 @@ fit7.2_c %>% glimpse()
 With our freshly-converted `fit2_c` object in hand, we're ready to plot.
 
 ```{r, fig.width = 4, fig.height = 3.25}
-coda::gelman.plot(fit7.2_c[, "b_Intercept", ])
+gelman.plot(fit7.2_c[, "b_Intercept", ])
 ```
 
 Looks great. As Kruschke explained on page 181, that plot is based on the potential scale reduction factor, or $\widehat R$ as it's typically referred to in the Stan ecosystem. Happily, **brms** reports the $\widehat R$ values for the major model parameters using `print()` or `summary()`.
@@ -1231,7 +1401,7 @@ sessionInfo()
 
 ```{r, message = F, warning = F, echo = F}
 # here we'll remove our objects
-rm(hdi_of_icdf, h, omega, d, my_mode_simulation, sim, num_days, positions, current, nslots, p_target, proposal_matrix, acceptance_matrix, from_idx, to_idx, diag_idx, time_idx, move_matrix, transition_matrix, position_vec, p, data, i, proposal, prob_accept_the_proposal, mu, sigma, proposed_jump, my_data, likelihood, prior_d, target_rel_prob, traj_length, trajectory, burn_in, n_accepted, n_rejected, my_metropolis, betas, theta_sequence, bernoulli_likelihood, theta_1_data, theta_2_data, d_prior, d_likelihood, model_1, model_2, fit7.1, post, z, n, fit7.2, warmups, fit7.2_c, lagged_post, lagged_post_wide, p1, p2, p3)
+rm(hdi_of_icdf, h, omega, d, my_mode_simulation, sim, num_days, positions, current, nslots, p_target, proposal_matrix, acceptance_matrix, from_idx, to_idx, diag_idx, time_idx, move_matrix, transition_matrix, position_vec, p, data, i, proposal, prob_accept_the_proposal, mu, sigma, proposed_jump, my_data, likelihood, prior_d, target_rel_prob, traj_length, trajectory, burn_in, n_accepted, n_rejected, my_metropolis, betas, theta_sequence, bernoulli_likelihood, theta_1_data, theta_2_data, d_prior, d_likelihood, bivariate_bernoulli_likelihood, my_bivariate_metropolis, mh, model_1, model_2, fit7.1, post, z, n, fit7.2, warmups, fit7.2_c, lagged_post, lagged_post_wide, p1, p2, p3)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
