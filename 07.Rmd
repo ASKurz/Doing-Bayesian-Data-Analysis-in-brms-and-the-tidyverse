@@ -1246,23 +1246,41 @@ post %>%
 
 ### MCMC accuracy.
 
-We'll wrangle our `post` object a bit to make it easier to reproduce Figure 7.12.
+We want
+
+> measures of chain length and accuracy that take into account the clumpiness of the chain. And for that, we need a measure of clumpiness. We will measure clumpiness as *autocorrelation*, which is simply the correlation of the chain values with the chain values $k$ steps ahead. There is a different autocorrelation for each choice of $k$. (p. 182, *emphasis* in the original)
+
+We make a couple autocorrelation plots in the last section, but now it's time to get a better sense of what they mean. Just a little further in the text, Kruschke wrote: "The number of steps between the chain and its superimposed copy is called the *lag*" (p. 182, *emphasis* in the original). In case it's not clear, *lag* is a general term and can be applied to contexts outside of MCMC chains. You find it used sometimes in the longitudinal statistical literature, particularly for what are called timeseries models. Sadly, we won't be fitting those in this book. If you're curious, McElreath discussed them briefly in Chapter 16 of his [-@mcelreathStatisticalRethinkingBayesian2020] text.
+
+We, however, will have to contend with a technical quirk within the **tidyverse**. The two **dplyr** functions relevant to lags are called `lag()` and `lead()`. Here's a little example to see how they work.
+
+```{r}
+tibble(step = 1:5) %>% 
+  mutate(lag  = lag(step, n = 1),
+         lead = lead(step, n = 1))
+```
+
+The original values are `1:5` in the `step` column. When you plug that into `lag(n = 1)`, you get the value from the *previous row*. The opposite happens when you plug `step` into `lead(n = 1)`; there you get the value from the *next row*. Back to the block quote above, Kruschke wrote that autocorrelations are "the correlation of the chain values with the chain values $k$ *steps ahead*" (p. 182, *emphasis* added). Within the context of the `lag()` and `lead()` functions, their `n` argument is what Kruschke called $k$, which is no big deal. Confusingly, though, since Kruschke wanted to focus on MCMC chains values that were "$k$ steps ahead," that means we'll have to use the `lead()` function, not `lag()`. Please don't fret about the semantics, here. Both Kruschke and the **dplyr** package are correct. We're lagging. But in this specific case, we'll be lagging our `post` data with the `lead()` function. You can learn more about `lag()` and `lead()` [here](https://dplyr.tidyverse.org/reference/lead-lag.html).
+
+Okay, let's wrangle our `post` object a bit to make it easier to reproduce Figure 7.12.
 
 ```{r}
 lagged_post <-
   post %>% 
   filter(chain == 1) %>% 
   select(b_Intercept, iter) %>% 
+  # sometimes the unlagged data are called lag_0
   rename(lag_0 = b_Intercept) %>% 
-  mutate(lag_1  = lag(lag_0, 1),
-         lag_5  = lag(lag_0, 5),
-         lag_10 = lag(lag_0, 10)) %>% 
+  # lags for three different levels of k
+  mutate(lag_1  = lead(lag_0, n = 1), 
+         lag_5  = lead(lag_0, n = 5),
+         lag_10 = lead(lag_0, n = 10)) %>% 
   pivot_longer(-iter, names_to = "key") 
 
 head(lagged_post)
 ```
 
-Here's our version of the top row.
+Now here's our version of the top row.
 
 ```{r, fig.width = 10, fig.height = 3, warning = F, message = F}
 p1 <-
@@ -1271,8 +1289,12 @@ p1 <-
          iter > 1000 & iter < 1071) %>% 
   
   ggplot(aes(x = iter, y = value, color = key)) +
-  geom_point() +
-  geom_line() +
+  geom_point(aes(alpha = iter == 1050, shape = iter == 1050)) +
+  geom_line(size = 1/4, alpha = 1/2) +
+  annotate(geom = "text",
+           x = 1040, y = c(.795, .75),
+           label = c("Original", "Lagged"),
+           color = c("black", "steelblue")) +
   scale_color_manual(values = c("black", "steelblue")) +
   labs(x = "Index 1001:1071",
        title = "Lag 1")
@@ -1283,8 +1305,8 @@ p2 <-
          iter > 1000 & iter < 1071) %>% 
   
   ggplot(aes(x = iter, y = value, color = key)) +
-  geom_point() +
-  geom_line() +
+  geom_point(aes(alpha = iter == 1050, shape = iter == 1050)) +
+  geom_line(size = 1/4, alpha = 1/2) +
   scale_color_manual(values = c("black", "steelblue")) +
   labs(x = "Index 1001:1071",
        title = "Lag 5")
@@ -1295,17 +1317,21 @@ p3 <-
          iter > 1000 & iter < 1071) %>% 
   
   ggplot(aes(x = iter, y = value, color = key)) +
-  geom_point() +
-  geom_line() +
+  geom_point(aes(alpha = iter == 1050, shape = iter == 1050)) +
+  geom_line(size = 1/4, alpha = 1/2) +
   scale_color_manual(values = c("black", "steelblue")) +
   labs(x = "Index 1001:1071",
        title = "Lag 10")
 
+# combine
 library(patchwork)
 
 (p1 + p2 + p3) &
+  scale_alpha_manual(values = c(1/2, 1)) &
+  scale_shape_manual(values = c(1, 19)) &
+  scale_y_continuous(breaks = 6:8 / 10, limits = c(.55, .80)) &
   theme_cowplot() &
-  theme(legend.position = "none")
+  theme(legend.position = "none") 
 ```
 
 Here's the middle row for Figure 7.12.
@@ -1321,15 +1347,15 @@ p1 <-
   
   ggplot(aes(x = lag_1, y = lag_0)) +
   stat_smooth(method = "lm") +
-  geom_point()
-
+  geom_point(aes(alpha = iter == 1050, shape = iter == 1050))
+  
 p2 <-
   lagged_post_wide %>% 
   filter(iter > 1000 & iter < 1071) %>% 
   
   ggplot(aes(x = lag_5, y = lag_0)) +
   stat_smooth(method = "lm") +
-  geom_point()
+  geom_point(aes(alpha = iter == 1050, shape = iter == 1050))
 
 p3 <-
   lagged_post_wide %>% 
@@ -1337,13 +1363,17 @@ p3 <-
   
   ggplot(aes(x = lag_10, y = lag_0)) +
   stat_smooth(method = "lm") +
-  geom_point()
+  geom_point(aes(alpha = iter == 1050, shape = iter == 1050))
 
+# combine
 (p1 + p2 + p3) & 
-  theme_cowplot()
+  scale_alpha_manual(values = c(1/2, 1)) &
+  scale_shape_manual(values = c(1, 19)) &
+  theme_cowplot() &
+  theme(legend.position = "none")
 ```
 
-For kicks and giggles, we used `stat_smooth()` to add an OLS regression line with its 95% confidence intervals to each plot.
+For kicks and giggles, we used `stat_smooth()` to add an OLS regression line with its 95% frequentist confidence intervals to each plot.
 
 If you want the Pearson's correlations among the lags, the `lowerCor()` function from the [**psych** package](https://CRAN.R-project.org/package=psych) [@R-psych] can be handy.
 
@@ -1379,7 +1409,7 @@ Look at the last two columns in the `Intercept` summary. Earlier versions of **b
 
 For more technical details, see the paper. The `Bulk_ESS` column in current versions of **brms** is what was previously referred to as `Eff.Sample`. This is what corresponds to what Kruschke meant when referring to effective sample size. Now rather than focusing solely on 'the center of the' posterior distribution' as indexed by `Bulk_ESS`, we also gauge the effective sample size in the posterior intervals using `Tail_ESS`.
 
-Anyway, I'm not quite sure how to reproduce Kruschke's MCMC ESS simulation studies. If you've got it figured out, please share your code in my [GitHub issue #15](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues/15).
+Anyway, I'm not sure how to reproduce Kruschke's MCMC ESS simulation studies. My confusion comes from at least two levels. If you read in the text, Kruschke described his simulation as based on "MCMC chains from the normal distribution" (p. 184). Though I do know how to initialize HMC chains for a model on data from the normal distribution, I have no idea how one would initialize chains from the standard normal distribution, itself. Second, if you view Kruschke's simulation as based on a model which one could feasibly fit with **brms**, I don't know how one would specify "an ESS of 10,000" for each iteration of the simulation. This is because **brms** is set up to fit models with a fixed number of iterations, for which the ESS values will vary. Kruschke's simulation seems to be set in reverse. For more details on Kruschke's simulation, you'll just have to read through the text. Anyway, if you know how to fit such a simulation using **brms**, please share your code in my [GitHub issue #15](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues/15).
 
 If you're interested in the Monte Carlo standard error (MCSE) for your **brms** parameters, the easiest way is to tack `$fit` onto your fit object.
 
