@@ -1,8 +1,8 @@
 --- 
 title: "*Doing Bayesian Data Analysis* in brms and the tidyverse"
-subtitle: "version 0.3.0"
-author: ["A Solomon Kurz"]
-date: "2020-09-22"
+subtitle: "version 0.4.0"
+author: "A Solomon Kurz"
+date: "2021-05-06"
 site: bookdown::bookdown_site
 output: 
   bookdown::gitbook:
@@ -30,6 +30,37 @@ Kruschke began his text with "This book explains how to actually do Bayesian dat
 
 This project is not meant to stand alone. It's a supplement to the second edition of Kruschke's [-@kruschkeDoingBayesianData2015] [*Doing Bayesian data analysis: A tutorial with R, JAGS, and Stan*](https://sites.google.com/site/doingbayesiandataanalysis/). Please give the source material some love.
 
+## **R** setup {-}
+
+To get the full benefit from this ebook, you'll need some software. Happily, everything will be free (provided you have access to a decent personal computer and an good internet connection).
+
+First, you'll need to install **R**, which you can learn about at [https://cran.r-project.org/](https://cran.r-project.org/).
+
+Though not necessary, your **R** experience might be more enjoyable if done through the free RStudio interface, which you can learn about at [https://rstudio.com/products/rstudio/](https://rstudio.com/products/rstudio/).
+
+Once you have installed **R**, execute the following to install the bulk of the add-on packages. This will probably take a few minutes to finish. Go make yourself a coffee.
+
+
+```r
+packages <- c("bayesplot", "brms", "coda", "cowplot", "cubelyr", "devtools", "fishualize", "GGally", "ggdist", "ggExtra", "ggforce", "ggmcmc", "ggridges", "ggthemes", "janitor", "lisa", "loo", "palettetown", "patchwork", "psych", "remotes", "rstan", "santoku", "scico", "tidybayes", "tidyverse")
+
+install.packages(packages, dependencies = T)
+```
+
+A few of the other packages are not officially available via the Comprehensive R Archive Network (CRAN; https://cran.r-project.org/). You can download them directly from GitHub by executing the following.
+
+
+```r
+remotes::install_github("clauswilke/colorblindr")
+devtools::install_github("dill/beyonce")
+devtools::install_github("ropenscilabs/ochRe")
+```
+
+It's possible you'll have problems installing some of these packages. Here are some likely suspects and where you can find help:
+
+* for difficulties installing **brms**, go to [https://github.com/paul-buerkner/brms#how-do-i-install-brms](https://github.com/paul-buerkner/brms#how-do-i-install-brms) or search around in the [**brms** section of the Stan forums ](https://discourse.mc-stan.org/c/interfaces/brms/36); and
+* for difficulties installing **rstan**, go to [https://github.com/stan-dev/rstan/wiki/RStan-Getting-Started](https://github.com/stan-dev/rstan/wiki/RStan-Getting-Started).
+
 ## We have updates {-}
 
 For a brief rundown of the version history, we have:
@@ -43,18 +74,34 @@ I released the 0.1.0 version of this project in February 17, 2020. It was the fi
 The 0.2.0 update came in May 19, 2020. Noteworthy changes included:
 
 * reproducing the simulation necessary for Figure 7.3 (see [GitHub issue #14](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues/14)) with help from Cardy Moten III ([\@cmoten](https://github.com/cmoten));
-* with guidance from Bjørn Peare Bartholdy ([\@bbartholdy](https://github.com/bbartholdy)), Mladen Jovanović ([\@mladenjovanovic](https://github.com/mladenjovanovic)), Cory Whitney ([\@CWWhitney](https://github.com/CWWhitney)), and Brenton M. Wiernik ([\@bwiernik](https://github.com/bwiernik)), we improved in-text citations and reference sections using [BibTex](http://www.bibtex.org/) [@BibTeX2020], [Better BibTeX](https://github.com/retorquere/zotero-better-bibtex) [@BetterBibTeXZotero2020], and [zotero](https://www.zotero.org/) [@ZoteroYourPersonal2020];
+* with guidance from Bjørn Peare Bartholdy ([\@bbartholdy](https://github.com/bbartholdy)), Mladen Jovanović ([\@mladenjovanovic](https://github.com/mladenjovanovic)), Cory Whitney ([\@CWWhitney](https://github.com/CWWhitney)), and Brenton M. Wiernik ([\@bwiernik](https://github.com/bwiernik)), we improved in-text citations and reference sections using [BibTex](http://www.bibtex.org/) [@BibTeX2020], [Better BibTeX](https://github.com/retorquere/zotero-better-bibtex) [@heynsBetterBibTeXZotero2020], and [zotero](https://www.zotero.org/) [@ZoteroYourPersonal2020];
 * the plot resolution increased with `fig.retina = 2.5`; and
 * small code, hyperlink, and typo corrections.
 
 ### Version 0.3.0. {-}
 
-Welcome to version 0.3.0! Noteworthy changes include:
+The 0.3.0 update came in September 22, 2020. Noteworthy changes included:
 
 * adding the [Kruschke-style model diagrams](https://solomonkurz.netlify.app/post/make-model-diagrams-kruschke-style/) throughout the text (e.g., [Figure 8.5][Example: Difference of biases]);
 * adding chapter-specific plotting schemes with help from the [**cowplot** package](https://wilkelab.org/cowplot) [@R-cowplot], Wilke's [-@wilkeFundamentalsDataVisualization2019] [*Fundamentals of data visualization*](https://clauswilke.com/dataviz/), and many other great color-scheme packages; 
 * an overhaul to the plotting workflow in [Section 6.4.1][Prior knowledge expressed as a beta distribution.]; and
-* updating all model fits to the current version of **brms** (2.13.5).
+* updating all model fits with **brms** version 2.13.5.
+
+### Version 0.4.0. {-}
+
+Welcome to version 0.4.0! Noteworthy changes include:
+
+* using the Metropolis algorithm to fit the bivariate Bernoulli model for Figure 7.6 ([Section 7.4.3][The posterior via the Metropolis algorithm.]), thanks to help from [Omid Ghasemi](https://github.com/OmidGhasemi21);
+* corrections to mistakes around the `lag()` and `lead()` functions in [Section 7.5.2][MCMC accuracy.];
+* an added bonus section clarifying the pooled standard deviation for standardized mean differences ([Section 16.3.0.1][Bonus: Pooled standard deviation.]);
+* refining the custom `stat_wilke()` plotting function in [Chapter 18][Metric Predicted Variable with Multiple Metric Predictors];
+* an overhaul of the bonus section covering effect sizes ([Section 19.6][~~Exercises~~ Walk out an effect size]);
+* refining/correcting the threshold workflow for univariable logistic regression models ([Chapter 21][Dichotomous Predicted Variable]);
+* fixing the divergent transitions issue for the robust logistic regression model by adding boundaries on the prior ([Section 21.3][Robust logistic regression]);
+* corrections to a few incorrectly computed effect sizes in [Chapter 23][Ordinal Predicted Variable];
+* the addition of a new bonus section ([Section 22.3.3.1.1][Bonus: Consider the interceps-only softmax model.]) highlighting the benefits of the intercepts-only softmax model;
+* expansions to the material on censored data ([Section 25.4][Censored Data in ~~JAGS~~ brms]) and the addition of a brief introduction to truncated data ([Section 25.4.4][Bonus: Truncation.]); and
+* updating all HMC fits to the current version of **brms** (2.15.0).
 
 ### We're not done yet and I could use your help. {-}
 
@@ -64,27 +111,44 @@ There are some minor improvements I'd like to add in future versions. Most impor
 * several of the simulations in Sections 11.1.4, 11.3.1, and 11.3.2 and their corresponding figures (issues [#16](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues/16), [#17](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues/17), [#18](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues/18), and [#19](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues/19)),
 * the stopping-rule simulations in Section 13.3.2 and their corresponding figures ([issue #20](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues/20)),
 * the data necessary to properly reproduce the HMC proposal schematic presented in Section 14.1 and Figures 14.1 through 14.3 ([issue #21](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues/21)), and
-* the conditional logistic models of Section 22.3.3.2 ([issue #22](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues/22)).
+* the conditional logistic models of Section 22.3.3.2 ([issue #22](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues/22)), which you might also chime in on in the [Nominal data and Kruschke’s “conditional logistic” approach](https://discourse.mc-stan.org/t/nominal-data-and-kruschkes-conditional-logistic-approach/21433) thread in the Stan forums.
 
-If you know how to conquer any of these unresolved challenges, I'd love to hear all about it. In addition, please feel free to open a new issue if you find any flaws in the other sections of the project.
+If you know how to conquer any of these unresolved challenges, I'd love to hear all about it. In addition, please feel free to open a new [GitHub issue](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues) if you find any flaws in the other sections of the ebook.
 
 ## Thank-you's are in order {-}
 
 Before we enter the primary text, I'd like to thank the following for their helpful contributions:
 
 * Bjørn Peare Bartholdy ([\@bbartholdy](https://github.com/bbartholdy)),
+* David Baumeister ([\@xdavebx](https://github.com/xdavebx)),
 * Paul-Christian Bürkner ([\@paul-buerkner](https://github.com/paul-buerkner)),
 * Andrew Gelman ([\@andrewgelman](https://github.com/andrewgelman)),
+* Omid Ghasemi ([\@OmidGhasemi21](https://github.com/OmidGhasemi21)),
 * Mladen Jovanović ([\@mladenjovanovic](https://github.com/mladenjovanovic)),
 * Matthew Kay ([\@mjskay](https://github.com/mjskay)),
 * TJ Mahr ([\@tjmahr](https://github.com/tjmahr)),
 * Cardy Moten III ([\@cmoten](https://github.com/cmoten)),
 * Lukas Neugebauer ([\@LukasNeugebauer](https://github.com/LukasNeugebauer)),
 * Demetri Pananos ([\@Dpananos](https://github.com/dpananos)),
+* Peter Ralph ([\@petrelharp](https://github.com/petrelharp)),
 * Aki Vehtari ([\@avehtari](https://github.com/avehtari)),
 * Matti Vuorre ([\@mvuorre](https://github.com/mvuorre)),
 * Cory Whitney ([\@CWWhitney](https://github.com/CWWhitney)), and
 * Brenton M. Wiernik ([\@bwiernik](https://github.com/bwiernik)).
 
+## License and citation {-}
 
+This book is licensed under the Creative Commons Zero v1.0 Universal license. You can learn the details, [here](https://github.com/ASKurz/Applied-Longitudinal-Data-Analysis-with-brms-and-the-tidyverse/blob/master/LICENSE). In short, you can use my work. Just please give me the appropriate credit the same way you would for any other scholarly resource. Here's the citation information:
+
+
+```r
+@book{kurzDoingBayesianDataAnalysis2021,
+  title = {Doing {{Bayesian}} data analysis in brms and the tidyverse},
+  author = {Kurz, A. Solomon},
+  year = {2021},
+  month = {5},
+  edition = {version 0.4.0},
+  url = {https://bookdown.org/content/3686/}
+}
+```
 
