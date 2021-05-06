@@ -794,7 +794,7 @@ The next bit defines how we'll apply the Metropolis algorithm to our bivariate b
 For this exercise, the bivariate normal proposal distribution is centered at zero with an adjustable standard deviation. In the text, Kruschke compared the results for $\operatorname{Normal}(0, 0.02)$ and $\operatorname{Normal}(0, 0.2)$. For our `my_bivariate_metropolis()` function, the `proposal_sd` argument controls that $\sigma$ parameter.
 
 ```{r}
-my_bivariate_metropolis <- function(proposal_sd = .02,
+my_bivariate_metropolis <- function(proposal_sd = 0.02,
                                     # specify the length of the trajectory (i.e., the number of jumps to try)
                                     traj_length = 50000) {
   
@@ -892,14 +892,14 @@ mh %>%
             ess_theta_2 = effectiveSize(accepted_traj2))
 ```
 
-We really won't use the **coda** package in this ebook beyond this chapter and the next. But it has a lot to offer and Kruschke uses it a bit in his code. Anyway, now we make our version of Figure 7.6.
+We really won't use the **coda** package in this ebook beyond this chapter and the next. But do note it has a lot to offer and Kruschke used it a bit in his code. Anyway, now we make our version of Figure 7.6.
 
 ```{r, fig.height = 5, warning = F}
 mh %>% 
   filter(iter < 1000) %>%
   
   ggplot(aes(x = accepted_traj1, y = accepted_traj2)) +
-  geom_path(size = 1/10, alpha = 1/2, color = "steelblue") +
+  geom_path(size = 1/8, alpha = 1/2, color = "steelblue") +
   geom_point(alpha = 1/4, color = "steelblue") +
   scale_x_continuous(expression(theta[1]), breaks = 0:5 / 5, expand = c(0, 0), limits = c(0, 1)) +
   scale_y_continuous(expression(theta[2]), breaks = 0:5 / 5, expand = c(0, 0), limits = c(0, 1)) +
@@ -932,7 +932,7 @@ d <-
 d
 ```
 
-Kruschke said he was starting us out simply. But within the **brms** context, this is an intercepts-only multivariate model, which isn't the simplest of things to code into **brms**. There are a couple ways to code a [multivariate model in **brms**](https://cran.r-project.org/web/packages/brms/vignettes/brms_multivariate.html) [@Bürkner2020Multivariate]. With this one, it makes sense to specify the model for each sequence of flips separately. This results in two models, which we'll call `model_1` and `model_2`.
+Kruschke said he was starting us out simply. But within the **brms** context, this is an intercepts-only multivariate model, which isn't the simplest of things to code into **brms**. There are a couple ways to code a [multivariate model in **brms**](https://cran.r-project.org/web/packages/brms/vignettes/brms_multivariate.html) [@Bürkner2021Multivariate]. With this one, it makes sense to specify the model for each sequence of flips separately. This results in two models, which we'll call `model_1` and `model_2`.
 
 ```{r}
 model_1 <- bf(z1 | trials(n1) ~ 1)
@@ -1012,7 +1012,7 @@ post %>%
   
   ggplot(aes(x = value, y = name)) +
   stat_halfeye(point_interval = mode_hdi, .width = c(.5, .95), fill = "steelblue") +
-  scale_y_discrete(NULL, labels = ggplot2:::parse_safe, expand = expansion(mult = 0.05)) +
+  scale_y_discrete(NULL, labels = ggplot2:::parse_safe, expand = expansion(mult = 0.1)) +
   xlab("posterior") +
   theme_cowplot()
 ```
@@ -1091,7 +1091,7 @@ On page 179, Kruschke discussed *burn-in* steps within the Gibbs framework:
 
 > The preliminary steps, during which the chain moves from its unrepresentative initial value to the modal region of the posterior, is called the *burn-in* period. For realistic applications, it is routine to apply a burn-in period of several hundred to several thousand steps.
 
-For each HMC chain, the first $n$ iterations are called "warmups." In this example, $n = 500$ (i.e., `warmup = 500`). Within the Stan-HMC paradigm, [warmups are somewhat analogous to but not synonymous with burn-in iterations](https://andrewgelman.com/2017/12/15/burn-vs-warm-iterative-simulation-algorithms/) as done by the Gibbs sampling in JAGS. But HMC warmups are like Gibbs burn-ins in that both are discarded and not used to describe the posterior. For more on warmup, check out McElreath's lecture, [starting here](https://www.youtube.com/watch?v=13mEekRdOcQ&t=75s&frags=pl%2Cwn) or, for more detail, the [*HMC Algorithm Parameters* section (15.2)](https://mc-stan.org/docs/2_24/reference-manual/hmc-algorithm-parameters.html) of the *Stan reference manual*, version 2.24 [@standevelopmentteamStanReferenceManual2020].
+For each HMC chain, the first $n$ iterations are called "warmups." In this example, $n = 500$ (i.e., `warmup = 500`). Within the Stan-HMC paradigm, [warmups are somewhat analogous to but not synonymous with burn-in iterations](https://andrewgelman.com/2017/12/15/burn-vs-warm-iterative-simulation-algorithms/) as done by the Gibbs sampling in JAGS. But HMC warmups are like Gibbs burn-ins in that both are discarded and not used to describe the posterior. For more on warmup, check out McElreath's lecture, [starting here](https://www.youtube.com/watch?v=13mEekRdOcQ&t=75s&frags=pl%2Cwn) or, for more detail, the [*HMC Algorithm Parameters* section (15.2)](https://mc-stan.org/docs/2_26/reference-manual/hmc-algorithm-parameters.html) of the *Stan reference manual*, version 2.26 [@standevelopmentteamStanReferenceManual2021].
 
 It appears that the upshot of all this is some of the packages in the Stan ecosystem don't make it easy to extract the warmup values. For example, the `brms::plot()` function excludes them from the trace plot without the option to include them.
 
@@ -1133,7 +1133,6 @@ mcmc_trace(warmups, pars = "b_Intercept")
 As an alternative, we can also extract the warmup draws from a `brm()` fit with the [**ggmcmc** package](https://cran.rstudio.com/package=ggmcmc) [@R-ggmcmc; @fernandezGGMCMCAnalysisofMCMC2016]. 
 
 ```{r, message = F, warning = F}
-# install.packages("ggmcmc", dependencies = T)
 library(ggmcmc)
 ```
 
@@ -1239,7 +1238,7 @@ post %>%
   stat_halfeye(point_interval = mode_hdi,
                 .width = .95) +
   scale_fill_brewer(direction = -1) +
-  scale_y_discrete(expand = expansion(mult = 0.025)) +
+  scale_y_discrete(expand = expansion(mult = 0.035)) +
   theme_cowplot() +
   theme(legend.position = "none")
 ```
@@ -1260,7 +1259,7 @@ tibble(step = 1:5) %>%
          lead = lead(step, n = 1))
 ```
 
-The original values are `1:5` in the `step` column. When you plug that into `lag(n = 1)`, you get the value from the *previous row*. The opposite happens when you plug `step` into `lead(n = 1)`; there you get the value from the *next row*. Back to the block quote above, Kruschke wrote that autocorrelations are "the correlation of the chain values with the chain values $k$ *steps ahead*" (p. 182, *emphasis* added). Within the context of the `lag()` and `lead()` functions, their `n` argument is what Kruschke called $k$, which is no big deal. Confusingly, though, since Kruschke wanted to focus on MCMC chains values that were "$k$ steps ahead," that means we'll have to use the `lead()` function, not `lag()`. Please don't fret about the semantics, here. Both Kruschke and the **dplyr** package are correct. We're lagging. But in this specific case, we'll be lagging our `post` data with the `lead()` function. You can learn more about `lag()` and `lead()` [here](https://dplyr.tidyverse.org/reference/lead-lag.html).
+The original values are `1:5` in the `step` column. When you plug those into `lag(n = 1)`, you get back the value from the *previous row*. The opposite happens when you plug `step` into `lead(n = 1)`; there you get back the value from the *next row*. Returning to the block quote above, Kruschke wrote that autocorrelations are "the correlation of the chain values with the chain values $k$ *steps ahead*" (p. 182, *emphasis* added). Within the context of the `lag()` and `lead()` functions, their `n` arguments are what Kruschke called $k$, which is no big deal. Confusingly, though, since Kruschke wanted to focus on MCMC chains values that were "$k$ steps ahead," that means we'll have to use the `lead()` function, not `lag()`. Please don't fret about the semantics, here. Both Kruschke and the **dplyr** package are correct. We're lagging. But in this specific case, we'll be lagging our `post` data with the `lead()` function. You can learn more about `lag()` and `lead()` [here](https://dplyr.tidyverse.org/reference/lead-lag.html).
 
 Okay, let's wrangle our `post` object a bit to make it easier to reproduce Figure 7.12.
 
@@ -1290,12 +1289,13 @@ p1 <-
   
   ggplot(aes(x = iter, y = value, color = key)) +
   geom_point(aes(alpha = iter == 1050, shape = iter == 1050)) +
-  geom_line(size = 1/4, alpha = 1/2) +
+  geom_line(size = 1/3, alpha = 1/2) +
   annotate(geom = "text",
-           x = 1040, y = c(.795, .75),
+           x = 1040, y = c(.795, .76),
            label = c("Original", "Lagged"),
            color = c("black", "steelblue")) +
   scale_color_manual(values = c("black", "steelblue")) +
+  scale_y_continuous(breaks = 6:8 / 10, limits = c(.55, .80)) +
   labs(x = "Index 1001:1071",
        title = "Lag 1")
 
@@ -1306,8 +1306,10 @@ p2 <-
   
   ggplot(aes(x = iter, y = value, color = key)) +
   geom_point(aes(alpha = iter == 1050, shape = iter == 1050)) +
-  geom_line(size = 1/4, alpha = 1/2) +
+  geom_line(size = 1/3, alpha = 1/2) +
   scale_color_manual(values = c("black", "steelblue")) +
+  scale_y_continuous(NULL, labels = NULL, 
+                     breaks = 6:8 / 10, limits = c(.55, .80)) +
   labs(x = "Index 1001:1071",
        title = "Lag 5")
 
@@ -1318,8 +1320,10 @@ p3 <-
   
   ggplot(aes(x = iter, y = value, color = key)) +
   geom_point(aes(alpha = iter == 1050, shape = iter == 1050)) +
-  geom_line(size = 1/4, alpha = 1/2) +
+  geom_line(size = 1/3, alpha = 1/2) +
   scale_color_manual(values = c("black", "steelblue")) +
+  scale_y_continuous(NULL, labels = NULL, 
+                     breaks = 6:8 / 10, limits = c(.55, .80)) +
   labs(x = "Index 1001:1071",
        title = "Lag 10")
 
@@ -1329,7 +1333,6 @@ library(patchwork)
 (p1 + p2 + p3) &
   scale_alpha_manual(values = c(1/2, 1)) &
   scale_shape_manual(values = c(1, 19)) &
-  scale_y_continuous(breaks = 6:8 / 10, limits = c(.55, .80)) &
   theme_cowplot() &
   theme(legend.position = "none") 
 ```
@@ -1355,7 +1358,8 @@ p2 <-
   
   ggplot(aes(x = lag_5, y = lag_0)) +
   stat_smooth(method = "lm") +
-  geom_point(aes(alpha = iter == 1050, shape = iter == 1050))
+  geom_point(aes(alpha = iter == 1050, shape = iter == 1050)) +
+  scale_y_continuous(NULL, labels = NULL)
 
 p3 <-
   lagged_post_wide %>% 
@@ -1363,7 +1367,8 @@ p3 <-
   
   ggplot(aes(x = lag_10, y = lag_0)) +
   stat_smooth(method = "lm") +
-  geom_point(aes(alpha = iter == 1050, shape = iter == 1050))
+  geom_point(aes(alpha = iter == 1050, shape = iter == 1050)) +
+  scale_y_continuous(NULL, labels = NULL)
 
 # combine
 (p1 + p2 + p3) & 
@@ -1437,6 +1442,8 @@ rm(hdi_of_icdf, h, omega, d, my_mode_simulation, sim, num_days, positions, curre
 ```{r, echo = F, message = F, warning = F, results = "hide"}
 pacman::p_unload(pacman::p_loaded(), character.only = TRUE)
 ```
+
+## Footnote {-}
 
 [^2]: We will get a proper introduction to the binomial probability distribution in [Section 11.1.2][With intention to fix $N$.].
 

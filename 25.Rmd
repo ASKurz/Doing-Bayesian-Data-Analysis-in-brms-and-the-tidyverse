@@ -1,10 +1,3 @@
----
-title: "Chapter 25. Tools in the Trunk"
-author: "A Solomon Kurz"
-date: "`r format(Sys.Date())`"
-output:
-  github_document
----
 
 ```{r, echo = F}
 knitr::opts_chunk$set(fig.retina = 2.5)
@@ -309,7 +302,7 @@ To repeat, Kruschke described two kinds of censoring:
 * "values above 106 are censored,"
 * "as are values in the interval between 94 and 100."
 
-Rather than examine both kinds of censoring at once, as in the text, I'm going to slow down and break this section up. First, we'll explore right censoring. Second, we'll explore interval censoring. For our grand finale, we'll combine the two, as in the text.
+`r emo::ji("warning")` Rather than examine both kinds of censoring at once, as in the text, I'm going to slow down and break this section up. First, we'll explore right censoring. Second, we'll explore interval censoring. For our grand finale, we'll combine the two, as in the text.
 
 ### Right censoring: When you're uncertain beyond a single threshold.
 
@@ -324,7 +317,7 @@ Now we can use our `t1` threshold value to make a right censored version of the 
 ```{r}
 d <-
   d %>% 
-  mutate(y1 = if_else(y > t1, t1, y),
+  mutate(y1   = if_else(y > t1, t1, y),
          cen1 = if_else(y > t1, "right", "none"))
 
 d
@@ -335,7 +328,7 @@ When the values in `y1` are not censored, we see `cen1 == "none"`. For all cases
 ```{r}
 d <-
   d %>% 
-  mutate(y_na  = ifelse(cen1 == "none", y, NA))
+  mutate(y_na = ifelse(cen1 == "none", y, NA))
 
 d
 ```
@@ -388,7 +381,7 @@ print(fit25.1a)
 
 Relative to the true data-generating process for the original variable `y`, $\operatorname{Normal}(100, 15)$, those parameters look pretty biased. Now let's practice fitting our first censored model. Here we use the `y1 | cens(cen1)` syntax in the left side of the model `formula` to indicate that the criterion variable, `y1`, has been censored according to the process as defined in the `cens()` function. Within `cens()` we inserted our nominal variable, `cens1`, which indicates which cases are censored (`"right"`) or not (`"none"`).
 
-This model is one of the rare occasions where we'll set out initial values for the model intercept. In my first few attempts, `brm()` had great difficulty initializing the chains using the default initial values. We'll help it out by setting them at `mean_y`. Recall that when you set custom initial values in **brms**, you save them in a list with the number of lists equaling the number of HMC chains. Because we're using the default `chains = 4`, well need four lists of intercept start values, `mean_y`. You can set them to different values, if you'd like.
+This model is one of the rare occasions where we'll set our initial values for the model intercept. In my first few attempts, `brm()` had great difficulty initializing the chains using the default initial values. We'll help it out by setting them at `mean_y`. Recall that when you set custom initial values in **brms**, you save them in a list with the number of lists equaling the number of HMC chains. Because we're using the default `chains = 4`, well need four lists of intercept start values, `mean_y`. You can set them to different values, if you'd like.
 
 ```{r fit25.2a, warning = F, message = F, results = "hide"}
 inits <- list(Intercept = mean_y)
@@ -460,7 +453,7 @@ p1 + p2 +
   plot_annotation(title = "PP check for the naïve model, fit25.1a")
 ```
 
-On the left column, the have the original uncensored data `y` and the `y_na` data where the censored values were removed. The four lighter histograms on the right are individual simulations based on our naïve model, `fit25.1a`, which only used the `y_na` data. In all cases, the simulated data are biased to be too small compared with the original data, `y`. They also have the undesirable quality that they don't even match up with the `y_na` data, which drops sharply off at the 106 threshold, whereas the simulated data all contain values exceeding that point (depicted by the dashed vertical lines). 
+On the left column, the have the original uncensored data `y` and the `y_na` data where the censored values were removed. The four lighter histograms on the right are individual simulations based on our naïve model, `fit25.1a`, which only used the `y_na` data. In all cases, the simulated data are biased to be too small compared with the original data, `y`. They also have the undesirable quality that they don't even match up with the `y_na` data, which drops sharply off at the 106 threshold, whereas the simulated data all contain values exceeding that point (depicted by the dashed vertical lines). Now let's see what happens when we execute a few posterior predictive checks with our first censored model, `fit25.2a`.
 
 ```{r, fig.width = 6, fig.height = 4.5, warning = F}
 p1 <-
@@ -580,7 +573,7 @@ print(fit25.1b)
 print(fit25.2b)
 ```
 
-In this case, both models did a reasonable job approximating the original data-generating parameters, $\operatorname{Normal}(100, 15)$. However, the naïve model `fit25.1b` did so at a considerable loss pre precision, as indicated by the posterior standard deviations. To give a better sense, here are the model parameters in an interval plot.
+In this case, both models did a reasonable job approximating the original data-generating parameters, $\operatorname{Normal}(100, 15)$. However, the naïve model `fit25.1b` did so at a considerable loss of precision, as indicated by the posterior standard deviations. To give a better sense, here are the model parameters in an interval plot.
 
 ```{r, fig.width = 7, fig.height = 1.75, warning = F}
 # wrangle
@@ -616,7 +609,7 @@ d <-
          y5   = if_else(y >= t2 & y < t3, t3, y),
          cen3 = if_else(y >= t2 & y < t3, "interval",
                        if_else(y > t1, "right", "none"))) %>% 
-  mutate(y_na  = ifelse(cen3 == "none", y, NA))
+  mutate(y_na = ifelse(cen3 == "none", y, NA))
 
 d
 ```
@@ -811,11 +804,11 @@ To learn more about censored data, check out the nice lecture by Gordon Fox, [*I
 
 ### Bonus: Truncation.
 
-Though Kruschke didn't cover it, truncation is often confused with censoring. When you have actually collected all your values, but some are just less certain than you'd like, you have a censoring issue. That is, you can think of censoring as an issue with measurement precision. Truncation has to do with data collection. When there's some level in your criterion variable that you haven't collected data on, that's a truncation issue. For example, imagine you wanted to predict scores on an IQ test with socioeconomic status (SES). There might be a relation, there. But now imagine you only collected data on people with an IQ above 110. Those IQ data are severely left truncated. If you only care about the relation of SES and IQ for those with high IQ scores, your data are fine. But if you want to make general statements across the full range of IQ values, standard regression methods will likely produce biased results. Happily, **brms** allows users to accommodate truncated criterion variables with the `trunc()` function, which works in a similar way to the `cens()` function. For details on fitting truncated regression models with `trunc()`, check out the *Additional response information* subsection of the `brmsformula` section of the [**brms** reference manual](https://CRAN.R-project.org/package=brms/brms.pdf). The [end of the Fox lecture](https://youtu.be/aPN10YYrC1M?t=6153), above, briefly covers truncated regression. You can also find a [brief vignette on truncation](https://stats.idre.ucla.edu/r/dae/truncated-regression/) by the good folks at the UCLA Institute for Digital Research and Education.
+Though Kruschke didn't cover it, truncation is often confused with censoring. When you have actually collected all your values, but some are just less certain than you'd like, you have a censoring issue. That is, you can think of censoring as an issue with *measurement precision*. Truncation has to do with *data collection*. When there's some level in your criterion variable that you haven't collected data on, that's a truncation issue. For example, imagine you wanted to predict scores on an IQ test with socioeconomic status (SES). There might be a relation, there. But now imagine you only collected data on people with an IQ above 110. Those IQ data are severely left truncated. If you only care about the relation of SES and IQ for those with high IQ scores, your data are fine. But if you want to make general statements across the full range of IQ values, standard regression methods will likely produce biased results. Happily, **brms** allows users to accommodate truncated criterion variables with the `trunc()` function, which works in a similar way to the `cens()` function. For details on fitting truncated regression models with `trunc()`, check out the *Additional response information* subsection of the `brmsformula` section of the [**brms** reference manual](https://CRAN.R-project.org/package=brms/brms.pdf). The [end of the Fox lecture](https://youtu.be/aPN10YYrC1M?t=6153), above, briefly covers truncated regression. You can also find a [brief vignette on truncation](https://stats.idre.ucla.edu/r/dae/truncated-regression/) by the good folks at the UCLA Institute for Digital Research and Education.
 
 ## What Next?
 
-"If you have made it this far and you are looking for more, you might peruse posts at [Kruschke's] blog, [https://doingbayesiandataanalysis.blogspot.com/](https://doingbayesiandataanalysis.blogspot.com/), and search there for topics that interest you." In addition to the other references Kruschke mentioned, you might also check out McElreath's [*Statistical rethinking*](https://xcelab.net/rm/statistical-rethinking/), both first [-@mcelreathStatisticalRethinkingBayesian2015] and second [-@mcelreathStatisticalRethinkingBayesian2020] editions. Much like this project, I have recoded both editions of *Statistical rethinking* in a **bookdown** form [@kurzStatisticalRethinkingBrms2020; @kurzStatisticalRethinkingSecondEd2021]. Click [here](https://bookdown.org/content/3890/) for the first and [here](https://bookdown.org/content/4857/) for the second. You can find other pedagogical material at my academic blog, [https://solomonkurz.netlify.com/post/](https://solomonkurz.netlify.com/post/). For assistance on **brms**-related issues, check out the **brms** section on the Stan forums at [https://discourse.mc-stan.org/c/interfaces/brms/36](https://discourse.mc-stan.org/c/interfaces/brms/36).
+"If you have made it this far and you are looking for more, you might peruse posts at [Kruschke's] blog, [https://doingbayesiandataanalysis.blogspot.com/](https://doingbayesiandataanalysis.blogspot.com/), and search there for topics that interest you." In addition to the other references Kruschke mentioned, you might also check out McElreath's [*Statistical rethinking*](https://xcelab.net/rm/statistical-rethinking/), both first [-@mcelreathStatisticalRethinkingBayesian2015] and second [-@mcelreathStatisticalRethinkingBayesian2020] editions. Much like this project, I have recoded both editions of *Statistical rethinking* in a **bookdown** form [@kurzStatisticalRethinkingBrms2020; @kurzStatisticalRethinkingSecondEd2021]. Click [here](https://bookdown.org/content/3890/) for the first and [here](https://bookdown.org/content/4857/) for the second. You can find other pedagogical material at my academic blog, [https://solomonkurz.netlify.com/post/](https://solomonkurz.netlify.com/post/). For assistance on **brms**-related issues, check out the **brms** section on the Stan forums at [https://discourse.mc-stan.org/c/interfaces/brms/36](https://discourse.mc-stan.org/c/interfaces/brms/36). Happy modeling, friends!
 
 ## Session info {-}
 

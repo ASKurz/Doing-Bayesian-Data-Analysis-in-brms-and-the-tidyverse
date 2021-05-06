@@ -191,7 +191,7 @@ Let's open **brms**.
 library(brms)
 ```
 
-The **brms** package does not have code blocks following the JAGS format or the sequence in Kurschke's diagrams. Rather, its syntax is modeled in part after the popular frequentist mixed-effects package, [**lme4**](https://cran.r-project.org/web/packages/lme4/index.html). To learn more about how **brms** compares to **lme4**, see Bürkner's [-@burknerBrmsPackageBayesian2017] overview, [*brms: An R package for Bayesian multilevel models
+The **brms** package does not have code blocks following the JAGS format or the sequence in Kruschke's diagrams. Rather, its syntax is modeled in part after the popular frequentist mixed-effects package, [**lme4**](https://cran.r-project.org/web/packages/lme4/index.html). To learn more about how **brms** compares to **lme4**, see Bürkner's [-@burknerBrmsPackageBayesian2017] overview, [*brms: An R package for Bayesian multilevel models
 using Stan*](https://cran.r-project.org/web/packages/brms/vignettes/brms_overview.pdf). 
 
 The primary function in **brms** is `brm()`. Into this one function we will specify the data, the model, the likelihood function, the prior(s), and any technical settings such as the number of MCMC chains, iterations, and so forth. You can order the arguments in any way you like. My typical practice is to start with `data`, `family` (i.e., the likelihood function), the model `formula`, and my `prior`s. If there are any technical specifications such as the number of MCMC iterations I'd like to change from their default values, I usually do that last.
@@ -325,7 +325,8 @@ post %>%
   scale_y_continuous(expand = expansion(mult = c(0, 0.05))) +
   labs(title = "Theta via ggplot2::geom_histogram()",
        x = expression(theta)) +
-  theme_minimal_hgrid()
+  theme_minimal_hgrid() +
+  theme(plot.title.position = "plot")
 ```
 
 The `bayesplot::mcmc_areas()` function offers a nice way to depict the posterior densities, along with their percentile-based 50% and 95% ranges.
@@ -341,7 +342,8 @@ mcmc_areas(
   scale_y_discrete(expand = expansion(mult = c(0, 0.05))) +
   labs(title = "Theta via bayesplot::mcmc_areas()",
        x = expression(theta)) +
-  theme_minimal_hgrid()
+  theme_minimal_hgrid() +
+  theme(plot.title.position = "plot")
 ```
 
 **brms** doesn't have a convenient way to compute the posterior mode or HDIs. Base **R** is no help, either. But Matthew Kay's **tidybayes** package makes it easy to compute posterior modes and HDIs with handy functions like `stat_halfeye()` and `stat_histinterval()`.
@@ -353,7 +355,7 @@ post %>%
   ggplot(aes(x = b_Intercept, y = 0)) +
   stat_halfeye(point_interval = mode_hdi, .width = c(.95, .5)) +
   scale_y_continuous(NULL, breaks = NULL) +
-  labs(title = "Theta via tidybayes::stat_halfeye()",
+  labs(title = expression(theta*" via tidybayes::stat_halfeye()"),
        x = expression(theta)) +
   theme_minimal_hgrid()
 
@@ -361,7 +363,7 @@ post %>%
   ggplot(aes(x = b_Intercept, y = 0)) +
   stat_histinterval(point_interval = mode_hdi, .width = c(.95, .5)) +
   scale_y_continuous(NULL, breaks = NULL) +
-  labs(title = "Theta via tidybayes::stat_histinterval()",
+  labs(title = expression(theta*" via tidybayes::stat_histinterval()"),
        x = expression(theta)) +
   theme_minimal_hgrid()
 ```
@@ -408,6 +410,7 @@ post %>%
   theme(axis.line.y.left = element_blank(),
         axis.text.y = element_text(hjust = 0),
         axis.ticks.y = element_blank(),
+        plot.title.position = "plot",
         title = element_text(size = 10.5))
 ```
 
@@ -443,7 +446,7 @@ my_data %>%
   facet_wrap(~ s)
 ```
 
-Note our use of `ggthemes::scale_fill_colorblind()`. When you want to use color to emphasize different factor levels, such as `s`, it's a good idea to make sure those colors can be distinguished by folks who are colorblind. The `scale_fill_colorblind()` function provides a discrete palette of eight colorblind safe colors. If you'd prefer to use a different palette, but wand to make sure its accessible to folks with colorblindness, check out the [**colorblindr** package](https://github.com/clauswilke/colorblindr) [@R-colorblindr].
+Note our use of the `scale_fill_colorblind()` function from the [**ggthemes** package](https://CRAN.R-project.org/package=ggthemes) [@R-ggthemes]. When you want to use color to emphasize different factor levels, such as `s`, it's a good idea to make sure those colors can be distinguished by folks who are colorblind. The `scale_fill_colorblind()` function provides a discrete palette of eight colorblind safe colors. If you'd prefer to use a different palette, but wand to make sure its accessible to folks with colorblindness, check out the [**colorblindr** package](https://github.com/clauswilke/colorblindr) [@R-colorblindr].
 
 Here's our **ggplot2** version of the model diagram in Figure 8.5.
 
@@ -729,11 +732,11 @@ The viridis color palettes in functions like `scale_fill_viridis_c()` and `scale
 
 ## Probability distributions available in ~~JAGS~~  brms
 
-> [**brms**] has a large collection of frequently used probability distributions that are built-in. These distributions include the beta, gamma, normal, Bernoulli, and binomial along with many others. A complete list of distributions, and their [**brms**] names, can be found in [Bürkner's [-@Bürkner2020Parameterization] vignette [*Parameterization of response distributions in brms*](https://CRAN.R-project.org/package=brms/vignettes/brms_families.html)]. [@kruschkeDoingBayesianData2015, pp. 213--214, **emphasis** added]
+> [**brms**] has a large collection of frequently used probability distributions that are built-in. These distributions include the beta, gamma, normal, Bernoulli, and binomial along with many others. A complete list of distributions, and their [**brms**] names, can be found in [Bürkner's [-@Bürkner2021Parameterization] vignette [*Parameterization of response distributions in brms*](https://CRAN.R-project.org/package=brms/vignettes/brms_families.html)]. [@kruschkeDoingBayesianData2015, pp. 213--214, **emphasis** added]
 
 ### Defining new likelihood functions.
 
-In addition to all the likelihood functions listed in above mentioned vignette, you can also make your own likelihood functions. Bürkner explained the method in his [-@Bürkner2020Define] vignette, [*Define custom response distributions with brms*](https://CRAN.R-project.org/package=brms/vignettes/brms_customfamilies.html).
+In addition to all the likelihood functions listed in above mentioned vignette, you can also make your own likelihood functions. Bürkner explained the method in his [-@Bürkner2021Define] vignette, [*Define custom response distributions with brms*](https://CRAN.R-project.org/package=brms/vignettes/brms_customfamilies.html).
 
 ## Faster sampling with parallel processing in ~~runjags~~ `brms::brm()`
 

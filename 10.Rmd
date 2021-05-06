@@ -58,8 +58,6 @@ Thus given $\omega_1 = .25$, $\omega_2 = .75$ and $\kappa = 12$, we can describe
 In the past few chapters, we have explored different plotting conventions using themes from Wilke's [**cowplot** package](https://wilkelab.org/cowplot), such as `theme_cowplot()` and `theme_minimal_grid()`. We also modified some of our plots using principles from Wilke's [-@wilkeFundamentalsDataVisualization2019] text, [*Fundamentals of data visualization*](https://clauswilke.com/dataviz/), and his [-@Wilke2019Themes] [*Themes*](https://wilkelab.org/cowplot/articles/themes.html) vignette. To further build on those principles, each chapter from here onward will have its own color scheme. The scheme in this chapter is based on [Katsushika Hokusai](https://www.katsushikahokusai.org/)'s [-@HokusaiGreatWaveOffKanagawa1820] woodblock print, [*The great wave off Kanagawa*](https://artsandculture.google.com/asset/the-great-wave-off-kanagawa/MgHm0BHMRIT73g). We can get a prearranged color palette based on *The great wave off Kanagawa* from  [Tyler Littlefield](https://twitter.com/tyluRp)'s [**lisa** package](https://github.com/tyluRp/lisa) [@R-lisa].
 
 ```{r, warning = F, message = F, fig.width = 3, fig.height = 1}
-# install.packages("lisa")
-
 library(lisa)
 
 lisa_palette("KatsushikaHokusai")
@@ -694,14 +692,34 @@ d %>%
   filter(omega %in% c(.25, .75)) %>% 
   group_by(omega) %>% 
   summarise(sum_posterior = sum(posterior)) %>% 
-  mutate(model = c("model_2", "model_1")) %>% 
+  mutate(model = c("model_1", "model_2")) %>% 
   pivot_wider(-omega, 
               names_from = model,
               values_from = sum_posterior) %>%
-  summarise(BF = model_1 / model_2)
+  mutate(BF = model_2 / model_1)
 ```
 
-Both the posterior distributions and the BF indicate $\omega = .75$ is a better representation of the data than $\omega = .25$.
+Please note[^3] how, in the previous section, Kruschke computed the BF as
+
+$$\frac{p(m = 1 | D)}{p(m = 2 | D)} = .213,$$
+
+which we achieved with this code:
+
+```{r}
+p_d_1 / p_d_2
+```
+
+Here, we're flipping the ratio to 
+
+$$\frac{p(m = 2 | D)}{p(m = 1 | D)},$$
+
+which is why we now have a BF near 5.
+
+```{r}
+p_d_2 / p_d_1
+```
+
+But anyway, both the posterior distributions in the figure and the BF indicate $\omega = .75$ is a better representation of the data than $\omega = .25$.
 
 ## Solution by MCMC
 
@@ -1527,7 +1545,7 @@ model_weights(fit10.6, fit10.7, fit10.8, weights = "loo") %>%
   round(digits = 2)
 ```
 
-The evidence varied a bit by the specific weighting scheme. Across both, the model with the Haldane prior (`fit10.8`) did arguably the best, but the model with the uniform prior (`fit10.9`) was clearly in the running. Overall, the evidence for one versus another was weak.
+The evidence varied a bit by the specific weighting scheme. Across both, the model with the Haldane prior (`fit10.8`) did arguably the best, but the model with the uniform prior (`fit10.7`) was clearly in the running. Overall, the evidence for one versus another was weak.
 
 Like we did earlier with `fit10.1` and `fit10.2`, we can use the `pp_average()` function to compute the stacking weighted posterior for $\theta$.
 
@@ -1601,4 +1619,8 @@ ggplot2::theme_set(ggplot2::theme_grey())
 bayesplot::color_scheme_set("blue")
 pacman::p_unload(pacman::p_loaded(), character.only = TRUE)
 ```
+
+## Footnote {-}
+
+[^3]: I point this out because in previous versions of this book, I accidentally flipped this order. Thankfully, Omid Ghasemi caught the mistake and kindly pointed it out in [GitHub issue #34](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues/34).
 
