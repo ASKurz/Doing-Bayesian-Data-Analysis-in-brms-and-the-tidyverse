@@ -428,7 +428,7 @@ model_2 <- bf(y2 | subset(subset) ~ 1)
 
 Note how the formula syntax for each was wrapped within the `bf()` function. That's shorthand for `brmsformula()`. If you wanted to, you could have defined these as `model_1 <- brmsformula(y1 ~ 1)`, and so on.
 
-Another issue we need to contend with is Kruschke's $\operatorname{Beta}(2, 2)$ prior. By default, **brms** assumes an unbounded parameter space for the standard intercept priors. But we know that the beta distribution imposes boundaries within the range of $[0, 1]$. This is technically okay with a standard **brms** intercept prior, but it can lead to computational difficulties. When possible, it's better to formally tell **brms** when you are using bounded priors. The difficulty is the the current version of **brms** does not allow users to set lower or upper boundaries in priors of `class = Intercept`. The way to get around that is with the `0 + Intercept` syntax. Here, we remove the default intercept with the `0` part. Then we redefine the intercept with the `+ Intercept` part. The reason you would do such a think is now our new `Intercept` parameter take priors of `class = b`, which is the generic class of predictor variables which CAN accept upper and/or lower boundaries. As a consequence, we will want to redefine our two model objects.
+Another issue we need to contend with is Kruschke's $\operatorname{Beta}(2, 2)$ prior. By default, **brms** assumes an unbounded parameter space for the standard intercept priors. But we know that the beta distribution imposes boundaries within the range of $[0, 1]$. This is technically okay with a standard **brms** intercept prior, but it can lead to computational difficulties. When possible, it's better to formally tell **brms** when you are using bounded priors. The difficulty is the the current version of **brms** does not allow users to set lower or upper boundaries in priors of `class = Intercept`. The way to get around that is with the `0 + Intercept` syntax. Here, we remove the default intercept with the `0` part. Then we redefine the intercept with the `+ Intercept` part. The reason you would do such a thing is now our new `Intercept` parameter takes a prior of `class = b`, which is the generic class of priors for predictor variables which CAN accept upper and/or lower boundaries. As a consequence, we will want to redefine our two model objects to use the `0 + Intercept` syntax.
 
 ```{r}
 model_1 <- bf(y1 ~ 0 + Intercept)
@@ -517,11 +517,11 @@ model_1 <- bf(z1 | trials(n1) ~ 0 + Intercept)
 model_2 <- bf(z2 | trials(n2) ~ 0 + Intercept)
 ```
 
-Notice that when our data are in an aggregated format, we expressed both series of coin flips in one row. Therefore, even though the first coin had more trials than the second coin (`n1 > n2`), we don't need to invoke the `subset()` helper. We just need to use `trials()` to tell **brms** how long each sequence of coin flips was.
+Notice that when our data are in an aggregated format, we expressed both series of coin flips in one row of the data frame. Therefore, even though the first coin had more trials than the second coin (`n1 > n2`), we don't need to invoke the `subset()` helper. We just need to use `trials()` to tell **brms** how long each sequence of coin flips was.
 
 The other new thing is that instead of directly using the Bernoulli likelihood function, we'll instead be setting `family = binomial(link = "identity")`. Recall that the Bernoulli function is a special case of the binomial function for which $N = 1$, for which each data point is a discrete trial. When each data point is an aggregate of multiple trials, we use the binomial likelihood, instead.
 
-Fit the model.
+Here's how to fit the model.
       
 ```{r fit7.1b, message = F}
 fit7.1b <-
@@ -543,7 +543,7 @@ print(fit7.1b)
 
 Here's the updated version of Figure 7.8.
 
-```{r, fig.height = 4, warning = F}
+```{r, fig.height = 4, warning = F, message = F}
 post7.1b <- posterior_samples(fit7.1b, add_chain = T)
 
 p2 <-
