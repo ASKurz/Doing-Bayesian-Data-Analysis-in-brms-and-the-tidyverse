@@ -1,0 +1,238 @@
+---
+output: github_document
+---
+
+```{r, echo = FALSE, cachse = FALSE}
+knitr::opts_chunk$set(fig.retina = 2.5)
+knitr::opts_chunk$set(fig.align = "center")
+options(width = 100)
+```
+
+# Metric-Predicted Variable on One or Two Groups
+
+## Estimating the mean and standard deviation of a normal distribution
+
+```{r, warning = F, message = F}
+library(tidyverse)
+library(beyonce)
+
+bp <- beyonce_palette(126)[]
+
+theme_set(
+  theme_grey() +
+    theme(text = element_text(color = "white"),
+          axis.text = element_text(color = beyonce_palette(126)[5]),
+          axis.ticks = element_line(color = beyonce_palette(126)[5]),
+          legend.background = element_blank(),
+          legend.box.background = element_rect(fill = beyonce_palette(126)[5],
+                                               color = "transparent"),
+          legend.key = element_rect(fill = beyonce_palette(126)[5],
+                                    color = "transparent"),
+          legend.text = element_text(color = beyonce_palette(126)[1]),
+          legend.title = element_text(color = beyonce_palette(126)[1]),
+          panel.background = element_rect(fill = beyonce_palette(126)[5],
+                                          color = beyonce_palette(126)[5]),
+          panel.grid = element_blank(),
+          plot.background = element_rect(fill = beyonce_palette(126)[1],
+                                          color = beyonce_palette(126)[1]),
+          strip.background = element_rect(fill = beyonce_palette(126)[4]),
+          strip.text = element_text(color = beyonce_palette(126)[1]))
+)
+```
+
+
+### ~~Solution by mathematical analysis~~ Heads up on precision.
+
+### Approximation by ~~MCMC in JAGS~~ HMC in brms.
+
+```{r, message = F, warning = F}
+library(brms)
+library(patchwork)
+library(tidybayes)
+library(bayesplot)
+
+color_scheme_set(scheme = bp[c(3, 1, 2, 5, 4, 6)])
+```
+
+## Outliers and robust estimation: The $t$ distribution
+
+Here's the code for our version of Figure 16.4.
+
+```{r, fig.width = 5.5, fig.height = 3.5}
+# wrangle
+crossing(nu = c(Inf, 4, 2, 1),
+         y  = seq(from = -8, to = 8, length.out = 500)) %>% 
+  mutate(density = dt(x = y, df = nu)) %>% 
+  # this line is unnecessary, but will help with the plot legend
+  mutate(nu = factor(nu, levels = c("Inf", "4", "2", "1"))) %>% 
+  
+  # plot
+  ggplot(aes(x = y, y = density, group = nu, color = nu)) +
+  geom_line() +
+  scale_color_manual(expression(paste(italic(t)[nu])), values = bp[c(6, 3:1)]) +
+  scale_y_continuous(expression(p(y)), expand = expansion(mult = c(0, 0.05))) +
+  coord_cartesian(xlim = c(-6, 6)) +
+  theme(legend.position = c(.92, .75))
+```
+
+> Although the $t$ distribution is usually conceived as a sampling distribution for the NHST $t$ test, we will use it instead as a convenient descriptive model of data with outliers... Outliers are simply data values that fall unusually far from a model's expected value. Real data often contain outliers relative to a normal distribution. Sometimes the anomalous values can be attributed to extraneous influences that can be explicitly identified, in which case the affected data values can be corrected or removed. But usually we have no way of knowing whether a suspected outlying value was caused by an extraneous influence, or is a genuine representation of the target being measured. Instead of deleting suspected outliers from the data according to some arbitrary criterion, we retain all the data but use a noise distribution that is less affected by outliers than is the normal distribution. (p. 459)
+
+Here's Figure 16.5.a.
+
+```{r, fig.width = 6, fig.height = 3}
+tibble(y = seq(from = -10, to = 20, length.out = 1e3)) %>% 
+  ggplot(aes(x = y)) +
+  geom_area(aes(y = dnorm(y, mean = 2.5, sd = 5.73)),
+            fill = bp[2], alpha = 1/2) +
+  geom_area(aes(y = metRology::dt.scaled(y, df = 1.14, mean = .12, sd = 1.47)),
+            fill = bp[2], alpha = 1/2) +
+  geom_vline(xintercept = c(.12, 2.5), color = bp[5], linetype = 3) +
+  annotate(geom = "point", 
+           x = c(-2:2, 15), y = 0.002,
+           size = 2, color = bp[6]) +
+  scale_y_continuous(expression(p(y)), expand = expansion(mult = c(0, 0.05))) +
+  ggtitle("Maximum Likelihood Estimates") +
+  coord_cartesian(xlim = c(-5, 15))
+```
+
+I'm not aware that we have the data for the bottom panel of Figure 16.5. However, we can simulate similar data with the `rt.scaled()` function from the [**metRology** package](https://sourceforge.net/projects/metrology/) [@R-metRology].
+
+```{r, fig.width = 6, fig.height = 3}
+set.seed(145)
+
+# simulate the data
+d <-
+  tibble(y = metRology::rt.scaled(n = 177, df = 2.63, mean = 1.11, sd = 0.15))
+
+# plot
+tibble(y = seq(from = -3, to = 12, length.out = 1e3)) %>% 
+  ggplot(aes(y)) +
+  geom_histogram(data = d,
+                 aes(y = stat(density)),
+                 fill = bp[3],
+                 size = .2, binwidth = .1) +
+  geom_line(aes(y = dnorm(y, mean = 1.16, sd = 0.63)),
+            color = bp[2]) +
+  geom_line(aes(y = metRology::dt.scaled(y, df = 2.63, mean = 1.11, sd = 0.15)),
+            color = bp[2]) +
+  scale_x_continuous(breaks = seq(from = -2, to = 10, by = 2)) +
+  scale_y_continuous(expression(p(y)), expand = expansion(mult = c(0, 0.05))) +
+  ggtitle("Maximum Likelihood Estimates") +
+  coord_cartesian(xlim = c(-1.5, 10.25))
+```
+
+In case you were curious, this is how I selected the seed for the plot. Run the code yourself to get a sense of how it works.
+
+```{r, fig.width = 2, fig.height = 8, eval = F}
+# in the R Notebook code block settings, I used: fig.width = 2, fig.height = 8
+
+t_maker <- function(seed) {
+  set.seed(seed)
+  tibble(y = metRology::rt.scaled(n = 177, df = 2.63, mean = 1.11, sd = 0.15)) %>% 
+    summarise(min = min(y),
+              max = max(y)) %>% 
+    mutate(spread = max - min)
+}
+
+tibble(seed = 1:200) %>% 
+  mutate(t = map(seed, t_maker)) %>% 
+  unnest(t) %>%
+  
+  ggplot(aes(x = reorder(seed, spread), ymin = min, ymax = max)) +
+  geom_hline(yintercept = 0, color = "white") +
+  geom_linerange() +
+  coord_flip()
+```
+
+> It is important to understand that the scale parameter $\sigma$ in the $t$ distribution is not the standard deviation of the distribution. (Recall that the standard deviation is the square root of the variance, which is the expected value of the squared deviation from the mean, as defined back in Equation 4.8, p. 86.) The standard deviation is actually larger than $\sigma$ because of the heavy tails... While this value of the scale parameter is not the standard deviation of the distribution, it does have an intuitive relation to the spread of the data. Just as the range $\pm \sigma$ covers the middle 68% of a *normal* distribution, the range $\pm \sigma$ covers the middle 58% of a $t$ distribution when $\nu = 2$, and the middle 50% when $\nu = 1$. These areas are illustrated in the left column of Figure 16.6. The right column of Figure 16.6 shows the width under the middle of a $t$ distribution that is needed to span 68.27% of the distribution, which is the area under a normal distribution for $\sigma = \pm 1$. (pp. 459--461, *emphasis* in the original)
+
+Speaking of which, here's the code for the left column for Figure 16.6.
+
+```{r}
+# the primary data
+d <-
+  crossing(y  = seq(from = -8, to = 8, length.out = 1e3),
+           nu = c(Inf, 5, 2, 1)) %>%
+  mutate(label = str_c("nu == ", nu) %>% 
+           factor(., levels = c("nu == Inf", "nu == 5", "nu == 2", "nu == 1")))
+
+# the subplot
+p1 <-
+  d %>% 
+  ggplot(aes(x = y)) +
+  geom_area(aes(y = dt(y, df = nu)),
+            fill = bp[2]) +
+  geom_area(data = . %>% filter(y >= -1 & y <= 1),
+            aes(y = dt(y, df = nu)),
+            fill = bp[1]) +
+  # note how this function has its own data
+  geom_text(data = tibble(
+    y     = 0,
+    text  = c("68%", "64%", "58%", "50%"),
+    label = factor(c("nu == Inf", "nu == 5", "nu == 2", "nu == 1"))
+    ), aes(y = .175, label = text),
+    color = "white") +
+  scale_y_continuous(expression(p(y)), expand = expansion(mult = c(0, 0.05)), breaks = 0:2 * 0.2) +
+  labs(subtitle = "Shaded from y = - 1 to y = 1") +
+  coord_cartesian(xlim = c(-6, 6)) +
+  facet_wrap(~ label, ncol = 1, labeller = label_parsed)
+```
+
+Here's the code for the right column.
+
+```{r}
+# the primary data
+d <-
+  tibble(nu   = c(Inf, 5, 2, 1),
+         ymin = c(-1, -1.11, -1.32, -1.84)) %>%
+  mutate(ymax = -ymin) %>% 
+  expand(nesting(nu, ymin, ymax),
+         y = seq(from = -8, to = 8, length.out = 1e3)) %>%
+  mutate(label = factor(str_c("nu==", nu), 
+                        levels = str_c("nu==", c(Inf, 5, 2, 1))))
+
+# the subplot
+p2 <-
+  d %>% 
+  ggplot(aes(x = y)) +
+  geom_area(aes(y = dt(y, df = nu)),
+            fill = bp[2]) +
+  geom_area(data = . %>% 
+              # notice our `filter()` argument has changed
+              filter(y >= ymin & y <= ymax),
+            aes(y = dt(y, df = nu)),
+            fill = bp[1]) +
+  annotate(geom = "text", 
+           x = 0, y = .175, 
+           label = "68%", color = "white") +
+  scale_y_continuous(expression(p(y)), expand = expansion(mult = c(0, 0.05)), breaks = 0:2 * 0.2) +
+  labs(subtitle = "Shaded for the middle 68.27%") +
+  coord_cartesian(xlim = c(-6, 6)) +
+  facet_wrap(~ label, ncol = 1, labeller = label_parsed)
+```
+
+Now we'll bind the two ggplots together with the **patchwork** package to make the full version of Figure 16.6.
+
+```{r, fig.width = 7, fig.height = 6, warning = F, message = F}
+p1 + p2
+```
+
+> The use of a heavy-tailed distribution is often called *robust estimation* because the estimated value of the central tendency is stable, that is, "robust," against outliers. The $t$ distribution is useful as a likelihood function for modeling outliers at the level of observed data. But the $t$ distribution is also useful for modeling outliers at higher levels in a hierarchical prior. We will encounter several applications. (p. 462, *emphasis* in the original)
+
+## Session info {-}
+
+```{r}
+sessionInfo()
+```
+
+```{r, echo = F, eval = F}
+# here we'll remove our objects
+rm(sequence_length, d, beyonce_palettes, bp, my_data, mean_y, sd_y, stanvars, p1, p2, my_arrow, p3, p4, p5, p6, layout, fit16.1, post, rope, text, n_lines, n_draws, mu, fit16.2, p7, fit16.3, h)
+```
+
+```{r, echo = F, message = F, warning = F, results = "hide"}
+ggplot2::theme_set(ggplot2::theme_grey())
+bayesplot::color_scheme_set("blue")
+pacman::p_unload(pacman::p_loaded(), character.only = TRUE)
+```
+
