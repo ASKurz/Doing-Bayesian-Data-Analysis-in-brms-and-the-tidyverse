@@ -722,8 +722,10 @@ And we can get a better sense of the distribution with a dot plot.
 post %>%
   ggplot(aes(x = sigma, y = 0)) +
   stat_dotsinterval(point_interval = mode_hdi, .width = .95, 
+                    justification = -0.04,
                     shape = 23, stroke = 1/4, point_size = 3, slab_size = 1/4,
-                    slab_fill = bd[6], slab_color = bd[1], color = bd[2], point_color = bd[1], point_fill = bd[2],
+                    color = bd[2], point_color = bd[1], slab_color = bd[1],
+                    point_fill = bd[2], slab_fill = bd[6], 
                     quantiles = 100) +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(expression(sigma[y]))
@@ -734,18 +736,24 @@ As Kruschke pointed out, this parameter is held constant across all subgroups. T
 Before we move on to the next section, look above at how many arguments we fiddled with to configure `stat_dotsinterval()`. Given how many more dot plots we have looming in our not-too-distant future, we might go ahead and save these settings as a new function. We'll call it `stat_beedrill()`.
 
 ```{r}
-stat_beedrill <- function(quantiles = 100, ...) {
+stat_beedrill <- function(point_size = 3, 
+                          slab_color = bd[1],
+                          quantiles = 100, ...) {
   
   stat_dotsinterval(point_interval = mode_hdi, .width = .95, 
                     shape = 23, stroke = 1/4, 
-                    point_size = 3, slab_size = 1/4,
-                    slab_fill = bd[6], slab_color = bd[1], 
+                    point_size = point_size, slab_size = 1/4,
                     color = bd[2], 
                     point_color = bd[1], point_fill = bd[2],
+                    slab_color = slab_color, slab_fill = bd[6], 
                     quantiles = quantiles,
+                    # learn more about this at https://github.com/mjskay/ggdist/issues/93
+                    justification = -0.04,
                     ...)
 }
 ```
+
+Note how we hard coded the settings for some of the parameters within the function (e.g., `point_interval`) but allows others to be adjustable with new default settings (e.g., `point_size`).
 
 ### Main effect contrasts.
 
@@ -942,7 +950,7 @@ f2 %>%
   facet_wrap(~ key, scales = "free_y", ncol = 3)
 ```
 
-So while the overall pay averages for those in `BFIN` were larger than those in the other three departments, the differences between full and associate professors within `BFIN` wasn’t substantially different from the differences within the other three departments. To be sure, the interquartile range of that last difference distribution fell below both zero and the ROPE, but there's still a lot of spread in the rest of the distribution.
+So while the overall pay averages for those in `BFIN` were larger than those in the other three departments, the differences between full and associate professors within `BFIN` wasn't substantially different from the differences within the other three departments. To be sure, the interquartile range of that last difference distribution fell below both zero and the ROPE, but there's still a lot of spread in the rest of the distribution.
 
 #### Interaction effects: High uncertainty and shrinkage.
 
@@ -1695,7 +1703,7 @@ bind_rows(posterior_samples(fit20.1) %>% select(`sd_Pos:Org__Intercept`),
   mutate(fit = rep(c("fit20.1", "fit20.2"), each = n() / 2)) %>% 
   
   ggplot(aes(x = `sd_Pos:Org__Intercept`, y = fit)) +
-  stat_beedrill() +
+  stat_beedrill(size = 1/2, point_size = 2) +
   labs(x = expression(sigma[beta][1%*%2]),
        y = NULL) +
   coord_cartesian(ylim = c(1.5, NA))
@@ -1878,7 +1886,7 @@ posterior_samples(fit20.3) %>%
   pivot_longer(c(sigma, starts_with("sd"))) %>% 
     
   ggplot(aes(x = value, y = name)) +
-  stat_beedrill(point_color = bd[2]) +
+  stat_beedrill(slab_color = bd[6], size = 1/2, point_size = 3/2) +
   labs(x = NULL,
        y = NULL) +
   coord_cartesian(xlim = c(0, 50),
