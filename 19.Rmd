@@ -675,26 +675,28 @@ For clarity, the "see the right panel of Figure 17.1, p. 478" part was changed f
 >
 > In other words, the baseline cancels out of the calculation, and the difference is a sum of weighted group deflections. Notice that the weights sum to zero. To construct the credible differences of the average of groups 1-3 and the average of groups 4-5, at every step in the MCMC chain we compute
 >
+> \small{
 > \begin{align*}
 > (\mu_1 + \mu_2 + \mu_3) / 3 - (\mu_4 + \mu_5) / 2 & = ((\beta_0 + \beta_1)  + (\beta_0 + \beta_2)  + (\beta_0 + \beta_3) ) / 3 - ((\beta_0 + \beta_4) + (\beta_0 + \beta_5) ) / 2 \\
 > & = (\beta_1 + \beta_2 + \beta_3) / 3 - (\beta_4 + \beta_5) / 2 \\
 > & = (+ 1/3) \cdot \beta_1 + (+ 1/3) \cdot \beta_2 + (+ 1/3) \cdot \beta_3 + (- 1/2) \cdot \beta_4 + (- 1/2) \cdot \beta_5
 > \end{align*}
->
+> }
+> 
 > Again, the difference is a sum of weighted group deflections. The coefficients on the group deflections have the properties that they sum to zero, with the positive coefficients summing to +1 and the negative coefficients summing to −1. Such a combination is called a contrast. The differences can also be expressed in terms of effect size, by dividing the difference by $\sigma_y$ at each step in the chain. (pp. 565--566)
 
 To warm up, here's how to compute the first contrast shown in the lower portion of Kruschke's Figure 19.3--the contrast between the two pregnant conditions and the none-control condition.
 
 ```{r, fig.width = 3, fig.height = 2.5}
 post %>% 
-  transmute(c = (`r_CompanionNumber[Pregnant1,Intercept]` + `r_CompanionNumber[Pregnant1,Intercept]`) / 2 - `r_CompanionNumber[None0,Intercept]`) %>% 
+  transmute(c = (`r_CompanionNumber[Pregnant1,Intercept]` + `r_CompanionNumber[Pregnant8,Intercept]`) / 2 - `r_CompanionNumber[None0,Intercept]`) %>% 
   
   ggplot(aes(x = c, y = 0)) +
   stat_dotsinterval(point_interval = mode_hdi, .width = .95,
                     slab_color = pp[5], slab_fill = pp[5], color = pp[4]) +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(subtitle = "Pregnant1.Pregnant8 vs None0",
-       x = expression(Difference~(mu[1]-mu[2])))
+       x = expression(Difference~(mu[1]+mu[2])/2-mu[3]))
 ```
 
 Up to this point, our primary mode of showing marginal posterior distributions has either been minute variations on Kruschke's typical histogram approach or with densities. We'll use those again in the future, too. In this chapter and the next, we'll veer a little further from the source material and depict our marginal posteriors with dot plots and their very close relatives, quantile plots. In the dot plot, above, each of the 4,000 posterior draws is depicted by one of the stacked brown dots. To stack the dots in neat columns like that, **tidybayes** has to round a little. Though we lose something in the numeric precision, we gain a lot in interpretability. We'll have more to say in just a moment.
@@ -703,7 +705,7 @@ In case you were curious, here are the HMC-based posterior mode and 95% HDIs.
 
 ```{r}
 post %>% 
-  transmute(difference = (`r_CompanionNumber[Pregnant1,Intercept]` + `r_CompanionNumber[Pregnant1,Intercept]`) / 2 - `r_CompanionNumber[None0,Intercept]`) %>% 
+  transmute(difference = (`r_CompanionNumber[Pregnant1,Intercept]` + `r_CompanionNumber[Pregnant8,Intercept]`) / 2 - `r_CompanionNumber[None0,Intercept]`) %>% 
   
   mode_hdi(difference)
 ```
@@ -712,7 +714,7 @@ Little difference, there. Now let's quantify the same contrast as a standardized
 
 ```{r, fig.width = 3, fig.height = 2.5}
 post %>% 
-  transmute(es = ((`r_CompanionNumber[Pregnant1,Intercept]` + `r_CompanionNumber[Pregnant1,Intercept]`) / 2 - `r_CompanionNumber[None0,Intercept]`) / sigma) %>% 
+  transmute(es = ((`r_CompanionNumber[Pregnant1,Intercept]` + `r_CompanionNumber[Pregnant8,Intercept]`) / 2 - `r_CompanionNumber[None0,Intercept]`) / sigma) %>% 
   
   ggplot(aes(x = es, y = 0)) +
   stat_dotsinterval(point_interval = mode_hdi, .width = .95,
@@ -720,10 +722,10 @@ post %>%
                     slab_size = 0, quantiles = 100) +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(subtitle = "Pregnant1.Pregnant8 vs None0",
-       x = expression(Effect~Size~("["*mu[1]-mu[2]*"]"/sigma[italic(y)])))
+       x = expression(Effect~Size~(Difference/sigma[italic(y)])))
 ```
 
-From a standardized-mean-difference perspective, that's tiny.
+From a standardized-mean-difference perspective, that's tiny. Also note that because our model `fit19.1` did not allow the standard deviation parameter $\sigma_y$ to vary across groups, $\sigma_y$ is effectively a pooled standard deviation ($\sigma_p$).
 
 Did you notice the `quantiles = 100` argument within `stat_dotsinterval()`? Instead of a dot plot with 4,000 tiny little dots, that argument converted the output to a quantile plot. The 4,000 posterior draws are now summarized by 100 dots, each of which represents $1\%$ of the total sample [see @kayWhenIshMy2016, @fernandesUncertaintyDisplaysUsing2018]. This quantile dot-plot method will be our main approach for the rest of the chapter.
 
@@ -732,11 +734,11 @@ Okay, now let's do the rest in bulk. First we'll do the difference scores.
 ```{r, fig.width = 8, fig.height = 2.5}
 differences <-
   post %>% 
-  transmute(`Pregnant1.Pregnant8.None0 vs Virgin1` = (`r_CompanionNumber[Pregnant1,Intercept]` + `r_CompanionNumber[Pregnant1,Intercept]` + `r_CompanionNumber[None0,Intercept]`) / 3 - `r_CompanionNumber[Virgin1,Intercept]`,
+  transmute(`Pregnant1.Pregnant8.None0 vs Virgin1` = (`r_CompanionNumber[Pregnant1,Intercept]` + `r_CompanionNumber[Pregnant8,Intercept]` + `r_CompanionNumber[None0,Intercept]`) / 3 - `r_CompanionNumber[Virgin1,Intercept]`,
             
             `Virgin1 vs Virgin8` = `r_CompanionNumber[Virgin1,Intercept]` - `r_CompanionNumber[Virgin8,Intercept]`,
             
-            `Pregnant1.Pregnant8.None0 vs Virgin1.Virgin8` = (`r_CompanionNumber[Pregnant1,Intercept]` + `r_CompanionNumber[Pregnant1,Intercept]` + `r_CompanionNumber[None0,Intercept]`) / 3 - (`r_CompanionNumber[Virgin1,Intercept]` + `r_CompanionNumber[Virgin8,Intercept]`) / 2)
+            `Pregnant1.Pregnant8.None0 vs Virgin1.Virgin8` = (`r_CompanionNumber[Pregnant1,Intercept]` + `r_CompanionNumber[Pregnant8,Intercept]` + `r_CompanionNumber[None0,Intercept]`) / 3 - (`r_CompanionNumber[Virgin1,Intercept]` + `r_CompanionNumber[Virgin8,Intercept]`) / 2)
 
 differences %>% 
   gather() %>% 
