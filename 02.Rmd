@@ -346,18 +346,21 @@ If you wanted a quick model summary, you could execute `print(fit1)`. We'll walk
 
 ```{r, fig.width = 3.25, fig.height = 3}
 # extract the posterior draws
-post <- posterior_samples(fit2.1)
+draws <- as_draws_df(fit2.1)
 
-# this will streamline some of the code, below
+# this will subset the output
 n_lines <- 150
 
 # plot!
-d %>% 
-  ggplot(aes(x = height, y = weight)) +
-  geom_abline(intercept = post[1:n_lines, 1], 
-              slope     = post[1:n_lines, 2],
+draws %>% 
+  slice(1:n_lines) %>% 
+
+  ggplot() +
+  geom_abline(aes(intercept = b_Intercept, slope = b_height, group = .iteration),
               color = "grey50", size = 1/4, alpha = .3) +
-  geom_point(shape = 1) +
+  geom_point(data = d,
+             aes(x = height, y = weight),
+             shape = 1) +
   # the `eval(substitute(paste()))` trick came from: https://www.r-bloggers.com/value-of-an-r-object-in-an-expression/
   labs(subtitle = eval(substitute(paste("Data with", n_lines, "credible regression lines"))),
        x = "Height in inches",
@@ -372,7 +375,7 @@ For Figure 2.5.b., we'll use the handy `stat_histinterval()` function from the [
 ```{r, warning = F, message = F, fig.width = 3, fig.height = 3}
 library(tidybayes)
 
-post %>% 
+draws %>% 
   ggplot(aes(x = b_height, y = 0)) +
   stat_histinterval(point_interval = mode_hdi, .width = .95,
                     fill = "grey67", slab_color = "grey92",
@@ -436,7 +439,7 @@ sessionInfo()
 
 ```{r, echo = F}
 # remove our objects
-rm(d, text, arrow, HtWtDataGenerator, fit2.1, post, n_lines, nd)
+rm(d, text, arrow, HtWtDataGenerator, fit2.1, draws, n_lines, nd)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
