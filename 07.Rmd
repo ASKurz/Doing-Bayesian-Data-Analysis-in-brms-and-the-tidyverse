@@ -961,20 +961,20 @@ As we'll learn in later chapters, the parameters of a typical aggregated binomia
 fixef(fit7.1)[, 1] %>% inv_logit_scaled()
 ```
 
-Here we'll use `posterior_samples()` to collect out posterior draws and save them as a data frame, which we'll name `post`.
+Here we'll use the `as_draws_df()` function to collect out posterior draws and save them as a data frame, which we'll name `draws_df`.
 
 ```{r}
-post <- posterior_samples(fit7.1, add_chain = T)
+draws_df <- as_draws_df(fit7.1)
 ```
 
-With `post` in hand, we're ready to make our version of Figure 7.8. To reduce the overplotting, we're only looking at the first 500 post-warmup iterations.
+With `draws_df` in hand, we're ready to make our version of Figure 7.8. To reduce the overplotting, we're only looking at the first 500 post-warmup draws.
 
 ```{r, fig.height = 5, warning = F}
-post %>% 
+draws_df %>% 
   mutate(theta_1 = b_z1_Intercept %>% inv_logit_scaled(), 
          theta_2 = b_z2_Intercept %>% inv_logit_scaled()) %>% 
-  filter(iter < 1001) %>% 
-  
+  filter(.draw < 1001) %>% 
+
   ggplot(aes(x = theta_1, y = theta_2)) +
   geom_point(alpha = 1/4, color = "steelblue") +
   geom_path(size = 1/10, alpha = 1/2, color = "steelblue") +
@@ -986,8 +986,8 @@ post %>%
 
 Just for kicks and giggles, we'll plot the marginal posterior densities. You'll note that even though we didn't use beta priors, the posteriors look quite beta like.
 
-```{r, fig.height = 2, fig.width = 4}
-post %>% 
+```{r, fig.height = 2, fig.width = 4, warning = F}
+draws_df %>% 
   mutate(`theta[1]` = b_z1_Intercept %>% inv_logit_scaled(), 
          `theta[2]` = b_z2_Intercept %>% inv_logit_scaled()) %>% 
   pivot_longer(`theta[1]`:`theta[2]`) %>% 
@@ -1001,8 +1001,8 @@ post %>%
 
 Did you see how our use of `expand = expansion(mult = 0)` didn't work so well with this plot? The problem is the mode dot and HDI lines at the base of the lower density gets cut off when you remove all of the white space underneath the density. A partial solution is to adjust the value within `expansion()` to be small, but just large enough to let the mode and HDI marks breathe.
 
-```{r, fig.height = 2, fig.width = 4}
-post %>% 
+```{r, fig.height = 2, fig.width = 4, warning = F}
+draws_df %>% 
   mutate(`theta[1]` = b_z1_Intercept %>% inv_logit_scaled(), 
          `theta[2]` = b_z2_Intercept %>% inv_logit_scaled()) %>% 
   pivot_longer(`theta[1]`:`theta[2]`) %>% 
@@ -1018,8 +1018,8 @@ post %>%
 
 The difference distribution from our **brms**-based multivariate aggregated binomial model, $\theta_1 - \theta_2$, is pretty similar to the ones in Figure 7.9.
 
-```{r, fig.width = 3.25, fig.height = 2.5}
-post %>%   
+```{r, fig.width = 3.25, fig.height = 2.5, warning = F}
+draws_df %>%   
   mutate(theta_1 = b_z1_Intercept %>% inv_logit_scaled(), 
          theta_2 = b_z2_Intercept %>% inv_logit_scaled()) %>% 
   transmute(`theta_1 - theta_2` = theta_1 - theta_2) %>% 
@@ -1036,7 +1036,7 @@ post %>%
 Here are the exact estimates of the mode and 95% HDIs for our difference distribution, $\theta_1 - \theta_2$.
 
 ```{r, warning = F}
-post %>%   
+draws_df %>%   
   mutate(theta_1 = b_z1_Intercept %>% inv_logit_scaled(), 
          theta_2 = b_z2_Intercept %>% inv_logit_scaled()) %>% 
   transmute(`theta_1 - theta_2` = theta_1 - theta_2) %>% 
@@ -1149,7 +1149,23 @@ ggs(fit7.2) %>%
   theme_cowplot(font_size = 12)
 ```
 
-It appears our HMC warmup iterations found the posterior quite quickly. Here's the autocorrelation plot.
+You can make the same basic plot by pulling the posterior draws with `as_draws_df()`, as long as you include the `inc_warmup = TRUE` argument. Then you just have to be careful to `filter()` by the correct values in the `.iteration` meta column.
+
+```{r, fig.width = 6, fig.height = 2, warning = F}
+draws_df <- as_draws_df(fit7.2, inc_warmup = T)
+
+draws_df %>% 
+  filter(.iteration <= 500) %>% 
+
+  ggplot(aes(x = .iteration, y = b_Intercept, color = factor(.chain))) +
+  geom_line() +
+  scale_colour_brewer("chain", direction = -1) +
+  labs(title = "My custom trace plots with warmups via as_draws_df()",
+       x = NULL, y = NULL) +
+  theme_cowplot(font_size = 12)
+```
+
+Anyway, it appears our HMC warmup draws found the posterior quite quickly. Here's the autocorrelation plot.
 
 ```{r, fig.width = 4, fig.height = 4}
 mcmc_acf(warmups, pars = "b_Intercept", lags = 25)
@@ -1183,18 +1199,21 @@ mcmc_dens_overlay(warmups, pars = c("b_Intercept"))
 
 The densities aren't great, but they still appear nicer than those in for the burn-in iterations in the text. With our warmups in their current state, I'm not aware how we might conveniently make a shrink factor plot, as seen in the lower left of Figure 7.10. So it goes...
 
-Figure 7.11 examined the post-burn-in iterations. We'll follow suit with our post-warmup iterations.
+Figure 7.11 examined the post-burn-in iterations. We'll follow suit with our post-warmup iterations. Note that for use with the `bayesplot::mcmc_` functions, we'll generally want our posterior draws in an array format. We an do this by extracting them with the `brms::as_draws_array()` function and we'll save the results as `draws_array`.
 
 ```{r, fig.width = 6, fig.height = 2}
-post <- posterior_samples(fit7.2, add_chain = T)
+draws_array <- as_draws_array(fit7.2)
 
-mcmc_trace(post, pars = "b_Intercept")
+draws_array %>% 
+  mcmc_trace(pars = "b_Intercept")
 ```
+
 
 The autocorrelation plots:
 
 ```{r, fig.width = 4, fig.height = 4}
-mcmc_acf(post, pars = "b_Intercept", lags = 40)
+draws_array %>% 
+  mcmc_acf(pars = "b_Intercept", lags = 40)
 ```
 
 As with the warmups, above, the post-warmup autocorrelation plots indicate substantially lower autocorrelations yielded by HMC as implemented by Stan than what Kruschke generated with the MH algorithm. This is one of the reasons folks using HMC tend to use fewer iterations than those using MH or Gibbs.
@@ -1202,7 +1221,8 @@ As with the warmups, above, the post-warmup autocorrelation plots indicate subst
 Here are the overlaid densities.
 
 ```{r, fig.width = 4, fig.height = 2}
-mcmc_dens_overlay(post, pars = c("b_Intercept"))
+draws_array %>% 
+  mcmc_dens_overlay(pars = c("b_Intercept"))
 ```
 
 Now that we're focusing on the post-warmup iterations, we can make a shrink factor plot. We'll do so with the `coda::gelman.plot()` function. But you can't just dump your `brm()` fit object into `gelman.plot()`. It's the wrong object type. However, **brms** offers the `as.mcmc()` function which will convert `brm()` objects for use in functions from the **coda** package.
@@ -1227,10 +1247,14 @@ print(fit7.2)
 
 Instead of a running value, you get a single statistic in the 'Rhat' column.
 
-On page 181, Kruschke discussed how his overlaid density plots include the HDIs, by chain. The convenience functions from **brms** and **bayesplot** don't easily get us there. But we can get those easy enough with a little help `tidybayes::stat_halfeye()`.
+On page 181, Kruschke discussed how his overlaid density plots include the HDIs, by chain. The convenience functions from **brms** and **bayesplot** don't easily get us there. But we can get those easy enough with a little help `tidybayes::stat_halfeye()`. Note that for use with the various **tidybayes** functions, we'll want the posterior draws in the format returned by the `brms::as_draws_df()` function, but this time without the warmups included.
 
 ```{r, fig.width = 5, fig.height = 2.75}
-post %>% 
+draws_df <- as_draws_df(fit7.2) 
+
+draws_df %>% 
+  mutate(chain = factor(.chain)) %>% 
+  
   ggplot(aes(x = b_Intercept, y = chain, fill = chain)) +
   stat_halfeye(point_interval = mode_hdi,
                 .width = .95) +
@@ -1246,7 +1270,7 @@ We want
 
 > measures of chain length and accuracy that take into account the clumpiness of the chain. And for that, we need a measure of clumpiness. We will measure clumpiness as *autocorrelation*, which is simply the correlation of the chain values with the chain values $k$ steps ahead. There is a different autocorrelation for each choice of $k$. (p. 182, *emphasis* in the original)
 
-We make a couple autocorrelation plots in the last section, but now it's time to get a better sense of what they mean. Just a little further in the text, Kruschke wrote: "The number of steps between the chain and its superimposed copy is called the *lag*" (p. 182, *emphasis* in the original). In case it's not clear, *lag* is a general term and can be applied to contexts outside of MCMC chains. You find it used sometimes in the longitudinal statistical literature, particularly for what are called timeseries models. Sadly, we won't be fitting those in this book. If you're curious, McElreath discussed them briefly in Chapter 16 of his [-@mcelreathStatisticalRethinkingBayesian2020] text.
+We make a couple autocorrelation plots in the last section, but now it's time to get a better sense of what they mean. Just a little further in the text, Kruschke wrote: "The number of steps between the chain and its superimposed copy is called the *lag*" (p. 182, *emphasis* in the original). In case it's not clear, *lag* is a general term and can be applied to contexts outside of MCMC chains. You find it used sometimes in the longitudinal statistical literature, particularly for what are called *timeseries* models. Sadly, we won't be fitting those in this book. If you're curious, McElreath discussed them briefly in Chapter 16 of his [-@mcelreathStatisticalRethinkingBayesian2020] text.
 
 We, however, will have to contend with a technical quirk within the **tidyverse**. The two **dplyr** functions relevant to lags are called `lag()` and `lead()`. Here's a little example to see how they work.
 
@@ -1256,73 +1280,69 @@ tibble(step = 1:5) %>%
          lead = lead(step, n = 1))
 ```
 
-The original values are `1:5` in the `step` column. When you plug those into `lag(n = 1)`, you get back the value from the *previous row*. The opposite happens when you plug `step` into `lead(n = 1)`; there you get back the value from the *next row*. Returning to the block quote above, Kruschke wrote that autocorrelations are "the correlation of the chain values with the chain values $k$ *steps ahead*" (p. 182, *emphasis* added). Within the context of the `lag()` and `lead()` functions, their `n` arguments are what Kruschke called $k$, which is no big deal. Confusingly, though, since Kruschke wanted to focus on MCMC chains values that were "$k$ steps ahead," that means we'll have to use the `lead()` function, not `lag()`. Please don't fret about the semantics, here. Both Kruschke and the **dplyr** package are correct. We're lagging. But in this specific case, we'll be lagging our `post` data with the `lead()` function. You can learn more about `lag()` and `lead()` [here](https://dplyr.tidyverse.org/reference/lead-lag.html).
+The original values are `1:5` in the `step` column. When you plug those into `lag(n = 1)`, you get back the value from the *previous row*. The opposite happens when you plug `step` into `lead(n = 1)`; there you get back the value from the *next row*. Returning to the block quote above, Kruschke wrote that autocorrelations are "the correlation of the chain values with the chain values $k$ *steps ahead*" (p. 182, *emphasis* added). Within the context of the `lag()` and `lead()` functions, their `n` arguments are what Kruschke called $k$, which is no big deal. Confusingly, though, since Kruschke wanted to focus on MCMC chains values that were "$k$ steps ahead," that means we'll have to use the `lead()` function, not `lag()`. Please don't fret about the semantics, here. Both Kruschke and the **dplyr** package are correct. We're lagging. But in this specific case, we'll be lagging our data with the `lead()` function. You can learn more about `lag()` and `lead()` [here](https://dplyr.tidyverse.org/reference/lead-lag.html).
 
-Okay, let's wrangle our `post` object a bit to make it easier to reproduce Figure 7.12.
+On to the plot. If you read closely in the text (pp. 182--183), Kruschke didn't elaborate on which model he was showcasing in Figure 7.12. We just get the vague explanation that the "upper panels show an MCMC chain of 70 steps, superimposed with the same chain translated a certain number of steps ahead" (p. 182). To make our lives simple, let's just use the model we've been working with, `fit7.2`. Our sole parameter is the intercept which, as it turns out, will not be on the same scale as you see in the $y$-axis of Figure 7.12. So it goes... But anyways, our first step towards making our variant of the plot is to wrangle out posterior draws a bit. We'll call the wrangled data frame `lagged_draws`.
 
-```{r}
-lagged_post <-
-  post %>% 
-  filter(chain == 1) %>% 
-  select(b_Intercept, iter) %>% 
+```{r, warning = F}
+lagged_draws <- 
+  draws_df %>% 
+  filter(.chain == 1 & .draw < 71) %>% 
+  select(b_Intercept, .draw) %>% 
   # sometimes the unlagged data are called lag_0
   rename(lag_0 = b_Intercept) %>% 
   # lags for three different levels of k
   mutate(lag_1  = lead(lag_0, n = 1), 
          lag_5  = lead(lag_0, n = 5),
          lag_10 = lead(lag_0, n = 10)) %>% 
-  pivot_longer(-iter, names_to = "key") 
-
-head(lagged_post)
+  pivot_longer(-.draw, names_to = "key") 
 ```
 
 Now here's our version of the top row.
 
 ```{r, fig.width = 10, fig.height = 3, warning = F, message = F}
-p1 <-
-  lagged_post %>% 
-  filter(key %in% c("lag_0", "lag_1"),
-         iter > 1000 & iter < 1071) %>% 
+p1 <- 
+  lagged_draws %>% 
+  filter(key %in% c("lag_0", "lag_1")) %>% 
   
-  ggplot(aes(x = iter, y = value, color = key)) +
-  geom_point(aes(alpha = iter == 1050, shape = iter == 1050)) +
+  ggplot(aes(x = .draw, y = value, color = key)) +
+  geom_point(aes(alpha = .draw == 50, shape = .draw == 50)) +
   geom_line(size = 1/3, alpha = 1/2) +
   annotate(geom = "text",
-           x = 1040, y = c(.795, .76),
+           x = 32, y = c(.825, .79),
            label = c("Original", "Lagged"),
            color = c("black", "steelblue")) +
   scale_color_manual(values = c("black", "steelblue")) +
-  scale_y_continuous(breaks = 6:8 / 10, limits = c(.55, .80)) +
-  labs(x = "Index 1001:1071",
-       title = "Lag 1")
+  scale_y_continuous(breaks = 6:8 / 10, limits = c(.53, .84)) +
+  labs(title = "Lag 1",
+       x = "Index 1:70",
+       y = expression(theta))
 
 p2 <-
-  lagged_post %>% 
-  filter(key %in% c("lag_0", "lag_5"),
-         iter > 1000 & iter < 1071) %>% 
+  lagged_draws %>% 
+  filter(key %in% c("lag_0", "lag_5")) %>% 
   
-  ggplot(aes(x = iter, y = value, color = key)) +
-  geom_point(aes(alpha = iter == 1050, shape = iter == 1050)) +
+  ggplot(aes(x = .draw, y = value, color = key)) +
+  geom_point(aes(alpha = .draw == 50, shape = .draw == 50)) +
   geom_line(size = 1/3, alpha = 1/2) +
   scale_color_manual(values = c("black", "steelblue")) +
   scale_y_continuous(NULL, labels = NULL, 
-                     breaks = 6:8 / 10, limits = c(.55, .80)) +
-  labs(x = "Index 1001:1071",
-       title = "Lag 5")
-
+                     breaks = 6:8 / 10, limits = c(.53, .84)) +
+  labs(title = "Lag 5",
+       x = "Index 1:70")
+  
 p3 <-
-  lagged_post %>% 
-  filter(key %in% c("lag_0", "lag_10"),
-         iter > 1000 & iter < 1071) %>% 
+  lagged_draws %>% 
+  filter(key %in% c("lag_0", "lag_10")) %>% 
   
-  ggplot(aes(x = iter, y = value, color = key)) +
-  geom_point(aes(alpha = iter == 1050, shape = iter == 1050)) +
+  ggplot(aes(x = .draw, y = value, color = key)) +
+  geom_point(aes(alpha = .draw == 50, shape = .draw == 50)) +
   geom_line(size = 1/3, alpha = 1/2) +
   scale_color_manual(values = c("black", "steelblue")) +
   scale_y_continuous(NULL, labels = NULL, 
-                     breaks = 6:8 / 10, limits = c(.55, .80)) +
-  labs(x = "Index 1001:1071",
-       title = "Lag 10")
+                     breaks = 6:8 / 10, limits = c(.53, .84)) +
+  labs(title = "Lag 10",
+       x = "Index 1:70")
 
 # combine
 library(patchwork)
@@ -1337,34 +1357,30 @@ library(patchwork)
 Here's the middle row for Figure 7.12.
 
 ```{r, fig.width = 10, fig.height = 3, warning = F, message = F}
-lagged_post_wide <-
-  lagged_post %>% 
-  spread(key = key, value = value)
-
 p1 <-
-  lagged_post_wide %>% 
-  filter(iter > 1000 & iter < 1071) %>% 
+  lagged_draws %>% 
+  pivot_wider(names_from = key, values_from = value) %>% 
   
   ggplot(aes(x = lag_1, y = lag_0)) +
   stat_smooth(method = "lm") +
-  geom_point(aes(alpha = iter == 1050, shape = iter == 1050))
-  
+  geom_point(aes(alpha = .draw == 50, shape = .draw == 50))
+
 p2 <-
-  lagged_post_wide %>% 
-  filter(iter > 1000 & iter < 1071) %>% 
+  lagged_draws %>% 
+  pivot_wider(names_from = key, values_from = value) %>% 
   
   ggplot(aes(x = lag_5, y = lag_0)) +
   stat_smooth(method = "lm") +
-  geom_point(aes(alpha = iter == 1050, shape = iter == 1050)) +
+  geom_point(aes(alpha = .draw == 50, shape = .draw == 50)) +
   scale_y_continuous(NULL, labels = NULL)
 
 p3 <-
-  lagged_post_wide %>% 
-  filter(iter > 1000 & iter < 1071) %>% 
+  lagged_draws %>% 
+  pivot_wider(names_from = key, values_from = value) %>% 
   
   ggplot(aes(x = lag_10, y = lag_0)) +
   stat_smooth(method = "lm") +
-  geom_point(aes(alpha = iter == 1050, shape = iter == 1050)) +
+  geom_point(aes(alpha = .draw == 50, shape = .draw == 50)) +
   scale_y_continuous(NULL, labels = NULL)
 
 # combine
@@ -1382,19 +1398,18 @@ If you want the Pearson's correlations among the lags, the `lowerCor()` function
 ```{r, warning = F, message = F}
 library(psych)
 
-lagged_post_wide %>% 
-  select(-iter) %>% 
-  filter(!is.na(lag_10)) %>%
-  
-  lowerCor(digits = 3)
+lagged_draws %>% 
+  pivot_wider(names_from = key, values_from = value) %>% 
+  select(-.draw) %>% 
+  lowerCor(digits = 3, use = "pairwise.complete.obs")
 ```
 
 For our version of the bottom of Figure 7.12, we'll use the `bayesplot::mcmc_acf_bar()` function to get the autocorrelation bar plot, by chain.
 
 ```{r, fig.width = 4, fig.height = 5}
-mcmc_acf_bar(post,
-             pars = "b_Intercept",
-             lags = 20)
+draws_array %>% 
+  mcmc_acf_bar(pars = "b_Intercept",
+               lags = 20)
 ```
 
 All three rows of our versions for Figure 7.12 indicate in their own way how much lower our autocorrelations were than the ones in the text.
@@ -1433,7 +1448,7 @@ sessionInfo()
 
 ```{r, message = F, warning = F, echo = F}
 # here we'll remove our objects
-rm(hdi_of_icdf, h, omega, d, my_mode_simulation, sim, num_days, positions, current, nslots, p_target, proposal_matrix, acceptance_matrix, from_idx, to_idx, diag_idx, time_idx, move_matrix, transition_matrix, position_vec, p, data, i, proposal, prob_accept_the_proposal, mu, sigma, proposed_jump, my_data, likelihood, prior_d, target_rel_prob, traj_length, trajectory, burn_in, n_accepted, n_rejected, my_metropolis, betas, theta_sequence, bernoulli_likelihood, theta_1_data, theta_2_data, d_prior, d_likelihood, bivariate_bernoulli_likelihood, my_bivariate_metropolis, mh, model_1, model_2, fit7.1, post, z, n, fit7.2, warmups, fit7.2_c, lagged_post, lagged_post_wide, p1, p2, p3)
+rm(hdi_of_icdf, h, omega, d, my_mode_simulation, sim, num_days, positions, current, nslots, p_target, proposal_matrix, acceptance_matrix, from_idx, to_idx, diag_idx, time_idx, move_matrix, transition_matrix, position_vec, p, data, i, proposal, prob_accept_the_proposal, mu, sigma, proposed_jump, my_data, likelihood, prior_d, target_rel_prob, traj_length, trajectory, burn_in, n_accepted, n_rejected, my_metropolis, betas, theta_sequence, bernoulli_likelihood, theta_1_data, theta_2_data, d_prior, d_likelihood, bivariate_bernoulli_likelihood, my_bivariate_metropolis, mh, model_1, model_2, fit7.1, draws_df, z, n, fit7.2, warmups, draws_array, fit7.2_c, lagged_draws, p1, p2, p3)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
