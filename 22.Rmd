@@ -148,9 +148,9 @@ The model follows the generic equation
 \lambda_{S^* | S} = \beta_{0, S^* | S} + \beta_{1, {S^* | S}} x,
 \end{align*}
 
-where the conditional response probability (i.e., the goal of the analysis) is $\phi_{S^* | S}$. $S^*$ and $S$ denote the subset of outcomes and larger set of outcomes, respectively, and $\lambda_{S^* | S}$ is the propensity based on some linear model.
+where the conditional response probability (i.e., the goal of the analysis) is $\phi_{S^* | S}$. $S^*$ and $S$ denote the subset of outcomes and larger set of outcomes, respectively, and $\lambda_{S^* | S}$ is the propensity based on some linear model. The overall point is these "regression coefficients refer to the conditional probability of outcomes for the designated subsets, not necessarily to a single outcome among the full set of outcomes" (p. 655).
 
-Kruschke saved the data for Figure 22.3 in the `CondLogistRegData1.csv` and `CondLogistRegData2.csv` files.
+In Figure 22.2 (p. 656), Kruschke depicted the two hierarchies of binary divisions of the models he fit to the data in his `CondLogistRegData1.csv` and `CondLogistRegData2.csv` files. Here we load those data, save them as `d3` and `d4`, and take a look at their structures.
 
 ```{r, warning = F, message = F}
 d3 <- read_csv("data.R/CondLogistRegData1.csv")
@@ -160,24 +160,343 @@ glimpse(d3)
 glimpse(d4)
 ```
 
-Let's bind the two data frames together and plot in bulk.
+In both data sets, the nominal criterion is `Y` and the two predictors are `X1` and `X2`. Though the data seem simple, the conditional logistic models are complex enough that it seems like we'll be better served by focusing on them one at a time, which means I'm going to break up Figure 22.2. Here's how to make the diagram in the left panel.
 
-```{r, fig.width = 5}
-bind_rows(d3, d4) %>%
-  mutate(data = rep(str_c("d", 3:4), each = n() / 2),
-         Y = factor(Y)) %>% 
+```{r}
+# the big numbers
+numbers <- tibble(
+  x = c(3, 5, 2, 4, 1, 3, 2),
+  y = c(0, 0, 1, 1, 2, 2, 3),
+  label = c("3", "4", "2", "3,4", "1", "2,3,4", "1,2,3,4")
+)
+
+# the smaller Greek numbers
+greek <- tibble(
+  x = c(3.4, 4.6, 2.4, 3.6, 1.4, 2.6),
+  y = c(0.5, 0.5, 1.5, 1.5, 2.5, 2.5),
+  hjust = c(1, 0, 1, 0, 1, 0),
+  label = c("phi['{3}|{3,4}']", "1-phi['{3}|{3,4}']",
+            "phi['{2}|{2,3,4}']", "1-phi['{2}|{2,3,4}']",
+            "phi['{1}|{1,2,3,4}']", "1-phi['{1}|{1,2,3,4}']")
+)
+
+# arrows
+tibble(
+  x = c(4, 4, 3, 3, 2, 2),
+  y = c(0.85, 0.85, 1.85, 1.85, 2.85, 2.85),
+  xend = c(3, 5, 2, 4, 1, 3),
+  yend = c(0.15, 0.15, 1.15, 1.15, 2.15, 2.15)
+) %>%  
   
-  ggplot(aes(x = X1, y = X2, label = Y, color = Y)) +
+  # plot!
+  ggplot(aes(x = x, y = y)) +
+  geom_segment(aes(xend = xend, yend = yend),
+               size = 1/4,
+               arrow = arrow(length = unit(0.08, "in"), type = "closed")) +
+  geom_text(data = numbers,
+            aes(label = label),
+            size = 5, family = "Times")+
+  geom_text(data = greek,
+            aes(label = label, hjust = hjust),
+            size = 4.25, family = "Times", parse = T) +
+  xlim(-1, 7) +
+  theme_void()
+```
+
+The large numbers are the four levels in the criterion `Y` and the smaller numbers in the curly braces are various sets of those numbers. The diagram shows three levels of outcome-set divisions:
+
+* 1 versus 2, 3, or 4;
+* 2 versus 3 or 4; and
+* 3 versus 4.
+
+The divisions in each of these levels can be expressed as linear models which we'll denote $\lambda$. Given our data with two predictors `X1` and `X2`, we can express the three linear models as
+
+$$
+\begin{align*}
+\lambda_{\{ 1 \} | \{ 1,2,3,4 \}} & = \beta_{0,\{ 1 \} | \{ 1,2,3,4 \}} + \beta_{1,\{ 1 \} | \{ 1,2,3,4 \}} \text{X1} + \beta_{2,\{ 1 \} | \{ 1,2,3,4 \}} \text{X2} \\
+\lambda_{\{ 2 \} | \{ 2,3,4 \}}   & = \beta_{0,\{ 2 \} | \{ 2,3,4 \}} + \beta_{1,\{ 2 \} | \{ 2,3,4 \}} \text{X1} + \beta_{2,\{ 2 \} | \{ 2,3,4 \}} \text{X2} \\
+\lambda_{\{ 3 \} | \{ 3,4 \}}     & = \beta_{0,\{ 3 \} | \{ 3,4 \}} + \beta_{1,\{ 3 \} | \{ 3,4 \}} \text{X1} + \beta_{2,\{ 3 \} | \{ 3,4 \}} \text{X2},
+\end{align*}
+$$
+
+where, for convenience, we're omitting the typical $i$ subscripts. As these linear models are all defined within the context of the logit link, we can express the conditional probabilities of the outcome sets as
+
+$$
+\begin{align*}
+\phi_{\{ 1 \} | \{ 1,2,3,4 \}} & = \operatorname{logistic} \left (\lambda_{\{ 1 \} | \{ 1,2,3,4 \}} \right) \\
+\phi_{\{ 2 \} | \{ 2,3,4 \}}   & = \operatorname{logistic} \left (\lambda_{\{ 2 \} | \{ 2,3,4 \}} \right) \\
+\phi_{\{ 3 \} | \{ 3,4 \}}     & = \operatorname{logistic} \left (\lambda_{\{ 3 \} | \{ 3,4 \}} \right),
+\end{align*}
+$$
+
+where $\phi_{\{ 1 \} | \{ 1,2,3,4 \}}$ through $\phi_{\{ 3 \} | \{ 3,4 \}}$ are the conditional probabilities for the outcome sets. If, however, we want the conditional probabilities for the actual levels of the criterion `Y`, we define those with a series of (in this case) four equations:
+
+$$
+\begin{align*}
+\phi_1 & = \phi_{\{ 1 \} | \{ 1,2,3,4 \}} \\
+\phi_2 & = \phi_{\{ 2 \} | \{ 2,3,4 \}} \cdot \left ( 1 - \phi_{\{ 1 \} | \{ 1,2,3,4 \}} \right) \\
+\phi_3 & = \phi_{\{ 3 \} | \{ 3,4 \}} \cdot \left ( 1 - \phi_{\{ 2 \} | \{ 2,3,4 \}} \right) \cdot \left ( 1 - \phi_{\{ 1 \} | \{ 1,2,3,4 \}} \right) \\
+\phi_4 & = \left ( 1 - \phi_{\{ 3 \} | \{ 3,4 \}} \right) \cdot \left ( 1 - \phi_{\{ 2 \} | \{ 2,3,4 \}} \right) \cdot \left ( 1 - \phi_{\{ 1 \} | \{ 1,2,3,4 \}} \right),
+\end{align*}
+$$
+
+where the sum of the probabilities $\phi_1$ through $\phi_4$ is $1$. To get a sense of what this all means in practice, let's visualize the data and the data-generating equations for our version of Figure 22.3. As with the previous figure, I'm going to break this figure up to focus on one model at a time. Thus, here's the left panel of Figure 22.3.
+
+```{r, fig.width = 2.5}
+# define the various population parameters
+
+# lambda 1
+b01 <- -4
+b11 <- -5
+b21 <- 0.01  # rounding up to avoid dividing by zero
+# lambda 2
+b02 <- -2
+b12 <- 1
+b22 <- -5
+# lambda 3
+b03 <- -1
+b13 <- 3
+b23 <- 3
+
+# use the parameters to define the lines 
+lines <- tibble(
+  intercept = c(-b01 / b21, -b02 / b22, -b03 / b23),
+  slope = c(-b11 / b21, -b12 / b22, -b13 / b23),
+  label = c("1", "2","3")
+)
+
+# wrangle
+d3 %>% 
+  mutate(Y = factor(Y)) %>% 
+  
+  # plot!
+  ggplot() +
   geom_hline(yintercept = 0, color = "white") +
   geom_vline(xintercept = 0, color = "white") +
-  geom_text(size = 3) +
+  geom_text(aes(x = X1, y = X2, label = Y, color = Y),
+            size = 3, show.legend = F) +
+  geom_abline(data = lines,
+              aes(intercept = intercept,
+                  slope = slope,
+                  linetype = label),
+              color = pl[1]) +
   scale_color_manual(values = pl[2:5]) +
+  scale_linetype(NULL,
+                 labels = parse(text = c(
+                   "lambda['{1}|{1,2,3,4}']==-4+-5*x[1]+0*x[2]", 
+                   "lambda['{2}|{2,3,4}']==-2+1*x[1]+-5*x[2]", 
+                   "lambda['{3}|{3,4}']==-1+3*x[1]+3*x[2]")),
+                 guide = guide_legend(
+                   direction = "vertical",
+                   label.hjust = 0.5,
+                   label.theme = element_text(size = 10))) +
   coord_equal() +
   labs(x = expression(x[1]),
        y = expression(x[2])) +
-  theme(legend.position = "none") +
-  facet_wrap(~ data, ncol = 2)
+  theme(legend.justification = 0.5,
+        legend.position = "top")
 ```
+
+Recall back on page 629, Kruschke showed the equation for the 50% threshold of a logistic regression model given two continuous predictors was
+
+$$x_2 = (-\beta_0 / \beta_2) + (-\beta_1 / \beta_2) x_1.$$
+
+It was that equation that gave us the values for the `intercept` and `slope` arguments ($-\beta_0 / \beta_2$ and $-\beta_1 / \beta_2$, respectively) for the `geom_abline()` function.
+
+It still might not be clear how the various $\phi_{S^* | S}$ values connect to the data. Though not in the text, here's an alternative way of expressing the relations in Figure 22.3. This time the plot is faceted by the three levels of $\phi_{S^* | S}$ and the background fill is based on those conditional probabilities.
+
+```{r}
+# define a grid of X1 and X2 values
+crossing(X1 = seq(from = -2, to = 2, length.out = 50),
+         X2 = seq(from = -2, to = 2, length.out = 50)) %>% 
+  # compute the lambda's
+  mutate(`lambda['{1}|{1,2,3,4}']` = b01 + b11 * X1 + b21 * X2,
+         `lambda['{2}|{2,3,4}']`   = b02 + b12 * X1 + b22 * X2,
+         `lambda['{3}|{3,4}']`     = b03 + b13 * X1 + b23 * X2) %>% 
+  # compute the phi's
+  mutate(`phi['{1}|{1,2,3,4}']` = plogis(`lambda['{1}|{1,2,3,4}']`),
+         `phi['{2}|{2,3,4}']`   = plogis(`lambda['{2}|{2,3,4}']`),
+         `phi['{3}|{3,4}']`     = plogis(`lambda['{3}|{3,4}']`)) %>% 
+  # wrangle
+  pivot_longer(contains("phi"), values_to = "phi") %>% 
+  
+  # plot!
+  ggplot(aes(x = X1, y = X2)) +
+  geom_raster(aes(fill = phi),
+              interpolate = T) +
+  # note how we're subsetting the d3 data by facet
+  geom_text(data = bind_rows(
+    d3 %>% mutate(name = "phi['{1}|{1,2,3,4}']"),
+    d3 %>% mutate(name = "phi['{2}|{2,3,4}']") %>% filter(Y > 1),
+    d3 %>% mutate(name = "phi['{3}|{3,4}']") %>% filter(Y > 2)),
+            aes(label = Y),
+            size = 2.5) +
+  scale_fill_gradientn(expression(phi[italic(S)*"*|"*italic(S)]),
+                       colours = pnw_palette(name = "Lake", n = 101),
+                       breaks = 0:2 / 2, limits = c(0, 1)) +
+  scale_x_continuous(expand = c(0, 0)) +
+  scale_y_continuous(expand = c(0, 0)) +
+  coord_equal() +
+  theme(legend.position = c(0.8, 0.2)) +
+  facet_wrap(~ name, labeller = label_parsed, ncol = 2)
+```
+
+Notice how because each of the levels of $\phi$ is defined by a different subset of the data, each of the facets contains a different subset of the `d3` data, too. For example, since $\phi_{\{ 1 \} | \{ 1,2,3,4 \}}$ is defined by the full subset of the possible values of `Y`, you see all the `Y` data displayed by `geom_text()` for that facet. In contrast, since $\phi_{\{ 3 \} | \{ 3,4 \}}$ is defined by a subset of the data for which `Y` is only `3` or `4`, those are the only values you see displayed within that facet of the plot.
+
+Now we'll consider an alternative way to set up the binary-choices hierarchy, as seen in the right panel of Figure 22.2. First, here's that half of the figure.
+
+```{r}
+# the big numbers
+numbers <- tibble(
+  x = c(0, 2, 6, 8, 1, 7, 4),
+  y = c(0, 0, 0, 0, 1, 1, 2),
+  label = c("1", "2", "3", "4", "1,2", "3,4", "1,2,3,4")
+)
+
+# the smaller Greek numbers
+greek <- tibble(
+  x = c(0.4, 1.6, 6.4, 7.6, 2.1, 5.8),
+  y = c(0.5, 0.5, 0.5, 0.5, 1.5, 1.5),
+  hjust = c(1, 0, 1, 0, 1, 0),
+  label = c("phi['{1}|{1,2}']", "1-phi['{1}|{1,2}']",
+            "phi['{3}|{3,4}']", "1-phi['{3}|{3,4}']",
+            "phi['{1,2}|{1,2,3,4}']", "1-phi['{1,2}|{1,2,3,4}']")
+)
+
+# arrows
+tibble(
+  x = c(1, 1, 7, 7, 4, 4),
+  y = c(0.85, 0.85, 0.85, 0.85, 1.85, 1.85),
+  xend = c(0, 2, 6, 8, 1, 7),
+  yend = c(0.15, 0.15, 0.15, 0.15, 1.15, 1.15)
+) %>%  
+  
+  # plot!
+  ggplot(aes(x = x, y = y)) +
+  geom_segment(aes(xend = xend, yend = yend),
+               size = 1/4,
+               arrow = arrow(length = unit(0.08, "in"), type = "closed")) +
+  geom_text(data = numbers,
+            aes(label = label),
+            size = 5, family = "Times")+
+  geom_text(data = greek,
+            aes(label = label, hjust = hjust),
+            size = 4.25, family = "Times", parse = T) +
+  xlim(-1, 10) +
+  theme_void()
+```
+
+This diagram shows three levels of outcome-set divisions:
+
+* 1 or 2 versus 3 or 4;
+* 1 versus 2; and
+* 3 versus 4.
+
+Given our data with two predictors `X1` and `X2`, we can express the three linear models as
+
+$$
+\begin{align*}
+\lambda_{\{ 1,2 \} | \{ 1,2,3,4 \}} & = \beta_{0,\{ 1,2 \} | \{ 1,2,3,4 \}} + \beta_{1,\{ 1,2 \} | \{ 1,2,3,4 \}} \text{X1} + \beta_{2,\{ 1,2 \} | \{ 1,2,3,4 \}} \text{X2} \\
+\lambda_{\{ 1 \} | \{ 1,2 \}}   & = \beta_{0,\{ 1 \} | \{ 1,2 \}} + \beta_{1,\{ 1 \} | \{ 1,2 \}} \text{X1} + \beta_{2,\{ 1 \} | \{ 1,2 \}} \text{X2} \\
+\lambda_{\{ 3 \} | \{ 3,4 \}}     & = \beta_{0,\{ 3 \} | \{ 3,4 \}} + \beta_{1,\{ 3 \} | \{ 3,4 \}} \text{X1} + \beta_{2,\{ 3 \} | \{ 3,4 \}} \text{X2}.
+\end{align*}
+$$
+
+We can then express the conditional probabilities of the outcome sets as
+
+$$
+\begin{align*}
+\phi_{\{ 1,2 \} | \{ 1,2,3,4 \}} & = \operatorname{logistic} \left (\lambda_{\{ 1,2 \} | \{ 1,2,3,4 \}} \right) \\
+\phi_{\{ 1 \} | \{ 1,2 \}}   & = \operatorname{logistic} \left (\lambda_{\{ 1 \} | \{ 1,2 \}} \right) \\
+\phi_{\{ 3 \} | \{ 3,4 \}}     & = \operatorname{logistic} \left (\lambda_{\{ 3 \} | \{ 3,4 \}} \right).
+\end{align*}
+$$
+
+For the conditional probabilities of the actual levels of the criterion `Y`, we define those with a series of (in this case) four equations:
+
+$$
+\begin{align*}
+\phi_1 & = \phi_{\{ 1 \} | \{ 1,2 \}} \cdot \phi_{\{ 1,2 \} | \{ 1,2,3,4 \}} \\
+\phi_2 & = \left ( 1 - \phi_{\{ 1 \} | \{ 1,2 \}} \right) \cdot \phi_{\{ 1,2 \} | \{ 1,2,3,4 \}} \\
+\phi_3 & = \phi_{\{ 3 \} | \{ 3,4 \}} \cdot \left ( 1 - \phi_{\{ 1,2 \} | \{ 1,2,3,4 \}} \right) \\
+\phi_4 & = \left ( 1 - \phi_{\{ 3 \} | \{ 3,4 \}} \right) \cdot \left ( 1 - \phi_{\{ 1,2 \} | \{ 1,2,3,4 \}} \right),
+\end{align*}
+$$
+
+where the sum of the probabilities $\phi_1$ through $\phi_4$ is $1$. To get a sense of what this all means, let's visualize the data and the data-generating equations in our version of the right panel of Figure 22.3.
+
+```{r, fig.width = 2.5}
+d4 %>% 
+  mutate(Y = factor(Y)) %>% 
+  
+  ggplot() +
+  geom_hline(yintercept = 0, color = "white") +
+  geom_vline(xintercept = 0, color = "white") +
+  geom_text(aes(x = X1, y = X2, label = Y, color = Y),
+            size = 3, show.legend = F) +
+  geom_abline(data = lines,
+              aes(intercept = intercept,
+                  slope = slope,
+                  linetype = label),
+              color = pl[1]) +
+  scale_color_manual(values = pl[2:5]) +
+  scale_linetype(NULL,
+                 labels = parse(text = c(
+                   "lambda['{1,2}|{1,2,3,4}']==-4+-5*x[1]+0*x[2]", 
+                   "lambda['{1}|{1,2}']==-2+1*x[1]+-5*x[2]", 
+                   "lambda['{3}|{3,4}']==-1+3*x[1]+3*x[2]")),
+                 guide = guide_legend(
+                   direction = "vertical",
+                   label.hjust = 0.5,
+                   label.theme = element_text(size = 10))) +
+  coord_equal() +
+  labs(x = expression(x[1]),
+       y = expression(x[2])) +
+  theme(legend.justification = 0.5,
+        legend.position = "top")
+```
+
+Here's an alternative way of expression the relations in the right panel of Figure 22.3. This time the plot is faceted by the three levels of $\phi_{S^* | S}$ and the background fill is based on those conditional probabilities.
+
+```{r}
+# define a grid of X1 and X2 values
+crossing(X1 = seq(from = -2, to = 2, length.out = 50),
+         X2 = seq(from = -2, to = 2, length.out = 50)) %>% 
+  # compute the lambda's
+  mutate(`lambda['{1,2}|{1,2,3,4}']` = b01 + b11 * X1 + b21 * X2,
+         `lambda['{1}|{1,2}']`       = b02 + b12 * X1 + b22 * X2,
+         `lambda['{3}|{3,4}']`       = b03 + b13 * X1 + b23 * X2) %>% 
+  # compute the phi's
+  mutate(`phi['{1,2}|{1,2,3,4}']` = plogis(`lambda['{1,2}|{1,2,3,4}']`),
+         `phi['{1}|{1,2}']`       = plogis(`lambda['{1}|{1,2}']`),
+         `phi['{3}|{3,4}']`       = plogis(`lambda['{3}|{3,4}']`)) %>% 
+  # wrangle
+  pivot_longer(contains("phi"), values_to = "phi") %>% 
+  
+  # plot!
+  ggplot(aes(x = X1, y = X2)) +
+  geom_raster(aes(fill = phi),
+              interpolate = T) +
+  # note how we're subsetting the d3 data by facet
+  geom_text(data = bind_rows(
+    d4 %>% mutate(name = "phi['{1,2}|{1,2,3,4}']"),
+    d4 %>% mutate(name = "phi['{1}|{1,2}']") %>% filter(Y < 3),
+    d4 %>% mutate(name = "phi['{3}|{3,4}']") %>% filter(Y > 2)),
+            aes(label = Y),
+            size = 2.5) +
+  scale_fill_gradientn(expression(phi[italic(S)*"*|"*italic(S)]),
+                       colours = pnw_palette(name = "Lake", n = 101),
+                       breaks = 0:2 / 2, limits = c(0, 1)) +
+  scale_x_continuous(expand = c(0, 0)) +
+  scale_y_continuous(expand = c(0, 0)) +
+  coord_equal() +
+  theme(legend.position = c(0.8, 0.2)) +
+  facet_wrap(~ name, labeller = label_parsed, ncol = 2)
+```
+
+It could be easy to miss due to the way we broke up our workflow, but if you look closely at the $\lambda$ equations at the top of both panels of Figure 22.3, you'll see the right-hand side of the equations are the same. But because of the differences in the two data hierarchies, those $\lambda$ equations had different consequences for how the `X1` and `X2` values generated the `Y` data. Also, 
+
+> In general, conditional logistic regression requires that there is a linear division between two subsets of the outcomes, and then within each of those subsets there is a linear division of smaller subsets, and so on. This sort of linear division is not required of the softmax regression model... Real data can be extremely noisy, and there can be multiple predictors, so it can be challenging or impossible to visually ascertain which sort of model is most appropriate. The choice of model is driven primarily by theoretical meaningfulness. (p. 659)
 
 ## Implementation in ~~JAGS~~ brms
 
@@ -471,9 +790,9 @@ b <- plot_spacer()
 
 ### Conditional logistic model.
 
-The conditional logistic regression models are not natively supported in **brms** at this time. However, if you follow [issue #560](https://github.com/paul-buerkner/brms/issues/560), you'll see there are ways to fit them using the nonlinear syntax. If you compare the syntax Bürkner used in that thread on January 30^th^ to the JAGS syntax Kruschke showed on pages 661 and 662, you'll see they appear to follow contrasting parameterizations.
+The conditional logistic regression models are not natively supported in **brms** at this time. Based on [issue #560](https://github.com/paul-buerkner/brms/issues/560) in the **brms** GitHub, there are ways to fit them using the nonlinear syntax. If you compare the syntax Bürkner used in that thread on January 30^th^ to the JAGS syntax Kruschke showed on pages 661 and 662, you'll see they appear to follow contrasting parameterizations.
 
-I think that's about as far as I'm going with this model type at this time. If you work through the solution, please share your code in my [GitHub issue #22](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues/22).
+However, there are at least two other ways to fit conditional logistic models with **brms**. Based on insights from [Henrik Singmann](http://singmann.org/), we can define conditional logistic models using the custom family approach. In contrast, [Mattan Ben-Shachar](https://sites.google.com/view/mattansb) has shown we can also fit conditional logistic models using a tricky application of sequential ordinal regression. Rather than present them in the abstract, here, we will showcase both of these approaches in the sections below.
 
 ### Results: Interpreting the regression coefficients.
 
@@ -517,7 +836,7 @@ Since it's the default, we didn't have to include the `(link = logit)` bit in th
 print(fit22.1)
 ```
 
-As indicated in the formulas, above, we get posteriors for each level of `Y`, except for `Y == 1`. That serves as the reference category. The values for $\beta_{i, k = 1}$ are all fixed at $0$.
+As indicated in the formulas in [Section 22.1][Softmax regression], we get posteriors for each level of `Y`, except for `Y == 1`. That serves as the reference category. The values for $\beta_{i, k = 1}$ are all fixed at $0$.
 
 Here's how we might make the histograms in Figure 22.5.
 
@@ -532,8 +851,9 @@ post %>%
   pivot_longer(-lp__) %>% 
   mutate(name = str_remove(name, "b_")) %>% 
   mutate(lambda    = str_extract(name, "[2-4]+") %>% str_c("lambda==", .),
-         parameter = if_else(str_detect(name, "Intercept"), "beta[0]",
-                             if_else(str_detect(name, "X1"), "beta[1]", "beta[2]"))) %>% 
+         parameter = case_when(str_detect(name, "Intercept") ~ "beta[0]",
+                               str_detect(name, "X1")        ~ "beta[1]",
+                               str_detect(name, "X2")        ~ "beta[2]")) %>% 
   
   # plot
   ggplot(aes(x = value, y = 0)) +
@@ -552,8 +872,9 @@ post %>%
   pivot_longer(-lp__) %>% 
   mutate(name = str_remove(name, "b_")) %>% 
   mutate(lambda    = str_extract(name, "[2-4]+") %>% str_c("lambda[", ., "]"),
-         parameter = if_else(str_detect(name, "Intercept"), "beta[0]",
-                             if_else(str_detect(name, "X1"), "beta[1]", "beta[2]"))) %>% 
+         parameter = case_when(str_detect(name, "Intercept") ~ "beta[0]",
+                               str_detect(name, "X1")        ~ "beta[1]",
+                               str_detect(name, "X2")        ~ "beta[2]")) %>% 
   group_by(lambda, parameter) %>% 
   summarise(mean = mean(value) %>% round(digits = 1)) %>% 
   pivot_wider(names_from = parameter,
@@ -564,7 +885,7 @@ As Kruschke mentioned in the text, "the estimated parameter values should be nea
 
 >  interpreting the parameters is always contextualized relative to the model. For the softmax model, the regression coefficient for outcome $k$ on predictor $x_j$ indicates that rate at which the log odds of that outcome increase relative to the reference outcome for a one unit increase in $x_j$, assuming that a softmax model is a reasonable description of the data. (p. 663)
 
-Unfortunately, this makes the parameters difficult to interpret directly. Kruschke didn't show a plot like this, but it might be helpful to further understand what this model means in terms of probabilities for a given `y` value. Here we'll use the `fitted()` function to return the conditional probabilities for all four response options for `Y` based on various combinations of `X1` and `X2`.
+Unfortunately, this makes the parameters difficult to interpret directly. Kruschke didn't show a plot like this, but it might be helpful to further understand what this model means in terms of probabilities for a given `Y` value. Here we'll use the `fitted()` function to return the conditional probabilities for all four response options for `Y` based on various combinations of `X1` and `X2`.
 
 ```{r, fig.width = 6, fig.height = 5, warning = F, message = F}
 nd <- crossing(X1 = seq(from = -2, to = 2, length.out = 50),
@@ -572,7 +893,7 @@ nd <- crossing(X1 = seq(from = -2, to = 2, length.out = 50),
 
 fitted(fit22.1,
        newdata = nd) %>% 
-  as_tibble() %>% 
+  data.frame() %>% 
   select(contains("Estimate")) %>% 
   set_names(str_c("Y==", 1:4)) %>% 
   bind_cols(nd) %>% 
@@ -649,7 +970,7 @@ f[1, , ] %>%
   round(digits = 2)
 ```
 
-Anyway, the reason you might want to go through the trouble of fitting an intercepts-only softmax model is to improve on the kinds of par plots people often report in their manuscripts. Consider these two:
+Anyway, the reason you might want to go through the trouble of fitting an intercepts-only softmax model is to improve on the kinds of bar plots people often report in their manuscripts. Consider these two:
 
 ```{r, fig.width = 8, fig.height = 4}
 # descriptive statistics
@@ -786,7 +1107,773 @@ The rotated bar plot (a) is most useful when the names of the levels are longer 
 
 #### Conditional logistic model.
 
-I'm not pursuing this model type at this time. If you work through the solution, please share your code in my [GitHub issue #22](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues/22) or chime in on the Stan forum thread called [Nominal data and Kruschke's "conditional logistic" approach](https://discourse.mc-stan.org/t/nominal-data-and-kruschkes-conditional-logistic-approach/21433).
+Since we will be fitting the conditional logistic model with two different strategies, I'm going to deviate from how Kruschke organized this part of the text and break this section up into two subsections:
+
+1. First we'll walk through the custom family approach.
+2. Second we'll explore the sequential ordinal approach.
+
+##### Conditional logistic models with custom likelihoods.
+
+As we briefly learned in [Section 8.6.1][Defining new likelihood functions.], **brms** users can define their own custom likelihood functions, which Bürkner outlined in his [-@Bürkner2021Define] vignette, [*Define custom response distributions with brms*](https://CRAN.R-project.org/package=brms/vignettes/brms_customfamilies.html). As part of the [*Nominal data and Kruschke's "conditional logistic" approach*](https://discourse.mc-stan.org/t/nominal-data-and-kruschkes-conditional-logistic-approach/21433) thread on the Stan forums, Henrik Singmann showed how you can use this functionality to fit conditional logistic models with **brms**. We will practice how to do this for the models of both the `d3` and `d4` data sets, which were showcased in the left and right panels of Figure 22.3 in [Section 22.2][Conditional logistic regression]. Going in order, we'll focus first on how to model the data in `d3`.
+
+For the first step, we use the `custom_family()` function to 
+
+* name the new family with the `name` argument,
+* name the family's parameters with the `dpars` argument,
+* name the link function(s) with the `links` argument,
+* define whether the distribution is discrete or continuous with the `type` argument,
+* provide the names of any variables that are part of the internal workings of the family but are not among the distributional parameters with the `vars` argument, and
+* provide supporting information with the `specials` argument.
+
+```{r}
+cond_log_1 <- custom_family(
+  name     = "cond_log_1", 
+  dpars    = c("mu", "mub", "muc"), 
+  links    = "identity", 
+  type     = "int",
+  vars     = c("n_cat"),
+  specials = "categorical"
+)
+```
+
+In the second step, we use the `stanvar()` function to define our custom probability mass function and the corresponding function that will allow us to return predictions.
+
+```{r}
+stan_lpmf_1 <- stanvar(block = "functions", 
+                       scode = "
+real cond_log_1_lpmf(int y, real mu, real mu_b, real mu_c, int n_cat) {
+  real p_mu  = inv_logit(mu);
+  real p_mub = inv_logit(mu_b);
+  real p_muc = inv_logit(mu_c);
+  vector[n_cat] prob;
+  prob[1] = p_mu;
+  prob[2] = p_mub * (1 - p_mu);
+  prob[3] = p_muc * (1 - p_mub) * (1 - p_mu);
+  prob[4] = (1 - p_mu) * (1 - p_mub) * (1 - p_muc);
+  return(categorical_lpmf(y | prob));
+}
+
+vector cond_log_1_pred(int y, real mu, real mu_b, real mu_c, int n_cat) {
+  real p_mu  = inv_logit(mu);
+  real p_mub = inv_logit(mu_b);
+  real p_muc = inv_logit(mu_c);
+  vector[n_cat] prob;
+  prob[1] = p_mu;
+  prob[2] = p_mub * (1 - p_mu);
+  prob[3] = p_muc * (1 - p_mub) * (1 - p_mu);
+  prob[4] = (1 - p_mu) * (1 - p_mub) * (1 - p_muc);
+  return(prob);
+}
+") 
+```
+
+Note how we have defined the four `prob[i]` values based on the four equations from above:
+
+$$
+\begin{align*}
+\phi_1 & = \phi_{\{ 1 \} | \{ 1,2,3,4 \}} \\
+\phi_2 & = \phi_{\{ 2 \} | \{ 2,3,4 \}} \cdot \left ( 1 - \phi_{\{ 1 \} | \{ 1,2,3,4 \}} \right) \\
+\phi_3 & = \phi_{\{ 3 \} | \{ 3,4 \}} \cdot \left ( 1 - \phi_{\{ 2 \} | \{ 2,3,4 \}} \right) \cdot \left ( 1 - \phi_{\{ 1 \} | \{ 1,2,3,4 \}} \right) \\
+\phi_4 & = \left ( 1 - \phi_{\{ 3 \} | \{ 3,4 \}} \right) \cdot \left ( 1 - \phi_{\{ 2 \} | \{ 2,3,4 \}} \right) \cdot \left ( 1 - \phi_{\{ 1 \} | \{ 1,2,3,4 \}} \right).
+\end{align*}
+$$
+
+Third, we save another `stanvar()` object with additional information.
+
+```{r}
+stanvars <- stanvar(x = 4, name = "n_cat", scode = "  int n_cat;")
+```
+
+Now we're ready to fit the model with `brm()`. Notice how our use of the `family` and `stanvars` functions.
+
+```{r fit22.3}
+fit22.3 <-
+  brm(data = d3, 
+      family = cond_log_1,
+      Y ~ 1 + X1 + X2,
+      prior = c(prior(normal(0, 20), class = Intercept, dpar = mu2),
+                prior(normal(0, 20), class = Intercept, dpar = mu3),
+                prior(normal(0, 20), class = Intercept, dpar = mu4),
+                prior(normal(0, 20), class = b, dpar = mu2),
+                prior(normal(0, 20), class = b, dpar = mu3),
+                prior(normal(0, 20), class = b, dpar = mu4)),
+      iter = 2000, warmup = 1000, cores = 4, chains = 4,
+      seed = 22,
+      stanvars = stan_lpmf_1 + stanvars)
+```
+
+Check the model summary.
+
+```{r}
+print(fit22.3)
+```
+
+As they aren't the most intuitive, here's how to understand our three prefixes:
+
+* `mu2_` has to do with $\lambda_{\{ 1 \} | \{ 1,2,3,4 \}}$,
+* `mu3_` has to do with $\lambda_{\{ 2 \} | \{ 2,3,4 \}}$, and
+* `mu4_` has to do with $\lambda_{\{ 3 \} | \{ 3,4 \}}$.
+
+If you compare those posterior means of each of those parameters from the data-generating equations at the top of Figure 22.3, you'll see they are spot on (within simulation variance). Here's how we might visualize those posteriors in our version of the histograms in the top right panel(s) of Figure 22.6.
+
+```{r, fig.width = 8, fig.height = 4.5, warning = F, message = F}
+# extract the posterior draws
+post <- posterior_samples(fit22.3)
+
+# wrangle
+p1 <-
+  post %>% 
+  pivot_longer(-lp__) %>% 
+  mutate(name = str_remove(name, "b_")) %>% 
+  mutate(number = str_extract(name, "[2-4]+")) %>% 
+  mutate(lambda    = case_when(number == "2" ~ "lambda['{1}|{1,2,3,4}']",
+                               number == "3" ~ "lambda['{2}|{2,3,4}']",
+                               number == "4" ~ "lambda['{3}|{3,4}']"),
+         parameter = case_when(str_detect(name, "Intercept") ~ "beta[0]",
+                               str_detect(name, "X1")        ~ "beta[1]",
+                               str_detect(name, "X2")        ~ "beta[2]")) %>% 
+  
+  # plot
+  ggplot(aes(x = value, y = 0)) +
+  stat_histinterval(point_interval = mode_hdi, .width = .95,
+                    fill = pl[4], slab_color = pl[3], color = pl[1], point_color = pl[2],
+                    normalize = "panels") +
+  scale_y_continuous(NULL, breaks = NULL) +
+  xlab("marginal posterior") +
+  facet_grid(lambda ~ parameter, labeller = label_parsed, scales = "free_x")
+```
+
+If we use the threshold formula from above,
+
+$$x_2 = (-\beta_0 / \beta_2) + (-\beta_1 / \beta_2)x_1,$$
+
+to the posterior draws, we can make our version of the upper left panel of Figure 22.6.
+
+```{r}
+set.seed(22)
+
+p2 <-
+  post %>% 
+  mutate(draw = 1:n()) %>% 
+  slice_sample(n = 30) %>% 
+  pivot_longer(starts_with("b_")) %>% 
+  mutate(name = str_remove(name, "b_mu")) %>% 
+  separate(name, into = c("lambda", "parameter")) %>% 
+  pivot_wider(names_from = parameter, values_from = value) %>% 
+  mutate(intercept = -Intercept / X2,
+         slope     = -X1 / X2) %>% 
+  
+  ggplot() +
+  geom_text(data = d3,
+            aes(x = X1, y = X2, label = Y, color = factor(Y)),
+            size = 3, show.legend = F) +
+  geom_abline(aes(intercept = intercept,
+                  slope = slope,
+                  group = interaction(draw, lambda),
+                  linetype = lambda),
+              size = 1/4, alpha = 1/2, color = pl[1]) +
+  scale_color_manual(values = pl[2:5]) +
+  scale_linetype(NULL,
+                 labels = parse(text = c(
+                   "lambda['{1}|{1,2,3,4}']", 
+                   "lambda['{2}|{2,3,4}']", 
+                   "lambda['{3}|{3,4}']")),
+                 guide = guide_legend(
+                   direction = "vertical",
+                   label.hjust = 0.5,
+                   label.theme = element_text(size = 10))) +
+  labs(x = expression(x[1]),
+       y = expression(x[2])) +
+  theme(legend.justification = 0.5,
+        legend.position = "top")
+```
+
+Now combine the two ggplots, add a little formatting, and show the full upper half of Figure 22.6, based on the `custom_family()` approach.
+
+```{r}
+(p2 + p1) & 
+  plot_layout(widths = c(1, 2)) &
+  plot_annotation(title = "Figure 22.6, upper half",
+                  subtitle = "Results from the conditional logistic model fit to the d3 data via the custom-family approach")
+```
+
+Though it isn't necessary to reproduce any of the plots in this section of Kruschke's text, we'll want to use the `expose_functions()` function if we wanted to use any of the **brms** post-processing functions for our model fit with the custom likelihood.
+
+```{r, warning = F, message = F, results = 'hide'}
+expose_functions(fit22.3, vectorize = TRUE)
+```
+
+Here's what we'd need to do before computing information criteria estimates, such as with the WAIC.
+
+```{r}
+log_lik_cond_log_1 <- function(i, prep) {
+  mu  <- brms::get_dpar(prep, "mu2", i = i)
+  mub <- brms::get_dpar(prep, "mu3", i = i)
+  muc <- brms::get_dpar(prep, "mu4", i = i)
+  n_cat <- prep$data$n_cat
+  y <- prep$data$Y[i]
+  cond_log_1_lpmf(y, mu, mub, muc, n_cat)
+}
+
+fit22.3 <- add_criterion(fit22.3, criterion = "waic")
+
+waic(fit22.3)
+```
+
+If we wanted to use one of the functions that relies on conditional expectations, such as `conditional_effects()`, we'd execute something like this.
+
+```{r}
+posterior_epred_cond_log_1 <- function(prep) {
+  mu   <- brms::get_dpar(prep, "mu2")
+  mu_b <- brms::get_dpar(prep, "mu3")
+  mu_c <- brms::get_dpar(prep, "mu4")
+  n_cat <- prep$data$n_cat
+  y <- prep$data$Y
+  prob <- cond_log_1_pred(y = y, mu = mu, mu_b = mu_b, mu_c = mu_c, n_cat = n_cat)
+  dim(prob) <- c(dim(prob)[1], dim(mu))
+  prob <- aperm(prob, c(2,3,1))
+  dimnames(prob) <- list(
+    as.character(seq_len(dim(prob)[1])), 
+    NULL, 
+    as.character(seq_len(dim(prob)[3]))
+  )
+  prob
+}
+
+ce <- conditional_effects(
+  fit22.3, 
+  categorical = T,
+  effects = "X1")
+
+plot(ce, plot = FALSE)[[1]] + 
+  scale_fill_manual(values = pl[2:5]) +
+  scale_color_manual(values = pl[2:5])
+```
+
+If we wanted to do a posterior predictive check with the `pp_check()` function, we'd need to do something like this.
+
+```{r}
+posterior_predict_cond_log_1 <- function(i, prep, ...) {
+  mu   <- brms::get_dpar(prep, "mu2", i = i)
+  mu_b <- brms::get_dpar(prep, "mu3", i = i)
+  mu_c <- brms::get_dpar(prep, "mu4", i = i)
+  n_cat <- prep$data$n_cat
+  y <- prep$data$Y[i]
+  prob <- cond_log_1_pred(y, mu, mu_b, mu_c, n_cat)
+  # make sure you have the extraDistr package
+  extraDistr::rcat(length(mu), t(prob))
+}
+
+bayesplot::color_scheme_set(pl[7:2])
+
+pp_check(fit22.3, 
+         type = "bars", 
+         ndraws = 100, 
+         size = 1/2, 
+         fatten = 2)
+```
+
+So far all of this has been with the conditional logistic model based on the first hierarchy of two-set divisions, which Kruschke used to simulate the `d3` data. Now we'll switch to consider the second hierarchy of two-set divisions, with which Kruschke simulated the `d4` data. That second hierarchy, recall, resulted in the following definition for the conditional probabilities for the four levels of `Y`: 
+
+$$
+\begin{align*}
+\phi_1 & = \phi_{\{ 1 \} | \{ 1,2 \}} \cdot \phi_{\{ 1,2 \} | \{ 1,2,3,4 \}} \\
+\phi_2 & = \left ( 1 - \phi_{\{ 1 \} | \{ 1,2 \}} \right) \cdot \phi_{\{ 1,2 \} | \{ 1,2,3,4 \}} \\
+\phi_3 & = \phi_{\{ 3 \} | \{ 3,4 \}} \cdot \left ( 1 - \phi_{\{ 1,2 \} | \{ 1,2,3,4 \}} \right) \\
+\phi_4 & = \left ( 1 - \phi_{\{ 3 \} | \{ 3,4 \}} \right) \cdot \left ( 1 - \phi_{\{ 1,2 \} | \{ 1,2,3,4 \}} \right).
+\end{align*}
+$$
+
+This will require us to define a new custom family, which we'll call `cond_log_2`.
+
+```{r}
+cond_log_2 <- custom_family(
+  name     = "cond_log_2", 
+  dpars    = c("mu", "mub", "muc"), 
+  links    = "identity", 
+  type     = "int",
+  vars     = c("n_cat"),
+  specials = "categorical"
+)
+```
+
+Next, we use the `stanvar()` function to define our custom probability mass function and the corresponding function that will allow us to return predictions, which we'll just save as `stan_lpmf_2`. Other than the names, notice that the major change is how we have defined the `prob[i]` parameters.
+
+```{r}
+stan_lpmf_2 <- stanvar(block = "functions", 
+                       scode = "
+real cond_log_2_lpmf(int y, real mu, real mu_b, real mu_c, int n_cat) {
+  real p_mu  = inv_logit(mu);
+  real p_mub = inv_logit(mu_b);
+  real p_muc = inv_logit(mu_c);
+  vector[n_cat] prob;
+  prob[1] = p_mub * p_mu;
+  prob[2] = (1 - p_mub) * p_mu;
+  prob[3] = p_muc * (1 - p_mu);
+  prob[4] = (1 - p_muc) * (1 - p_mu);
+  return(categorical_lpmf(y | prob));
+}
+
+vector cond_log_2_pred(int y, real mu, real mu_b, real mu_c, int n_cat) {
+  real p_mu  = inv_logit(mu);
+  real p_mub = inv_logit(mu_b);
+  real p_muc = inv_logit(mu_c);
+  vector[n_cat] prob;
+  prob[1] = p_mub * p_mu;
+  prob[2] = (1 - p_mub) * p_mu;
+  prob[3] = p_muc * (1 - p_mu);
+  prob[4] = (1 - p_muc) * (1 - p_mu);
+  return(prob);
+}
+") 
+```
+
+
+Now we're ready to fit the model with `brm()`. Again, notice how our use of the `family` and `stanvars` functions.
+
+```{r fit22.4}
+fit22.4 <-
+  brm(data = d4, 
+      family = cond_log_2,
+      Y ~ 1 + X1 + X2,
+      prior = c(prior(normal(0, 20), class = Intercept, dpar = mu2),
+                prior(normal(0, 20), class = Intercept, dpar = mu3),
+                prior(normal(0, 20), class = Intercept, dpar = mu4),
+                prior(normal(0, 20), class = b, dpar = mu2),
+                prior(normal(0, 20), class = b, dpar = mu3),
+                prior(normal(0, 20), class = b, dpar = mu4)),
+      iter = 2000, warmup = 1000, cores = 4, chains = 4,
+      seed = 22,
+      stanvars = stan_lpmf_2 + stanvars)
+```
+
+Check the model summary.
+
+```{r}
+print(fit22.4)
+```
+
+We can use the same basic workflow as before to make our version of the upper half of Figure 22.7.
+
+```{r, fig.width = 8, fig.height = 4.5, warning = F, message = F}
+# extract the posterior draws
+post <- posterior_samples(fit22.4)
+
+# 2D thresholds on the left
+set.seed(22)
+
+p1 <-
+  post %>% 
+  mutate(draw = 1:n()) %>% 
+  slice_sample(n = 30) %>% 
+  pivot_longer(starts_with("b_")) %>% 
+  mutate(name = str_remove(name, "b_mu")) %>% 
+  separate(name, into = c("lambda", "parameter")) %>% 
+  pivot_wider(names_from = parameter, values_from = value) %>% 
+  mutate(intercept = -Intercept / X2,
+         slope     = -X1 / X2) %>% 
+  
+  ggplot() +
+  geom_text(data = d4,
+            aes(x = X1, y = X2, label = Y, color = factor(Y)),
+            size = 3, show.legend = F) +
+  geom_abline(aes(intercept = intercept,
+                  slope = slope,
+                  group = interaction(draw, lambda),
+                  linetype = lambda),
+              size = 1/4, alpha = 1/2, color = pl[1]) +
+  scale_color_manual(values = pl[2:5]) +
+  scale_linetype(NULL,
+                 labels = parse(text = c(
+                   "lambda['{1,2}|{1,2,3,4}']", 
+                   "lambda['{1}|{1,2}']", 
+                   "lambda['{3}|{3,4}']")),
+                 guide = guide_legend(
+                   direction = "vertical",
+                   label.hjust = 0.5,
+                   label.theme = element_text(size = 10))) +
+  labs(x = expression(x[1]),
+       y = expression(x[2])) +
+  theme(legend.justification = 0.5,
+        legend.position = "top")
+
+# marginal posteriors on the right
+p2 <-
+  post %>% 
+  pivot_longer(-lp__) %>% 
+  mutate(name = str_remove(name, "b_")) %>% 
+  mutate(number = str_extract(name, "[2-4]+")) %>% 
+  mutate(lambda    = case_when(number == "2" ~ "lambda['{1,2}|{1,2,3,4}']",
+                               number == "3" ~ "lambda['{1}|{1,2}']",
+                               number == "4" ~ "lambda['{3}|{3,4}']"),
+         parameter = case_when(str_detect(name, "Intercept") ~ "beta[0]",
+                               str_detect(name, "X1")        ~ "beta[1]",
+                               str_detect(name, "X2")        ~ "beta[2]")) %>% 
+  
+  # plot
+  ggplot(aes(x = value, y = 0)) +
+  stat_histinterval(point_interval = mode_hdi, .width = .95,
+                    fill = pl[4], slab_color = pl[3], color = pl[1], point_color = pl[2],
+                    normalize = "panels") +
+  scale_y_continuous(NULL, breaks = NULL) +
+  xlab("marginal posterior") +
+  facet_grid(lambda ~ parameter, labeller = label_parsed, scales = "free_x")
+
+# combine, entitle, and display the results
+(p1 + p2) & 
+  plot_layout(widths = c(1, 2)) &
+  plot_annotation(title = "Figure 22.7, upper half",
+                  subtitle = "Results from the conditional logistic model fit to the d4 data via the custom-family approach")
+```
+
+As Kruschke pointed out in the text, 
+
+> notice that the estimates for $\lambda_2$ are more uncertain, with wider HDI's, than the other coefficients. This uncertainty is also shown in the threshold lines on the data: The lines separating the 1's from the 2's have a much wider spread than the other boundaries. Inspection of the scatter plot explains why: There is only a small zone of data that informs the separation of 1's from 2's, and therefore the estimate must be relatively ambiguous. (p. 665)
+
+I'm not going to go through a full demonstration like before, but if you want to use more **brms** post processing functions for `fit22.4` or any other model fit with our custom `cond_log_2` function, you'd need to execute this block of code first. Then post process to your heart's desire.
+
+```{r, eval = F}
+expose_functions(fit22.4, vectorize = TRUE)
+
+# for information criteria
+log_lik_cond_log_2 <- function(i, prep) {
+  mu  <- brms::get_dpar(prep, "mu2", i = i)
+  mub <- brms::get_dpar(prep, "mu3", i = i)
+  muc <- brms::get_dpar(prep, "mu4", i = i)
+  n_cat <- prep$data$n_cat
+  y <- prep$data$Y[i]
+  cond_log_2_lpmf(y, mu, mub, muc, n_cat)
+}
+
+# for conditional expectations
+posterior_epred_cond_log_2 <- function(prep) {
+  mu   <- brms::get_dpar(prep, "mu2")
+  mu_b <- brms::get_dpar(prep, "mu3")
+  mu_c <- brms::get_dpar(prep, "mu4")
+  n_cat <- prep$data$n_cat
+  y <- prep$data$Y
+  prob <- cond_log_2_pred(y = y, mu = mu, mu_b = mu_b, mu_c = mu_c, n_cat = n_cat)
+  dim(prob) <- c(dim(prob)[1], dim(mu))
+  prob <- aperm(prob, c(2,3,1))
+  dimnames(prob) <- list(
+    as.character(seq_len(dim(prob)[1])), 
+    NULL, 
+    as.character(seq_len(dim(prob)[3]))
+  )
+  prob
+}
+
+# for posterior predictions
+posterior_predict_cond_log_2 <- function(i, prep, ...) {
+  mu   <- brms::get_dpar(prep, "mu2", i = i)
+  mu_b <- brms::get_dpar(prep, "mu3", i = i)
+  mu_c <- brms::get_dpar(prep, "mu4", i = i)
+  n_cat <- prep$data$n_cat
+  y <- prep$data$Y[i]
+  prob <- cond_log_2_pred(y, mu, mu_b, mu_c, n_cat)
+  # make sure you have the extraDistr package
+  extraDistr::rcat(length(mu), t(prob))
+}
+```
+
+In this section of the text, Kruschke also showed the results of when he analyzed the two data sets with the non-data-generating likelihoods. In the lower half of Figure 22.6, he showed the results of his second version of the conditional logistic model applied to the `d3` data. In the lower half of Figure 22.7, he showed the results of his first version of the conditional logistic model applied to the `d4` data. Since this section is already complicated enough, we're not going to do that. But if you'd like to see what happens, consider it a personal homework assignment. 
+
+> In principle, the different conditional logistic models could be put into an overarching hierarchical model comparison. If you have only a few specific candidate models to compare, this could be a feasible approach. But it is not an easily pursued approach to selecting a partition of outcomes from all possible partitions of outcomes when there are many outcomes... Therefore, it is typical to consider a single model, or small set of models, that are motivated by being meaningful in the context of the application, and interpreting the parameter estimates in that meaningful context. (p. 667)
+
+Kruschke finished this section with: 
+
+> Finally, when you run the models in JAGS, you may find that there is high autocorrelation in the MCMC chains (even with standardized data), which requires a very long chain for adequate ESS. This suggests that Stan might be a more efficient approach. 
+
+Since we fit our models with Stan via **brms**, high autocorrelations and low effective sample sizes weren't a problem. For example, here are the bulk and tail effective sample sizes for both of our two models.
+
+```{r}
+library(posterior)
+
+bind_rows(
+  posterior_samples(fit22.3) %>% summarise_draws(),
+  posterior_samples(fit22.4) %>% summarise_draws()
+  ) %>% 
+  mutate(fit = rep(c("fit22.3", "fit22.4"), each = n() / 2)) %>% 
+  pivot_longer(starts_with("ess")) %>% 
+  
+  ggplot(aes(x = value)) +
+  geom_dotplot(binwidth = 325, color = pl[8], fill = pl[5], stroke = 1/2) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  xlim(0, NA) +
+  facet_grid(fit ~ name)
+```
+
+The values look pretty good. We may as well look at the autocorrelations. To keep things simple, this time we'll restrict our analysis to `fit22.4`. [The results are largely the same for `fit22.3`.]
+
+```{r, warning = F, message = F}
+library(bayesplot)
+
+ac <-
+  posterior_samples(fit22.4, add_chain = T) %>% 
+  select(b_mu2_Intercept:b_mu4_X2, chain) %>% 
+  mcmc_acf(lags = 5)
+
+ac$data %>% 
+  filter(Lag > 0) %>% 
+  
+  ggplot(aes(x = AC)) +
+  geom_vline(xintercept = 0, color = "white") +
+  geom_dotplot(binwidth = 1/14, color = pl[8], fill = pl[5], stroke = 1/2) +
+  scale_x_continuous("autocorrelation", limits = c(-1, 1),
+                     labels = c("-1", "-.5", "0", ".5", "1")) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  facet_grid(Lag ~ Chain, labeller = label_both)
+```
+
+On the whole, the autocorrelations are reasonably low across all parameters, chains, and lags.
+
+##### Conditional logistic models by sequential ordinal regression.
+
+In their [-@burknerOrdinalRegressionModels2019] paper, [*Ordinal regression models in psychology: A tutorial*](https://psyarxiv.com/x8swp/), Bürkner and Vourre outlined a framework for fitting a variety of orginal models with **brms**. We'll learn more about ordinal models in [Chapter 23][Ordinal Predicted Variable]. In this section, we'll use Mattan Ben-Shachar's strategy and purpose one of the ordinal models to fit a conditional logistic model to our nominal data. 
+
+As outlined in @burknerOrdinalRegressionModels2019, and as we will learn in greater detain in the next chapter, many ordinal regression models presume an underlying continuous process. However, you can use a sequential model in cases where one level of the criterion is only possible after the lower levels of the criterion have been achieved. Although this is not technically correct for the nominal variable `Y` in the `d3` data set, the simple hierarchical sequence Kruschke used to model those data does follow that same pattern. Ben-Shachar's insight was that if we treat our nominal variable `Y` as ordinal, the sequential model will mimic the sequential-ness of Kruschke's binary-choices hierarchy. To get this to work, we first have to save an ordinal version of `Y`, which we'll call `Y_ord`.
+
+```{r}
+d3 <-
+  d3 %>% 
+  mutate(Y_ord = ordered(Y))
+
+# what are the new attributes?
+attributes(d3$Y_ord)
+```
+
+Within `brm()` we fit sequential models using `family = sratio`, which defaults to the logit link. If you want to use predictors in a model of this kind and you would like those coefficients to vary across the different levels of the criterion, you need to insert the predictor terms within the `cs()` function. Here's how to fit the model with `brm()`.
+
+```{r fit22.5}
+fit22.5 <-
+  brm(data = d3, 
+      family = sratio,
+      Y_ord ~ 1 + cs(X1) + cs(X2),
+      prior = c(prior(normal(0, 20), class = Intercept),
+                prior(normal(0, 20), class = b)),
+      iter = 2000, warmup = 1000, cores = 4, chains = 4,
+      seed = 22)
+```
+
+Check the model summary.
+
+```{r}
+print(fit22.5)
+```
+
+One thing that might not be apparent at first glance is that although this model is essentially equivalent to the `family = cond_log_1` version of the model we fit with `fit22.3`, above, the parameters are a little different. The intercepts are largely the same. However, the coefficients for the `X1` and `X2` predictors have switched signs. This will be easier to see with a coefficient plot comparing `fit22.3` and `fit22.5`.
+
+```{r}
+# extract the posterior draws for fit22.5
+post <- posterior_samples(fit22.5)
+
+# wrangle and combine the draws from the two models
+bind_rows(
+  # family = "cond_log_1"
+  posterior_samples(fit22.3) %>% 
+    pivot_longer(starts_with("b")) %>% 
+    mutate(name = str_remove(name, "b_mu")) %>% 
+    separate(name, into = c("lambda", "parameter")) %>% 
+    mutate(lambda = as.double(lambda) - 1,
+           family = "cond_log_1") %>% 
+    select(family, lambda, parameter, value),
+  # family = "sratio"
+  post %>% 
+    pivot_longer(starts_with("b")) %>% 
+    mutate(name = str_remove(name, "b_") %>% str_remove(., "bcs_")) %>% 
+    separate(name, into = c("parameter", "lambda")) %>%
+    mutate(lambda = as.double(lambda),
+           family = "sratio") %>% 
+    select(family, lambda, parameter, value)
+) %>% 
+  mutate(lambda    = str_c("lambda==", lambda),
+         parameter = case_when(str_detect(parameter, "Intercept") ~ "beta[0]",
+                               str_detect(parameter, "X1")        ~ "beta[1]",
+                               str_detect(parameter, "X2")        ~ "beta[2]")) %>% 
+  
+  # plot!
+  ggplot(aes(x = value, y = family)) +
+  geom_vline(xintercept = 0, color = "white") +
+  stat_pointinterval(.width = .95, point_size = 1.5, size = 1) +
+  labs(x = "marginal posterior",
+       y = NULL) +
+  facet_grid(lambda ~ parameter, labeller = label_parsed, scales = "free_x")
+```
+
+Even though the $\beta_1$ and $\beta_2$ parameters switched signs, their magnitudes are about the same. Thus, if we want to use our `fit22.5` to plot the thresholds as in Figure 22.6, we'll have to update our threshold formula to 
+
+```{r, eval = F, echo = F}
+pnw_palette(name = "Moth")[2]
+```
+
+
+$$x_2 = (\color{#984136}+\beta_0 / \beta_2) + (\beta_1 / \beta_2)x_1.$$
+
+With that adjustment in line, here's our updated version of the left panel of Figure 22.6.
+
+```{r}
+set.seed(22)
+
+post %>% 
+  mutate(draw = 1:n()) %>% 
+  slice_sample(n = 30) %>% 
+  pivot_longer(starts_with("b")) %>% 
+  mutate(name = str_remove(name, "b_") %>% str_remove(., "bcs_")) %>% 
+  separate(name, into = c("parameter", "lambda")) %>% 
+  pivot_wider(names_from = parameter, values_from = value) %>% 
+  # this line is different
+  mutate(intercept = Intercept / X2,
+         slope     = -X1 / X2) %>% 
+  
+  ggplot() +
+  geom_text(data = d3,
+            aes(x = X1, y = X2, label = Y, color = factor(Y)),
+            size = 3, show.legend = F) +
+  geom_abline(aes(intercept = intercept,
+                  slope = slope,
+                  group = interaction(draw, lambda),
+                  linetype = lambda),
+              size = 1/4, alpha = 1/2, color = pl[1]) +
+  scale_color_manual(values = pl[2:5]) +
+  scale_linetype(NULL,
+                 labels = parse(text = c(
+                   "lambda['{1}|{1,2,3,4}']", 
+                   "lambda['{2}|{2,3,4}']", 
+                   "lambda['{3}|{3,4}']")),
+                 guide = guide_legend(
+                   direction = "vertical",
+                   label.hjust = 0.5,
+                   label.theme = element_text(size = 10))) +
+  coord_equal() +
+  labs(x = expression(x[1]),
+       y = expression(x[2])) +
+  theme(legend.justification = 0.5,
+        legend.position = "top")
+```
+
+Though we used a different likelihood and a different formula for the thresholds, we got same basic model results. They're just parameterized in a slightly different way. The nice thing with the `family = sratio` approach is all of the typical **brms** post processing functions will work out of the box. For example, here's the posterior predictive check via `pp_check()`.
+
+```{r}
+pp_check(fit22.5, 
+         type = "bars", 
+         ndraws = 100, 
+         size = 1/2, 
+         fatten = 2)
+```
+
+Also note how the information criteria estimates for the two approaches are essentially the same.
+
+```{r, warning = F}
+fit22.5 <- add_criterion(fit22.5, criterion = "waic")
+
+loo_compare(fit22.3, fit22.5, criterion = "waic") %>% 
+  print(simplify = F)
+```
+
+A limitation of the `family = sratio` method for conditional logistic models is it requires a simple binary-divisions hierarchy that resembles the one we just used, the one in the left panel of Figure 22.2. It is not well suited for the more complicated hierarchy displayed in the right panel of Figure 22.2, nor will it help you make sense of data generated by that kind of mechanism. For example, consider what happens when we try to use `family = sratio` with the `d4` data.
+
+```{r fit22.6}
+# make an ordinal version of Y
+d4 <-
+  d4 %>% 
+  mutate(Y_ord = ordered(Y))
+
+# fit the model
+fit22.6 <-
+  brm(data = d4, 
+      family = sratio,
+      Y_ord ~ 1 + cs(X1) + cs(X2),
+      prior = c(prior(normal(0, 20), class = Intercept),
+                prior(normal(0, 20), class = b)),
+      iter = 2000, warmup = 1000, cores = 4, chains = 4,
+      seed = 22)
+```
+
+```{r}
+print(fit22.6)
+```
+
+If you look at the parameter summary, nothing obviously bad happened. The computer didn't crash or anything. To get a better sense of the damage, we plot.
+
+```{r}
+# extract the posterior draws for fit22.6
+post <- posterior_samples(fit22.6)
+
+# 2D thresholds on the left
+set.seed(22)
+
+p1 <- 
+  post %>% 
+  mutate(draw = 1:n()) %>% 
+  slice_sample(n = 30) %>% 
+  pivot_longer(starts_with("b")) %>% 
+  mutate(name = str_remove(name, "b_") %>% str_remove(., "bcs_")) %>% 
+  separate(name, into = c("parameter", "lambda")) %>% 
+  pivot_wider(names_from = parameter, values_from = value) %>% 
+  # still using the adjusted formula for the thresholds
+  mutate(intercept = Intercept / X2,
+         slope     = -X1 / X2) %>% 
+  
+  ggplot() +
+  geom_text(data = d3,
+            aes(x = X1, y = X2, label = Y, color = factor(Y)),
+            size = 3, show.legend = F) +
+  geom_abline(aes(intercept = intercept,
+                  slope = slope,
+                  group = interaction(draw, lambda),
+                  linetype = lambda),
+              size = 1/4, alpha = 1/2, color = pl[1]) +
+  scale_color_manual(values = pl[2:5]) +
+  scale_linetype(NULL,
+                 labels = parse(text = c(
+                   "lambda['{1}|{1,2,3,4}']", 
+                   "lambda['{2}|{2,3,4}']", 
+                   "lambda['{3}|{3,4}']")),
+                 guide = guide_legend(
+                   direction = "vertical",
+                   label.hjust = 0.5,
+                   label.theme = element_text(size = 10))) +
+  labs(x = expression(x[1]),
+       y = expression(x[2])) +
+  theme(legend.justification = 0.5,
+        legend.position = "top")
+
+# marginal posteriors on the right
+p2 <-
+post %>% 
+  pivot_longer(cols = c(-disc, -lp__)) %>% 
+  mutate(name = str_remove(name, "b_")%>% str_remove(., "bcs_")) %>% 
+  separate(name, into = c("parameter", "lambda")) %>% 
+  mutate(lambda    = case_when(lambda == "1" ~ "lambda['{1}|{1,2,3,4}']",
+                               lambda == "2" ~ "lambda['{2}|{2,3,4}']",
+                               lambda == "3" ~ "lambda['{3}|{3,4}']"),
+         parameter = case_when(parameter == "Intercept" ~ "beta[0]",
+                               parameter == "X1"        ~ "beta[1]",
+                               parameter == "X2"        ~ "beta[2]")) %>% 
+  
+  # plot
+  ggplot(aes(x = value, y = 0)) +
+  stat_histinterval(point_interval = mode_hdi, .width = .95,
+                    fill = pl[4], slab_color = pl[3], color = pl[1], point_color = pl[2],
+                    normalize = "panels") +
+  scale_y_continuous(NULL, breaks = NULL) +
+  xlab("marginal posterior") +
+  facet_grid(lambda ~ parameter, labeller = label_parsed, scales = "free_x")
+
+# combine, entitle, and display the results
+(p1 + p2) & 
+  plot_layout(widths = c(1, 2)) &
+  plot_annotation(title = "Figure 22.7, lower half",
+                  subtitle = "Results from the conditional logistic model fit to the d4 data via the sequential-ordinal approach")
+```
+
+We ended up with our version of the lower half of Figure 22.7. As with the previous model, the sequential-ordinal approach reverses the signs for the $\beta_1$ and $\beta_2$ parameters, which isn't a big deal as long as you keep that in mind. The larger issue is that the thresholds displayed in the left panel do a poor job differentiating among the various `Y` categories. The model underlying those thresholds is a bad match for the data.
+
+##### Conditional logistic wrap-up.
+
+To wrap this section up, we walked through approaches for fitting conditional logistic models with **brms**. First we considered Singmann's method for using the **brms** custom family functionality to define bespoke likelihood functions. Though it requires a lot of custom coding and an above-average knowledge of the inner workings of **brms** and Stan, the custom-family approach is very general and will possibly work for all your conditional-logistic needs. Then we considered Ben-Shachar sequential-ordinal approach. Ben-Shachar's insight was that if we are willing to augment the nominal data with the `ordered()` function, modeling them with a sequential-ordinal model via `family = sratio` will return near equivalent results to the conditional-logistic method. Though this method is attractive in that it uses a built-in likelihood and thus avoids a lot of custom coding, it is limited in that it will only handle nominal data which are well described by the simple  binary-divisions hierarchy displayed in the left panel of Figure 22.2.
+
+In closing, I would like to thank Singmann and Ben-Shachar for their time and insights. `emo::ji("beers")` I could not have finished this section without them. If you would like more examples of both of their methods applied to different data sets, check out the Stan forum thread called [Nominal data and Kruschke's "conditional logistic" approach](https://discourse.mc-stan.org/t/nominal-data-and-kruschkes-conditional-logistic-approach/21433).
 
 ## Generalizations and variations of the models
 
