@@ -153,11 +153,9 @@ d %>%
   geom_vline(xintercept = .8, color = "white") +
   geom_line(aes(y = dbeta(x, shape1 = shape1, shape2 = shape2)),
             color = "grey50", size = 1.25) +
-  
   geom_text(data = . %>% group_by(label) %>% slice(1),
             aes(x = .025, y = 4.75, label = label),
             hjust = 0, size = 3) +
-  
   scale_x_continuous(expression(theta), breaks = c(0, .8, 1)) +
   ylab(expression(p(theta*"|"*a*", "*b))) +
   coord_cartesian(ylim = c(0, 5)) +
@@ -312,21 +310,24 @@ glimpse(d)
 To make things easier on ourselves, we'll also make two additional data objects to annotate the plots with lines and text.
 
 ```{r}
+# save the levels
+levels <- c("Prior (beta)", "Likelihood (Bernoulli)", "Posterior (beta)")
+
 # the data for the in-plot lines
 line <-
   tibble(theta      = c(.212 + .008, .788 - .008, .114 + .004, .497 - .005),
          value      = rep(c(.51, .66), each = 2),
          xintercept = c(.212, .788, .114, .497),
-         key        = rep(c("Prior (beta)", "Posterior (beta)"), each = 2)) %>% 
-  mutate(key = factor(key, levels = c("Prior (beta)", "Likelihood (Bernoulli)", "Posterior (beta)")))
+         name       = rep(c("Prior (beta)", "Posterior (beta)"), each = 2)) %>% 
+  mutate(name = factor(name, levels = levels))
   
 # the data for the annotation
 text <-
   tibble(theta = c(.5, .3),
          value = c(.8, 1.125),
          label = "95% HDI",
-         key   = c("Prior (beta)", "Posterior (beta)")) %>% 
-  mutate(key = factor(key, levels = c("Prior (beta)", "Likelihood (Bernoulli)", "Posterior (beta)")))
+         name  = c("Prior (beta)", "Posterior (beta)")) %>% 
+  mutate(name = factor(name, levels = levels))
 ```
 
 Finally, here's our Figure 6.3.
@@ -335,8 +336,8 @@ Finally, here's our Figure 6.3.
 library(cowplot)
 
 d %>% 
-  gather(key, value, -theta) %>% 
-  mutate(key = factor(key, levels = c("Prior (beta)", "Likelihood (Bernoulli)", "Posterior (beta)"))) %>% 
+  pivot_longer(-theta) %>% 
+  mutate(name = factor(name, levels = levels)) %>% 
   
   ggplot(aes(x = theta, y = value, )) +
   # densities
@@ -357,7 +358,7 @@ d %>%
             color = "white") +
   labs(x = expression(theta),
        y = NULL) +
-  facet_wrap(~ key, scales = "free_y", ncol = 1) +
+  facet_wrap(~ name, scales = "free_y", ncol = 1) +
   theme_cowplot()
 ```
 
@@ -1033,7 +1034,7 @@ sessionInfo()
 ```
 
 ```{r, echo = F}
-rm(bernoulli_likelihood, theta, a, b, length, d, betaABfromMeanKappa, betaABfromModeKappa, betaABfromMeanSD, beta_param, hdi_of_icdf, n, z, proportion_heads, prior_mean, posterior_mean, trial_data, line, text, prior_hdi, post_hdi, p_theta, BernGrid, Data, p1, p2, p3)
+rm(bernoulli_likelihood, theta, a, b, length, d, betaABfromMeanKappa, betaABfromModeKappa, betaABfromMeanSD, beta_param, hdi_of_icdf, n, z, proportion_heads, prior_mean, posterior_mean, trial_data, levels, line, text, prior_hdi, post_hdi, p_theta, BernGrid, Data, p1, p2, p3)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
