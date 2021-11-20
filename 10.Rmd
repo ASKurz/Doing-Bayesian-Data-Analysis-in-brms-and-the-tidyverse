@@ -776,7 +776,7 @@ Note how we fed our `stanvars` object into the `stanvars` function.
 Anyway, let's inspect the chains.
 
 ```{r, fig.width = 8, fig.height = 1.4}
-plot(fit10.1)
+plot(fit10.1, widths = c(2, 3))
 ```
 
 They look great. Now we glance at the model summary.
@@ -785,10 +785,10 @@ They look great. Now we glance at the model summary.
 print(fit10.1)
 ```
 
-Next we'll follow Kruschke and extract the posterior samples, saving them as `theta`.
+Next we'll follow Kruschke and extract the posterior draws, saving them as `theta`.
 
 ```{r}
-theta <- posterior_samples(fit10.1)
+theta <- as_draws_df(fit10.1)
 
 head(theta)
 ```
@@ -865,7 +865,7 @@ fit10.2 <-
 We'll do the rest in bulk.
 
 ```{r}
-theta <- posterior_samples(fit10.2)
+theta <- as_draws_df(fit10.2)
 
 mean_theta <- fixef(fit10.2)[1]
 sd_theta   <- fixef(fit10.2)[2]
@@ -946,9 +946,9 @@ library(bayesplot)
 
 color_scheme_set(scheme = c(lisa_palette("KatsushikaHokusai", n = 9, type = "continuous")[6:1]))
 
-mcmc_acf(posterior_samples(fit10.1, add_chain = T), 
-         pars = "b_Intercept",
-         lags = 35)
+as_draws_array(fit10.1) %>%
+  mcmc_acf(pars = "b_Intercept",
+           lags = 35)
 ```
 
 Our autocorrelations were a little high for HMC, but nowhere near pathological. The results for `fit10.2` were similar. Before we move on, note our use of `bayesplot::color_scheme_set()`, which allowed us to customize the color scheme **bayesplot** used within the plot. Based on that code, here is our new color scheme for all plots made by **bayesplot**.
@@ -972,7 +972,7 @@ neff_ratio(fit10.1)[1] %>%
   yaxis_text(hjust = 0)
 ```
 
-But we specified a lot of post-warmup iterations, so we're still in good shape. Plus, the $\hat R$ was fine.
+But we specified a lot of post-warmup draws, so we're still in good shape. Plus, the $\hat R$ was fine.
 
 ```{r}
 rhat(fit10.1)[1]
@@ -1093,7 +1093,7 @@ Virtually all of the stacking weight was placed on the Student's-$t$ model, `fit
 Remember what that $p(\nu)$ looked like? Here's our posterior distribution for $\nu$.
 
 ```{r, fig.width = 3.5, fig.height = 2.5}
-posterior_samples(fit10.4) %>% 
+as_draws_df(fit10.4) %>% 
   ggplot(aes(x = nu)) +
   geom_histogram(color = kh[9], fill = kh[3],
                  size = .2, bins = 30) +
@@ -1110,11 +1110,11 @@ Even though our prior for $\nu$ was relatively weak, the posterior ended up conc
 We can also compare the models using posterior-predictive checks. There are a variety of ways we might do this, but the most convenient way is with `brms::pp_check()`, which is itself a wrapper for the family of `ppc` functions from the **bayesplot** package.
 
 ```{r, fig.width = 4, fig.height = 2, message = F}
-pp_check(fit10.3, nsamples = 50) + coord_cartesian(xlim = c(-10, 10))
-pp_check(fit10.4, nsamples = 50) + coord_cartesian(xlim = c(-10, 10))
+pp_check(fit10.3, ndraws = 50) + coord_cartesian(xlim = c(-10, 10))
+pp_check(fit10.4, ndraws = 50) + coord_cartesian(xlim = c(-10, 10))
 ```
 
-The default `pp_check()` setting allows us to compare the density of the data $y$ (i.e., the dark blue) with 10 densities simulated from the posterior $y_\text{rep}$ (i.e., the light blue). By `nsamples = 50`, we adjusted that default to 50 simulated densities. We prefer models that produce $y_\text{rep}$ distributions resembling $y$. Though the results from both models were similar, the simulated distributions from `fit10.4` mimicked the original data a little more convincingly. To learn more about this approach to posterior predictive checks, check out Gabry's [-@gabryGraphicalPosteriorPredictive2019] vignette, [*Graphical posterior predictive checks using the bayesplot package*](https://CRAN.R-project.org/package=bayesplot/vignettes/graphical-ppcs.html).
+The default `pp_check()` setting allows us to compare the density of the data $y$ (i.e., the dark blue) with 10 densities simulated from the posterior $y_\text{rep}$ (i.e., the light blue). By `ndraws = 50`, we adjusted that default to 50 simulated densities. We prefer models that produce $y_\text{rep}$ distributions resembling $y$. Though the results from both models were similar, the simulated distributions from `fit10.4` mimicked the original data a little more convincingly. To learn more about this approach to posterior predictive checks, check out Gabry's [-@gabryGraphicalPosteriorPredictive2019] vignette, [*Graphical posterior predictive checks using the bayesplot package*](https://CRAN.R-project.org/package=bayesplot/vignettes/graphical-ppcs.html).
 
 ## Prediction: Model averaging
 
@@ -1140,7 +1140,7 @@ Here's the histogram for $p(\theta | D, \omega = 0.75)$, which we generate from 
 ```{r, fig.width = 3.5, fig.height = 3, warning = F, message = F}
 library(tidybayes)
 
-posterior_samples(fit10.1) %>% 
+as_draws_df(fit10.1) %>% 
   ggplot(aes(x = b_Intercept, y = 0)) +
   stat_histinterval(point_interval = mode_hdi, .width = c(.95, .5),
                     fill = kh[6], slab_color = kh[5], color = kh[2],
@@ -1313,7 +1313,7 @@ fit10.5 <-
 Unlike with what Kruschke alluded to in the prose, here we'll compare the two models with the WAIC.
 
 ```{r waic_fit9.2_fit10.5, warning = F, message = F}
-fit9.2 <- add_criterion(fit9.2, criterion = "waic")
+fit9.2  <- add_criterion(fit9.2, criterion = "waic")
 fit10.5 <- add_criterion(fit10.5, criterion = "waic")
 
 loo_compare(fit9.2, fit10.5, criterion = "waic")
@@ -1575,17 +1575,17 @@ Just for the sake of practice, we can also compare the models with separate post
 
 ```{r, fig.width = 8, fig.height = 2.5, message = F}
 p1 <-
-  pp_check(fit10.6, type = "bars", nsamples = 1e3) +
+  pp_check(fit10.6, type = "bars", ndraws = 1e3) +
   ggtitle("fit10.6",
           subtitle = expression("beta"*(500*", "*500)))
 
 p2 <-
-  pp_check(fit10.7, type = "bars", nsamples = 1e3) +
+  pp_check(fit10.7, type = "bars", ndraws = 1e3) +
   ggtitle("fit10.7",
           subtitle = expression("beta"*(1*", "*1)))
 
 p3 <-
-  pp_check(fit10.8, type = "bars", nsamples = 1e3) +
+  pp_check(fit10.8, type = "bars", ndraws = 1e3) +
   ggtitle("fit10.8",
           subtitle = expression("beta"*(0.01*", "*0.01)))
 
