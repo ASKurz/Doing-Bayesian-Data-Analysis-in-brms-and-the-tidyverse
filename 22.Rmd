@@ -165,15 +165,15 @@ In both data sets, the nominal criterion is `Y` and the two predictors are `X1` 
 ```{r}
 # the big numbers
 numbers <- tibble(
-  x = c(3, 5, 2, 4, 1, 3, 2),
-  y = c(0, 0, 1, 1, 2, 2, 3),
+  x     = c(3, 5, 2, 4, 1, 3, 2),
+  y     = c(0, 0, 1, 1, 2, 2, 3),
   label = c("3", "4", "2", "3,4", "1", "2,3,4", "1,2,3,4")
 )
 
 # the smaller Greek numbers
 greek <- tibble(
-  x = c(3.4, 4.6, 2.4, 3.6, 1.4, 2.6),
-  y = c(0.5, 0.5, 1.5, 1.5, 2.5, 2.5),
+  x     = c(3.4, 4.6, 2.4, 3.6, 1.4, 2.6),
+  y     = c(0.5, 0.5, 1.5, 1.5, 2.5, 2.5),
   hjust = c(1, 0, 1, 0, 1, 0),
   label = c("phi['{3}|{3,4}']", "1-phi['{3}|{3,4}']",
             "phi['{2}|{2,3,4}']", "1-phi['{2}|{2,3,4}']",
@@ -182,8 +182,8 @@ greek <- tibble(
 
 # arrows
 tibble(
-  x = c(4, 4, 3, 3, 2, 2),
-  y = c(0.85, 0.85, 1.85, 1.85, 2.85, 2.85),
+  x    = c(4, 4, 3, 3, 2, 2),
+  y    = c(0.85, 0.85, 1.85, 1.85, 2.85, 2.85),
   xend = c(3, 5, 2, 4, 1, 3),
   yend = c(0.15, 0.15, 1.15, 1.15, 2.15, 2.15)
 ) %>%  
@@ -242,9 +242,8 @@ $$
 
 where the sum of the probabilities $\phi_1$ through $\phi_4$ is $1$. To get a sense of what this all means in practice, let's visualize the data and the data-generating equations for our version of Figure 22.3. As with the previous figure, I'm going to break this figure up to focus on one model at a time. Thus, here's the left panel of Figure 22.3.
 
-```{r, fig.width = 2.5}
-# define the various population parameters
-
+```{r, fig.width = 2.75}
+## define the various population parameters
 # lambda 1
 b01 <- -4
 b11 <- -5
@@ -305,7 +304,7 @@ It was that equation that gave us the values for the `intercept` and `slope` arg
 
 It still might not be clear how the various $\phi_{S^* | S}$ values connect to the data. Though not in the text, here's an alternative way of expressing the relations in Figure 22.3. This time the plot is faceted by the three levels of $\phi_{S^* | S}$ and the background fill is based on those conditional probabilities.
 
-```{r}
+```{r, width = 5.5}
 # define a grid of X1 and X2 values
 crossing(X1 = seq(from = -2, to = 2, length.out = 50),
          X2 = seq(from = -2, to = 2, length.out = 50)) %>% 
@@ -425,7 +424,7 @@ $$
 
 where the sum of the probabilities $\phi_1$ through $\phi_4$ is $1$. To get a sense of what this all means, let's visualize the data and the data-generating equations in our version of the right panel of Figure 22.3.
 
-```{r, fig.width = 2.5}
+```{r, fig.width = 2.75}
 d4 %>% 
   mutate(Y = factor(Y)) %>% 
   
@@ -458,7 +457,7 @@ d4 %>%
 
 Here's an alternative way of expression the relations in the right panel of Figure 22.3. This time the plot is faceted by the three levels of $\phi_{S^* | S}$ and the background fill is based on those conditional probabilities.
 
-```{r}
+```{r, fig.width = 5.5}
 # define a grid of X1 and X2 values
 crossing(X1 = seq(from = -2, to = 2, length.out = 50),
          X2 = seq(from = -2, to = 2, length.out = 50)) %>% 
@@ -844,11 +843,11 @@ Here's how we might make the histograms in Figure 22.5.
 library(tidybayes)
 
 # extract the posterior draws
-post <- posterior_samples(fit22.1)
+draws_df <- as_draws_df(fit22.1)
 
 # wrangle
-post %>% 
-  pivot_longer(-lp__) %>% 
+draws_df %>% 
+  pivot_longer(starts_with("b_")) %>% 
   mutate(name = str_remove(name, "b_")) %>% 
   mutate(lambda    = str_extract(name, "[2-4]+") %>% str_c("lambda==", .),
          parameter = case_when(str_detect(name, "Intercept") ~ "beta[0]",
@@ -867,9 +866,9 @@ post %>%
 
 Because the $\beta$ values for when $\lambda = 1$ are all fixed to 0, we left those plots out of our version of the figure. If you really wanted them, you'd have to enter the corresponding cells into the data before plotting. If you summarize each parameter by it's posterior mean, `round()`, and wrangle a little, you can arrange the results in a similar way that the equations for $\lambda_2$ through $\lambda_4$ are displayed on the left side of Figure 22.5.
 
-```{r, message = F}
-post %>% 
-  pivot_longer(-lp__) %>% 
+```{r, message = F, warning = F}
+draws_df %>% 
+  pivot_longer(starts_with("b_")) %>% 
   mutate(name = str_remove(name, "b_")) %>% 
   mutate(lambda    = str_extract(name, "[2-4]+") %>% str_c("lambda[", ., "]"),
          parameter = case_when(str_detect(name, "Intercept") ~ "beta[0]",
@@ -944,17 +943,16 @@ $$\phi_k = \operatorname{softmax}_S (\{\lambda_k\}) = \frac{\exp (\lambda_k)}{\s
 we can get a sense of how to convert these parameters to relative probabilities. Here's how to do so by hand with the posterior draws.
 
 ```{r}
-posterior_samples(fit22.2) %>% 
-  transmute(iter        = 1:n(),
-            `lambda[1]` = 0,  # recall this is the default
-            `lambda[2]` = b_mu2_Intercept,
-            `lambda[3]` = b_mu3_Intercept,
-            `lambda[4]` = b_mu4_Intercept) %>% 
-  pivot_longer(-iter) %>% 
+as_draws_df(fit22.2) %>% 
+  mutate(`lambda[1]` = 0,  # recall this is the default
+         `lambda[2]` = b_mu2_Intercept,
+         `lambda[3]` = b_mu3_Intercept,
+         `lambda[4]` = b_mu4_Intercept) %>% 
+  pivot_longer(contains("lambda")) %>% 
   # the next two rows are where the magic happens
-  group_by(iter) %>% 
-  mutate(phi = exp(value) / sum(exp(value))) %>%
-  mutate(Y = str_extract(name, "\\d")) %>% 
+  group_by(.draw) %>% 
+  mutate(phi = exp(value) / sum(exp(value)),
+         Y   = str_extract(name, "\\d")) %>% 
   group_by(Y) %>% 
   mean_qi(phi) %>% 
   mutate_if(is.double, round, digits = 2)
@@ -1199,7 +1197,8 @@ fit22.3 <-
                 prior(normal(0, 20), class = b, dpar = mu4)),
       iter = 2000, warmup = 1000, cores = 4, chains = 4,
       seed = 22,
-      stanvars = stan_lpmf_1 + stanvars)
+      stanvars = stan_lpmf_1 + stanvars,
+      file = "fits/fit22.03")
 ```
 
 Check the model summary.
@@ -1218,12 +1217,12 @@ If you compare those posterior means of each of those parameters from the data-g
 
 ```{r, fig.width = 8, fig.height = 4.5, warning = F, message = F}
 # extract the posterior draws
-post <- posterior_samples(fit22.3)
+draws_df <- as_draws_df(fit22.3)
 
 # wrangle
 p1 <-
-  post %>% 
-  pivot_longer(-lp__) %>% 
+  draws_df %>% 
+  pivot_longer(starts_with("b_")) %>% 
   mutate(name = str_remove(name, "b_")) %>% 
   mutate(number = str_extract(name, "[2-4]+")) %>% 
   mutate(lambda    = case_when(number == "2" ~ "lambda['{1}|{1,2,3,4}']",
@@ -1253,8 +1252,8 @@ to the posterior draws, we can make our version of the upper left panel of Figur
 set.seed(22)
 
 p2 <-
-  post %>% 
-  mutate(draw = 1:n()) %>% 
+  draws_df %>% 
+  tibble() %>% 
   slice_sample(n = 30) %>% 
   pivot_longer(starts_with("b_")) %>% 
   mutate(name = str_remove(name, "b_mu")) %>% 
@@ -1269,7 +1268,7 @@ p2 <-
             size = 3, show.legend = F) +
   geom_abline(aes(intercept = intercept,
                   slope = slope,
-                  group = interaction(draw, lambda),
+                  group = interaction(.draw, lambda),
                   linetype = lambda),
               size = 1/4, alpha = 1/2, color = pl[1]) +
   scale_color_manual(values = pl[2:5]) +
@@ -1322,7 +1321,7 @@ waic(fit22.3)
 
 If we wanted to use one of the functions that relies on conditional expectations, such as `conditional_effects()`, we'd execute something like this.
 
-```{r}
+```{r, fig.width = 4, fig.height = 2.75}
 posterior_epred_cond_log_1 <- function(prep) {
   mu   <- brms::get_dpar(prep, "mu2")
   mu_b <- brms::get_dpar(prep, "mu3")
@@ -1352,7 +1351,7 @@ plot(ce, plot = FALSE)[[1]] +
 
 If we wanted to do a posterior predictive check with the `pp_check()` function, we'd need to do something like this.
 
-```{r}
+```{r, fig.width = 4, fig.height = 3.75}
 posterior_predict_cond_log_1 <- function(i, prep, ...) {
   mu   <- brms::get_dpar(prep, "mu2", i = i)
   mu_b <- brms::get_dpar(prep, "mu3", i = i)
@@ -1373,7 +1372,7 @@ pp_check(fit22.3,
          fatten = 2)
 ```
 
-So far all of this has been with the conditional logistic model based on the first hierarchy of two-set divisions, which Kruschke used to simulate the `d3` data. Now we'll switch to consider the second hierarchy of two-set divisions, with which Kruschke simulated the `d4` data. That second hierarchy, recall, resulted in the following definition for the conditional probabilities for the four levels of `Y`: 
+So far all of this has been with the conditional logistic model based on the first hierarchy of two-set divisions, which Kruschke used to simulate the `d3` data. Now we'll switch to consider the second hierarchy of two-set divisions, with which Kruschke simulated the `d4` data. That second hierarchy, recall, resulted in the following definition for the conditional probabilities for the four levels of `Y`:
 
 $$
 \begin{align*}
@@ -1444,7 +1443,8 @@ fit22.4 <-
                 prior(normal(0, 20), class = b, dpar = mu4)),
       iter = 2000, warmup = 1000, cores = 4, chains = 4,
       seed = 22,
-      stanvars = stan_lpmf_2 + stanvars)
+      stanvars = stan_lpmf_2 + stanvars,
+      file = "fits/fit22.04")
 ```
 
 Check the model summary.
@@ -1457,14 +1457,14 @@ We can use the same basic workflow as before to make our version of the upper ha
 
 ```{r, fig.width = 8, fig.height = 4.5, warning = F, message = F}
 # extract the posterior draws
-post <- posterior_samples(fit22.4)
+draws_df <- as_draws_df(fit22.4)
 
 # 2D thresholds on the left
 set.seed(22)
 
 p1 <-
-  post %>% 
-  mutate(draw = 1:n()) %>% 
+  draws_df %>% 
+  tibble() %>% 
   slice_sample(n = 30) %>% 
   pivot_longer(starts_with("b_")) %>% 
   mutate(name = str_remove(name, "b_mu")) %>% 
@@ -1479,7 +1479,7 @@ p1 <-
             size = 3, show.legend = F) +
   geom_abline(aes(intercept = intercept,
                   slope = slope,
-                  group = interaction(draw, lambda),
+                  group = interaction(.draw, lambda),
                   linetype = lambda),
               size = 1/4, alpha = 1/2, color = pl[1]) +
   scale_color_manual(values = pl[2:5]) +
@@ -1499,8 +1499,8 @@ p1 <-
 
 # marginal posteriors on the right
 p2 <-
-  post %>% 
-  pivot_longer(-lp__) %>% 
+  draws_df %>% 
+  pivot_longer(starts_with("b_")) %>% 
   mutate(name = str_remove(name, "b_")) %>% 
   mutate(number = str_extract(name, "[2-4]+")) %>% 
   mutate(lambda    = case_when(number == "2" ~ "lambda['{1,2}|{1,2,3,4}']",
@@ -1576,17 +1576,17 @@ posterior_predict_cond_log_2 <- function(i, prep, ...) {
 }
 ```
 
-In this section of the text, Kruschke also showed the results of when he analyzed the two data sets with the non-data-generating likelihoods. In the lower half of Figure 22.6, he showed the results of his second version of the conditional logistic model applied to the `d3` data. In the lower half of Figure 22.7, he showed the results of his first version of the conditional logistic model applied to the `d4` data. Since this section is already complicated enough, we're not going to do that. But if you'd like to see what happens, consider it a personal homework assignment. 
+In this section of the text, Kruschke also showed the results of when he analyzed the two data sets with the non-data-generating likelihoods. In the lower half of Figure 22.6, he showed the results of his second version of the conditional logistic model applied to the `d3` data. In the lower half of Figure 22.7, he showed the results of his first version of the conditional logistic model applied to the `d4` data. Since this section is already complicated enough, we're not going to do that. But if you'd like to see what happens, consider it a personal homework assignment.
 
 > In principle, the different conditional logistic models could be put into an overarching hierarchical model comparison. If you have only a few specific candidate models to compare, this could be a feasible approach. But it is not an easily pursued approach to selecting a partition of outcomes from all possible partitions of outcomes when there are many outcomes... Therefore, it is typical to consider a single model, or small set of models, that are motivated by being meaningful in the context of the application, and interpreting the parameter estimates in that meaningful context. (p. 667)
 
-Kruschke finished this section with: 
+Kruschke finished this section with:
 
-> Finally, when you run the models in JAGS, you may find that there is high autocorrelation in the MCMC chains (even with standardized data), which requires a very long chain for adequate ESS. This suggests that Stan might be a more efficient approach. 
+> Finally, when you run the models in JAGS, you may find that there is high autocorrelation in the MCMC chains (even with standardized data), which requires a very long chain for adequate ESS. This suggests that Stan might be a more efficient approach.
 
 Since we fit our models with Stan via **brms**, high autocorrelations and low effective sample sizes weren't a problem. For example, here are the bulk and tail effective sample sizes for both of our two models.
 
-```{r}
+```{r, warning = F, message = F}
 library(posterior)
 
 bind_rows(
@@ -1629,7 +1629,7 @@ On the whole, the autocorrelations are reasonably low across all parameters, cha
 
 ##### Conditional logistic models by sequential ordinal regression.
 
-In their [-@burknerOrdinalRegressionModels2019] paper, [*Ordinal regression models in psychology: A tutorial*](https://psyarxiv.com/x8swp/), Bürkner and Vourre outlined a framework for fitting a variety of orginal models with **brms**. We'll learn more about ordinal models in [Chapter 23][Ordinal Predicted Variable]. In this section, we'll use Mattan Ben-Shachar's strategy and purpose one of the ordinal models to fit a conditional logistic model to our nominal data. 
+In their [-@burknerOrdinalRegressionModels2019] paper, [*Ordinal regression models in psychology: A tutorial*](https://psyarxiv.com/x8swp/), Bürkner and Vourre outlined a framework for fitting a variety of orginal models with **brms**. We'll learn more about ordinal models in [Chapter 23][Ordinal Predicted Variable]. In this section, we'll use Mattan Ben-Shachar's strategy and purpose one of the ordinal models to fit a conditional logistic model to our nominal data.
 
 As outlined in @burknerOrdinalRegressionModels2019, and as we will learn in greater detain in the next chapter, many ordinal regression models presume an underlying continuous process. However, you can use a sequential model in cases where one level of the criterion is only possible after the lower levels of the criterion have been achieved. Although this is not technically correct for the nominal variable `Y` in the `d3` data set, the simple hierarchical sequence Kruschke used to model those data does follow that same pattern. Ben-Shachar's insight was that if we treat our nominal variable `Y` as ordinal, the sequential model will mimic the sequential-ness of Kruschke's binary-choices hierarchy. To get this to work, we first have to save an ordinal version of `Y`, which we'll call `Y_ord`.
 
@@ -1652,7 +1652,8 @@ fit22.5 <-
       prior = c(prior(normal(0, 20), class = Intercept),
                 prior(normal(0, 20), class = b)),
       iter = 2000, warmup = 1000, cores = 4, chains = 4,
-      seed = 22)
+      seed = 22,
+      file = "fits/fit22.05")
 ```
 
 Check the model summary.
@@ -1663,23 +1664,23 @@ print(fit22.5)
 
 One thing that might not be apparent at first glance is that although this model is essentially equivalent to the `family = cond_log_1` version of the model we fit with `fit22.3`, above, the parameters are a little different. The intercepts are largely the same. However, the coefficients for the `X1` and `X2` predictors have switched signs. This will be easier to see with a coefficient plot comparing `fit22.3` and `fit22.5`.
 
-```{r}
+```{r, fig.width = 6, fig.height = 2.25}
 # extract the posterior draws for fit22.5
-post <- posterior_samples(fit22.5)
+draws_df <- as_draws_df(fit22.5)
 
 # wrangle and combine the draws from the two models
 bind_rows(
   # family = "cond_log_1"
-  posterior_samples(fit22.3) %>% 
-    pivot_longer(starts_with("b")) %>% 
+  as_draws_df(fit22.3) %>% 
+    pivot_longer(starts_with("b_")) %>% 
     mutate(name = str_remove(name, "b_mu")) %>% 
     separate(name, into = c("lambda", "parameter")) %>% 
     mutate(lambda = as.double(lambda) - 1,
            family = "cond_log_1") %>% 
     select(family, lambda, parameter, value),
   # family = "sratio"
-  post %>% 
-    pivot_longer(starts_with("b")) %>% 
+  draws_df %>% 
+    pivot_longer(starts_with("b_")) %>% 
     mutate(name = str_remove(name, "b_") %>% str_remove(., "bcs_")) %>% 
     separate(name, into = c("parameter", "lambda")) %>%
     mutate(lambda = as.double(lambda),
@@ -1711,11 +1712,11 @@ $$x_2 = (\color{#984136}+\beta_0 / \beta_2) + (\beta_1 / \beta_2)x_1.$$
 
 With that adjustment in line, here's our updated version of the left panel of Figure 22.6.
 
-```{r}
+```{r, fig.width = 2.75}
 set.seed(22)
 
-post %>% 
-  mutate(draw = 1:n()) %>% 
+draws_df %>% 
+  tibble() %>% 
   slice_sample(n = 30) %>% 
   pivot_longer(starts_with("b")) %>% 
   mutate(name = str_remove(name, "b_") %>% str_remove(., "bcs_")) %>% 
@@ -1731,7 +1732,7 @@ post %>%
             size = 3, show.legend = F) +
   geom_abline(aes(intercept = intercept,
                   slope = slope,
-                  group = interaction(draw, lambda),
+                  group = interaction(.draw, lambda),
                   linetype = lambda),
               size = 1/4, alpha = 1/2, color = pl[1]) +
   scale_color_manual(values = pl[2:5]) +
@@ -1753,7 +1754,7 @@ post %>%
 
 Though we used a different likelihood and a different formula for the thresholds, we got same basic model results. They're just parameterized in a slightly different way. The nice thing with the `family = sratio` approach is all of the typical **brms** post processing functions will work out of the box. For example, here's the posterior predictive check via `pp_check()`.
 
-```{r}
+```{r, fig.width = 4, fig.height = 3.75}
 pp_check(fit22.5, 
          type = "bars", 
          ndraws = 100, 
@@ -1786,7 +1787,8 @@ fit22.6 <-
       prior = c(prior(normal(0, 20), class = Intercept),
                 prior(normal(0, 20), class = b)),
       iter = 2000, warmup = 1000, cores = 4, chains = 4,
-      seed = 22)
+      seed = 22,
+      file = "fits/fit22.06")
 ```
 
 ```{r}
@@ -1797,14 +1799,14 @@ If you look at the parameter summary, nothing obviously bad happened. The comput
 
 ```{r}
 # extract the posterior draws for fit22.6
-post <- posterior_samples(fit22.6)
+draws_df <- as_draws_df(fit22.6)
 
 # 2D thresholds on the left
 set.seed(22)
 
 p1 <- 
-  post %>% 
-  mutate(draw = 1:n()) %>% 
+  draws_df %>% 
+  tibble() %>% 
   slice_sample(n = 30) %>% 
   pivot_longer(starts_with("b")) %>% 
   mutate(name = str_remove(name, "b_") %>% str_remove(., "bcs_")) %>% 
@@ -1820,7 +1822,7 @@ p1 <-
             size = 3, show.legend = F) +
   geom_abline(aes(intercept = intercept,
                   slope = slope,
-                  group = interaction(draw, lambda),
+                  group = interaction(.draw, lambda),
                   linetype = lambda),
               size = 1/4, alpha = 1/2, color = pl[1]) +
   scale_color_manual(values = pl[2:5]) +
@@ -1840,9 +1842,9 @@ p1 <-
 
 # marginal posteriors on the right
 p2 <-
-post %>% 
-  pivot_longer(cols = c(-disc, -lp__)) %>% 
-  mutate(name = str_remove(name, "b_")%>% str_remove(., "bcs_")) %>% 
+draws_df %>% 
+  pivot_longer(starts_with("b")) %>% 
+  mutate(name = str_remove(name, "b_") %>% str_remove(., "bcs_")) %>% 
   separate(name, into = c("parameter", "lambda")) %>% 
   mutate(lambda    = case_when(lambda == "1" ~ "lambda['{1}|{1,2,3,4}']",
                                lambda == "2" ~ "lambda['{2}|{2,3,4}']",
@@ -1877,7 +1879,7 @@ In closing, I would like to thank Singmann and Ben-Shachar for their time and in
 
 ## Generalizations and variations of the models
 
-These models can be generalized to include different kinds of predictors, variants robust to outliers, and model comparison via information criteria and so forth. You can find a few more examples with softmax regression in Chapter 10 of the first edition of McElreath's [-@mcelreathStatisticalRethinkingBayesian2015] [*Statistical rethinking*](https://xcelab.net/rm/statistical-rethinking/) and Chapter 11 of his second edition [@mcelreathStatisticalRethinkingBayesian2020]. See also Kurz [-@kurzStatisticalRethinkingSecondEd2021, [Section 11.3](https://bookdown.org/content/4857/god-spiked-the-integers.html#multinomial-and-categorical-models)] and Kurz [-@kurzStatisticalRethinkingBrms2020, [Section 10.3.1](https://bookdown.org/content/3890/counting-and-classification.html#multinomial)] for walkthroughs with **brms**.
+These models can be generalized to include different kinds of predictors, variants robust to outliers, and model comparison via information criteria and so forth. You can find a few more examples with softmax regression in Chapter 10 of the first edition of McElreath's [-@mcelreathStatisticalRethinkingBayesian2015] [*Statistical rethinking*](https://xcelab.net/rm/statistical-rethinking/) and Chapter 11 of his second edition [@mcelreathStatisticalRethinkingBayesian2020]. See also Kurz [-@kurzStatisticalRethinkingSecondEd2021, [Section 11.3](https://bookdown.org/content/4857/god-spiked-the-integers.html#multinomial-and-categorical-models)] and Kurz [-@kurzStatisticalRethinkingBrms2020, [Section 10.3.1](https://bookdown.org/content/3890/counting-and-classification.html#multinomial)] for walk-throughs with **brms**.
 
 ## Session info {-}
 
@@ -1887,7 +1889,7 @@ sessionInfo()
 
 ```{r, message = F, echo = F}
 # remove the objects
-rm(d1, d2, pl, d3, d4, p1, p2, my_arrow, p3, p4, p5, p6, p7, p8, p9, layout, a, c, b, fit22.1, post, nd, fit22.2, f, text)
+rm(d1, d2, pl, d3, d4, numbers, greek, b01, b11, b21, b02, b12, b22, b03, b13, b23, lines, p1, p2, my_arrow, p3, p4, p5, p6, p7, p8, p9, layout, a, c, b, fit22.1, draws_df, nd, fit22.2, f, text, cond_log_1, stan_lpmf_1, cond_log_1_lpmf, cond_log_1_pred, stanvars, fit22.3, log_lik_cond_log_1, posterior_epred_cond_log_1, ce, posterior_predict_cond_log_1, cond_log_2, stan_lpmf_2, fit22.4, ac, fit22.5, fit22.6)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
