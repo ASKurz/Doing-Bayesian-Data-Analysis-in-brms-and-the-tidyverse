@@ -338,7 +338,7 @@ d %>%
   theme(axis.line = element_blank())
 ```
 
-Note how we loaded the [**viridis** package](https://github.com/sjmgarnier/viridis) [@R-viridis]. That gave us access to the `viridis_pal()` function, which will allow us to discretize the viridis palettes and save the color names as objects. In our case, we discretized the `"A"` palette into nine colors and saved the fourth as `a_purple`. Here's the color name.
+Note how we loaded the [**viridis** package](https://github.com/sjmgarnier/viridis) [@R-viridis]. That gave us access to the `viridis_pal()` function, which will allow us to discretize the **viridis** palettes and save the color names as objects. In our case, we discretized the `"A"` palette into nine colors and saved the fourth as `a_purple`. Here's the color name.
 
 ```{r}
 a_purple
@@ -1649,13 +1649,13 @@ As it turns out, the $N(0, 1.5)$ prior is flat in the probability space for the 
 Here are the trace plots and posterior densities of the main parameters.
 
 ```{r, fig.width = 8, fig.height = 2.5}
-plot(fit9.1)
+plot(fit9.1, widths = c(2, 3))
 ```
 
-The trace plots indicate no problems with convergence. We'll need to extract the posterior samples and open the **bayesplot** package before we can examine the autocorrelations.
+The trace plots indicate no problems with convergence. We'll need to extract the posterior draws with `as_draws_array()` and open the **bayesplot** package before we can examine the autocorrelations.
 
 ```{r, warning = F, message = F}
-post <- posterior_samples(fit9.1, add_chain = T)
+draws_array <- as_draws_array(fit9.1)
 
 library(bayesplot)
 ```
@@ -1663,7 +1663,8 @@ library(bayesplot)
 One of the nice things about **bayesplot** is it returns **ggplot2** objects. As such, we can amend their theme settings to be consistent with our other **ggplot2** plots. Here we'll amend `bayesplot::mcmc_acf()` to the `theme_cowplot()` theme.
 
 ```{r, fig.width = 6, fig.height = 4, warning = F, message = F}
-mcmc_acf(post, pars = c("b_Intercept", "sd_s__Intercept"), lags = 10) +
+draws_array %>% 
+  mcmc_acf(pars = c("b_Intercept", "sd_s__Intercept"), lags = 10) +
   theme_cowplot()
 ```
 
@@ -1681,14 +1682,19 @@ The $N_{eff}/N$ ratio values for our model parameters were excellent. Here's a n
 print(fit9.1)
 ```
 
-We'll need `brms::inv_logit_scaled()` to convert the model parameters to predict $\theta$ rather than $\operatorname{logit}(\theta)$. After the conversions, we'll be ready to make the histograms in the lower portion of Figure 9.10.
+We'll need `brms::inv_logit_scaled()` to convert the model parameters to predict $\theta$ rather than $\operatorname{logit}(\theta)$. After the conversions, we'll be ready to make the histograms in the lower portion of Figure 9.10. Before all that, we'll first extract the posterior draws with the `as_draws_df()` function to get them in a nice data frame format appropriate for **tidyverse**-style wrangling
 
 ```{r, fig.width = 8, fig.height = 4, warning = F, message = F}
+# extract the posterior draws
+draws_df <- as_draws_df(fit9.1)
+
+# load tidybayes
 library(tidybayes)
 
-post_small <-
-  post %>% 
-  # convert the linter model to the probability space with `inv_logit_scaled()`
+# wrangle
+draws_df_small <-
+  draws_df %>% 
+  # convert the linear model parameters to the probability space with `inv_logit_scaled()`
   mutate(`theta[1]`  = (b_Intercept + `r_s[S01,Intercept]`) %>% inv_logit_scaled(),
          `theta[14]` = (b_Intercept + `r_s[S14,Intercept]`) %>% inv_logit_scaled(),
          `theta[28]` = (b_Intercept + `r_s[S28,Intercept]`) %>% inv_logit_scaled()) %>% 
@@ -1698,11 +1704,11 @@ post_small <-
          `theta[14] - theta[28]` = `theta[14]` - `theta[28]`) %>% 
   select(starts_with("theta"))
 
-post_small %>% 
-  gather() %>% 
+draws_df_small %>% 
+  pivot_longer(everything()) %>% 
   # this line is unnecessary, but will help order the plots 
-  mutate(key = factor(key, levels = c("theta[1]", "theta[14]", "theta[28]", 
-                                      "theta[1] - theta[14]", "theta[1] - theta[28]", "theta[14] - theta[28]"))) %>% 
+  mutate(name = factor(name, levels = c("theta[1]", "theta[14]", "theta[28]", 
+                                        "theta[1] - theta[14]", "theta[1] - theta[28]", "theta[14] - theta[28]"))) %>% 
 
   ggplot(aes(x = value, y = 0)) +
   stat_histinterval(point_interval = mode_hdi, .width = .95,
@@ -1710,15 +1716,15 @@ post_small %>%
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(NULL) +
   theme_minimal_hgrid() +
-  facet_wrap(~ key, scales = "free", ncol = 3)
+  facet_wrap(~ name, scales = "free", ncol = 3)
 ```
 
 If you wanted the specific values of the posterior modes and 95% HDIs, you could execute this.
 
 ```{r}
-post_small %>% 
-  gather() %>%
-  group_by(key) %>% 
+draws_df_small %>% 
+  pivot_longer(everything()) %>%
+  group_by(name) %>% 
   mode_hdi(value) %>% 
   mutate_if(is.double, round, digits = 3)
 ```
@@ -1727,19 +1733,19 @@ And here are the Figure 9.10 scatter plots.
 
 ```{r, fig.width = 8, fig.height = 2.5, warning = F, message = F}
 p1 <-
-  post_small %>% 
+  draws_df_small %>% 
   ggplot(aes(x = `theta[1]`, y = `theta[14]`)) +
   geom_abline(linetype = 2) +
   geom_point(color = a_purple, size = 1/8, alpha = 1/8)
 
 p2 <-
-  post_small %>% 
+  draws_df_small %>% 
   ggplot(aes(x = `theta[1]`, y = `theta[28]`)) +
   geom_abline(linetype = 2) +
   geom_point(color = a_purple, size = 1/8, alpha = 1/8)
 
 p3 <-
-  post_small %>% 
+  draws_df_small %>% 
   ggplot(aes(x = `theta[14]`, y = `theta[28]`)) +
   geom_abline(linetype = 2) +
   geom_point(color = a_purple, size = 1/8, alpha = 1/8)
@@ -1755,15 +1761,13 @@ This is posterior distribution for the population estimate for $\theta$, which r
 ```{r, fig.width = 3.25, fig.height = 2.5, warning = F, message = F}
 # this part makes it easier to set the break points in `scale_x_continuous()` 
 labels <-
-  post %>% 
+  draws_df %>% 
   transmute(theta = b_Intercept %>% inv_logit_scaled()) %>%
   mode_hdi() %>% 
-  select(theta:.upper) %>% 
-  gather() %>% 
-  mutate(label = value %>% round(3) %>% as.character) %>% 
-  slice(1:3)
+  pivot_longer(theta:.upper) %>% 
+  mutate(label = value %>% round(3) %>% as.character)
   
-post %>% 
+draws_df %>% 
   mutate(theta = b_Intercept %>% inv_logit_scaled()) %>% 
 
   ggplot(aes(x = theta, y = 0)) +
@@ -1785,7 +1789,7 @@ sigmas <-
   as_tibble() %>% 
   mutate(iter = 1:n()) %>% 
   group_by(iter) %>% 
-  gather(key, value, -iter) %>% 
+  pivot_longer(-iter) %>% 
   mutate(theta = inv_logit_scaled(value)) %>% 
   summarise(sd = sd(theta))
 
@@ -1793,10 +1797,8 @@ sigmas <-
 labels <-
   sigmas %>% 
   mode_hdi(sd) %>% 
-  select(sd:.upper) %>% 
-  gather() %>% 
-  mutate(label = value %>% round(3) %>% as.character) %>% 
-  slice(1:3)
+  pivot_longer(sd:.upper) %>% 
+  mutate(label = value %>% round(3) %>% as.character)
   
 # the plot
 sigmas %>% 
@@ -1833,6 +1835,7 @@ Kruschke used a $\operatorname{Beta}(1, 1)$ prior for $\omega$. If you randomly 
 
 ```{r, fig.width = 3.5, fig.height = 3}
 set.seed(1)
+
 tibble(prior = rbeta(n = 1e5, 1, 1)) %>% 
   ggplot(aes(x = prior)) +
   geom_histogram(fill = a_purple, color = "white", 
@@ -1879,7 +1882,7 @@ tibble(sd = seq(from = .25, to = 3, by = .25)) %>%
 
 It appears that as $\sigma$ goes lower than 1.25, the prior becomes increasingly regularizing, pulling the estimate for $\theta$ to a neutral .5. However, as the prior's $\sigma$ gets larger than 1.25, more and more of the probability mass ends up at extreme values.
 
-Next, Kruschke examined the prior distribution. There are a few ways to do this. Like in the last chapter, the one we'll explore involves adding the `sample_prior = "only"` argument to the `brm()` function. When you do so, the results of the model are just the prior. That is, `brm()` leaves out the likelihood. This returns a bunch of samples from the prior predictive distribution.
+Next, Kruschke examined the prior distribution. There are a few ways to do this. Like in the last chapter, the one we'll explore involves adding the `sample_prior = "only"` argument to the `brm()` function. When you do so, the results of the model are just the prior. That is, `brm()` leaves out the likelihood. This returns a bunch of draws from the prior predictive distribution.
 
 ```{r fit9.1_prior}
 fit9.1_prior <-
@@ -1894,34 +1897,33 @@ fit9.1_prior <-
       file = "fits/fit09.01_prior")
 ```
 
-If we feed `fit1_prior` into the `posterior_samples()` function, we'll get back a data frame of samples from the prior, but with the same parameter names we'd get from the posterior.
+If we feed `fit9.1_prior` into the `as_draws_df()` function, we'll get back a data frame of draws from the prior, but with the same parameter names we'd get from the posterior.
 
 ```{r}
-prior <-
-  posterior_samples(fit9.1_prior) %>% 
-  as_tibble()
+prior_draws_df <-
+  as_draws_df(fit9.1_prior)
 
-head(prior)
+head(prior_draws_df)
 ```
 
-And here we'll take a subset of the columns in `prior`, transform the results to the probability metric, and save the results as `prior_samples`.
+And here we'll take a subset of the columns in `prior_draws_df`, transform the results to the probability metric, and save.
 
 ```{r}
-prior_samples <-
-  prior %>% 
+prior_draws_df <-
+  prior_draws_df %>% 
   transmute(`theta[1]`  = b_Intercept + `r_s[S01,Intercept]`,
             `theta[14]` = b_Intercept + `r_s[S14,Intercept]`,
             `theta[28]` = b_Intercept + `r_s[S28,Intercept]`) %>% 
   mutate_all(.funs = inv_logit_scaled)
 
-head(prior_samples)
+head(prior_draws_df)
 ```
 
-Now we can use our `prior_samples` object to make the diagonal of the lower grid of Figure 9.11.
+Now we can use our `prior_draws_df` object to make the diagonal of the lower grid of Figure 9.11.
 
 ```{r, fig.width = 8, fig.height = 2.5}
-prior_samples %>% 
-  gather() %>% 
+prior_draws_df %>% 
+  pivot_longer(everything()) %>% 
   
   ggplot(aes(x = value)) +
   geom_histogram(fill = a_purple, color = "white", size = .2,
@@ -1931,17 +1933,17 @@ prior_samples %>%
   coord_cartesian(xlim = c(0, 1)) +
   theme_minimal_hgrid() +
   panel_border() +
-  facet_wrap(~ key)
+  facet_wrap(~ name)
 ```
 
 With a little subtraction, we can reproduce the plots in the upper triangle.
 
 ```{r, fig.width = 8, fig.height = 2.5}
-prior_samples %>% 
-  transmute(`theta[1] - theta[14]`  = `theta[1]`  - `theta[14]`,
-            `theta[1] - theta[28]`  = `theta[1]`  - `theta[28]`,
-            `theta[14] - theta[28]` = `theta[14]` - `theta[28]`) %>% 
-  gather() %>% 
+prior_draws_df %>% 
+  mutate(`theta[1] - theta[14]`  = `theta[1]`  - `theta[14]`,
+         `theta[1] - theta[28]`  = `theta[1]`  - `theta[28]`,
+         `theta[14] - theta[28]` = `theta[14]` - `theta[28]`) %>% 
+  pivot_longer(contains("-")) %>% 
 
   ggplot(aes(x = value)) +
   geom_histogram(fill = a_purple, color = "white", size = .2,
@@ -1949,7 +1951,7 @@ prior_samples %>%
   scale_y_continuous(NULL, breaks = NULL) +
   theme_minimal_hgrid() +
   panel_border() +
-  facet_wrap(~ key)
+  facet_wrap(~ name)
 ```
 
 Those plots clarify our hierarchical logistic regression model was a little more regularizing than Kruschke's. The consequence of our priors was more aggressive regularization, greater shrinkage toward zero. The prose in the next section of the text clarifies this isn't necessarily a bad thing.
@@ -1958,17 +1960,17 @@ Finally, here are the plots for the lower triangle in Figure 9.11.
 
 ```{r, fig.width = 8, fig.height = 2.5}
 p1 <-
-  prior_samples %>% 
+  prior_draws_df %>% 
   ggplot(aes(x = `theta[1]`, y = `theta[14]`)) +
   geom_point(color = a_purple, size = 1/8, alpha = 1/8)
 
 p2 <-
-  prior_samples %>% 
+  prior_draws_df %>% 
   ggplot(aes(x = `theta[1]`, y = `theta[28]`)) +
   geom_point(color = a_purple, size = 1/8, alpha = 1/8)
 
 p3 <-
-  prior_samples %>% 
+  prior_draws_df %>% 
   ggplot(aes(x = `theta[14]`, y = `theta[28]`)) +
   geom_point(color = a_purple, size = 1/8, alpha = 1/8)
 
@@ -1982,7 +1984,7 @@ p3 <-
 In case you were curious, here are the Pearson's correlation coefficients among the priors.
 
 ```{r}
-cor(prior_samples) %>% round(digits = 2)
+cor(prior_draws_df) %>% round(digits = 2)
 ```
 
 ## Shrinkage in hierarchical models
@@ -2011,8 +2013,8 @@ tibble(x = seq(from = 0, to = 1, by = .001)) %>%
          `kappa==15.8` = dbeta(x = x, 
                                shape1 = omega * (kappa2 - 2) + 1, 
                                shape2 = (1 - omega) * (kappa2 - 2) + 1)) %>% 
-  gather(key, value, - x) %>% 
-  mutate(key = factor(key, levels = c("kappa==2.1", "kappa==15.8"))) %>% 
+  pivot_longer(-x) %>% 
+  mutate(name = factor(name, levels = c("kappa==2.1", "kappa==15.8"))) %>% 
   
   ggplot(aes(x = x, y = value)) +
   geom_area(fill = a_purple) +
@@ -2020,7 +2022,7 @@ tibble(x = seq(from = 0, to = 1, by = .001)) %>%
   xlab(expression(Data~Proportion~or~theta~value)) +
   theme_minimal_hgrid() +
   panel_border() +
-  facet_wrap(~ key, labeller = label_parsed)
+  facet_wrap(~ name, labeller = label_parsed)
 ```
 
 ## Speeding up ~~JAGS~~ brms
@@ -2339,7 +2341,7 @@ fit9.2 <-
 The chains look good.
 
 ```{r, fig.width = 10, fig.height = 4}
-plot(fit9.2)
+plot(fit9.2, widths = c(2, 3))
 ```
 
 Note how our `color_scheme_set("purple")` line from back up in the `mcmc_pairs()` has effected the color scheme of `brms::plot()`.
@@ -2347,11 +2349,13 @@ Note how our `color_scheme_set("purple")` line from back up in the `mcmc_pairs()
 We might examine the autocorrelations within the chains.
 
 ```{r, fig.width = 8, fig.height = 4, warning = F, message = F}
-post <- posterior_samples(fit9.2, add_chain = T)
+draws_array <- as_draws_array(fit9.2)
 
-mcmc_acf(post, pars = c("b_Intercept", 
-                        "sd_PriPos__Intercept", 
-                        "sd_PriPos:Player__Intercept"), lags = 8) +
+draws_array %>% 
+  mcmc_acf(pars = c("b_Intercept", 
+                    "sd_PriPos__Intercept", 
+                    "sd_PriPos:Player__Intercept"), 
+           lags = 8) +
   theme_minimal_hgrid()
 ```
 
@@ -2371,21 +2375,20 @@ Happily, most have a very favorable ratio. Here's a numeric summary of the prima
 print(fit9.2)
 ```
 
-As far as I'm aware, **brms** offers three major ways to get the group-level parameters for a hierarchical model: using `posterior_samples()`, `coef()`, or `fitted()`. We'll cover each, beginning with `posterior_samples()`. In order to look at the autocorrelation plots, above, we already saved the `posterior_samples(fit9.2)` output as `post`. Here we'll look at its structure with `head()`. Before doing so we'll convert `post`, which is currently saved as a data frame, into a tibble in order to keep the output from getting unwieldy.
+As far as I'm aware, **brms** offers three major ways to get the group-level parameters for a hierarchical model: using one of the `as_draws` functions, `coef()`, or `fitted()`. We'll cover each, beginning with `as_draws`. In order to look at the autocorrelation plots, above, we already saved the `as_draws_array(fit9.2)`. To put the results in a data frame format, we'll use the `as_draws_df()` function and then look at its structure with `head()`.
 
 ```{r}
-post <-
-  post %>% 
-  as_tibble()
+draws_df <-
+  as_draws_df(fit9.2)
 
-head(post)
+head(draws_df)
 ```
 
-In the text, Kruschke described the model as having 968 parameters. Our `post` tibble has one vector for each, with a couple others tacked onto the end. In the hierarchical logistic regression model, the group-specific parameters for the levels of `PriPos` are additive combinations of the global intercept vector, `b_Intercept` and each position-specific vector, `r_PriPos[i.Base,Intercept]`, where `i` is a fill-in for the position of interest. And recall that since the linear model is of the logit of the criterion, we'll need to use `inv_logit_scaled()` to convert that to the probability space.
+In the text, Kruschke described the model as having 968 parameters. Our `draws_df` data frame has one vector for each, with a couple others tacked onto the end. In the hierarchical logistic regression model, the group-specific parameters for the levels of `PriPos` are additive combinations of the global intercept vector, `b_Intercept` and each position-specific vector, `r_PriPos[i.Base,Intercept]`, where `i` is a fill-in for the position of interest. And recall that since the linear model is of the logit of the criterion, we'll need to use `inv_logit_scaled()` to convert that to the probability space.
 
 ```{r}
-post_small <-
-  post %>% 
+draws_df_small <-
+  draws_df %>% 
   transmute(`1st Base` = (b_Intercept + `r_PriPos[1st.Base,Intercept]`), 
             Catcher    = (b_Intercept + `r_PriPos[Catcher,Intercept]`), 
             Pitcher    = (b_Intercept + `r_PriPos[Pitcher,Intercept]`)) %>% 
@@ -2394,7 +2397,7 @@ post_small <-
   mutate(`Pitcher - Catcher`  = Pitcher - Catcher,
          `Catcher - 1st Base` = Catcher - `1st Base`)
 
-head(post_small)
+head(draws_df_small)
 ```
 
 If you take a glance at Figures 9.14 through 9.16 in the text, we'll be making a lot of histograms of the same basic structure. To streamline our code a bit, we can make a custom histogram plotting function.
@@ -2441,24 +2444,24 @@ Now we have our `make_histogram()` and `make_point()` functions, we'll use `grid
 
 ```{r, fig.width = 6, fig.height = 4.5}
 p1 <-
-  make_histogram(data = post_small,
+  make_histogram(data = draws_df_small,
                  aes(x = Pitcher), 
                  title = "Pitcher", 
                  xlim = c(.1, .25))
 
 p2 <-
-  make_histogram(data = post_small,
+  make_histogram(data = draws_df_small,
                  aes(x = `Pitcher - Catcher`), 
                  title = "Pitcher - Catcher", 
                  xlim = c(-.15, 0))
 
 p3 <-
-  make_point(data = post_small,
+  make_point(data = draws_df_small,
              aes(x = Pitcher, y = Catcher),
              limits = c(.12, .25))
 
 p4 <-
-  make_histogram(data = post_small,
+  make_histogram(data = draws_df_small,
                  aes(x = Catcher), 
                  title = "Catcher", 
                  xlim = c(.1, .25))
@@ -2528,18 +2531,18 @@ And if you wanted the posterior modes and HDIs, you'd use `mode_hdi()` after a l
 
 ```{r}
 coef_small %>% 
-  gather() %>% 
-  group_by(key) %>% 
+  pivot_longer(everything()) %>% 
+  group_by(name) %>% 
   mode_hdi(value) %>% 
   mutate_if(is.double, round, digits = 3)
 ```
 
-While we're at it, we should capitalize on the opportunity to show how these results are the same as those derived from our `posterior_samples()` approach, above.
+While we're at it, we should capitalize on the opportunity to show how these results are the same as those derived from our `as_draws_df()` approach, above.
 
 ```{r}
-post_small %>% 
-  gather() %>% 
-  group_by(key) %>% 
+draws_df_small %>% 
+  pivot_longer(everything()) %>% 
+  group_by(name) %>% 
   mode_hdi(value) %>% 
   mutate_if(is.double, round, digits = 3)
 ```
@@ -2557,8 +2560,8 @@ name_list <- c("Kyle Blanks", "Bruce Chen", "ShinSoo Choo", "Ichiro Suzuki",
 nd <-
   my_data %>% 
   filter(Player %in% name_list) %>% 
-  # these last two lines aren't typically necessary, 
-  # but they allow us to arrange the rows in the same order we find the names in Figures 9.15 and 9.16
+  # these last two lines aren't typically necessary, but they allow us to
+  # arrange the rows in the same order we find the names in Figures 9.15 and 9.16
   mutate(Player = factor(Player, levels = name_list)) %>% 
   arrange(Player)
 
@@ -2706,8 +2709,8 @@ If you wanted the posterior modes and HDIs for any of the players and their cont
 
 ```{r}
 fitted_players %>% 
-  gather() %>% 
-  group_by(key) %>% 
+  pivot_longer(everything()) %>% 
+  group_by(name) %>% 
   mode_hdi(value) %>% 
   mutate_if(is.double, round, digits = 3)
 ```
@@ -2804,7 +2807,7 @@ sessionInfo()
 
 ```{r, echo = F}
 # remove our objects
-rm(beta_by_k, p1, p2, p3, my_arrow, p4, p5, p6, p7, layout, alpha, beta, make_prior, parameter_space, d, geom_2dd, a_purple, geom_marginal, text, bernoulli_likelihood, n, z, trial_data, trial_data_1, trial_data_2, p11, p12, p13, p21, p22, p23, p31, p32, p33, p41, p42, p43, p51, p52, p53, p8, length, gamma_s_and_r_from_mean_sd, gamma_s_and_r_from_mode_sd, gamma_param, my_data, fit9.1, post, post_small, labels, sigmas, r_norm, fit9.1_prior, prior, prior_samples, omega, kappa1, kappa2, stop_time_bernoulli, start_time_bernoulli, stop_time_binomial, start_time_binomial, p9, p10, fit9.2, make_histogram, make_point, coef_primary_position, coef_small, name_list, nd, fitted_players, fitted_positions)
+rm(beta_by_k, p1, p2, p3, my_arrow, p4, p5, p6, p7, layout, alpha, beta, make_prior, parameter_space, d, geom_2dd, a_purple, geom_marginal, text, bernoulli_likelihood, n, z, trial_data, trial_data_1, trial_data_2, p11, p12, p13, p21, p22, p23, p31, p32, p33, p41, p42, p43, p51, p52, p53, p8, length, gamma_s_and_r_from_mean_sd, gamma_s_and_r_from_mode_sd, gamma_param, my_data, fit9.1, draws_array, draws_df, draws_df_small, labels, sigmas, r_norm, fit9.1_prior, prior_draws_df, omega, kappa1, kappa2, stop_time_bernoulli, start_time_bernoulli, stop_time_binomial, start_time_binomial, p9, p10, fit9.2, make_histogram, make_point, coef_primary_position, coef_small, name_list, nd, fitted_players, fitted_positions)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}

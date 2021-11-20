@@ -369,7 +369,7 @@ Also, notice our prior code for $\sigma$, `prior(normal(0, sd_y), class = sigma)
 Let's examine the chains.
 
 ```{r, fig.width = 8, fig.height = 2.5}
-plot(fit16.1)
+plot(fit16.1, widths = c(2, 3))
 ```
 
 They look good! The model summary looks sensible, too.
@@ -385,10 +385,10 @@ mean_y
 sd_y
 ```
 
-Good times. Let's extract the posterior draws and save them in a data frame `post`.
+Good times. Let's extract the posterior draws and save them in a data frame `draws_df`.
 
 ```{r}
-post <- posterior_samples(fit16.1, add_chain = T)
+draws_df <- as_draws_df(fit16.1)
 ```
 
 Here's the leg work required to make our version of the three histograms in Figure 16.3.
@@ -399,7 +399,7 @@ library(tidybayes)
 
 # we'll use this to mark off the ROPEs as white strips in the background
 rope <-
-  tibble(key  = c("Mean", "Standard Deviation", "Effect Size"), 
+  tibble(name = c("Mean", "Standard Deviation", "Effect Size"), 
          xmin = c(99, 14, -0.1),
          xmax = c(101, 16, 0.1))
 
@@ -408,14 +408,14 @@ text <-
   tibble(x     = 0,
          y     = 0.98,
          label = "ROPE",
-         key   = "Effect Size")
+         name  = "Effect Size")
 
 # here are the primary data
-post %>% 
+draws_df %>% 
   transmute(Mean                 = b_Intercept, 
             `Standard Deviation` = sigma) %>% 
   mutate(`Effect Size` = (Mean - 100) / `Standard Deviation`) %>% 
-  gather() %>% 
+  pivot_longer(everything()) %>% 
   
   # the plot
   ggplot() +
@@ -432,37 +432,37 @@ post %>%
             size = 2.5, color = bp[4]) +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(NULL) +
-  facet_wrap(~ key, scales = "free", ncol = 3)
+  facet_wrap(~ name, scales = "free", ncol = 3)
 ```
 
 If we wanted those exact 95% HDIs, we'd execute this.
 
-```{r}
-post %>% 
+```{r, warning = F}
+draws_df %>% 
   transmute(Mean                 = b_Intercept, 
             `Standard Deviation` = sigma) %>% 
   mutate(`Effect Size` = (Mean - 100) / `Standard Deviation`) %>% 
-  gather() %>% 
-  group_by(key) %>% 
+  pivot_longer(everything()) %>% 
+  group_by(name) %>% 
   mode_hdi(value)
 ```
 
-For the next part, we should look at the structure of the posterior draws, `post`.
+For the next part, we should look at the structure of the posterior draws, `draws_df`.
 
 ```{r}
-head(post)
+head(draws_df)
 ```
 
 By default, `head()` returned six rows, each one corresponding to the credible parameter values from a given posterior draw. Following our model equation $\text{Score}_i \sim N(\mu, \sigma)$, we might reformat the first two columns as:
 
-1. `Score` ~ $N$(`r round(post[1, 1], 3)`, `r round(post[1, 2], 3)`)
-2. `Score` ~ $N$(`r round(post[2, 1], 3)`, `r round(post[2, 2], 3)`)
-3. `Score` ~ $N$(`r round(post[3, 1], 3)`, `r round(post[3, 2], 3)`)
-4. `Score` ~ $N$(`r round(post[4, 1], 3)`, `r round(post[4, 2], 3)`)
-5. `Score` ~ $N$(`r round(post[5, 1], 3)`, `r round(post[5, 2], 3)`)
-6. `Score` ~ $N$(`r round(post[6, 1], 3)`, `r round(post[6, 2], 3)`)
+1. `Score` ~ $N$(`r round(draws_df[1, 1], 3)`, `r round(draws_df[1, 2], 3)`)
+2. `Score` ~ $N$(`r round(draws_df[2, 1], 3)`, `r round(draws_df[2, 2], 3)`)
+3. `Score` ~ $N$(`r round(draws_df[3, 1], 3)`, `r round(draws_df[3, 2], 3)`)
+4. `Score` ~ $N$(`r round(draws_df[4, 1], 3)`, `r round(draws_df[4, 2], 3)`)
+5. `Score` ~ $N$(`r round(draws_df[5, 1], 3)`, `r round(draws_df[5, 2], 3)`)
+6. `Score` ~ $N$(`r round(draws_df[6, 1], 3)`, `r round(draws_df[6, 2], 3)`)
 
-Each row of `post` yields a full model equation with which we might credibly describe the data--or at least as credibly as we can within the limits of the model. We can give voice to a subset of these credible distributions with our version of the upper right panel of Figure 16.3.
+Each row of `draws_df` yields a full model equation with which we might credibly describe the data--or at least as credibly as we can within the limits of the model. We can give voice to a subset of these credible distributions with our version of the upper right panel of Figure 16.3.
 
 Before I show that plotting code, it might make sense to slow down on the preparatory data wrangling steps. There are several ways to overlay multiple posterior predictive density lines like those in our upcoming plots. We'll practice a few over the next few chapters. For the method we'll use in this chapter, it's handy to first determine how many you'd like. Here we'll follow Kruschke and choose 63, which we'll save as `n_lines`.
 
@@ -471,29 +471,29 @@ Before I show that plotting code, it might make sense to slow down on the prepar
 n_lines <- 63
 ```
 
-Now we've got our `n_lines` value, we'll use it to subset the rows in `post` with the `slice()` function. We'll then use `expand()` to include a sequence of `Score` values to correspond to the formula implied in each of the remaining rows of `post`. Notice how we also kept the `iter` index in the game. That will help us with the plot in a bit. But the main event is how we used `Score`, `b_Intercept`, and `sigma` as the input for the arguments in the `dnorm()`. The output is a column of the corresponding density values.
+Now we've got our `n_lines` value, we'll use it to subset the rows in `draws_df` with the `slice()` function. We'll then use `expand()` to include a sequence of `Score` values to correspond to the formula implied in each of the remaining rows of `post`. Notice how we also kept the `.draw` index in the game. That will help us with the plot in a bit. But the main event is how we used `Score`, `b_Intercept`, and `sigma` as the input for the arguments in the `dnorm()`. The output is a column of the corresponding density values.
 
 ```{r}
-post <-
-  post %>% 
+draws_df <-
+  draws_df %>% 
   slice(1:n_lines) %>% 
-  expand(nesting(b_Intercept, sigma, iter),
+  expand(nesting(.draw, b_Intercept, sigma),
          Score = seq(from = 40, to = 250, by = 1)) %>% 
   mutate(density = dnorm(x = Score, mean = b_Intercept, sd = sigma))
 
-str(post)
+str(draws_df)
 ```
 
 Note that after using `expand()`, we have a rather long data frame. Anyway, we're ready to plot.
 
 ```{r, fig.width = 3, fig.height = 2.25, warning = F, message = F}
-post %>% 
+draws_df %>% 
   ggplot(aes(x = Score)) + 
   geom_histogram(data = my_data, 
                  aes(y = stat(density)),
                  fill = bp[2],
                  size = .2, binwidth = 5, boundary = 0) +
-  geom_line(aes(y = density, group = iter),
+  geom_line(aes(y = density, group = .draw),
             size = 1/4, alpha = 1/3, color = bp[6]) +
   scale_x_continuous("y", limits = c(50, 210)) +
   scale_y_continuous(NULL, breaks = NULL, expand = expansion(mult = c(0, 0.05))) +
@@ -571,8 +571,7 @@ I'm not aware that we have the data for the bottom panel of Figure 16.5. However
 set.seed(145)
 
 # simulate the data
-d <-
-  tibble(y = metRology::rt.scaled(n = 177, df = 2.63, mean = 1.11, sd = 0.15))
+d <- tibble(y = metRology::rt.scaled(n = 177, df = 2.63, mean = 1.11, sd = 0.15))
 
 # plot
 tibble(y = seq(from = -3, to = 12, length.out = 1e3)) %>% 
@@ -701,8 +700,8 @@ set.seed(16)
 
 tibble(y = rexp(n = n_draws, rate = 1 / mu)) %>% 
   mutate(y_at_least_1 = ifelse(y < 1, NA, y)) %>%
-  gather() %>% 
-  group_by(key) %>% 
+  pivot_longer(everything()) %>% 
+  group_by(name) %>% 
   summarise(mean = mean(value, na.rm = T))
 ```
 
@@ -787,27 +786,27 @@ pairs(fit16.2,
       off_diag_args = list(size = 1/3, alpha = 1/3))
 ```
 
-I'm not aware of an easy way to use `log10(nu)` instead of `nu` with `brms::pairs()`. However, you can get those plots with `posterior_samples()` and a little wrangling.
+I'm not aware of an easy way to use `log10(nu)` instead of `nu` with `brms::pairs()`. However, you can get those plots with `as_draws_df()` and a little wrangling.
 
-```{r, fig.width = 2.5, fig.height = 4}
-post <- posterior_samples(fit16.2)
+```{r, fig.width = 2.5, fig.height = 4, warning = F}
+draws_df <- as_draws_df(fit16.2)
 
-post %>% 
+draws_df %>% 
   mutate(`log10(nu)` = log10(nu)) %>% 
   select(b_Intercept, sigma, `log10(nu)`) %>% 
-  gather(key, value, -`log10(nu)`) %>% 
-  
+  pivot_longer(-`log10(nu)`) %>% 
+
   ggplot(aes(x = `log10(nu)`, y = value)) +
   geom_point(color = bp[6], size = 1/3, alpha = 1/3) +
   labs(x = expression(log10(nu)),
        y = NULL) +
-  facet_grid(key ~ ., scales = "free", switch = "y")
+  facet_grid(name ~ ., scales = "free", switch = "y")
 ```
 
 If you want the Pearson's correlation coefficients, you can use base **R** `cor()`.
 
-```{r}
-post %>% 
+```{r, warning = F}
+draws_df %>% 
   mutate(`log10(nu)` = log10(nu)) %>% 
   select(b_Intercept, sigma, `log10(nu)`) %>% 
   cor() %>% 
@@ -816,20 +815,20 @@ post %>%
 
 The correlations among our parameters are a similar magnitude as those Kruschke presented in the text. Here are four of the panels for Figure 16.9.
 
-```{r, fig.width = 6, fig.height = 4}
+```{r, fig.width = 6, fig.height = 4, warning = F}
 # we'll use this to mark off the ROPEs as white strips in the background
 rope <-
-  tibble(key  = c("Mean", "Scale", "Effect Size"), 
+  tibble(name = c("Mean", "Scale", "Effect Size"), 
          xmin = c(99, 14, -.1),
          xmax = c(101, 16, .1))
 
 # here are the primary data
-post %>% 
+draws_df %>% 
   transmute(Mean      = b_Intercept, 
             Scale     = sigma,
             Normality = log10(nu)) %>% 
   mutate(`Effect Size` = (Mean - 100) / Scale) %>% 
-  gather() %>% 
+  pivot_longer(everything()) %>% 
   
   # the plot
   ggplot() +
@@ -843,10 +842,10 @@ post %>%
                     normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(NULL) +
-  facet_wrap(~ key, scales = "free", ncol = 2)
+  facet_wrap(~ name, scales = "free", ncol = 2)
 ```
 
-For the final panel of Figure 16.9, we'll make our $t$ lines in much the same way we did, earlier. But last time, we just took the first $\mu$ and $\sigma$ values from the first 63 rows of the `post` tibble. This time we'll use `dplyr::sample_n()` to take *random draws* from the `post` rows instead. We tell `sample_n()` how many draws we'd like with the `size` argument. Since `sample_n()` tells us which rows it drew from in the form of rownames, we then use the `tibble::rownames_to_column()` function to save those rownames in an actual column named `draw`--this is the variable we group the lines by in `geom_line()`.
+For the final panel of Figure 16.9, we'll make our $t$ lines in much the same way we did, earlier. But last time, we just took the first $\mu$ and $\sigma$ values from the first 63 rows of the `post` tibble. This time we'll use `dplyr::slice_sample()` to take *random draws* from the `post` rows instead. We tell `slice_sample()` how many draws we'd like with the `n` argument.
 
 In addition to the change in our row selection strategy, this time we'll slightly amend the code within the last `mutate()` line. Since we'd like to work with the $t$ distribution, we specified `metRology::dt.scaled()` function instead of `dnorm()`.
 
@@ -854,14 +853,14 @@ In addition to the change in our row selection strategy, this time we'll slightl
 # how many credible density lines would you like?
 n_lines <- 63
 
-# setting the seed makes the results from `sample_n()` reproducible
+# setting the seed makes the results from `slice_sample()` reproducible
 set.seed(16)
 
 # wrangle
-post %>% 
-  sample_n(size = n_lines) %>% 
-  rownames_to_column("iter") %>% 
-  expand(nesting(b_Intercept, sigma, nu, iter),
+draws_df %>% 
+  tibble() %>% 
+  slice_sample(n = n_lines) %>% 
+  expand(nesting(.draw, b_Intercept, sigma, nu),
          Score = seq(from = 40, to = 250, by = 1)) %>% 
   mutate(density = metRology::dt.scaled(x = Score, df = nu, mean = b_Intercept, sd = sigma)) %>% 
   
@@ -871,7 +870,7 @@ post %>%
                  aes(y = stat(density)),
                  fill = bp[2],
                  size = .2, binwidth = 5, boundary = 0) +
-  geom_line(aes(y = density, group = iter),
+  geom_line(aes(y = density, group = .draw),
             size  = 1/3, alpha = 1/3, color = bp[6]) +
   scale_y_continuous(NULL, breaks = NULL, expand = expansion(mult = c(0, 0.05))) +
   labs(title = "Data with Post. Pred.",
@@ -909,9 +908,9 @@ fixef(fit16.2)
 
 Here that is in a coefficient plot using `tidybayes::stat_interval()`.
 
-```{r, fig.width = 6, fig.height = 1.25}
-bind_rows(posterior_samples(fit16.1) %>% select(b_Intercept),
-          posterior_samples(fit16.2) %>% select(b_Intercept)) %>% 
+```{r, fig.width = 6, fig.height = 1.25, warning = F}
+bind_rows(as_draws_df(fit16.1) %>% select(b_Intercept),
+          as_draws_df(fit16.2) %>% select(b_Intercept)) %>% 
   mutate(fit = rep(c("fit16.1", "fit16.2"), each = n() / 2)) %>% 
   
   ggplot(aes(x = b_Intercept, y = fit)) +
@@ -930,9 +929,10 @@ Kruschke expressed concern about high autocorrelations in the chains of his JAGS
 # rearrange the bayesplot color scheme
 color_scheme_set(scheme = bp[c(6, 2, 2, 2, 1, 2)])
 
-post <- posterior_samples(fit16.2, add_chain = T)
+draws_array <- as_draws_array(fit16.2)
 
-mcmc_acf(post, pars = c("b_Intercept", "sigma", "nu"), lags = 35)
+draws_array %>% 
+  mcmc_acf(pars = c("b_Intercept", "sigma", "nu"), lags = 35)
 ```
 
 For all three parameters, the autocorrelations were near zero by lag 3 or 4. Not bad. The $N_{eff}/N$ ratios are okay.
@@ -952,13 +952,14 @@ The trace plots look fine.
 # rearrange the bayesplot color scheme one more time
 color_scheme_set(scheme = c("white", bp[c(2, 2, 2, 6, 3)]))
 
-plot(fit16.2)
+plot(fit16.2, widths = c(2, 3))
 ```
 
 The values for `nu` are pretty skewed, but hopefully it makes sense to you why that might be the case. Here are the overlaid density plots.
 
 ```{r, fig.width = 8, fig.height = 2}
-mcmc_dens_overlay(post, pars = c("b_Intercept", "sigma", "nu"))
+draws_array %>% 
+  mcmc_dens_overlay(pars = c("b_Intercept", "sigma", "nu"))
 ```
 
 The $\widehat R$ values are right where we like them.
@@ -983,14 +984,14 @@ color_scheme_set(scheme = bp[c(1, 1, 1, 1, 1, 6)])
 # fit16.1 with Gaus
 set.seed(16)
 p1 <-
-  pp_check(fit16.1, nsamples = n_lines, type = "ecdf_overlay") + 
+  pp_check(fit16.1, ndraws = n_lines, type = "ecdf_overlay") + 
   labs(subtitle = "fit16.1 with `family = gaussian`") +
   coord_cartesian(xlim = range(my_data$Score)) +
   theme(legend.position = "none")
 
 # fit16.2 with Student's t
 p2 <-
-  pp_check(fit16.2, nsamples = n_lines, type = "ecdf_overlay") + 
+  pp_check(fit16.2, ndraws = n_lines, type = "ecdf_overlay") + 
   labs(subtitle = "fit16.2 with `family = student`") +
   coord_cartesian(xlim = range(my_data$Score))
 
@@ -1197,47 +1198,52 @@ Remember that the $\sigma$s are now in the log scale. If you want a quick conver
 fixef(fit16.3)[3:4, 1] %>% exp()
 ```
 
-But please don't stop there. Get your hands dirty with the full posterior. Speaking of which, if we want to make the histograms in Figure 16.12, we'll need to first extract the posterior samples.
+But please don't stop there. Get your hands dirty with the full posterior. Speaking of which, if we want to make the histograms in Figure 16.12, we'll need to first extract the posterior draws
 
 ```{r}
-post <- posterior_samples(fit16.3)
+draws_df <- as_draws_df(fit16.3)
 
-glimpse(post)
+glimpse(draws_df)
 ```
 
 Along with transforming the metrics of a few of the parameters, we may as well rename them to match those in the text.
 
-```{r}
-post <-
-  post %>% 
-  transmute(`Placebo Mean`     = b_GroupPlacebo,
-            `Smart Drug Mean`  = b_GroupSmartDrug,
-            # we need to transform the next three parameters
-            `Placebo Scale`    = b_sigma_GroupPlacebo   %>% exp(),
-            `Smart Drug Scale` = b_sigma_GroupSmartDrug %>% exp(),
-            Normality          = nu                     %>% log10()) %>% 
+```{r, warning = F}
+draws_df <-
+  draws_df %>% 
+  mutate(`Placebo Mean`     = b_GroupPlacebo,
+         `Smart Drug Mean`  = b_GroupSmartDrug,
+         # we need to transform the next three parameters
+         `Placebo Scale`    = b_sigma_GroupPlacebo   %>% exp(),
+         `Smart Drug Scale` = b_sigma_GroupSmartDrug %>% exp(),
+         Normality          = nu                     %>% log10()) %>% 
   mutate(`Difference of Means`  = `Smart Drug Mean` - `Placebo Mean`,
          `Difference of Scales` = `Smart Drug Scale` - `Placebo Scale`,
-         `Effect Size` = (`Smart Drug Mean` - `Placebo Mean`) / sqrt((`Smart Drug Scale`^2 + `Placebo Scale`^2) / 2))
+         `Effect Size` = (`Smart Drug Mean` - `Placebo Mean`) / sqrt((`Smart Drug Scale`^2 + `Placebo Scale`^2) / 2)) %>% 
+  select(.draw, `Placebo Mean`:`Effect Size`)
 
-glimpse(post)
+glimpse(draws_df)
 ```
 
 Now we're ready for the bulk of Figure 16.12.
 
 ```{r, fig.width = 6, fig.height = 8}
+# save the factor levels
+levels <- c("Placebo Mean", "Smart Drug Mean",  "Placebo Scale", "Difference of Means", 
+            "Smart Drug Scale", "Difference of Scales", "Normality", "Effect Size")
+
 # we'll use this to mark off the ROPEs as white strips in the background
 rope <-
-  tibble(key  = factor(c("Difference of Means", "Difference of Scales", "Effect Size"),
-                       levels = c("Placebo Mean", "Smart Drug Mean",  "Placebo Scale", "Difference of Means", "Smart Drug Scale", "Difference of Scales", "Normality", "Effect Size")), 
+  tibble(name = factor(c("Difference of Means", "Difference of Scales", "Effect Size"),
+                       levels = levels), 
          xmin = c(-1, -1, -.1),
          xmax = c(1, 1, .1))
 
 # here are the primary data
-post %>% 
-  gather() %>% 
+draws_df %>% 
+  pivot_longer(-.draw) %>% 
   # this isn't necessary, but it arranged our subplots like those in the text
-  mutate(key = factor(key, levels = c("Placebo Mean", "Smart Drug Mean",  "Placebo Scale", "Difference of Means", "Smart Drug Scale", "Difference of Scales", "Normality", "Effect Size"))) %>% 
+  mutate(name = factor(name, levels = levels)) %>% 
   
   # the plot
   ggplot() +
@@ -1251,7 +1257,7 @@ post %>%
                     normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(NULL) +
-  facet_wrap(~ key, scales = "free", ncol = 2)
+  facet_wrap(~ name, scales = "free", ncol = 2)
 ```
 
 Now let's make the upper two panels in the right column of Figure 16.12.
@@ -1268,16 +1274,17 @@ n_lines <- 63
 set.seed(16)
 
 # wrangle
-post %>% 
-  sample_n(size = n_lines) %>% 
-  rownames_to_column("iter") %>% 
-  expand(nesting(iter, `Placebo Mean`, `Smart Drug Mean`, `Placebo Scale`, `Smart Drug Scale`, Normality),
+draws_df %>% 
+  tibble() %>% 
+  slice_sample(n = n_lines) %>% 
+  expand(nesting(.draw, `Placebo Mean`, `Smart Drug Mean`, `Placebo Scale`, `Smart Drug Scale`, Normality),
          Score = seq(from = 40, to = 250, by = 1)) %>% 
   
   mutate(Placebo      = metRology::dt.scaled(x = Score, df = 10^Normality, mean = `Placebo Mean`,    sd = `Placebo Scale`),
          `Smart Drug` = metRology::dt.scaled(x = Score, df = 10^Normality, mean = `Smart Drug Mean`, sd = `Smart Drug Scale`)) %>% 
-  select(iter, Score:`Smart Drug`) %>% 
-  gather(Group, density, -iter, -Score) %>% 
+  select(.draw, Score:`Smart Drug`) %>% 
+  pivot_longer(cols = c(-.draw, -Score),
+               names_to = "Group", values_to = "density") %>% 
   
   # plot
   ggplot(aes(x = Score)) + 
@@ -1286,7 +1293,7 @@ post %>%
                  aes(y = stat(density)),
                  fill = bp[2],
                  size = .2, binwidth = 5, boundary = 0) +
-  geom_line(aes(y = density, group = iter),
+  geom_line(aes(y = density, group = .draw),
             size  = 1/3, alpha = 1/3, color = bp[6]) +
   scale_y_continuous(NULL, breaks = NULL, expand = expansion(mult = c(0, 0.05))) +
   labs(title = "Data with Post. Pred.",
@@ -1388,7 +1395,7 @@ sessionInfo()
 
 ```{r, echo = F}
 # here we'll remove our objects
-rm(sequence_length, d, beyonce_palettes, bp, my_data, mean_y, sd_y, stanvars, p1, p2, my_arrow, p3, p4, p5, p6, layout, fit16.1, post, rope, text, n_lines, n_draws, mu, fit16.2, p7, fit16.3, h)
+rm(sequence_length, d, beyonce_palettes, bp, my_data, mean_y, sd_y, stanvars, p1, p2, my_arrow, p3, p4, p5, p6, layout, fit16.1, draws_array, draws_df, rope, text, n_lines, n_draws, mu, fit16.2, p7, fit16.3, h, levels)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}

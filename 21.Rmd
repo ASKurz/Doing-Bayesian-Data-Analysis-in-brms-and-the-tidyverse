@@ -326,23 +326,24 @@ Here's the model summary.
 print(fit21.1)
 ```
 
-Now let's get ready to make our version of Figure 21.3. First, we extract the posterior draws with `add_chain = TRUE`.
+Now let's get ready to make our version of Figure 21.3. First, we extract the posterior draws.
 
 ```{r}
-post <- posterior_samples(fit21.1, add_chain = T)
+draws_df <- as_draws_df(fit21.1)
 ```
 
 Now we wrangle a bit to make the top panel of Figure 21.3.
 
 ```{r, fig.width = 4.5, fig.height = 3.75}
 length <- 200
-n_iter <- 20
+n_draw <- 20
 
-post %>% 
+draws_df %>% 
+  tibble() %>% 
   # take 20 random samples of the posterior draws
-  slice_sample(n = n_iter) %>% 
+  slice_sample(n = n_draw) %>% 
   # add in a sequence of weight_z
-  expand(nesting(b_Intercept, b_weight_z, iter),
+  expand(nesting(.draw, b_Intercept, b_weight_z),
          weight_z = seq(from = -2, to = 3.5, length.out = length)) %>% 
   # compute the estimates of interest
   mutate(male   = inv_logit_scaled(b_Intercept + b_weight_z * weight_z),
@@ -352,9 +353,9 @@ post %>%
   # plot!
   ggplot(aes(x = weight)) +
   geom_hline(yintercept = .5, color = pm[7], size = 1/2) +
-  geom_vline(aes(xintercept = thresh, group = iter),
+  geom_vline(aes(xintercept = thresh, group = .draw),
              color = pm[6], size = 2/5, linetype = 2) +
-  geom_line(aes(y = male, group = iter),
+  geom_line(aes(y = male, group = .draw),
             color = pm[1], size = 1/3, alpha = 2/3) +
   geom_point(data = my_data,
              aes(y = male),
@@ -375,15 +376,15 @@ Now here we show the marginal distributions in our versions of the lower panels 
 ```{r, fig.width = 6, fig.height = 2.5, warning = F, message = F}
 library(tidybayes)
 
-post <-
-  post %>% 
+draws_df <-
+  draws_df %>% 
   # convert the parameter draws to their natural metric following Equation 21.1 (pp. 624--625)
   transmute(Intercept = b_Intercept - (b_weight_z * mean(my_data$weight) / sd(my_data$weight)),
             weight    = b_weight_z / sd(my_data$weight)) %>% 
   pivot_longer(everything())
 
 # plot
-post %>% 
+draws_df %>% 
   ggplot(aes(x = value, y = 0)) +
   stat_halfeye(point_interval = mode_hdi, .width = .95, 
                shape = 15, point_size = 2.5, point_color = pm[4],
@@ -397,7 +398,7 @@ post %>%
 And here are those exact posterior mode and 95% HDI values.
 
 ```{r}
-post %>% 
+draws_df %>% 
   group_by(name) %>% 
   mode_hdi() %>% 
   mutate_if(is.double, round, digits = 3)
@@ -443,33 +444,33 @@ print(fit21.2)
 
 Before we make our plots for Figure 21.4, we'll need to extract the posterior samples and transform a little.
 
-```{r}
-post <-
-  posterior_samples(fit21.2) %>% 
-  transmute(b_weight  = b_weight_z / sd(my_data$weight),
-            b_height  = b_height_z / sd(my_data$height),
-            Intercept = b_Intercept - ((b_weight_z * mean(my_data$weight) / sd(my_data$weight)) +
-                                         (b_height_z * mean(my_data$height) / sd(my_data$height))))
+```{r, warning = F}
+draws_df <-
+  as_draws_df(fit21.2) %>% 
+  mutate(b_weight  = b_weight_z / sd(my_data$weight),
+         b_height  = b_height_z / sd(my_data$height),
+         Intercept = b_Intercept - ((b_weight_z * mean(my_data$weight) / sd(my_data$weight)) +
+                                         (b_height_z * mean(my_data$height) / sd(my_data$height)))) %>% 
+  select(.draw, b_weight:Intercept)
 
-head(post)
+head(draws_df)
 ```
 
 Here's our version of Figure 21.4.a.
 
 ```{r, fig.width = 4.25, fig.height = 4}
-set.seed(21)  # we need this for the `sample_n()` function
+set.seed(21)  # we need this for the `slice_sample_n()` function
 
-post %>% 
-  mutate(iter = 1:n()) %>% 
-  sample_n(size = 20) %>% 
-  expand(nesting(iter, Intercept, b_weight, b_height),
+draws_df %>% 
+  slice_sample(n = 20) %>% 
+  expand(nesting(.draw, Intercept, b_weight, b_height),
          weight = c(80, 280)) %>% 
   # this follows the Equation near the top of p. 629
   mutate(height = (-Intercept / b_height) + (-b_weight / b_height) * weight) %>% 
   
   # now plot
   ggplot(aes(x = weight, y = height)) +
-  geom_line(aes(group = iter),
+  geom_line(aes(group = .draw),
             color = pm[7], size = 2/5, alpha = 2/3) +
   geom_text(data = my_data,
             aes(label = male, color = male == 1)) +
@@ -483,8 +484,8 @@ post %>%
 With just a tiny bit more wrangling, we'll be ready to make the bottom panels of Figure 21.4.
 
 ```{r, fig.width = 8, fig.height = 2.5, warning = F, message = F}
-post %>% 
-  pivot_longer(everything()) %>% 
+draws_df %>% 
+  pivot_longer(-.draw) %>% 
   mutate(name = factor(str_remove(name, "b_"),
                        levels = c("Intercept", "weight", "height"))) %>% 
   
@@ -559,13 +560,13 @@ $$
 
 where the $\zeta$s are the parameters from the model based on standardized predictors. Our `fit21.2` was based on standardized `weight` and `height` values (i.e., `weight_z` and `height_z`), yielding model coefficients in the $\zeta$ metric. Here we use the formula above to convert our `fit21.2` estimates to their unstandardized $\beta$ metric. For simplicity, we'll just take their means.
 
-```{r}
-posterior_samples(fit21.2) %>% 
+```{r, warning = F}
+as_draws_df(fit21.2) %>% 
   transmute(beta_0 = b_Intercept - ((b_weight_z * mean(my_data$weight) / sd(my_data$weight)) + 
                                       ((b_height_z * mean(my_data$height) / sd(my_data$height)))),
             beta_1 = b_weight_z / sd(my_data$weight),
             beta_2 = b_height_z / sd(my_data$height)) %>% 
-  summarise_all(~mean(.) %>% round(., digits = 3))
+  summarise_all(~ mean(.) %>% round(., digits = 3))
 ```
 
 Within rounding error, those values are the same ones in the formula at the top of Kruschke's Figure 21.1! That is, our last plot was a version of Figure 21.1.
@@ -671,20 +672,20 @@ print(fit21.3)
 Looks like the model did a good job recapturing those data-generating `b0` and `b1` values. Now make the top left panel of Figure 21.5.
 
 ```{r, fig.width = 4.5, fig.height = 3.75}
-post <- posterior_samples(fit21.3, add_chain = T)
+draws_df <- as_draws_df(fit21.3)
 
 # unclear if Kruschke still used 20 draws or not
-# perhaps play with the `n_iter` values
-n_iter <- 20
+# perhaps play with the `n_draw` values
+n_draw <- 20
 length <- 100
 
 set.seed(21)
 
-post %>% 
+draws_df %>% 
   # take 20 random samples of the posterior draws
-  slice_sample(n = n_iter) %>% 
+  slice_sample(n = n_draw) %>% 
   # add in a sequence of x
-  expand(nesting(b_Intercept, b_x, iter),
+  expand(nesting(.draw, b_Intercept, b_x),
          x = seq(from = -3.5, to = 3.5, length.out = length)) %>% 
   # compute the estimates of interest
   mutate(y      = inv_logit_scaled(b_Intercept + b_x * x),
@@ -693,9 +694,9 @@ post %>%
   # plot!
   ggplot(aes(x = x)) +
   geom_hline(yintercept = .5, color = pm[7], size = 1/2) +
-  geom_vline(aes(xintercept = thresh, group = iter),
+  geom_vline(aes(xintercept = thresh, group = .draw),
              color = pm[6], size = 2/5, linetype = 2) +
-  geom_line(aes(y = y, group = iter),
+  geom_line(aes(y = y, group = .draw),
             color = pm[1], size = 1/3, alpha = 2/3) +
   geom_point(data = d_rare,
              aes(y = y),
@@ -707,10 +708,10 @@ post %>%
 Here are the two subplots at the bottom, left.
 
 ```{r, fig.width = 6, fig.height = 2.5, warning = F, message = F}
-post %>% 
-  transmute(Intercept = b_Intercept,
-            x         = b_x) %>% 
-  pivot_longer(everything()) %>% 
+draws_df %>% 
+  mutate(Intercept = b_Intercept,
+         x         = b_x) %>% 
+  pivot_longer(Intercept:x) %>% 
   
   ggplot(aes(x = value, y = 0)) +
   stat_wilke() +
@@ -758,23 +759,23 @@ print(fit21.4)
 Here's the code for the main plot in Figure 21.5.b.
 
 ```{r}
-post <- posterior_samples(fit21.4, add_chain = T)
+draws_df <- as_draws_df(fit21.4)
 
 set.seed(21)
 
 p1 <-
-  post %>% 
-  slice_sample(n = n_iter) %>% 
-  expand(nesting(b_Intercept, b_x, iter),
+  draws_df %>% 
+  slice_sample(n = n_draw) %>% 
+  expand(nesting(.draw, b_Intercept, b_x),
          x = seq(from = -3.5, to = 3.5, length.out = length)) %>% 
   mutate(y      = inv_logit_scaled(b_Intercept + b_x * x),
          thresh = -b_Intercept / b_x) %>% 
   
   ggplot(aes(x = x, y = y)) +
   geom_hline(yintercept = .5, color = pm[7], size = 1/2) +
-  geom_vline(aes(xintercept = thresh, group = iter),
+  geom_vline(aes(xintercept = thresh, group = .draw),
              color = pm[6], size = 2/5, linetype = 2) +
-  geom_line(aes(group = iter),
+  geom_line(aes(group = .draw),
             color = pm[1], size = 1/3, alpha = 2/3) +
   geom_point(data = d_rare,
              alpha = 1/3, color = pm[1]) +
@@ -784,12 +785,12 @@ p1 <-
 
 Now make the two subplots at the bottom.
 
-```{r}
+```{r, warning = F}
 p2 <-
-  post %>% 
-  transmute(Intercept = b_Intercept,
-            x         = b_x) %>% 
-  pivot_longer(everything()) %>% 
+  draws_df %>% 
+  mutate(Intercept = b_Intercept,
+         x         = b_x) %>% 
+  pivot_longer(Intercept:x) %>% 
   
   ggplot(aes(x = value, y = 0)) +
   stat_wilke() +
@@ -832,7 +833,7 @@ m <- c(0, 0)
 set.seed(21)
 d <- 
   MASS::mvrnorm(n = n, mu = m, Sigma = s) %>%
-  as_tibble() %>% 
+  data.frame() %>% 
   set_names(str_c("x", 1:2))
 ```
 
@@ -878,9 +879,9 @@ print(fit21.5)
 
 We did a good job recapturing Kruschke's $\beta$s in terms of our posterior means, but notice how large those posterior $SD$s are for $\beta_1$ and $\beta_2$. To get a better sense, let's look at them in a coefficient plot before continuing on with the text.
 
-```{r, fig.width = 6, fig.height = 1}
-posterior_samples(fit21.5) %>% 
-  pivot_longer(-lp__) %>% 
+```{r, fig.width = 6, fig.height = 1, warning = F}
+as_draws_df(fit21.5) %>% 
+  pivot_longer(b_Intercept:b_x2) %>% 
   
   ggplot(aes(x = value, y = name)) +
   stat_gradientinterval(point_interval = mode_hdi, .width = c(.5, .95), 
@@ -893,18 +894,17 @@ posterior_samples(fit21.5) %>%
 Them are some sloppy estimates! But we digress. Here's our version of Figure 21.6.a.
 
 ```{r, fig.width = 4.25, fig.height = 4}
-set.seed(21)  # we need this for the `sample_n()` function
-posterior_samples(fit21.5) %>% 
-  mutate(iter = 1:n()) %>% 
-  sample_n(size = 20) %>% 
-  expand(nesting(iter, b_Intercept, b_x1, b_x2),
+set.seed(21)  # we need this for the `slice_sample()` function
+as_draws_df(fit21.5) %>% 
+  slice_sample(n = 20) %>% 
+  expand(nesting(.draw, b_Intercept, b_x1, b_x2),
          x1 = c(-4, 4)) %>% 
   # this follows the equation near the top of p. 629
   mutate(x2 = (-b_Intercept / b_x2) + (-b_x1 / b_x2) * x1) %>% 
 
   # now plot
   ggplot(aes(x = x1, y = x2)) +
-  geom_line(aes(group = iter),
+  geom_line(aes(group = .draw),
             color = pm[7], size = 2/5, alpha = 2/3) +
   geom_text(data = d,
             aes(label = y, color = y == 1),
@@ -923,10 +923,10 @@ It can be easy to under-appreciate how sensitive this plot is to the seed you se
 different_seed <- function(i) {
   
   set.seed(i)
-  posterior_samples(fit21.5) %>% 
-  mutate(iter = 1:n()) %>% 
-  sample_n(size = 20) %>% 
-  expand(nesting(iter, b_Intercept, b_x1, b_x2),
+  
+  as_draws_df(fit21.5) %>% 
+  slice_sample(n = 20) %>% 
+  expand(nesting(.draw, b_Intercept, b_x1, b_x2),
          x1 = c(-4, 4)) %>% 
   mutate(x2 = (-b_Intercept / b_x2) + (-b_x1 / b_x2) * x1)
   
@@ -941,7 +941,7 @@ tibble(seed = 1:9) %>%
   
   # plot
   ggplot(aes(x = x1, y = x2)) +
-  geom_line(aes(group = iter),
+  geom_line(aes(group = .draw),
             color = pm[7], size = 2/5, alpha = 2/3) +
   geom_text(data = d,
             aes(label = y, color = y == 1),
@@ -998,7 +998,7 @@ my_lower <- function(data, mapping, ...) {
 Now we wrangle and plot.
 
 ```{r, fig.width = 4, fig.height = 3.75, warning = F, message = F}
-posterior_samples(fit21.5) %>% 
+as_draws_df(fit21.5) %>% 
   transmute(`Intercept~(beta[0])` = b_Intercept,
             `x1~(beta[1])`        = b_x1,
             `x2~(beta[2])`        = b_x2) %>% 
@@ -1151,12 +1151,12 @@ conditional_effects(fit21.7) %>%
 The way we prep for our version of Figure 21.8 is a minor extension what we did for Figure 21.3, above. Here we make the top panel. The biggest change, from before, is our adjusted formula for computing `male`.
 
 ```{r, fig.width = 4.5, fig.height = 3.75}
-post <- posterior_samples(fit21.7, add_chain = T)
+draws_df <- as_draws_df(fit21.7)
 
 p1 <- 
-  post %>% 
-  slice_sample(n = n_iter) %>% 
-  expand(nesting(b_a_Intercept, b_b0_Intercept, b_b1_Intercept, iter),
+  draws_df %>% 
+  slice_sample(n = n_draw) %>% 
+  expand(nesting(.draw, b_a_Intercept, b_b0_Intercept, b_b1_Intercept),
          weight_z = seq(from = -2, to = 3.5, length.out = length)) %>% 
   # compare this to Kruschke's mu[i] code at the top of page 636
   mutate(male   = 0.5 * b_a_Intercept + (1 - b_a_Intercept) * inv_logit_scaled(b_b0_Intercept + b_b1_Intercept * weight_z),
@@ -1165,9 +1165,9 @@ p1 <-
   
   ggplot(aes(x = weight, y = male)) +
   geom_hline(yintercept = .5, color = pm[7], size = 1/2) +
-  geom_vline(aes(xintercept = thresh, group = iter),
+  geom_vline(aes(xintercept = thresh, group = .draw),
              color = pm[6], size = 2/5, linetype = 2) +
-  geom_line(aes(group = iter),
+  geom_line(aes(group = .draw),
             color = pm[1], size = 1/3, alpha = 2/3) +
   geom_point(data = my_data,
              alpha = 1/3, color = pm[1]) +
@@ -1181,11 +1181,11 @@ Here we make the marginal-distribution plots for our versions of the lower panel
 
 ```{r, fig.width = 8, fig.height = 2.5, warning = F, message = F}
 p2 <-
-  post %>% 
-  transmute(Intercept = b_b0_Intercept - (b_b1_Intercept * mean(my_data$weight) / sd(my_data$weight)),
-            weight    = b_b1_Intercept / sd(my_data$weight),
-            guessing  = b_a_Intercept) %>% 
-  pivot_longer(everything()) %>% 
+  draws_df %>% 
+  mutate(Intercept = b_b0_Intercept - (b_b1_Intercept * mean(my_data$weight) / sd(my_data$weight)),
+         weight    = b_b1_Intercept / sd(my_data$weight),
+         guessing  = b_a_Intercept) %>% 
+  pivot_longer(Intercept:guessing) %>% 
   mutate(name = factor(name, levels = c("Intercept", "weight", "guessing"))) %>% 
   
   ggplot(aes(x = value, y = 0)) +
@@ -1205,7 +1205,7 @@ p1 / p2 +
 Here are the `ggpairs()` plots.
 
 ```{r, fig.width = 4, fig.height = 3.75, warning = F, message = F}
-posterior_samples(fit21.7) %>% 
+as_draws_df(fit21.7) %>% 
   transmute(`Intercept~(beta[0])` = b_b0_Intercept,
             `weight~(beta[1])`    = b_b1_Intercept,
             guessing              = b_a_Intercept) %>% 
@@ -1452,7 +1452,7 @@ glimpse(my_data)
 
 #### The model.
 
-I'm not aware that Kruschke's modeling approach for this example will work well within the **brms** paradigm. Accordingly, our version of the hierarchical model diagram in Figurer 21.12 will differ in important ways from the one in the text.
+I'm not aware that Kruschke's modeling approach for this example will work well within the **brms** paradigm. Accordingly, our version of the hierarchical model diagram in Figure 21.12 will differ in important ways from the one in the text.
 
 ```{r, fig.width = 5, fig.height = 6.5}
 # bracket
@@ -1625,7 +1625,7 @@ layout <- c(
   theme(plot.margin = margin(0, 5.5, 0, 5.5))
 ```
 
-I recommend we fit a simple hierarchical logistic regression model in place of the one Kruschke used. With this approach, we might express the statistical model as
+I recommend we fit a hierarchical aggregated-binomial regression model in place of the one Kruschke used. With this approach, we might express the statistical model as
 
 \begin{align*}
 \text{Hits}_i               & \sim \operatorname{Binomial}(\text{AtBats}_i, p_i) \\
@@ -1637,7 +1637,7 @@ I recommend we fit a simple hierarchical logistic regression model in place of t
 \sigma_\text{PriPos:Player} & \sim \operatorname{HalfCauchy}(0, 1).
 \end{align*}
 
-Here's how to fit the model with **brms**. Notice we're finally making good use of the `trials()` syntax. This is because we're fitting an aggregated binomial model. Instead of our criterion variable `Hits` being a vector of 0's and 1's, it's the number of successful trials given the total number of trials, which is listed in the `AtBats` vector. Aggregated binomial.
+Here's how to fit the model with **brms**. Notice we're finally making good use of the `trials()` syntax. This is because we're fitting an aggregated binomial model. Instead of our criterion variable `Hits` being a vector of 0's and 1's, it's the number of successful trials given the total number of trials, which is listed in the `AtBats` vector. *Aggregated* binomial.
 
 ```{r fit21.8}
 fit21.8 <-
@@ -1669,7 +1669,9 @@ library(ggridges)
 nd <- 
   my_data %>% 
   group_by(PriPos) %>% 
-  summarise(AtBats = mean(AtBats) %>% round(0))
+  summarise(AtBats = mean(AtBats) %>% round(0)) %>% 
+  # to help join with the draws
+  mutate(name = str_c("V", 1:n()))
 
 # push the model through `fitted()` and wrangle
 fitted(fit21.8,
@@ -1678,9 +1680,9 @@ fitted(fit21.8,
        scale = "linear",
        summary = F) %>% 
   as_tibble() %>% 
-  gather() %>% 
-  transmute(probability = inv_logit_scaled(value)) %>% 
-  bind_cols(expand(nd, PriPos, iter = 1:8000)) %>% 
+  pivot_longer(everything()) %>% 
+  mutate(probability = inv_logit_scaled(value)) %>% 
+  left_join(nd, by = "name") %>% 
   
   # plot
   ggplot(aes(x = probability, y = PriPos)) +
@@ -1698,9 +1700,9 @@ fitted(fit21.8,
         axis.ticks.y = element_blank())
 ```
 
-For kicks and giggles, we depicted the grand mean probability as the white vertical line in the background with the `geom_vline()` line.
+For kicks and giggles, we depicted the grand mean probability as the vertical line in the background with the `geom_vline()` line.
 
-However, we can make our plot more directly analogous to Kruschke's if we're willing to stretch a little. Recall that Kruschke used the beta distribution with the $\omega-\kappa$ parameterization in both his statistical model and his plot code—both of which you can find detailed in his `Jags-Ybinom-Xnom1fac-Mlogistic.R`. file. We didn't use the beta distribution in our `brm()` model and the parameters from that model didn't have as direct correspondences to the beta distribution the way those from Kruschke’s JAGS model did. However, recall that we can re-parameterize the beta distribution in terms of its mean $\mu$ and sample size $n$, folowing the form
+However, we can make our plot more directly analogous to Kruschke's if we're willing to stretch a little. Recall that Kruschke used the beta distribution with the $\omega-\kappa$ parameterization in both his statistical model and his plot code--both of which you can find detailed in his `Jags-Ybinom-Xnom1fac-Mlogistic.R`. file. We didn't use the beta distribution in our `brm()` model and the parameters from that model didn't have as direct correspondences to the beta distribution the way those from Kruschke's JAGS model did. However, recall that we can re-parameterize the beta distribution in terms of its mean $\mu$ and sample size $n$, following the form
 
 \begin{align*}
 \alpha & = \mu n \\
@@ -1712,10 +1714,10 @@ When we take the inverse logit of our intercepts, we do get vales in a probabili
 ```{r, fig.width = 8, fig.height = 3.75}
 # wrangle like a boss
 nd %>% 
-  add_fitted_draws(fit21.8, 
-                   n = 20,
-                   re_formula = Hits | trials(AtBats) ~ 1 + (1 | PriPos),
-                   dpar = c("mu")) %>% 
+  add_epred_draws(fit21.8, 
+                  ndraws = 20,
+                  re_formula = Hits | trials(AtBats) ~ 1 + (1 | PriPos),
+                  dpar = "mu") %>% 
   # use the equations from above
   mutate(alpha = mu * AtBats, 
          beta  = (1 - mu) * AtBats) %>% 
@@ -1781,9 +1783,9 @@ Here we make are our versions of the middle two panels of Figure 21.13.
 p1 <-
   f %>% 
   # compute the differences and put the data in the long format
-  transmute(`Pitcher vs. Catcher`  = Pitcher - Catcher,
-            `Catcher vs. 1st Base` = Catcher - `1st Base`) %>% 
-  pivot_longer(everything()) %>% 
+  mutate(`Pitcher vs. Catcher`  = Pitcher - Catcher,
+         `Catcher vs. 1st Base` = Catcher - `1st Base`) %>% 
+  pivot_longer(contains("vs.")) %>% 
   mutate(name = factor(name, levels = c("Pitcher vs. Catcher", "Catcher vs. 1st Base"))) %>% 
   
   ggplot(aes(x = value, y = 0)) +
@@ -1801,9 +1803,9 @@ p2 <-
   f %>% 
   # do the transformation before computing the differences
   mutate_all(inv_logit_scaled) %>% 
-  transmute(`Pitcher vs. Catcher`  = Pitcher - Catcher,
-            `Catcher vs. 1st Base` = Catcher - `1st Base`) %>% 
-  pivot_longer(everything()) %>% 
+  mutate(`Pitcher vs. Catcher`  = Pitcher - Catcher,
+         `Catcher vs. 1st Base` = Catcher - `1st Base`) %>% 
+  pivot_longer(contains("vs.")) %>% 
   mutate(name = factor(name, levels = c("Pitcher vs. Catcher", "Catcher vs. 1st Base"))) %>% 
   
   ggplot(aes(x = value, y = 0)) +
@@ -1830,7 +1832,7 @@ sessionInfo()
 
 ```{r, message = F, echo = F}
 # Here we'll remove our objects
-rm(pm, p1, p2, my_arrow, p3, p4, p5, p6, p7, p8, p9, layout, my_data, p, fit21.1, length, n_iter, nd, post, stat_wilke, fit21.2, f, b0, b1, n, d_rare, fit21.3, d_not_rare, fit21.4, s, m, d, b2, fit21.5, different_seed, my_upper, my_diag, my_lower, b3, fit21.6, fit21.7, logistic, positions, p10, fit21.8)
+rm(pm, p1, p2, my_arrow, p3, p4, p5, p6, p7, p8, p9, layout, my_data, p, fit21.1, length, n_draw, nd, draws_df, stat_wilke, fit21.2, f, b0, b1, n, d_rare, fit21.3, d_not_rare, fit21.4, s, m, d, b2, fit21.5, different_seed, my_upper, my_diag, my_lower, b3, fit21.6, fit21.7, logistic, positions, p10, fit21.8)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
