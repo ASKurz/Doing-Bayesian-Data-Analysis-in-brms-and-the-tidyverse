@@ -138,8 +138,7 @@ where $\theta$ is the probability $y = 1$. Kruschke showed how to simulate the d
 n <- 50
 z <- 10
 
-my_data <- 
-  tibble(y = rep(1:0, times = c(z, n - z)))
+my_data <- tibble(y = rep(1:0, times = c(z, n - z)))
 
 glimpse(my_data)
 ```
@@ -174,7 +173,7 @@ Unlike what Kruschke showed on page 409, we did not use the `thin` argument, abo
 Kruschke mentioned trace plots and model summaries. Here's our trace plot, which comes with a marginal density plot by **brms** default.
 
 ```{r, fig.width = 8, fig.height = 1.5}
-plot(fit14.1)
+plot(fit14.1, widths = c(2, 3))
 ```
 
 Here's the summary.
@@ -183,9 +182,9 @@ Here's the summary.
 print(fit14.1)
 ```
 
-Did you notice that divergent transitions warning at the top? I don't believe Kruschke discussed those in the text. For an good introduction, check out the [*Divergent Transitions* section](https://mc-stan.org/docs/2_23/reference-manual/divergent-transitions.html) in the *Stan reference manual*. In short, divergent transitions indicate your HMC chains had some difficulty exploring the parameter space. As indicated in the warning, increasing the `adapt_delta` parameter to a value above 0.8, but below 1, can help. Other times increasing the number of `warmup` iterations or using better priors will help, too. Sometimes divergent transitions indicate you might need to seriously reconsider your model. When you're stumped, the [Stan Forums](https://discourse.mc-stan.org/) can be a good place to look for help. You can even find a [subsection dedicated to **brms** users](https://discourse.mc-stan.org/c/interfaces/brms/36), there.
+Did you notice that divergent transitions warning at the top? I don't believe Kruschke discussed those in the text. For an good introduction, check out the [*Divergent Transitions* section](https://mc-stan.org/docs/2_26/reference-manual/divergent-transitions.html) in the *Stan reference manual*. In short, divergent transitions indicate your HMC chains had some difficulty exploring the parameter space. As indicated in the warning, increasing the `adapt_delta` parameter to a value above 0.8, but below 1, can help. Other times increasing the number of `warmup` iterations or using better priors will help, too. Sometimes divergent transitions indicate you might need to seriously reconsider your model. When you're stumped, the [Stan Forums](https://discourse.mc-stan.org/) can be a good place to look for help. You can even find a [subsection dedicated to **brms** users](https://discourse.mc-stan.org/c/interfaces/brms/36), there.
 
-Anyway, we will solve our divergent-transitions problem by setting `adapt_delta = 0.99` and using a better prior. If you recall, $\operatorname{beta}(1, 1)$ is flat. Why not use a weakly-regularizing $\operatorname{beta}(2, 2)$, instead? Before fitting the model, we can use the `tidybayes::stat_dist_halfeye()` function to visualize those two priors.
+Anyway, we will solve our divergent-transitions problem by setting `adapt_delta = 0.99` and using a better prior[^5]. If you recall, $\operatorname{beta}(1, 1)$ is flat. Why not use a weakly-regularizing $\operatorname{beta}(2, 2)$, instead? Before fitting the model, we can use the `tidybayes::stat_dist_halfeye()` function to visualize those two priors.
 
 ```{r, fig.width = 3.5, fig.height = 2.5, warning = F, message = F}
 library(tidybayes)
@@ -234,8 +233,7 @@ See? All better.
 ```{r}
 z <- 20
 
-my_data <- 
-  tibble(y = rep(1:0, times = c(z, n - z)))
+my_data <- tibble(y = rep(1:0, times = c(z, n - z)))
 
 glimpse(my_data)
 ```
@@ -283,23 +281,22 @@ fit14.4 <-
       y ~ 0 + Intercept,
       prior(beta(2, 2), class = b, lb = 0, ub = 1),
       iter = 1000, warmup = 200, chains = 3, cores = 3,
-      control = list(adapt_delta = 0.99),
       sample_prior = "yes",
       seed = 14,
       file = "fits/fit14.04")
 ```
 
-Now we can gather the prior samples with the `prior_samples()` function.
+Now we can gather the prior draws with the `prior_draws()` function.
 
 ```{r}
-prior_samples(fit14.4) %>% 
+prior_draws(fit14.4) %>% 
   head()
 ```
 
 Here's a look at the prior distribution.
 
 ```{r, fig.width = 3.5, fig.height = 2.5}
-prior_samples(fit14.4) %>% 
+prior_draws(fit14.4) %>% 
   ggplot(aes(x = b, y = 0)) +
   stat_halfeye(.width = c(.5, .95)) +
   scale_y_continuous(NULL, breaks = NULL) +
@@ -355,4 +352,8 @@ ggplot2::theme_set(ggplot2::theme_grey())
 bayesplot::color_scheme_set("blue")
 pacman::p_unload(pacman::p_loaded(), character.only = TRUE)
 ```
+
+## Footnote {-}
+
+[^5]: There's another way to fix this. You may have noticed how Kruschke has a habit of modeling binomial intercepts with the identity link and with the beta distribution as the prior. This can cause algorithmic difficulties because whereas our beta prior puts lower and upper boundaries for the intercept, **brms** expects the parameter space for an intercept to be unbounded. The solution for this is to explicitly tell **brms** that you want to model the intercept with lower and upper bounds. For an example of how to do this, revisit `fit8.2` from [Section 8.4][Example: Difference of biases]. I try not to make a big deal about this in the ebook because my guess is most applied scientists won't be fitting a lot of intercepts-only binomial models.
 

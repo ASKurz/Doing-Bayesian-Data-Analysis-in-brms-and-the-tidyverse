@@ -191,13 +191,13 @@ HDIofMCMC <- function(sampleVec, credMass = .95) {
 Let's continue working with `fit24.1` to see how Kruschke's `HDIofMCMC()` works. First we need to extract the posterior draws.
 
 ```{r}
-post <- posterior_samples(fit24.1)
+draws_df <- as_draws_df(fit24.1)
 ```
 
-Here's how you might use the function to get the HDIs for the first hierarchical variance parameter.
+Here's how you might use the function to get the HDIs for the intercept parameter.
 
 ```{r}
-HDIofMCMC(post$sd_Eye__Intercept)
+HDIofMCMC(draws_df$b_Intercept)
 ```
 
 Kruschke's `HDIofMCMC()` works very much the same as the summary functions from **tidybayes**. For example, here's good old `tidybayes::mode_hdi()`.
@@ -205,19 +205,19 @@ Kruschke's `HDIofMCMC()` works very much the same as the summary functions from 
 ```{r, warning = F, message = F}
 library(tidybayes)
 
-mode_hdi(post$sd_Eye__Intercept)
+mode_hdi(draws_df$b_Intercept)
 ```
 
 If you'd like to use **tidybayes** to just pull the HDIs without the extra information, just use the `hdi()` function.
 
 ```{r}
-hdi(post$sd_Eye__Intercept)
+hdi(draws_df$b_Intercept)
 ```
 
 Just in case you're curious, Kruschke's `HDIofMCMC()` function returns the same information as `tidybayes::hdi()`. Let's confirm.
 
 ```{r}
-HDIofMCMC(post$sd_Eye__Intercept) == hdi(post$sd_Eye__Intercept)
+HDIofMCMC(draws_df$b_Intercept) == hdi(draws_df$b_Intercept)
 ```
 
 Identical.
@@ -226,7 +226,7 @@ Identical.
 
 > The function described in this section finds the HDI of a unimodal probability density function that is specified mathematically in R. For example, the function can find HDI's of normal densities or of beta densities or of gamma densities, because those densities are specified as functions in R. (p. 728)
 
-If you recall, we've been using this funciton off and on since Chapter 4. Here is it, again, with mildly reformated code and parameter names.
+If you recall, we've been using this function off and on since Chapter 4. Here is it, again, with mildly reformatted code and parameter names.
 
 ```{r}
 hdi_of_icdf <- function(name, width = .95, tol = 1e-8, ... ) {
@@ -429,7 +429,7 @@ set.seed(25)
 p2 <-
   predict(fit25.1a,
           summary = F,
-          nsamples = 4) %>% 
+          ndraws = 4) %>% 
   data.frame() %>% 
   mutate(sim = 1:n()) %>% 
   pivot_longer(-sim)  %>% 
@@ -473,7 +473,7 @@ set.seed(25)
 p2 <-
   predict(fit25.2a,
           summary = F,
-          nsamples = 4) %>% 
+          ndraws = 4) %>% 
   data.frame() %>% 
   mutate(sim = 1:n()) %>% 
   pivot_longer(-sim)  %>% 
@@ -494,7 +494,7 @@ p1 + p2 +
   plot_annotation(title = "PP check for the censored model, fit25.2a")
 ```
 
-Now the posterior predictive samples match up nicely from the original uncensored data `y` in terms of central tendency, dispersion, and their overall shapes. This is the magic of a model that accounts for right (or left) censoring. It can take all those stacked-up 106 values and approximate the underlying distribution, had they been more accurately recorded.
+Now the posterior predictive draws match up nicely from the original uncensored data `y` in terms of central tendency, dispersion, and their overall shapes. This is the magic of a model that accounts for right (or left) censoring. It can take all those stacked-up 106 values and approximate the underlying distribution, had they been more accurately recorded.
 
 ### Interval censoring: When your values are somewhere in the middle.
 
@@ -577,8 +577,8 @@ In this case, both models did a reasonable job approximating the original data-g
 
 ```{r, fig.width = 7, fig.height = 1.75, warning = F}
 # wrangle
-bind_rows(posterior_samples(fit25.1b),
-          posterior_samples(fit25.2b)) %>% 
+bind_rows(as_draws_df(fit25.1b),
+          as_draws_df(fit25.2b)) %>% 
   mutate(fit = rep(c("fit25.1b", "fit25.2b"), each = n() / 2)) %>% 
   pivot_longer(b_Intercept:sigma) %>% 
   mutate(parameter = if_else(name == "b_Intercept", "mu", "sigma")) %>% 
@@ -677,12 +677,12 @@ The results for the naïve model are a mess and those from the censored model lo
 Before we can make our version of Figure 25.4, we'll need to extract the posterior draws. We'll start with `fit25.1c`.
 
 ```{r}
-post <- 
-  posterior_samples(fit25.1c) %>% 
+draws_df <- 
+  as_draws_df(fit25.1c) %>% 
   mutate(mu = b_Intercept,
          `(mu-100)/sigma` = (b_Intercept - 100) / sigma)
 
-head(post)
+head(draws_df)
 ```
 
 These subplots look a lot like those from back in [Section 16.2][Outliers and robust estimation: The $t$ distribution]. Since this is the last plot from the book, it seems like we should go all out. To reduce some of the code redundancy with the six subplots of the marginal posteriors, we'll make a custom geom, `geom_hist()`.
@@ -704,19 +704,19 @@ Now we have our `geom_hist()`, here are the first three histograms for the margi
 
 ```{r}
 p1 <-
-  post %>% 
+  draws_df %>% 
   ggplot(aes(x = mu)) +
   geom_hist(xintercept = 100, binwidth = 0.1) +
   xlab(expression(mu))
 
 p3 <-
-  post %>% 
+  draws_df %>% 
   ggplot(aes(x = sigma)) +
   geom_hist(xintercept = 15, binwidth = 0.08) +
   xlab(expression(sigma))
 
 p4 <-
-  post %>% 
+  draws_df %>% 
   ggplot(aes(x = `(mu-100)/sigma`)) +
   geom_hist(xintercept = 0, binwidth = 0.015) +
   xlab(expression((mu-100)/sigma))
@@ -728,10 +728,9 @@ The histogram of the censored data with the posterior predictive density curves 
 n_lines <- 50
 
 p2 <-
-  post %>% 
-  mutate(iter = 1:n()) %>% 
+  draws_df %>% 
   slice(1:n_lines) %>% 
-  expand(nesting(mu, sigma, iter),
+  expand(nesting(.draw, mu, sigma),
          y_na = seq(from = 40, to = 120, by = 1)) %>% 
   mutate(density = dnorm(x = y_na, mean = mu, sd = sigma)) %>% 
   
@@ -740,7 +739,7 @@ p2 <-
                  aes(y = stat(density)),
                  size = .25, binwidth = 2, boundary = 106,
                  fill = "skyblue4", color = "white") +
-  geom_line(aes(y = density, group = iter),
+  geom_line(aes(y = density, group = .draw),
             size  = 1/4, alpha = 1/3, color = "skyblue") +
   scale_x_continuous("data with posterior predictive lines", limits = c(40, 110)) +
   scale_y_continuous(NULL, breaks = NULL)
@@ -749,34 +748,33 @@ p2 <-
 Now extract the posterior draws from our censored model, `fit25.2`, and repeat the process.
 
 ```{r}
-post <- 
-  posterior_samples(fit25.2c) %>% 
+draws_df <- 
+  as_draws_df(fit25.2c) %>% 
   mutate(mu = b_Intercept,
          `(mu-100)/sigma` = (b_Intercept - 100) / sigma)
 
 p5 <-
-  post %>% 
+  draws_df %>% 
   ggplot(aes(x = mu)) +
   geom_hist(xintercept = 100, binwidth = 0.1) +
   xlab(expression(mu))
 
 p7 <-
-  post %>% 
+  draws_df %>% 
   ggplot(aes(x = sigma)) +
   geom_hist(xintercept = 15, binwidth = 0.1) +
   xlab(expression(sigma))
 
 p8 <-
-  post %>% 
+  draws_df %>% 
   ggplot(aes(x = `(mu-100)/sigma`)) +
   geom_hist(xintercept = 0, binwidth = 0.01) +
   xlab(expression((mu-100)/sigma))
 
 p6 <-
-  post %>% 
-  mutate(iter = 1:n()) %>% 
+  draws_df %>% 
   slice(1:n_lines) %>% 
-  expand(nesting(mu, sigma, iter),
+  expand(nesting(.draw, mu, sigma),
          y_na = seq(from = 40, to = 120, by = 1)) %>% 
   mutate(density = dnorm(x = y_na, mean = mu, sd = sigma)) %>% 
   
@@ -785,7 +783,7 @@ p6 <-
                  aes(y = stat(density)),
                  size = .25, binwidth = 2, boundary = 106, 
                  fill = "skyblue4", color = "white") +
-  geom_line(aes(y = density, group = iter),
+  geom_line(aes(y = density, group = .draw),
             size  = 1/4, alpha = 1/3, color = "skyblue") +
   scale_x_continuous("data with posterior predictive lines", limits = c(40, 110)) +
   scale_y_continuous(NULL, breaks = NULL)
@@ -818,7 +816,7 @@ sessionInfo()
 
 ```{r, echo = F}
 # remove our objects
-rm(fit24.1, HDIofGrid, prob_density_vec, prob_mass_vec, HDI_info, HDIofMCMC, post, hdi_of_icdf, n, d, t1, mean_y, sd_y, stanvars, fit25.1a, inits, inits_list, fit25.2a, p1, p2, t2, t3, fit25.1b, fit25.2b, fit25.1c, fit25.2c, geom_hist, p3, p4, n_lines, p5, p7, p8, p6)
+rm(fit24.1, HDIofGrid, prob_density_vec, prob_mass_vec, HDI_info, HDIofMCMC, draws_df, hdi_of_icdf, n, d, t1, mean_y, sd_y, stanvars, fit25.1a, inits, inits_list, fit25.2a, p1, p2, t2, t3, fit25.1b, fit25.2b, fit25.1c, fit25.2c, geom_hist, p3, p4, n_lines, p5, p7, p8, p6)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
