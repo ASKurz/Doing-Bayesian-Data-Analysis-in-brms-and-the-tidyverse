@@ -374,7 +374,7 @@ Now it only takes some light wrangling to prepare the data to make the three his
 ```{r, fig.width = 8, fig.height = 2.75}
 d %>% 
   mutate(`theta[1]-theta[2]` = `theta[1]` - `theta[2]`) %>% 
-  gather() %>% 
+  pivot_longer(everything()) %>% 
   
   ggplot(aes(x = value, y = 0)) +
   stat_histinterval(point_interval = mode_hdi, .width = .95,
@@ -382,7 +382,7 @@ d %>%
                     breaks = 30, normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(expression(theta)) +
-  facet_wrap(~ key, scales = "free_y", labeller = label_parsed)
+  facet_wrap(~ name, scales = "free_y", labeller = label_parsed)
 ```
 
 Here's the scatter plot, showing the correlation. I think we got pretty close!
@@ -424,7 +424,7 @@ Here are our right-panel Figure 12.1 histograms.
 ```{r, fig.width = 8, fig.height = 2.75}
 d %>% 
   mutate(`theta[1]-theta[2]` = `theta[1]` - `theta[2]`) %>% 
-  gather() %>% 
+  pivot_longer(everything()) %>% 
   
   ggplot(aes(x = value, y = 0)) +
   stat_histinterval(point_interval = mode_hdi, .width = .95,
@@ -432,7 +432,7 @@ d %>%
                     breaks = 20, normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(expression(theta)) +
-  facet_wrap(~ key, scales = "free_y",  labeller = label_parsed)
+  facet_wrap(~ name, scales = "free_y",  labeller = label_parsed)
 ```
 
 Behold the second scatter plot.
@@ -562,8 +562,8 @@ fitted(fit9.2,
        scale = "linear",
        summary = F) %>% 
   as_tibble() %>% 
-  gather() %>% 
-  group_by(key) %>% 
+  pivot_longer(everything()) %>% 
+  group_by(name) %>% 
   mean_hdi(value)
 ```
 
@@ -1060,7 +1060,7 @@ Now we have the wrangled data, we're ready to `gather()` them and plot the top o
 
 ```{r, fig.width = 8, fig.height = 4.25}
 post %>% 
-  gather() %>% 
+  pivot_longer(everything()) %>% 
   
   ggplot(aes(x = value, y = 0)) +
   geom_vline(xintercept = 0, color = oa[2]) +
@@ -1069,7 +1069,7 @@ post %>%
                     breaks = 30, normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   coord_cartesian(xlim = c(-.25, .25)) +
-  facet_wrap(~ key, labeller = label_parsed)
+  facet_wrap(~ name, labeller = label_parsed)
 ```
 
 Also, do note we're working with the $\theta$ parameters in our aggregated binomial models, rather than $\omega$s.
@@ -1078,8 +1078,8 @@ Here's how you'd get the actual exact and HDI summaries.
 
 ```{r}
 post %>% 
-  gather() %>% 
-  group_by(key) %>% 
+  pivot_longer(everything()) %>% 
+  group_by(name) %>% 
   mode_hdi(value) %>% 
   mutate_if(is.double, round, digits = 3)
 ```
@@ -1088,8 +1088,8 @@ If we wanted to know what proportion of the difference distributions were greate
 
 ```{r, message = F}
 post %>% 
-  gather() %>% 
-  group_by(key) %>% 
+  pivot_longer(everything()) %>% 
+  group_by(name) %>% 
   summarise(p = mean(value > 0)) %>% 
   mutate_if(is.double, round, digits = 3)
 ```
