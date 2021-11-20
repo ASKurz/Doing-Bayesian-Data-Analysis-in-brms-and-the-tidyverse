@@ -659,7 +659,8 @@ Notice that when working with a Poisson model, `fitted()` defaults to returning 
 
 ```{r, fig.width = 8, fig.height = 6}
 f %>% 
-  gather(key, count) %>% 
+  pivot_longer(everything(),
+               values_to = "count") %>% 
   mutate(proportion = count / 592) %>% 
   
   ggplot(aes(x = proportion, y = 0)) +
@@ -669,7 +670,7 @@ f %>%
   scale_x_continuous(breaks = c(0, .1, .2)) +
   scale_y_continuous(NULL, breaks = NULL) +
   coord_cartesian(xlim = c(0, .25)) +
-  facet_wrap(~ key, scales = "free_y")
+  facet_wrap(~ name, scales = "free_y")
 ```
 
 We'll have to work a bit to get the deflection differences. If this was a simple multilevel model with a single random grouping variable, we could just use the `ranef()` function to return the deflections. Like `fitted()`, it'll return summaries by default. But you can get the posterior draws with the `summary = F` argument. But since we used two grouping variables and their interaction, it'd be a bit of a pain to work that way. Happily, we do have a handy alternative. First, if we use the `scale = "linear"` argument, `fitted()` will return the draws in the $\lambda$ scale rather than the original count metric. With the group-level draws in the $\lambda$ metric, all we need to do is subtract the fixed effect (i.e., the grand mean, the population estimate) from each to convert them to the deflection metric. So below, we'll
@@ -685,7 +686,7 @@ I know; that's a lot. If you get lost, just go step by step and examine the resu
 ```{r}
 # a. make a custom function
 make_deflection <- function(x) {
-  x - posterior_samples(fit24.1)$b_Intercept
+  x - as_draws_df(fit24.1)$b_Intercept
 }
 
 # b. streamline `nd`
@@ -823,8 +824,8 @@ print(fit24.2)
 
 We might plot our $\sigma_\text{<group>}$ posteriors against our prior to get a sense of how strong it was.
 
-```{r, fig.width = 7, fig.height = 3}
-posterior_samples(fit24.2) %>% 
+```{r, fig.width = 7, fig.height = 3, warning = F}
+as_draws_df(fit24.2) %>% 
   dplyr::select(starts_with("sd")) %>% 
   # set_names(str_c("expression(sigma", c("*a", "*ab", "*b"), ")")) %>% 
   pivot_longer(everything(), names_to = "sd") %>% 
@@ -968,7 +969,7 @@ model_weights(fit24.2, fit24.3) %>%
 Virtually all the weight went to the interaction model. Also, if we step back and ask ourselves what the purpose of an omnibus text of an interaction is for in this context, we'd conclude such a test is asking the question *Is* $\sigma_{a \times b}$ *the same as zero?* Let's look again at that posterior from `fit24.2`.
 
 ```{r, fig.width = 5, fig.height = 3}
-posterior_samples(fit24.2) %>% 
+as_draws_df(fit24.2) %>% 
   
   ggplot(aes(x = `sd_a:b__Intercept`, y = 0)) +
   stat_halfeye(.width = .95, fill = hr[7], color = hr[6]) +
@@ -982,21 +983,21 @@ Sure, there's some uncertainty in that posterior. But that is not zero. We didn'
 
 If you wanted to get fancy with it, we might even do a hierarchical variance decomposition. Here the question is what percentage of the hierarchical variance is attributed to `a`, `b` and their interaction? Recall that **brms** returns those variance parameters in the $\sigma$ metric. So before we can compare them in terms of percentages of the total variance, we have to first have to square them.
 
-```{r}
-post <-
-  posterior_samples(fit24.2) %>% 
+```{r, warning = F}
+draws_df <-
+  as_draws_df(fit24.2) %>% 
   transmute(`sigma[a]^2`  = sd_a__Intercept^2,
             `sigma[b]^2`  = sd_b__Intercept^2,
             `sigma[ab]^2` = `sd_a:b__Intercept`^2) %>% 
   mutate(`sigma[total]^2` = `sigma[a]^2` + `sigma[b]^2` + `sigma[ab]^2`)
 
-head(post)
+head(draws_df)
 ```
 
 Now we just need to divide the individual variance parameters by their total and multiply by 100 to get the percent of variance for each. We'll look at the results in a plot.
 
 ```{r, fig.width = 4, fig.height = 2.75}
-post %>% 
+draws_df %>% 
   pivot_longer(-`sigma[total]^2`) %>% 
   mutate(`% hierarchical variance` = 100 * value / `sigma[total]^2`) %>% 
   
@@ -1105,7 +1106,7 @@ sessionInfo()
 
 ```{r, echo = F}
 # remove our objects
-rm(lambda, y, d, hr, p1, my_arrow, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, layout, gamma_a_b_from_omega_sigma, n_x1_level, n_x2_level, n_cell, y_log_mean, y_log_sd, s_r, stanvars, my_data, fit24.1, nd, f, make_deflection, deflections, fit24.2, fit24.3, post, fit24.4)
+rm(lambda, y, d, hr, p1, my_arrow, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, layout, gamma_a_b_from_omega_sigma, n_x1_level, n_x2_level, n_cell, y_log_mean, y_log_sd, s_r, stanvars, my_data, fit24.1, nd, f, make_deflection, deflections, fit24.2, fit24.3, draws_df, fit24.4)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}

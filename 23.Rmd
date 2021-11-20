@@ -422,32 +422,31 @@ The **brms** output for these kinds of models names the thresholds $\theta_{[i]}
 Let's extract the posterior draws.
 
 ```{r}
-post <- posterior_samples(fit23.1)
+draws_df <- as_draws_df(fit23.1)
 
-glimpse(post)
+glimpse(draws_df)
 ```
 
-Wrangle `post` a bit.
+Wrangle `draws_df` a bit.
 
-```{r}
-post <-
-  post %>%
-  select(`b_Intercept[1]`:`b_Intercept[6]`) %>%
-  mutate(iter = 1:n())
+```{r, warning = F}
+draws_df <-
+  draws_df %>%
+  select(.draw, `b_Intercept[1]`:`b_Intercept[6]`)
 ```
 
 Here's our **brms** version of the bottom plot of Figure 23.2.
 
 ```{r, fig.width = 5, fig.height = 2}
 means <-
-  post %>% 
+  draws_df %>% 
   summarise_at(vars(`b_Intercept[1]`:`b_Intercept[6]`), mean) %>% 
   pivot_longer(everything(),
                values_to = "mean")
 
-post %>% 
-  gather(name, threshold, -iter) %>% 
-  group_by(iter) %>% 
+draws_df %>% 
+  pivot_longer(-.draw, values_to = "threshold") %>% 
+  group_by(.draw) %>% 
   mutate(theta_bar = mean(threshold)) %>% 
   
   ggplot(aes(x = threshold, y = theta_bar, color = name)) +
@@ -469,14 +468,14 @@ Perhaps of greater interest, you might have noticed how different our plot is fr
 p <-
   bind_rows(
     # brms parameterization
-    post %>% 
-      gather(name, threshold, -iter) %>% 
-      group_by(iter) %>% 
+    draws_df %>% 
+      pivot_longer(-.draw, values_to = "threshold") %>% 
+  group_by(.draw) %>% 
       mutate(theta_bar = mean(threshold)),
     # Kruschke's parameterization
-    post %>% 
-      gather(name, threshold, -iter) %>% 
-      group_by(iter) %>% 
+    draws_df %>% 
+      pivot_longer(-.draw, values_to = "threshold") %>% 
+  group_by(.draw) %>% 
       mutate(threshold = scales::rescale(threshold, to = c(1.5, 6.5))) %>% 
       mutate(theta_bar = mean(threshold))
   ) %>% 
@@ -528,8 +527,8 @@ Big shout out to my math-stats savvy friends academic twitter for the formulas, 
 ```{r, fig.width = 8, fig.height = 2.25, message = F, warning = F}
 library(tidybayes)
 
-post %>% 
-  select(iter, `b_Intercept[1]`, `b_Intercept[6]`) %>% 
+draws_df %>% 
+  select(.draw, `b_Intercept[1]`, `b_Intercept[6]`) %>% 
   mutate(`y[1]` = 1.5,
          `y[6]` = 6.5) %>% 
   mutate(mu    = `y[1]` - `b_Intercept[1]` * 1,
@@ -546,14 +545,59 @@ post %>%
   facet_wrap(~ name, scales = "free", labeller = label_parsed)
 ```
 
-Our results are similar to Kruschke's. Given we used a different algorithm, a different parameterization, and different priors, I'm not terribly surprised. If you have more insight on the matter or have spotted a flaw in this method, [please share with the rest of us](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues).
+Our results are similar to Kruschke's. Given we used a different algorithm, a different parameterization, and different priors, I'm not terribly surprised they're a little different. If you have more insight on the matter or have spotted a flaw in this method, [please share with the rest of us](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues).
 
-It's unclear, to me, how we'd interpret the effect size. The difficulty isn't that Kruschke's comparison of $C = 2.0$ is arbitrary, but that we can only interpret the comparison given the model assumption of $\theta_1 = 1.5$ and $\theta_6 = 6.5$. If your theory doesn't allow you to understand the meaning of those constants and why you'd prefer them to slightly different ones, you'd be fooling yourself if you attempted to interpret any effect sizes conditional on those values. Proceed with caution.
+It's unclear, to me, how we'd interpret the effect size. The difficulty isn't that Kruschke's comparison of $C = 2.0$ is arbitrary, but that we can only interpret the comparison given the model assumption of $\theta_1 = 1.5$ and $\theta_6 = 6.5$. If your theory doesn't allow you to understand the meaning of those constants and why you'd prefer them to slightly different ones, you'd be fooling yourself if you attempted to interpret any effect sizes conditional on those values. Proceed with caution, friends.
 
-In the large paragraph on the lower part of page 679, Kruschke discussed why the thresholds tend to have nontrivial covariances. This is what he was trying to convey with the bottom subplot in Figure 23.2. If you're curious, here is the correlation matrix among the thresholds.
+In the large paragraph on the lower part of page 679, Kruschke discussed why the thresholds tend to have nontrivial covariances. This is what he was trying to convey with the bottom subplot in Figure 23.2. Just for practice, we might also explore the correlation matrix among the thresholds with a customized `GGally::ggpairs()` plot.
 
-```{r}
-vcov(fit23.1, correlation = T) %>% round(digits = 2)
+```{r, fig.width = 6, fig.height = 6, warning = F, message = F}
+# load
+library(GGally)
+
+# customize
+my_upper <- function(data, mapping, ...) {
+  ggplot(data = data, mapping = mapping) + 
+    geom_point(size = 1/5, alpha = 1/5, color = sl[7])
+}
+
+my_diag <- function(data, mapping, ...) {
+  ggplot(data = data, mapping = mapping) + 
+    geom_density(size = 0, fill = sl[3]) +
+    scale_x_continuous(NULL, breaks = NULL) +
+    scale_y_continuous(NULL, breaks = NULL)
+}
+
+my_lower <- function(data, mapping, ...) {
+  
+  # get the x and y data to use the other code
+  x <- eval_data_col(data, mapping$x)
+  y <- eval_data_col(data, mapping$y)
+  
+  # compute the correlations
+  corr <- cor(x, y, method = "p", use = "pairwise")
+  
+  # plot the cor value
+  ggally_text(
+    label = formatC(corr, digits = 2, format = "f") %>% str_replace(., "0\\.", "."),
+    mapping = aes(),
+    color = "black",
+    size = 4) +
+    scale_x_continuous(NULL, breaks = NULL) +
+    scale_y_continuous(NULL, breaks = NULL)
+}
+
+# wrangle
+as_draws_df(fit23.1) %>% 
+  select(contains("Intercept")) %>% 
+  set_names(str_c("theta[", 1:6, "]")) %>% 
+  
+  # plot!
+  ggpairs(upper = list(continuous = my_upper),
+          diag = list(continuous = my_diag),
+          lower = list(continuous = my_lower),
+          labeller = label_parsed) +
+  ggtitle("The thresholds are highly correlated")
 ```
 
 ```{r, echo = F, eval = F}
@@ -566,8 +610,8 @@ Kruschke didn't do this in the text, but it might be informative to plot the pro
 ```{r, fig.width = 6, fig.height = 2.25, warning = F, message = F}
 library(tidybayes)
 
-post %>% 
-  select(-iter) %>% 
+draws_df %>% 
+  select(-.draw) %>% 
   mutate_all(.funs = ~pnorm(. ,0, 1)) %>% 
   transmute(`p[Y==1]` = `b_Intercept[1]`,
             `p[Y==2]` = `b_Intercept[2]` - `b_Intercept[1]`,
@@ -592,7 +636,7 @@ Happily, the model produces data that look a lot like those from which it was ge
 ```{r, fig.width = 4, fig.height = 2.5}
 set.seed(23)
 
-post %>% 
+draws_df %>% 
   mutate(z = rnorm(n(), mean = 0, sd = 1)) %>% 
   mutate(Y = case_when(
     z < `b_Intercept[1]` ~ 1,
@@ -609,14 +653,14 @@ post %>%
   scale_y_continuous(expand = expansion(mult = c(0, 0.05)))
 ```
 
-Along similar lines, we can use the `pp_check()` function to make a version of the upper right panel of Figure 23.2. The `type = "bars"` argument will allow us to summarize the posterior predictions as a dot (mean) and standard error bars superimposed on a bar plot of the original data. Note how this differs a little from Kruschke's use of the posterior median and 95% HDIs. The `nsamples = 1000` argument controls how many posterior predictions we wanted to summarize over. The rest is just formatting.
+Along similar lines, we can use the `pp_check()` function to make a version of the upper right panel of Figure 23.2. The `type = "bars"` argument will allow us to summarize the posterior predictions as a dot (mean) and standard error bars superimposed on a bar plot of the original data. Note how this differs a little from Kruschke's use of the posterior median and 95% HDIs. The `ndraws = 1000` argument controls how many posterior predictions we wanted to summarize over. The rest is just formatting.
 
 ```{r, fig.width = 4, fig.height = 2.5, message = F, warning = F}
 bayesplot::color_scheme_set(sl[2:7])
 
 set.seed(23)
 
-pp_check(fit23.1, type = "bars", nsamples = 1000) +
+pp_check(fit23.1, type = "bars", ndraws = 1000, fatten = 2) +
   scale_x_continuous("y", breaks = 1:7) +
   scale_y_continuous(NULL, breaks = NULL, expand = expansion(mult = c(0, 0.05))) +
   ggtitle("Data with posterior predictions",
@@ -648,11 +692,10 @@ print(fit23.2)
 
 Extract and wrangle the posterior draws.
 
-```{r}
-post <- 
-  posterior_samples(fit23.2) %>%
-  select(`b_Intercept[1]`:`b_Intercept[6]`) %>%
-  mutate(iter = 1:n())
+```{r, warning = F}
+draws_df <- 
+  as_draws_df(fit23.2) %>%
+  select(.draw, `b_Intercept[1]`:`b_Intercept[6]`)
 ```
 
 Now we might compare the **brms** parameterization of $\theta_{[i]}$ with Kruschke's parameterization in an expanded version of the bottom plot of Figure 23.3. As we'll be making a lot of these plots throughout this chapter, it might be worthwhile to just make a custom function. We'll call it `compare_thresholds()`.
@@ -668,12 +711,12 @@ compare_thresholds <- function(data, lb = 1.5, ub = 6.5) {
   p <-
     bind_rows(
       data %>% 
-        gather(name, threshold, -iter) %>% 
-        group_by(iter) %>% 
+        pivot_longer(-.draw, values_to = "threshold") %>% 
+        group_by(.draw) %>% 
         mutate(theta_bar = mean(threshold)),
       data %>% 
-        gather(name, threshold, -iter) %>% 
-        group_by(iter) %>% 
+        pivot_longer(-.draw, values_to = "threshold") %>% 
+        group_by(.draw) %>% 
         mutate(threshold = scales::rescale(threshold, to = c(lb, ub))) %>% 
         mutate(theta_bar = mean(threshold))
     ) %>% 
@@ -705,23 +748,22 @@ compare_thresholds <- function(data, lb = 1.5, ub = 6.5) {
 Take that puppy for a spin.
 
 ```{r, fig.width = 5, fig.height = 4, message = F}
-post %>% 
+draws_df %>% 
   compare_thresholds(lb = 1.5, ub = 6.5)
 ```
 
 Oh man, that works sweet. Now let's use the same parameter-transformation approach from before to get our un-standardized posteriors for $\mu$, $\sigma$, and the effect size.
 
 ```{r, fig.width = 8, fig.height = 2.25}
-post %>% 
-  select(iter, `b_Intercept[1]`, `b_Intercept[6]`) %>% 
+draws_df %>% 
+  select(.draw, `b_Intercept[1]`, `b_Intercept[6]`) %>% 
   mutate(`y[1]` = 1.5,
          `y[6]` = 6.5) %>% 
   mutate(mu    = `y[1]` - `b_Intercept[1]` * 1,
          sigma = (`y[1]` - `y[6]`) / (`b_Intercept[1]` - `b_Intercept[6]`)) %>% 
   mutate(`(mu-4)/sigma` = (mu - 4) / sigma) %>% 
   pivot_longer(mu:`(mu-4)/sigma`) %>% 
-  mutate(name = factor(name,
-                       levels = c("mu", "sigma", "(mu-4)/sigma"))) %>%
+  mutate(name = factor(name, levels = c("mu", "sigma", "(mu-4)/sigma"))) %>%
   
   ggplot(aes(x = value, y = 0)) +
   stat_halfeye(point_interval = mode_hdi, .width = .95,
@@ -736,7 +778,7 @@ Use `pp_check()` to make our version of the upper-right panel of Figure 23.3.
 ```{r, fig.width = 4, fig.height = 2.5, message = F, warning = F}
 set.seed(23)
 
-pp_check(fit23.2, type = "bars", nsamples = 1000) +
+pp_check(fit23.2, type = "bars", ndraws = 1000, fatten = 2) +
   scale_x_continuous("y", breaks = 1:7) +
   scale_y_continuous(NULL, breaks = NULL, expand = expansion(mult = c(0, 0.05))) +
   ggtitle("Data with posterior predictions",
@@ -750,8 +792,8 @@ Just as in the text, "the posterior predictive distribution in the top-right sub
 Here are the probability distributions for each of the 7 categories of `Y`.
 
 ```{r, fig.width = 6, fig.height = 2.25}
-post %>% 
-  select(-iter) %>% 
+draws_df %>% 
+  select(-.draw) %>% 
   mutate_all(.funs = ~pnorm(. ,0, 1)) %>% 
   transmute(`p[Y==1]` = `b_Intercept[1]`,
             `p[Y==2]` = `b_Intercept[2]` - `b_Intercept[1]`,
@@ -827,18 +869,18 @@ print(fit23.3)
 As Kruschke indicated in the text, it yielded a distributional mean of about 1.95 and a standard deviation of about 1.41. Here we'll use a posterior predictive check to compare histograms of data generated from this model to that of the original data.
 
 ```{r, fig.width = 6, fig.height = 3.5}
-pp_check(fit23.3, type = "hist", nsamples = 10, binwidth = 1) +
+pp_check(fit23.3, type = "hist", ndraws = 10, binwidth = 1) +
   scale_x_continuous(breaks = seq(from = -3, to = 7, by = 2)) +
   theme(legend.position = c(.9, .15))
 ```
 
 Yeah, that's not a good fit. We won't be conducting a $t$-test like Kruschke did on page 681. But we might compromise and take a look at the marginal distribution of the intercept (i.e., for $\mu$) and its difference from 2, the reference value.
 
-```{r, fig.width = 6, fig.height = 2.25}
-posterior_samples(fit23.3) %>% 
+```{r, fig.width = 6, fig.height = 2.25, warning = F}
+as_draws_df(fit23.3) %>% 
   mutate(`2 - b_Intercept` = 2 - b_Intercept,
          `effect size`     = (2 - b_Intercept) / sigma) %>% 
-  pivot_longer(-c(sigma, b_Intercept, lp__)) %>% 
+  pivot_longer(`2 - b_Intercept`:`effect size`) %>% 
   
   ggplot(aes(x = value, y = 0)) +
   stat_halfeye(point_interval = mode_hdi, .width = .95,
@@ -868,11 +910,11 @@ fit23.4 <-
 
 Let's just jump to the plot. This time we're comparing the `b_Intercept` to the value of 4.0.
 
-```{r, fig.width = 6, fig.height = 2.25}
-posterior_samples(fit23.4) %>% 
+```{r, fig.width = 6, fig.height = 2.25, warning = F}
+as_draws_df(fit23.4) %>% 
   mutate(`2 - b_Intercept` = 4 - b_Intercept,
          `effect size`     = (4 - b_Intercept) / sigma) %>% 
-  pivot_longer(-c(sigma, b_Intercept, lp__)) %>% 
+  pivot_longer(`2 - b_Intercept`:`effect size`) %>% 
   
   ggplot(aes(x = value, y = 0)) +
   stat_halfeye(point_interval = mode_hdi, .width = .95,
@@ -884,20 +926,20 @@ posterior_samples(fit23.4) %>%
 As in the text, our $d$ is centered around 0.3. Let's use a posterior predictive check to see how well `fit23.4` summarized these data.
 
 ```{r, fig.width = 6, fig.height = 3.5}
-pp_check(fit23.4, type = "hist", nsamples = 10, binwidth = 1) +
+pp_check(fit23.4, type = "hist", ndraws = 10, binwidth = 1) +
   scale_x_continuous(breaks = seq(from = -3, to = 7, by = 2)) +
   theme(legend.position = c(.9, .15))
 ```
 
-The histograms aren't as awful as the ones for the previous model. But they're still not great. We might further inspect the model misspecification with a cumulative distribution function overlay, this time comparing `fit23.2` directly to `fit23.4`.
+The histograms aren't as awful as the ones from the previous model. But they're still not great. We might further inspect the model misspecification with a cumulative distribution function overlay, this time comparing `fit23.2` directly to `fit23.4`.
 
 ```{r, fig.width = 6.25, fig.height = 2.75, warning = F, message = F}
 p1 <-
-  pp_check(fit23.2, type = "ecdf_overlay", nsamples = 50) +
+  pp_check(fit23.2, type = "ecdf_overlay", ndraws = 50) +
   ggtitle("Cumulative-normal (fit23.2)")
 
 p2 <-
-  pp_check(fit23.4, type = "ecdf_overlay", nsamples = 50) +
+  pp_check(fit23.4, type = "ecdf_overlay", ndraws = 50) +
   ggtitle("Conventional-normal (fit23.4)")
   
 (p1 + p2 & 
@@ -1081,28 +1123,26 @@ tibble(X     = LETTERS[1:2],
 Returning to our previous workflow, extract the posterior draws and wrangle.
 
 ```{r}
-post <- 
-  posterior_samples(fit23.5) %>%
-  mutate(iter = 1:n())
+draws_df <- as_draws_df(fit23.5)
 
-glimpse(post)
+glimpse(draws_df)
 ```
 
 Now, let's use our handy `compare_thresholds()` function to make an expanded version of the lower-left plot of Figure 23.4.
 
-```{r, fig.width = 5, fig.height = 4, message = F}
-post %>% 
-  select(`b_Intercept[1]`:`b_Intercept[4]`, iter) %>% 
+```{r, fig.width = 5, fig.height = 4, message = F, warning = F}
+draws_df %>% 
+  select(`b_Intercept[1]`:`b_Intercept[4]`, .draw) %>% 
   compare_thresholds(lb = 1.5, ub = 4.5)
 ```
 
 It will no longer be straightforward to use the formulas from 23.2.2 to convert the output from our **brms** parameterization to match the way Kruschke parameterized his conditional means and standard deviations. I will leave the conversion up to the interested reader. Going forward, we will focus on the output from our **brms** parameterization.
 
-```{r, fig.width = 8, fig.height = 6, eval = F, echo = F}
+```{r, fig.width = 8, fig.height = 6, eval = F, echo = F, warning = F}
 # this does not work. I believe it's because the formulas do not apply to the non-reference group
 
-post %>% 
-  select(iter, b_disc_XB, `b_Intercept[1]`, `b_Intercept[4]`) %>% 
+draws_df %>% 
+  select(.draw, b_disc_XB, `b_Intercept[1]`, `b_Intercept[4]`) %>% 
   mutate(`y[1]` = 1.5,
          `y[4]` = 4.5) %>% 
   mutate(`sigma[A]` = (`y[1]` - `y[4]`) / (`b_Intercept[1]` - `b_Intercept[4]`)) %>% 
@@ -1129,8 +1169,8 @@ post %>%
   facet_wrap(~ name, scales = "free", labeller = label_parsed)
 ```
 
-```{r, fig.width = 8, fig.height = 6}
-post %>% 
+```{r, fig.width = 8, fig.height = 6, warning = F}
+draws_df %>% 
   # simple parameters
   mutate(`mu[A]`    = 0,
          `mu[B]`    = b_XB,
@@ -1164,7 +1204,7 @@ Here we make good use of the `type = "bars_grouped"` and `group = "X"` arguments
 ```{r, fig.width = 8, fig.height = 2.5, message = F, warning = F}
 set.seed(23)
 
-pp_check(fit23.5, type = "bars_grouped", nsamples = 100, group = "X") +
+pp_check(fit23.5, type = "bars_grouped", ndraws = 100, group = "X", fatten = 2) +
   scale_x_continuous("y", breaks = 1:7) +
   scale_y_continuous(NULL, breaks = NULL, expand = expansion(mult = c(0, 0.05))) +
   ggtitle("Data with posterior predictions",
@@ -1203,8 +1243,8 @@ print(fit23.6)
 
 Here are the marginal posteriors, including the effect size (i.e., a standardized mean difference using the pooled standard deviation formula presuming equal sample sizes, $(\mu_2 - \mu_1) / \sqrt{(\sigma_1^2 + \sigma_2^2) / 2}$).
 
-```{r, fig.width = 6, fig.height = 7}
-posterior_samples(fit23.6) %>% 
+```{r, fig.width = 6, fig.height = 7, warning = F}
+as_draws_df(fit23.6) %>% 
   mutate(`A mean`      = b_XA,
          `B mean`      = b_XB,
          `A Std. Dev.` = exp(b_sigma_XA),
@@ -1273,20 +1313,18 @@ print(fit23.7)
 
 Save and wrangle the posterior draws, then use our `compare_thresholds()` function to compare the **brms** parameterization of $\theta_{[i]}$ with the parameterization in the text in an expanded version of the lower-left plot of Figure 23.5.
 
-```{r, fig.width = 5, fig.height = 4, message = F}
-post <- 
-  posterior_samples(fit23.7) %>%
-  mutate(iter = 1:n())
+```{r, fig.width = 5, fig.height = 4, message = F, warning = F}
+draws_df <- as_draws_df(fit23.7)
 
-post %>% 
-  select(`b_Intercept[1]`:`b_Intercept[6]`, iter) %>% 
+draws_df %>% 
+  select(`b_Intercept[1]`:`b_Intercept[6]`, .draw) %>% 
   compare_thresholds(lb = 1.5, ub = 6.5)
 ```
 
 Given our data are only approximations of Kruschke's, I think we did pretty good. Here are the histograms for our **brms** versions of the $\mu$- and $\sigma$-related parameters.
 
-```{r, fig.width = 8, fig.height = 6}
-post %>% 
+```{r, fig.width = 8, fig.height = 6, warning = F}
+draws_df %>% 
   transmute(`mu[Joke~1]`    = 0,
             `mu[Joke~6]`    = b_xjoke6,
             `sigma[Joke~1]` = 1,
@@ -1314,7 +1352,7 @@ Here are our versions of the two panels in the upper right of Figure 23.5.
 ```{r, fig.width = 8, fig.height = 2.5, message = F, warning = F}
 set.seed(23)
 
-pp_check(fit23.7, type = "bars_grouped", nsamples = 100, group = "x") +
+pp_check(fit23.7, type = "bars_grouped", ndraws = 100, group = "x", fatten = 2) +
   scale_x_continuous("y", breaks = 1:7) +
   scale_y_continuous(NULL, breaks = NULL, expand = expansion(mult = c(0, 0.05))) +
   ggtitle("Data with posterior predictions",
@@ -1352,8 +1390,8 @@ print(fit23.8)
 
 Make the marginal posteriors, including the effect size.
 
-```{r, fig.width = 6, fig.height = 7}
-posterior_samples(fit23.8) %>% 
+```{r, fig.width = 6, fig.height = 7, warning = F}
+as_draws_df(fit23.8) %>% 
   mutate(`Joke 1 Mean`      = b_xjoke1,
          `Joke 6 Mean`      = b_xjoke6,
          `Joke 1 Std. Dev.` = exp(b_sigma_xjoke1),
@@ -1436,20 +1474,18 @@ print(fit23.9)
 
 Extract the posterior draws and compare the **brms** parameterization of $\theta_{[i]}$ with the parameterization in the text in an expanded version of the bottom panel of Figure 23.7.
 
-```{r, fig.width = 5, fig.height = 4, message = F}
-post <- 
-  posterior_samples(fit23.9) %>%
-  mutate(iter = 1:n())
+```{r, fig.width = 5, fig.height = 4, message = F, warning = F}
+draws_df <- as_draws_df(fit23.9)
 
-post %>% 
-  select(`b_Intercept[1]`:`b_Intercept[6]`, iter) %>% 
+draws_df %>% 
+  select(`b_Intercept[1]`:`b_Intercept[6]`, .draw) %>% 
   compare_thresholds(lb = 1.5, ub = 6.5)
 ```
 
 Here's the marginal distribution of `b_X_s`, our effect size for the number of jokes.
 
 ```{r, fig.width = 3.5, fig.height = 2.25}
-post %>% 
+draws_df %>% 
   ggplot(aes(x = b_X_s, y = 0)) +
   stat_halfeye(point_interval = mode_hdi, .width = .95,
                fill = sl[4], color = sl[8]) +
@@ -1470,7 +1506,7 @@ set.seed(23)
 
 conditional_effects(fit23.9,
                     spaghetti = TRUE, 
-                    nsamples = 100) %>% 
+                    ndraws = 100) %>% 
   plot(points = T,
        line_args = list(size = 0),
        point_args = list(alpha = 1/3, color = sl[9]),
@@ -1491,7 +1527,7 @@ It might be useful to get more practice in with this model. Here we'll use `fitt
 
 ```{r}
 # how many fitted lines do you want?
-n_iter <- 50
+n_draws <- 50
 
 # define the `X_s` values you want to condition on
 # because the lines are nonlinear, you'll need many of them
@@ -1501,14 +1537,14 @@ f <-
   fitted(fit23.9,
          newdata = nd,
          summary = F,
-         nsamples = n_iter)
+         ndraws = n_draws)
 
 # inspect the output
 f %>% 
   str()
 ```
 
-Our output came in three dimensions. We have 50 rows, corresponding to `n_iter <- 50` (i.e., 50 posterior draws). There are 81 columns, based on how we defined the `X_s` values within our `nd` data (i.e., `seq(from = -2, to = 2, by = 0.05)`). The third dimension has seven levels, one corresponding to each of the seven levels of our criterion variable `Y`. Here's a way to rearrange that output into a useful format for plotting.
+Our output came in three dimensions. We have 50 rows, corresponding to `n_draws <- 50` (i.e., 50 posterior draws). There are 81 columns, based on how we defined the `X_s` values within our `nd` data (i.e., `seq(from = -2, to = 2, by = 0.05)`). The third dimension has seven levels, one corresponding to each of the seven levels of our criterion variable `Y`. Here's a way to rearrange that output into a useful format for plotting.
 
 ```{r, fig.width = 8, fig.height = 2}
 # rearrange the output
@@ -1524,9 +1560,9 @@ rbind(
   # wrangle
   data.frame() %>% 
   set_names(nd %>% pull(X_s)) %>% 
-  mutate(iter   = rep(1:n_iter, times = 7),
-         rating = rep(1:7, each = n_iter)) %>% 
-  pivot_longer(-c(iter, rating),
+  mutate(draw   = rep(1:n_draws, times = 7),
+         rating = rep(1:7, each = n_draws)) %>% 
+  pivot_longer(-c(draw, rating),
                names_to = "X_s",
                values_to = "probability") %>% 
   mutate(rating = str_c("Y: ", rating),
@@ -1534,7 +1570,7 @@ rbind(
   
   # plot
   ggplot(aes(x = X_s, y = probability, 
-             group = interaction(iter, rating),
+             group = interaction(draw, rating),
              color = rating)) +
   geom_line(size = 1/4, alpha = 1/2)  +
   scale_color_scico_d(palette = "lajolla", begin = .25) +
@@ -1571,15 +1607,15 @@ p2 <-
          scale = "linear",
          newdata = nd,
          summary = F,
-         nsamples = n_iter) %>% 
+         ndraws = n_draws) %>% 
   data.frame() %>% 
   set_names(nd %>% pull(X_s)) %>% 
-  mutate(iter = 1:n_iter) %>% 
-  pivot_longer(-iter,
+  mutate(draw = 1:n_draws) %>% 
+  pivot_longer(-draw,
                names_to = "X_s") %>% 
   mutate(X_s = X_s %>% as.double()) %>% 
   
-  ggplot(aes(x = X_s, y = value, group = iter)) +
+  ggplot(aes(x = X_s, y = value, group = draw)) +
   geom_line(alpha = 1/2, color = sl[7]) +
   scale_y_continuous(NULL, breaks = NULL) +
   ggtitle("50 posterior draws")
@@ -1752,7 +1788,7 @@ set.seed(23)
 
 conditional_effects(fit23.10,
                     spaghetti = TRUE, 
-                    nsamples = 100) %>% 
+                    ndraws = 100) %>% 
   plot(points = T,
        line_args = list(size = 0),
        point_args = list(alpha = 1/3, color = sl[9]),
@@ -1806,20 +1842,18 @@ print(fit23.11)
 
 Extract the posterior draws and compare the **brms** parameterization of $\theta_{[i]}$ with the parameterization in the text in an expanded version of the bottom panel of Figure 23.8.
 
-```{r, fig.width = 5, fig.height = 4, message = F}
-post <- 
-  posterior_samples(fit23.11) %>%
-  mutate(iter = 1:n())
+```{r, fig.width = 5, fig.height = 4, message = F, warning = F}
+draws_df <- as_draws_df(fit23.11)
 
-post %>% 
-  select(`b_Intercept[1]`:`b_Intercept[4]`, iter) %>% 
+draws_df %>% 
+  select(`b_Intercept[1]`:`b_Intercept[4]`, .draw) %>% 
   compare_thresholds(lb = 1.5, ub = 4.5)
 ```
 
 Behold the marginal distribution of `b_Assets_s`, our effect size for `Assets`.
 
 ```{r, fig.width = 3.5, fig.height = 2.25}
-post %>% 
+draws_df %>% 
   ggplot(aes(x = b_Assets_s, y = 0)) +
   stat_halfeye(point_interval = mode_hdi, .width = .95,
                fill = sl[4], color = sl[8]) +
@@ -1918,7 +1952,7 @@ set.seed(23)
 
 conditional_effects(fit23.12,
                     spaghetti = TRUE, 
-                    nsamples = 100) %>% 
+                    ndraws = 100) %>% 
   plot(points = T,
        line_args = list(size = 0),
        point_args = list(alpha = 1/3, color = sl[9]),
@@ -1987,26 +2021,34 @@ print(fit23.13)
 
 Extract the posterior draws and compare the **brms** parameterization of $\theta_{[i]}$ with the parameterization in the text in an expanded version of the bottom panel of Figure 23.9.
 
-```{r, fig.width = 5, fig.height = 4, message = F}
-post <- 
-  posterior_samples(fit23.13) %>%
-  mutate(iter = 1:n())
+```{r, fig.width = 5, fig.height = 4, message = F, warning = F}
+draws_df <- as_draws_df(fit23.13)
 
-post %>% 
-  select(`b_Intercept[1]`:`b_Intercept[6]`, iter) %>% 
+draws_df %>% 
+  select(`b_Intercept[1]`:`b_Intercept[6]`, .draw) %>% 
   compare_thresholds(lb = 1.5, ub = 6.5)
 ```
 
-To sate any curiosity, here are the Pearson's correlation coefficients for the parameters.
+To sate any curiosity, here are the correlations among the parameters.
 
-```{r}
-vcov(fit23.13, correlation = T) %>% round(digits = 2)
+```{r, fig.width = 6, fig.height = 6, warning = F, message = F}
+# wrangle
+as_draws_df(fit23.13) %>% 
+  select(contains("Intercept"), b_Year_s, b_Length_s) %>% 
+  set_names(str_c("theta[", 1:6, "]"), str_c("beta[", 1:2, "]")) %>% 
+  
+  # plot!
+  ggpairs(upper = list(continuous = my_upper),
+          diag = list(continuous = my_diag),
+          lower = list(continuous = my_lower),
+          labeller = label_parsed) +
+  ggtitle("These parameters have milder correlations")
 ```
 
-Now behold the marginal distribution of our two effect-size parameters.
+Now focus on the marginal distribution of our two effect-size parameters.
 
-```{r, fig.width = 6, fig.height = 2.25}
-post %>% 
+```{r, fig.width = 6, fig.height = 2.25, warning = F}
+draws_df %>% 
   pivot_longer(ends_with("_s")) %>% 
   mutate(name = factor(name,
                        levels = c("b_Year_s", "b_Length_s"))) %>% 
@@ -2137,17 +2179,17 @@ f %>%
   facet_wrap(~ strip, nrow = 1)
 ```
 
-For this model, however, we will follow Kruschke and make a more faithful version of the top panel of Figure 23.9. We'll need to wrangle our `post` data a bit to get things ready. Here's the work.
+For this model, however, we will follow Kruschke and make a more faithful version of the top panel of Figure 23.9. We'll need to wrangle our `draws_df` data a bit to get things ready. Here's the work.
 
 ```{r}
-post <-
-  post %>% 
+draws_df <-
+  draws_df %>% 
   # we just need the data from three steps in the HMC chain
   slice(1:3) %>% 
-  mutate(iter = 1:n() %>% as.factor(),
+  mutate(.draw = .draw %>% as.factor(),
          b1   = b_Year_s,
          b2   = b_Length_s) %>% 
-  expand(nesting(iter, b1, b2, `b_Intercept[1]`, `b_Intercept[2]`, `b_Intercept[3]`, `b_Intercept[4]`, `b_Intercept[5]`, `b_Intercept[6]`),
+  expand(nesting(.draw, b1, b2, `b_Intercept[1]`, `b_Intercept[2]`, `b_Intercept[3]`, `b_Intercept[4]`, `b_Intercept[5]`, `b_Intercept[6]`),
          # because these are straight lines, two extreme x1-values are all we need
          x1 = c(-10, 10)) %>% 
   pivot_longer(contains("["),
@@ -2158,15 +2200,15 @@ post <-
          Year_s   = x1,
          Length_s = x2) 
 
-glimpse(post)
+glimpse(draws_df)
 ```
 
 Now just plot.
 
 ```{r, fig.width = 7.25, fig.height = 6}
-post %>% 
+draws_df %>% 
   ggplot(aes(x = Year_s, y = Length_s)) +
-  geom_line(aes(group = interaction(iter, theta), color = theta, linetype = iter)) +
+  geom_line(aes(group = interaction(.draw, theta), color = theta, linetype = .draw)) +
   geom_text(data = my_data,
             aes(label = Rating)) +
   scale_color_scico_d(expression(theta), palette = "lajolla", begin = .25, labels = 1:6) +
@@ -2174,12 +2216,12 @@ post %>%
                   ylim = range(my_data$Length_s))
 ```
 
-It might be easier to see Kruschke's main point if we facet by `iter`.
+It might be easier to see Kruschke's main point if we facet by `.draw`.
 
 ```{r, fig.width = 7.25, fig.height = 6}
-post %>% 
+draws_df %>% 
   ggplot(aes(x = Year_s, y = Length_s)) +
-  geom_line(aes(group = interaction(iter, theta), color = theta, linetype = iter)) +
+  geom_line(aes(group = interaction(.draw, theta), color = theta, linetype = .draw)) +
   geom_text(data = my_data,
             aes(label = Rating)) +
   scale_color_scico_d(expression(theta), palette = "lajolla", begin = .25, labels = 1:6) +
@@ -2187,7 +2229,7 @@ post %>%
                   ylim = range(my_data$Length_s)) +
   theme(legend.direction = "horizontal",
         legend.position = c(.75, .25)) +
-  facet_wrap(~ iter, ncol = 2)
+  facet_wrap(~ .draw, ncol = 2)
 ```
 
 Both our versions of the plot show what Kruschke pointed out in the text:
@@ -2277,20 +2319,18 @@ print(fit23.14)
 
 Extract the posterior draws and use `compare_thresholds()` to make our expanded version of the bottom panel of Figure 23.10.
 
-```{r, fig.width = 5, fig.height = 4, message = F}
-post <- 
-  posterior_samples(fit23.14) %>%
-  mutate(iter = 1:n())
+```{r, fig.width = 5, fig.height = 4, message = F, warning = F}
+draws_df <- as_draws_df(fit23.14)
 
-post %>% 
-  select(`b_Intercept[1]`:`b_Intercept[6]`, iter) %>% 
+draws_df %>% 
+  select(`b_Intercept[1]`:`b_Intercept[6]`, .draw) %>% 
   compare_thresholds(lb = 1.5, ub = 6.5)
 ```
 
 Make the marginal distribution of our two effect-size parameters.
 
-```{r, fig.width = 6, fig.height = 2.25}
-post %>% 
+```{r, fig.width = 6, fig.height = 2.25, warning = F}
+draws_df %>% 
   pivot_longer(ends_with("_s")) %>% 
   mutate(name = factor(name, levels = c("b_Year_s", "b_Length_s"))) %>% 
   
@@ -2306,12 +2346,12 @@ Make the top panel for Figure 23.10 just like we did for its analogue in Figure 
 
 ```{r, fig.width = 7.25, fig.height = 6}
 # extract the posterior draws and wrangle
-posterior_samples(fit23.14) %>% 
+as_draws_df(fit23.14) %>% 
   slice(1:3) %>% 
-  mutate(iter = 1:n() %>% as.factor(),
+  mutate(.draw = .draw %>% as.factor(),
          b1   = b_Year_s,
          b2   = b_Length_s) %>% 
-  expand(nesting(iter, b1, b2, `b_Intercept[1]`, `b_Intercept[2]`, 
+  expand(nesting(.draw, b1, b2, `b_Intercept[1]`, `b_Intercept[2]`, 
                  `b_Intercept[3]`, `b_Intercept[4]`, `b_Intercept[5]`, `b_Intercept[6]`),
          x1 = c(-10, 10)) %>% 
   pivot_longer(contains("["),
@@ -2322,7 +2362,7 @@ posterior_samples(fit23.14) %>%
   
   # plot!
   ggplot(aes(x = Year_s, y = Length_s)) +
-  geom_line(aes(group = interaction(iter, theta), color = theta, linetype = iter)) +
+  geom_line(aes(group = interaction(.draw, theta), color = theta, linetype = .draw)) +
   geom_text(data = my_data,
             aes(label = Rating)) +
   scale_color_scico_d(expression(theta), palette = "lajolla", begin = .25, labels = 1:6) +
@@ -2424,7 +2464,7 @@ sessionInfo()
 
 ```{r, message = F, echo = F}
 # remove the objects
-rm(d, sl, p1, p2, den, theta_1, label_1, bar, theta_3, theta_4, label_3, label_4, make_ordinal, plot_bar_den, p3, p4, my_data_1, fit23.1, post, means, p, my_data_2, fit23.2, compare_thresholds, mean_y, sd_y, stanvars, fit23.3, fit23.4, my_data, fit23.5, fit23.6, fit23.7, fit23.8, fit23.9, n_iter, nd, f, r, sd_x, m_x, m_y, beta_0_sigma, beta_1_sigma, fit23.10, fit23.11, fit23.12, fit23.13, fit23.14, ce)
+rm(d, sl, p1, p2, den, theta_1, label_1, bar, theta_3, theta_4, label_3, label_4, make_ordinal, plot_bar_den, p3, p4, my_data_1, fit23.1, draws_df, means, p, my_upper, my_diag, my_lower, my_data_2, fit23.2, compare_thresholds, mean_y, sd_y, stanvars, fit23.3, fit23.4, my_data, fit23.5, fit23.6, fit23.7, fit23.8, fit23.9, n_draws, nd, f, r, sd_x, m_x, m_y, beta_0_sigma, beta_1_sigma, fit23.10, fit23.11, fit23.12, fit23.13, fit23.14, ce)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
