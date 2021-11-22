@@ -717,20 +717,19 @@ Note how we hard coded the settings for some of the parameters within the functi
 
 > In applications with multiple levels of the factors, it is virtually always the case that we are interested in comparing particular levels with each other.... These sorts of comparisons, which involve levels of a single factor and collapse across the other factor(s), are called main effect comparisons or contrasts.(p. 595)
 
-The `fitted()` function provides a versatile framework for contrasts among the main effects. Here's the first contrast.
+The `fitted()` function provides a versatile framework for contrasts among the main effects. In order to follow Kruschke's aim to compare "levels of a single factor and collapse across the other factor(s)" when those factors are modeled in a hierarchical structure, one will have to make use of the `re_formula` argument within `fitted()`. Here's how to do that for the first contrast.
 
 ```{r, fig.width = 3, fig.height = 2.5, warning = F, message = F}
 # define the new data
-nd <- 
-  tibble(Pos = c("Assis", "Assoc"),
-         Org = "mu")
+nd <- tibble(Pos = c("Assis", "Assoc"))
 
 # feed the new data into `fitted()`
 f <-
   fitted(fit20.1,
          newdata = nd,
-         summary = F,
-         allow_new_levels = T) %>% 
+         # this part is crucial
+         re_formula = ~ (1 | Pos),
+         summary = F) %>% 
   as_tibble() %>% 
   set_names("Assis", "Assoc") %>% 
   mutate(`Assoc vs Assis` = Assoc - Assis)
@@ -740,6 +739,7 @@ f %>%
   ggplot(aes(x = `Assoc vs Assis`, y = 0)) +
   stat_beedrill() +
   scale_y_continuous(NULL, breaks = NULL) +
+  xlim(0, NA) +
   labs(title = "Assoc vs Assis",
        x = "Difference")
 ```
@@ -756,19 +756,18 @@ f %>%
 Now make the next two contrasts.
 
 ```{r, fig.width = 6, fig.height = 2.5}
-nd <- 
-  tibble(Org = c("BFIN", "CHEM", "ENG", "PSY"),
-         Pos = "mu")
+nd <- tibble(Org = c("BFIN", "CHEM", "ENG", "PSY"))
 
 f <-
   fitted(fit20.1,
          newdata = nd,
-         summary = F,
-         allow_new_levels = T) %>% 
+         # note the change from above
+         re_formula = ~ (1 | Org),
+         summary = F) %>% 
   as_tibble() %>% 
-  set_names("BFIN", "CHEM", "ENG", "PSY") %>% 
+  set_names(pull(nd, Org)) %>% 
   transmute(`CHEM vs PSY`     = CHEM - PSY,
-            `BFIN vs other 3` = BFIN - (CHEM + ENG + PSY) / 3)
+            `BFIN vs other 3` = BFIN - ((CHEM + ENG + PSY) / 3))
 
 # plot
 f %>% 
@@ -778,6 +777,7 @@ f %>%
   stat_beedrill() +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab("Difference") +
+  expand_limits(x = 0) +
   facet_wrap(~ name, scales = "free")
 ```
 
@@ -794,11 +794,11 @@ f %>%
   mutate_if(is.double, round, digits = 0)
 ```
 
-For further discussion on marginal contrasts in **brms**, see the discussion in [issue #552]((https://github.com/paul-buerkner/brms/issues/552)) in the **brms** GitHub repo and [this discussion thread](https://discourse.mc-stan.org/t/how-do-i-get-marginal-effects-for-categorical-variables-to-condition-on-an-average-rather-than-a-category/5323) on the Stan forums.
+For more on marginal contrasts in **brms**, see the discussion in [issue #552]((https://github.com/paul-buerkner/brms/issues/552)) in the **brms** GitHub repo and [this discussion thread](https://discourse.mc-stan.org/t/how-do-i-get-marginal-effects-for-categorical-variables-to-condition-on-an-average-rather-than-a-category/5323) on the Stan forums.
 
 ### Interaction contrasts and simple effects.
 
-If we'd like to make the simple effects and interaction contrasts like Kruschke displayed in Figure 20.5 within our **tidyverse**/**brms** paradigm, it'll be simplest to just redefine our `nd` data and use `fitted()`, again.
+If we'd like to make the simple effects and interaction contrasts like Kruschke displayed in Figure 20.5 within our **tidyverse**/**brms** paradigm, it'll be simplest to just redefine our `nd` data and use `fitted()`, again. This time, however, we won't be using the `re_formula` argument.
 
 ```{r}
 # define our new data
@@ -1477,7 +1477,9 @@ stanvars <-
   stanvar(1/29,      name = "one_over_twentynine")
 ```
 
-Recall that to fit a robust hierarchical variances model, we need to wrap our two formulas within the `bf()` function. `r emo::ji("warning")` **Warning**: this one took several hours fit. `r emo::ji("warning")`
+Recall that to fit a robust hierarchical variances model, we need to wrap our two formulas within the `bf()` function. 
+
+`r emo::ji("warning")` **Warning**: this one took several hours fit. `r emo::ji("warning")`
 
 ```{r, echo = F, eval = F}
 # Heads up: this took about 8 hours to fit (2-7-2020)
@@ -1640,7 +1642,7 @@ They are similar to the values in the text. And recall, of course, the `brms::po
 ```{r, warning = F}
 bind_rows(as_draws_df(fit20.1) %>% select(`sd_Pos:Org__Intercept`),
           as_draws_df(fit20.2) %>% select(`sd_Pos:Org__Intercept`)) %>% 
-  mutate(fit = rep(c("fit20.1", "fit20.2"), each = n() / 2)) %>% 
+  mutate(fit = rep(c("fit20.1", "fit20.2"), times = c(8000, 12000))) %>% 
   group_by(fit) %>% 
   mode_hdi(`sd_Pos:Org__Intercept`) %>% 
   select(fit:.upper) %>% 
@@ -1652,7 +1654,7 @@ The curious might even look at those in a plot.
 ```{r, fig.width = 6, fig.height = 2, warning = F}
 bind_rows(as_draws_df(fit20.1) %>% select(`sd_Pos:Org__Intercept`),
           as_draws_df(fit20.2) %>% select(`sd_Pos:Org__Intercept`)) %>% 
-  mutate(fit = rep(c("fit20.1", "fit20.2"), each = n() / 2)) %>% 
+  mutate(fit = rep(c("fit20.1", "fit20.2"), times = c(8000, 12000))) %>% 
   
   ggplot(aes(x = `sd_Pos:Org__Intercept`, y = fit)) +
   stat_beedrill(size = 1/2, point_size = 2) +
@@ -1678,7 +1680,7 @@ Here's the current LOO difference.
 loo_compare(fit20.1, fit20.2) %>% print(simplify = F)
 ```
 
-For a more robust model comparison, we might follow the `kfold()` suggestion in the warning. However, be warned: The `kfold()` function entails refitting the model `K` times. `fit20.1` took about an hour to fit and `fit20.2` took several more. Proceed with caution.
+For a more robust model comparison, we might follow the `kfold()` suggestion in the warning. However, be warned: The `kfold()` function entails refitting the model `K` times. `fit20.1` took about an hour to fit and `fit20.2` took several more. `r emo::ji("warning")` Proceed with caution. `r emo::ji("warning")`
 
 But really, "we might want to create a model that describes the data within each cell as a skewed distribution such as a Weibull" (p. 606). Yes, **brms** can handle Weibull regression (e.g., [here](https://discourse.mc-stan.org/t/fitting-time-to-event-data-with-weibull-hazard-using-brm-function/4638)).
 
