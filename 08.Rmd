@@ -239,11 +239,10 @@ The `brms::plot()` function returns a density and trace plot for each model para
 plot(fit8.1)
 ```
 
-Note how the `brms::plot()` function simply took our model fit object as input. Other post-processing functions will require us to pass the posterior draws in the form of a data frame or an array. To get ready for them, here we'll save them in an array with the `as_draws_array()` function and as a data frame with the `as_draws_df()` function.
+Note how the `brms::plot()` function simply took our model fit object as input. Other post-processing functions will require us to pass the posterior draws in the form of a data frame. To get ready for them, here we'll save them as a data frame with the `as_draws_df()` function.
 
 ```{r}
-draws_array <- as_draws_array(fit8.1)
-draws_df <- as_draws_df(fit8.1) 
+draws <- as_draws_df(fit8.1) 
 ```
 
 If you want to display each chain as its own density, you can use the handy `mcmc_dens_overlay()` function from the [**bayesplot** package](https://CRAN.R-project.org/package=bayesplot).
@@ -252,19 +251,21 @@ If you want to display each chain as its own density, you can use the handy `mcm
 library(bayesplot)
 ```
 
-Now we're ready to use our `draws_array` object within the `mcmc_dens_overlay()` function to return the overlaid densities.
+Now we're ready to use our `draws` object within the `mcmc_dens_overlay()` function to return the overlaid densities.
 
 ```{r, fig.width = 4, fig.height = 2, message = F, warning = F}
-draws_array %>% 
-  mcmc_dens_overlay(pars = c("b_Intercept")) +
+draws %>% 
+  mutate(chain = .chain) %>% 
+  mcmc_dens_overlay(pars = vars(b_Intercept)) +
   theme_minimal_hgrid()
 ```
 
 The `bayesplot::mcmc_acf()` function will give us the autocorrelation plots.
 
 ```{r, fig.width = 4, fig.height = 4}
-draws_array %>% 
-  mcmc_acf(pars = "b_Intercept", lags = 35) +
+draws %>% 
+  mutate(chain = .chain) %>% 
+  mcmc_acf(pars = vars(b_Intercept), lags = 35) +
   theme_minimal_hgrid()
 ```
 
@@ -312,16 +313,16 @@ posterior_summary(fit8.1, probs = c(.025, .25, .75, .975))
 
 Regardless of what `prob` or `probs` levels you use, **brms** functions always return percentile-based estimates. All this central tendency and interval talk will be important in a moment...
 
-When plotting the posterior distribution of a parameter estimated with **brms**, you typically do so working with the results of an object returned by one of the `as_draws_` functions. Recall we already saved those results as `draws_df` and `draws_array`. Here's a look at `draws_df`.
+When plotting the posterior distribution of a parameter estimated with **brms**, you typically do so working with the results of an object returned by one of the `as_draws_` functions. Recall we already saved those results as `draws`. Here's a look at `draws`.
 
 ```{r}
-head(draws_df)
+head(draws)
 ```
 
-With `draws_df` in hand, we can use **ggplot2** to do the typical distributional plots, such as with `geom_histogram()`.
+With `draws` in hand, we can use **ggplot2** to do the typical distributional plots, such as with `geom_histogram()`.
 
 ```{r, fig.width = 4, fig.height = 2.5, warning = F, message = F}
-draws_df %>% 
+draws %>% 
   ggplot(aes(x = b_Intercept)) +
   geom_histogram(color = "grey92", fill = "grey67",
                  size = .2) +
@@ -336,8 +337,8 @@ The `bayesplot::mcmc_areas()` function offers a nice way to depict the posterior
 
 ```{r, fig.width = 4, fig.height = 2.5, message = F, warning = F}
 mcmc_areas(
-  draws_df, 
-  pars = c("b_Intercept"),
+  draws, 
+  pars = vars(b_Intercept),
   prob = 0.5,
   prob_outer = 0.95,
   point_est = "mean"
@@ -354,7 +355,7 @@ mcmc_areas(
 ```{r, fig.width = 4, fig.height = 2.5, warning = F, message = F}
 library(tidybayes)
 
-draws_df %>% 
+draws %>% 
   ggplot(aes(x = b_Intercept, y = 0)) +
   stat_halfeye(point_interval = mode_hdi, .width = c(.95, .5)) +
   scale_y_continuous(NULL, breaks = NULL) +
@@ -362,7 +363,7 @@ draws_df %>%
        x = expression(theta)) +
   theme_minimal_hgrid()
 
-draws_df %>% 
+draws %>% 
   ggplot(aes(x = b_Intercept, y = 0)) +
   stat_histinterval(point_interval = mode_hdi, .width = c(.95, .5)) +
   scale_y_continuous(NULL, breaks = NULL) +
@@ -378,12 +379,12 @@ If we wanted to be more congruent with Kruschke's plotting sensibilities, we cou
 ```{r, fig.width = 4, fig.height = 2.5, warning = F, message = F}
 # this is unnecessary, but makes for nicer x-axis breaks
 my_breaks <-
-  mode_hdi(draws_df$b_Intercept)[, 1:3] %>% 
+  mode_hdi(draws$b_Intercept)[, 1:3] %>% 
   pivot_longer(everything(), values_to = "breaks") %>% 
   mutate(labels = breaks %>% round(digits = 3))
 
 # here's the main plot code
-draws_df %>% 
+draws %>% 
   ggplot(aes(x = b_Intercept, y = 0)) +
   stat_histinterval(point_interval = mode_hdi, .width = .95,
                     fill = "steelblue", slab_color = "white",
@@ -400,7 +401,7 @@ draws_df %>%
 With the `point_interval` argument within `stat_histinterval()` and related functions, we can request different combinations of measures of central tendency (i.e., mean, median, mode) and interval types (i.e., percentile-based and HDIs). Although all of these are legitimate ways to summarize a posterior, they can yield somewhat different results. For example, here we'll contrast our mode + HDI summary with a median + percentile-based interval summary using `tidybayes::stat_pointinterval()`.
 
 ```{r, fig.width = 4, fig.height = 1.5}
-draws_df %>% 
+draws %>% 
   ggplot(aes(x = b_Intercept)) +
   stat_pointinterval(aes(y = 1), point_interval = median_qi, .width = c(.95, .5)) +
   stat_pointinterval(aes(y = 2), point_interval = mode_hdi,  .width = c(.95, .5)) +
@@ -586,20 +587,20 @@ pairs(fit8.2,
 But to get at that difference-score distribution, we'll have extract the posterior draws with `as_draws_df()`, make difference score with `mutate()`, and manually plot with **ggplot2**.
 
 ```{r}
-draws_df <- as_draws_df(fit8.2)
+draws <- as_draws_df(fit8.2)
 
-draws_df <-
-  draws_df %>% 
+draws <-
+  draws %>% 
   rename(theta_Reginald = b_sReginald,
          theta_Tony     = b_sTony) %>% 
   mutate(`theta_Reginald - theta_Tony` = theta_Reginald - theta_Tony)
 
-glimpse(draws_df)
+glimpse(draws)
 ```
 
-```{r, fig.width = 10, fig.height = 3, message = F, warninf = F}
+```{r, fig.width = 10, fig.height = 3, message = F, warning = F}
 long_draws <-
-  draws_df %>% 
+  draws %>% 
   select(starts_with("theta")) %>% 
   pivot_longer(everything()) %>% 
   mutate(name = factor(name, levels = c("theta_Reginald", "theta_Tony", "theta_Reginald - theta_Tony"))) 
@@ -655,9 +656,9 @@ fit8.3 <-
 Because we set `sample_prior = "only"`, the `as_draws_df()` function will now return draws from the priors.
 
 ```{r}
-draws_df <- as_draws_df(fit8.3) %>% select(-lp__)
+draws <- as_draws_df(fit8.3) %>% select(-lp__)
 
-head(draws_df)
+head(draws)
 ```
 
 With our prior draws in hand, we're almost ready to make the prior histograms of Figure 8.7. But first we'll want to determine the $z/N$ values in order to mark them off in the plots. [You'll note Kruschke did so with gray plus marks in his.]
@@ -680,7 +681,7 @@ d_line <-
 Behold the histograms of Figure 8.7.
 
 ```{r, fig.width = 10, fig.height = 3, message = F, warning = F}
-draws_df %>% 
+draws %>% 
   rename(theta_Reginald = b_sReginald,
          theta_Tony     = b_sTony) %>% 
   mutate(`theta_Reginald - theta_Tony` = theta_Reginald - theta_Tony) %>% 
@@ -702,7 +703,7 @@ draws_df %>%
 Here's how you might make the scatter plot.
 
 ```{r, fig.width = 3, fig.height = 3}
-draws_df %>% 
+draws %>% 
   rename(theta_Reginald = b_sReginald,
          theta_Tony     = b_sTony) %>% 
   
@@ -715,7 +716,7 @@ draws_df %>%
 Or you could always use a two-dimensional density plot with `stat_density_2d()`.
 
 ```{r, fig.width = 3, fig.height = 3, warning = F}
-draws_df %>% 
+draws %>% 
   rename(theta_Reginald = b_sReginald,
          theta_Tony     = b_sTony) %>% 
   
@@ -774,7 +775,7 @@ sessionInfo()
 
 ```{r, message = F, warning = F, echo = F}
 # Here we'll remove our objects
-rm(p1, my_arrow, p2, p3, p4, p5, layout, my_data, fit8.1, draws_array, draws_df, fit8.1_c, estimate_mode, my_breaks, fit8.2, long_draws, fit8.3, d_line, levels)
+rm(p1, my_arrow, p2, p3, p4, p5, layout, my_data, fit8.1, draws, fit8.1_c, estimate_mode, my_breaks, fit8.2, long_draws, fit8.3, d_line, levels)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
