@@ -1019,20 +1019,20 @@ Notice how we combined our two model objects with the `+` operator (`model_1 + m
 print(fit7.1a)
 ```
 
-Here we'll use `as_draws_df()` to collect out posterior draws and save them as a data frame, which we'll name `draws_df.a`.
+Here we'll use the `as_draws_df()` function to collect out posterior draws and save them as a data frame, which we'll name `draws.a`.
 
 ```{r}
-draws_df.a <- as_draws_df(fit7.1a)
+draws.a <- as_draws_df(fit7.1a)
 
 # what is this?
-head(draws_df.a)
+head(draws.a)
 ```
 
-With `draws_df.a` in hand, we're ready to make our version of Figure 7.8. To reduce the overplotting, we're only looking at the first 500 post-warmup draws.
+With `draws.a` in hand, we're ready to make our version of Figure 7.8. To reduce the overplotting, we're only looking at the first 500 post-warmup draws.
 
 ```{r, fig.height = 5, warning = F}
 p1 <-
-  draws_df.a %>% 
+  draws.a %>% 
   filter(.draw < 501) %>% 
   
   ggplot(aes(x = b_y1_Intercept, y = b_y2_Intercept)) +
@@ -1100,10 +1100,10 @@ print(fit7.1b)
 Here's the updated version of Figure 7.8.
 
 ```{r, fig.height = 4, warning = F, message = F}
-draws_df.b <- as_draws_df(fit7.1b)
+draws.b <- as_draws_df(fit7.1b)
 
 p2 <-
-  draws_df.b %>% 
+  draws.b %>% 
   filter(.draw < 501) %>% 
   
   ggplot(aes(x = b_z1_Intercept, y = b_z2_Intercept)) +
@@ -1125,15 +1125,15 @@ Just for kicks and giggles, we might also compare the two model types by plottin
 
 ```{r, fig.height = 2.25, fig.width = 6, warning = F}
 # combine the posterior samples from the two models
-draws_df <-
+draws <-
   bind_rows(
-    draws_df.a %>% transmute(`theta[1]` = b_y1_Intercept, `theta[2]` = b_y2_Intercept),
-    draws_df.b %>% transmute(`theta[1]` = b_z1_Intercept, `theta[2]` = b_z2_Intercept)
+    draws.a %>% transmute(`theta[1]` = b_y1_Intercept, `theta[2]` = b_y2_Intercept),
+    draws.b %>% transmute(`theta[1]` = b_z1_Intercept, `theta[2]` = b_z2_Intercept)
   ) %>% 
   mutate(fit = rep(c("fit7.1a", "fit7.1b"), each = n() / 2))
 
 # wrangle
-draws_df %>% 
+draws %>% 
   pivot_longer(-fit) %>% 
   
   # plot
@@ -1154,7 +1154,7 @@ I hope this makes clear that the two estimation methods returned results that ar
 In his Figure 7.9, Kruschke compared the marginal posterior for $\theta_1 - \theta_2$, as computed by two methods from the Metropolis algorithm and another two methods from the Gibbs sampler. Here we'll focus, instead
 
 ```{r, fig.height = 2.5, fig.width = 3.25}
-draws_df %>% 
+draws %>% 
   mutate(dif = `theta[1]` - `theta[2]`) %>% 
 
   ggplot(aes(x = dif, y = fit)) +
@@ -1171,7 +1171,7 @@ draws_df %>%
 Here are the exact estimates of the mode and 95% HDIs for our difference distribution, $\theta_1 - \theta_2$.
 
 ```{r}
-draws_df %>% 
+draws %>% 
   mutate(dif = `theta[1]` - `theta[2]`) %>% 
   group_by(fit) %>% 
   mode_hdi(dif) %>% 
@@ -1181,7 +1181,7 @@ draws_df %>%
 I wouldn't put too much emphasis on the seemingly large differences in the two modes. Among the three primary measures of central tendency, modes are particularly sensitive to things like sample variance. Here's what happens if we compare the two methods with the mean, instead.
 
 ```{r}
-draws_df %>% 
+draws %>% 
   mutate(dif = `theta[1]` - `theta[2]`) %>% 
   group_by(fit) %>% 
   summarise(mean_of_the_difference_score = mean(dif) %>% round(digits = 3))
@@ -1293,12 +1293,12 @@ ggs(fit7.2) %>%
   theme_cowplot(font_size = 12)
 ```
 
-You can make the same basic plot by pulling the posterior draws with `as_draws_df()`, as long as you include the `inc_warmup = TRUE` argument. Then you just have to be careful to `filter()` by the correct values in the `.iteration` meta column.
+You can make the same basic plot by pulling the posterior draws with `as_draws_df()`, as long as you include the `inc_warmup = TRUE` argument. Then you just have to be careful to `filter()` by the correct values in the `.iteration` meta-column.
 
 ```{r, fig.width = 6, fig.height = 2, warning = F}
-draws_df <- as_draws_df(fit7.2, inc_warmup = T)
+draws <- as_draws_df(fit7.2, inc_warmup = T)
 
-draws_df %>% 
+draws %>% 
   filter(.iteration <= 500) %>% 
 
   ggplot(aes(x = .iteration, y = b_Intercept, color = factor(.chain))) +
@@ -1343,12 +1343,13 @@ mcmc_dens_overlay(warmups, pars = c("b_Intercept"))
 
 The densities aren't great, but they still appear nicer than those in for the burn-in iterations in the text. With our warmups in their current state, I'm not aware how we might conveniently make a shrink factor plot, as seen in the lower left of Figure 7.10. So it goes...
 
-Figure 7.11 examined the post-burn-in iterations. We'll follow suit with our post-warmup iterations. Note that for use with the `bayesplot::mcmc_` functions, we'll generally want our posterior draws in an array format. We an do this by extracting them with the `brms::as_draws_array()` function and we'll save the results as `draws_array`.
+Figure 7.11 examined the post-burn-in iterations. We'll follow suit with our post-warmup iterations. Note that for use with the `bayesplot::mcmc_` functions, we'll generally want our posterior draws in a data frame format. We an do this by extracting them with the `brms::as_draws_df()` function.
 
 ```{r, fig.width = 6, fig.height = 2}
-draws_array <- as_draws_array(fit7.2)
+draws <- as_draws_df(fit7.2)
 
-draws_array %>% 
+draws %>% 
+  mutate(chain = .chain) %>% 
   mcmc_trace(pars = "b_Intercept")
 ```
 
@@ -1356,7 +1357,8 @@ draws_array %>%
 The autocorrelation plots:
 
 ```{r, fig.width = 4, fig.height = 4}
-draws_array %>% 
+draws %>% 
+  mutate(chain = .chain) %>% 
   mcmc_acf(pars = "b_Intercept", lags = 40)
 ```
 
@@ -1365,8 +1367,9 @@ As with the warmups, above, the post-warmup autocorrelation plots indicate subst
 Here are the overlaid densities.
 
 ```{r, fig.width = 4, fig.height = 2}
-draws_array %>% 
-  mcmc_dens_overlay(pars = c("b_Intercept"))
+draws %>% 
+  mutate(chain = .chain) %>% 
+  mcmc_dens_overlay(pars = "b_Intercept")
 ```
 
 Now that we're focusing on the post-warmup iterations, we can make a shrink factor plot. We'll do so with the `coda::gelman.plot()` function. But you can't just dump your `brm()` fit object into `gelman.plot()`. It's the wrong object type. However, **brms** offers the `as.mcmc()` function which will convert `brm()` objects for use in functions from the **coda** package.
@@ -1394,9 +1397,9 @@ Instead of a running value, you get a single statistic in the 'Rhat' column.
 On page 181, Kruschke discussed how his overlaid density plots include the HDIs, by chain. The convenience functions from **brms** and **bayesplot** don't easily get us there. But we can get those easy enough with a little help `tidybayes::stat_halfeye()`. Note that for use with the various **tidybayes** functions, we'll want the posterior draws in the format returned by the `brms::as_draws_df()` function, but this time without the warmups included.
 
 ```{r, fig.width = 5, fig.height = 2.75}
-draws_df <- as_draws_df(fit7.2) 
+draws <- as_draws_df(fit7.2) 
 
-draws_df %>% 
+draws %>% 
   mutate(chain = factor(.chain)) %>% 
   
   ggplot(aes(x = b_Intercept, y = chain, fill = chain)) +
@@ -1411,7 +1414,7 @@ draws_df %>%
 If you would like your chain-wise posterior densities to overlap, one way would be to play around with the `height` and `alpha` parameters within the `stat_halfeye()` function.
 
 ```{r, fig.width = 5, fig.height = 2}
-draws_df %>% 
+draws %>% 
   mutate(chain = factor(.chain)) %>% 
   
   ggplot(aes(x = b_Intercept, y = chain, fill = chain)) +
@@ -1445,7 +1448,7 @@ On to the plot. If you read closely in the text (pp. 182--183), Kruschke didn't 
 
 ```{r, warning = F}
 lagged_draws <- 
-  draws_df %>% 
+  draws %>% 
   filter(.chain == 1 & .draw < 71) %>% 
   select(b_Intercept, .draw) %>% 
   # sometimes the unlagged data are called lag_0
@@ -1566,7 +1569,8 @@ lagged_draws %>%
 For our version of the bottom of Figure 7.12, we'll use the `bayesplot::mcmc_acf_bar()` function to get the autocorrelation bar plot, by chain.
 
 ```{r, fig.width = 4, fig.height = 5}
-draws_array %>% 
+draws %>% 
+  mutate(chain = .chain) %>% 
   mcmc_acf_bar(pars = "b_Intercept",
                lags = 20)
 ```
@@ -1611,7 +1615,7 @@ sessionInfo()
 
 ```{r, message = F, warning = F, echo = F}
 # here we'll remove our objects
-rm(hdi_of_icdf, h, omega, d, my_mode_simulation, sim, num_days, positions, current, nslots, p_target, proposal_matrix, acceptance_matrix, from_idx, to_idx, diag_idx, time_idx, move_matrix, transition_matrix, position_vec, p, data, i, proposal, prob_accept_the_proposal, mu, sigma, proposed_jump, my_data, likelihood, prior_d, target_rel_prob, traj_length, trajectory, burn_in, n_accepted, n_rejected, my_metropolis, betas, theta_sequence, bernoulli_likelihood, n1, z1, n2, z2, theta_1_data, theta_2_data, d_prior, d_likelihood, bivariate_bernoulli_likelihood, my_bivariate_metropolis, mh, model_1, model_2, fit7.1a, fit7.1b, draws_df.a, draws_df.b, draws_df, z, n, fit7.2, warmups, draws_array, fit7.2_c, lagged_draws, p1, p2, p3)
+rm(hdi_of_icdf, h, omega, d, my_mode_simulation, sim, num_days, positions, current, nslots, p_target, proposal_matrix, acceptance_matrix, from_idx, to_idx, diag_idx, time_idx, move_matrix, transition_matrix, position_vec, p, data, i, proposal, prob_accept_the_proposal, mu, sigma, proposed_jump, my_data, likelihood, prior_d, target_rel_prob, traj_length, trajectory, burn_in, n_accepted, n_rejected, my_metropolis, betas, theta_sequence, bernoulli_likelihood, n1, z1, n2, z2, theta_1_data, theta_2_data, d_prior, d_likelihood, bivariate_bernoulli_likelihood, my_bivariate_metropolis, mh, model_1, model_2, fit7.1a, fit7.1b, draws.a, draws.b, draws, z, n, fit7.2, warmups, fit7.2_c, lagged_draws, p1, p2, p3)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
