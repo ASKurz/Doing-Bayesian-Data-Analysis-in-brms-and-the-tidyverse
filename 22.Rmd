@@ -843,10 +843,10 @@ Here's how we might make the histograms in Figure 22.5.
 library(tidybayes)
 
 # extract the posterior draws
-draws_df <- as_draws_df(fit22.1)
+draws <- as_draws_df(fit22.1)
 
 # wrangle
-draws_df %>% 
+draws %>% 
   pivot_longer(starts_with("b_")) %>% 
   mutate(name = str_remove(name, "b_")) %>% 
   mutate(lambda    = str_extract(name, "[2-4]+") %>% str_c("lambda==", .),
@@ -867,7 +867,7 @@ draws_df %>%
 Because the $\beta$ values for when $\lambda = 1$ are all fixed to 0, we left those plots out of our version of the figure. If you really wanted them, you'd have to enter the corresponding cells into the data before plotting. If you summarize each parameter by it's posterior mean, `round()`, and wrangle a little, you can arrange the results in a similar way that the equations for $\lambda_2$ through $\lambda_4$ are displayed on the left side of Figure 22.5.
 
 ```{r, message = F, warning = F}
-draws_df %>% 
+draws %>% 
   pivot_longer(starts_with("b_")) %>% 
   mutate(name = str_remove(name, "b_")) %>% 
   mutate(lambda    = str_extract(name, "[2-4]+") %>% str_c("lambda[", ., "]"),
@@ -942,7 +942,7 @@ $$\phi_k = \operatorname{softmax}_S (\{\lambda_k\}) = \frac{\exp (\lambda_k)}{\s
 
 we can get a sense of how to convert these parameters to relative probabilities. Here's how to do so by hand with the posterior draws.
 
-```{r}
+```{r, warning = F}
 as_draws_df(fit22.2) %>% 
   mutate(`lambda[1]` = 0,  # recall this is the default
          `lambda[2]` = b_mu2_Intercept,
@@ -1217,11 +1217,11 @@ If you compare those posterior means of each of those parameters from the data-g
 
 ```{r, fig.width = 8, fig.height = 4.5, warning = F, message = F}
 # extract the posterior draws
-draws_df <- as_draws_df(fit22.3)
+draws <- as_draws_df(fit22.3)
 
 # wrangle
 p1 <-
-  draws_df %>% 
+  draws %>% 
   pivot_longer(starts_with("b_")) %>% 
   mutate(name = str_remove(name, "b_")) %>% 
   mutate(number = str_extract(name, "[2-4]+")) %>% 
@@ -1252,7 +1252,7 @@ to the posterior draws, we can make our version of the upper left panel of Figur
 set.seed(22)
 
 p2 <-
-  draws_df %>% 
+  draws %>% 
   tibble() %>% 
   slice_sample(n = 30) %>% 
   pivot_longer(starts_with("b_")) %>% 
@@ -1457,13 +1457,13 @@ We can use the same basic workflow as before to make our version of the upper ha
 
 ```{r, fig.width = 8, fig.height = 4.5, warning = F, message = F}
 # extract the posterior draws
-draws_df <- as_draws_df(fit22.4)
+draws <- as_draws_df(fit22.4)
 
 # 2D thresholds on the left
 set.seed(22)
 
 p1 <-
-  draws_df %>% 
+  draws %>% 
   tibble() %>% 
   slice_sample(n = 30) %>% 
   pivot_longer(starts_with("b_")) %>% 
@@ -1499,7 +1499,7 @@ p1 <-
 
 # marginal posteriors on the right
 p2 <-
-  draws_df %>% 
+  draws %>% 
   pivot_longer(starts_with("b_")) %>% 
   mutate(name = str_remove(name, "b_")) %>% 
   mutate(number = str_extract(name, "[2-4]+")) %>% 
@@ -1590,8 +1590,8 @@ Since we fit our models with Stan via **brms**, high autocorrelations and low ef
 library(posterior)
 
 bind_rows(
-  posterior_samples(fit22.3) %>% summarise_draws(),
-  posterior_samples(fit22.4) %>% summarise_draws()
+  as_draws_df(fit22.3) %>% summarise_draws(),
+  as_draws_df(fit22.4) %>% summarise_draws()
   ) %>% 
   mutate(fit = rep(c("fit22.3", "fit22.4"), each = n() / 2)) %>% 
   pivot_longer(starts_with("ess")) %>% 
@@ -1609,7 +1609,8 @@ The values look pretty good. We may as well look at the autocorrelations. To kee
 library(bayesplot)
 
 ac <-
-  posterior_samples(fit22.4, add_chain = T) %>% 
+  as_draws_df(fit22.4) %>% 
+  mutate(chain = .chain) %>% 
   select(b_mu2_Intercept:b_mu4_X2, chain) %>% 
   mcmc_acf(lags = 5)
 
@@ -1666,7 +1667,7 @@ One thing that might not be apparent at first glance is that although this model
 
 ```{r, fig.width = 6, fig.height = 2.25}
 # extract the posterior draws for fit22.5
-draws_df <- as_draws_df(fit22.5)
+draws <- as_draws_df(fit22.5)
 
 # wrangle and combine the draws from the two models
 bind_rows(
@@ -1679,7 +1680,7 @@ bind_rows(
            family = "cond_log_1") %>% 
     select(family, lambda, parameter, value),
   # family = "sratio"
-  draws_df %>% 
+  draws %>% 
     pivot_longer(starts_with("b_")) %>% 
     mutate(name = str_remove(name, "b_") %>% str_remove(., "bcs_")) %>% 
     separate(name, into = c("parameter", "lambda")) %>%
@@ -1715,7 +1716,7 @@ With that adjustment in line, here's our updated version of the left panel of Fi
 ```{r, fig.width = 2.75}
 set.seed(22)
 
-draws_df %>% 
+draws %>% 
   tibble() %>% 
   slice_sample(n = 30) %>% 
   pivot_longer(starts_with("b")) %>% 
@@ -1799,13 +1800,13 @@ If you look at the parameter summary, nothing obviously bad happened. The comput
 
 ```{r}
 # extract the posterior draws for fit22.6
-draws_df <- as_draws_df(fit22.6)
+draws <- as_draws_df(fit22.6)
 
 # 2D thresholds on the left
 set.seed(22)
 
 p1 <- 
-  draws_df %>% 
+  draws %>% 
   tibble() %>% 
   slice_sample(n = 30) %>% 
   pivot_longer(starts_with("b")) %>% 
@@ -1842,7 +1843,7 @@ p1 <-
 
 # marginal posteriors on the right
 p2 <-
-draws_df %>% 
+draws %>% 
   pivot_longer(starts_with("b")) %>% 
   mutate(name = str_remove(name, "b_") %>% str_remove(., "bcs_")) %>% 
   separate(name, into = c("parameter", "lambda")) %>% 
@@ -1889,7 +1890,7 @@ sessionInfo()
 
 ```{r, message = F, echo = F}
 # remove the objects
-rm(d1, d2, pl, d3, d4, numbers, greek, b01, b11, b21, b02, b12, b22, b03, b13, b23, lines, p1, p2, my_arrow, p3, p4, p5, p6, p7, p8, p9, layout, a, c, b, fit22.1, draws_df, nd, fit22.2, f, text, cond_log_1, stan_lpmf_1, cond_log_1_lpmf, cond_log_1_pred, stanvars, fit22.3, log_lik_cond_log_1, posterior_epred_cond_log_1, ce, posterior_predict_cond_log_1, cond_log_2, stan_lpmf_2, fit22.4, ac, fit22.5, fit22.6)
+rm(d1, d2, pl, d3, d4, numbers, greek, b01, b11, b21, b02, b12, b22, b03, b13, b23, lines, p1, p2, my_arrow, p3, p4, p5, p6, p7, p8, p9, layout, a, c, b, fit22.1, draws, nd, fit22.2, f, text, cond_log_1, stan_lpmf_1, cond_log_1_lpmf, cond_log_1_pred, stanvars, fit22.3, log_lik_cond_log_1, posterior_epred_cond_log_1, ce, posterior_predict_cond_log_1, cond_log_2, stan_lpmf_2, fit22.4, ac, fit22.5, fit22.6)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
