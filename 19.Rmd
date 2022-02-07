@@ -528,8 +528,13 @@ plot(fit19.1, widths = c(2, 3))
 Also like Kruschke, our chains appear moderately autocorrelated.
 
 ```{r, fig.width = 7, fig.height = 4}
-as_draws_array(fit19.1) %>% 
-  mcmc_acf(pars = c("b_Intercept", "sd_CompanionNumber__Intercept", "sigma"), lags = 10)
+# extract the posterior draws
+draws <- as_draws_df(fit19.1)
+
+# plot
+draws %>% 
+  mutate(chain = .chain) %>% 
+  mcmc_acf(pars = vars(b_Intercept:sigma), lags = 10)
 ```
 
 Here's the model summary.
@@ -556,23 +561,20 @@ Those are all estimates of the group-specific means. Since it wasn't modeled, al
 posterior_summary(fit19.1)["sigma", ]
 ```
 
-To prepare for our version of the top panel of Figure 19.3, we'll use `slice_sample()` to randomly sample from the posterior draws.
+To prepare for our version of the top panel of Figure 19.3, we'll use `slice_sample()` to randomly sample from the posterior draws, saving the subset as `draws_20`.
 
 ```{r}
-# extract the posterior draws
-draws_df <- as_draws_df(fit19.1)
-
 # how many random draws from the posterior would you like?
 n_draws <- 20
 
 # subset
 set.seed(19)
 
-draws_df_20 <-
-  draws_df %>% 
+draws_20 <-
+  draws %>% 
   slice_sample(n = n_draws, replace = F)
 
-glimpse(draws_df_20)
+glimpse(draws_20)
 ```
 
 Before we make our version of the top panel, let's make a corresponding plot of the fixed intercept, the grand mean. The most important lines in the code, below are the ones where we used `stat_function()` within `mapply()`.
@@ -589,8 +591,8 @@ tibble(x = c(0, 150)) %>%
                   color = pp[4])
     }, 
     # enter means and standard deviations here
-    mean = draws_df_20 %>% pull(b_Intercept),
-    sd   = draws_df_20 %>% pull(sigma)
+    mean = draws_20 %>% pull(b_Intercept),
+    sd   = draws_20 %>% pull(sigma)
     ) +
   geom_jitter(data = my_data, aes(x = Longevity, y = -0.001),
               height = .001, 
@@ -692,7 +694,7 @@ For clarity, the "see the right panel of Figure 17.1, p. 478" part was changed f
 To warm up, here's how to compute the first contrast shown in the lower portion of Kruschke's Figure 19.3--the contrast between the two pregnant conditions and the none-control condition.
 
 ```{r, fig.width = 3, fig.height = 2.5, warning = F}
-draws_df %>% 
+draws %>% 
   transmute(c = (`r_CompanionNumber[Pregnant1,Intercept]` + `r_CompanionNumber[Pregnant8,Intercept]`) / 2 - `r_CompanionNumber[None0,Intercept]`) %>% 
   
   ggplot(aes(x = c, y = 0)) +
@@ -708,7 +710,7 @@ Up to this point, our primary mode of showing marginal posterior distributions h
 In case you were curious, here are the HMC-based posterior mode and 95% HDIs.
 
 ```{r, warning = F}
-draws_df %>% 
+draws %>% 
   transmute(difference = (`r_CompanionNumber[Pregnant1,Intercept]` + `r_CompanionNumber[Pregnant8,Intercept]`) / 2 - `r_CompanionNumber[None0,Intercept]`) %>% 
   
   mode_hdi(difference)
@@ -717,7 +719,7 @@ draws_df %>%
 Little difference, there. Now let's quantify the same contrast as a standardized mean difference effect size.
 
 ```{r, fig.width = 3, fig.height = 2.5, warning = F}
-draws_df %>% 
+draws %>% 
   transmute(es = ((`r_CompanionNumber[Pregnant1,Intercept]` + `r_CompanionNumber[Pregnant8,Intercept]`) / 2 - `r_CompanionNumber[None0,Intercept]`) / sigma) %>% 
   
   ggplot(aes(x = es, y = 0)) +
@@ -737,7 +739,7 @@ Okay, now let's do the rest in bulk. First we'll do the difference scores.
 
 ```{r, fig.width = 8, fig.height = 2.5, warning = F}
 differences <-
-  draws_df %>% 
+  draws %>% 
   transmute(`Pregnant1.Pregnant8.None0 vs Virgin1` = (`r_CompanionNumber[Pregnant1,Intercept]` + `r_CompanionNumber[Pregnant8,Intercept]` + `r_CompanionNumber[None0,Intercept]`) / 3 - `r_CompanionNumber[Virgin1,Intercept]`,
             
             `Virgin1 vs Virgin8` = `r_CompanionNumber[Virgin1,Intercept]` - `r_CompanionNumber[Virgin8,Intercept]`,
@@ -760,7 +762,7 @@ Because we save our data wrangling labor from above as `differences`, it won't t
 
 ```{r, fig.width = 8, fig.height = 2.5}
 differences %>% 
-  mutate_all(.funs = ~ . / draws_df$sigma) %>% 
+  mutate_all(.funs = ~ . / draws$sigma) %>% 
   pivot_longer(everything()) %>% 
   
   ggplot(aes(x = value, y = 0)) +
@@ -840,7 +842,7 @@ mw %>%
 Yep, in complimenting the LOO difference, virtually all the stacking weight went to the hierarchical model. You might think of this another way. The conceptual question we're asking is *Does it make sense to say that the* $\sigma_\beta$ *parameter is zero? Is zero a credible value?* We'll, I suppose we could just look at the posterior to assess for that.
 
 ```{r, fig.width = 4, fig.height = 2.5}
-draws_df %>% 
+draws %>% 
   ggplot(aes(x = sd_CompanionNumber__Intercept, y = 0)) +
   stat_dotsinterval(point_interval = mode_hdi, .width = .95,
                     slab_fill = pp[5], color = pp[4], 
@@ -1468,10 +1470,10 @@ densities %>%
 Now we have a covariate in the model, we have to decide on which of its values we want to base our group comparisons. Unless there's a substantive reason for another value, the mean is a good standard choice. And since the covariate `thorax_c` is already mean centered, that means we can effectively leave it out of the equation. Here we make and save them in the simple difference metric.
 
 ```{r, warning = F}
-draws_df <- as_draws_df(fit19.5)
+draws <- as_draws_df(fit19.5)
 
 differences <-
-  draws_df %>% 
+  draws %>% 
   transmute(`Pregnant1.Pregnant8 vs None0` = (`r_CompanionNumber[Pregnant1,Intercept]` + `r_CompanionNumber[Pregnant1,Intercept]`) / 2 - `r_CompanionNumber[None0,Intercept]`,
             
             `Pregnant1.Pregnant8.None0 vs Virgin1` = (`r_CompanionNumber[Pregnant1,Intercept]` + `r_CompanionNumber[Pregnant1,Intercept]` + `r_CompanionNumber[None0,Intercept]`) / 3 - `r_CompanionNumber[Virgin1,Intercept]`,
@@ -1499,7 +1501,7 @@ Now we'll look at the differences in the effect size metric. Since we saved our 
 ```{r, fig.width = 8, fig.height = 5}
 p2 <-
   differences %>% 
-  mutate_all(.funs = ~. / draws_df$sigma) %>% 
+  mutate_all(.funs = ~. / draws$sigma) %>% 
   pivot_longer(everything()) %>%   
   
   ggplot(aes(x = value, y = 0)) +
@@ -2045,10 +2047,10 @@ densities %>%
 Here are the difference distributions in the middle of Figure 19.7.
 
 ```{r, fig.width = 4, fig.height = 2.5, warning = F}
-draws_df <- as_draws_df(fit19.6)
+draws <- as_draws_df(fit19.6)
 
 differences <-
-  draws_df %>% 
+  draws %>% 
   transmute(`D vs A` = `r_Group[D,Intercept]` - `r_Group[A,Intercept]`,
             `C vs B` = `r_Group[C,Intercept]` - `r_Group[B,Intercept]`)
 
@@ -2069,7 +2071,7 @@ Now here are the effect sizes at the bottom of the figure.
 
 ```{r, fig.width = 4, fig.height = 2.5}
 differences %>% 
-  mutate_all(.funs = ~ . / draws_df$sigma) %>% 
+  mutate_all(.funs = ~ . / draws$sigma) %>% 
   pivot_longer(everything()) %>%
   mutate(name = factor(name, levels = c("D vs A", "C vs B"))) %>% 
   
@@ -2198,10 +2200,10 @@ p1 <-
 Here we make the difference distributions in the middle of Figure 19.8.
 
 ```{r, fig.width = 4, fig.height = 2.5, warning = F}
-draws_df <- as_draws_df(fit19.7)
+draws <- as_draws_df(fit19.7)
 
 p2 <-
-  draws_df %>% 
+  draws %>% 
   transmute(`D vs A` = `r_Group[D,Intercept]` - `r_Group[A,Intercept]`,
             `C vs B` = `r_Group[C,Intercept]` - `r_Group[B,Intercept]`) %>% 
   pivot_longer(everything()) %>%
@@ -2220,15 +2222,15 @@ And here we make the plots of the corresponding effect sizes at the bottom of th
 
 ```{r, fig.width = 4, fig.height = 2.5, warning = F}
 # first compute and save the sigma_j's, which will come in handy later 
-draws_df <-
-  draws_df %>% 
+draws <-
+  draws %>% 
   mutate(sigma_A = exp(b_sigma_Intercept + `r_Group__sigma[A,Intercept]`),
          sigma_B = exp(b_sigma_Intercept + `r_Group__sigma[B,Intercept]`),
          sigma_C = exp(b_sigma_Intercept + `r_Group__sigma[C,Intercept]`),
          sigma_D = exp(b_sigma_Intercept + `r_Group__sigma[D,Intercept]`))
 
 p3 <-
-  draws_df %>% 
+  draws %>% 
   # note we're using pooled standard deviations to standardize our effect sizes, here
   transmute(`D vs A` = (`r_Group[D,Intercept]` - `r_Group[A,Intercept]`) / sqrt((sigma_A^2 + sigma_D^2) / 2),
             `C vs B` = (`r_Group[C,Intercept]` - `r_Group[B,Intercept]`) / sqrt((sigma_B^2 + sigma_C^2) / 2)) %>% 
@@ -2257,7 +2259,7 @@ Notice that because (a) the sigma parameters were heterogeneous and (b) they wer
 ```{r, fig.width = 8, fig.height = 2.5, warning = F}
 # recall we computed the sigma_j's a couple blocks up;
 # now we put them to use
-draws_df %>% 
+draws %>% 
   transmute(`D vs A` = sigma_D - sigma_A,
             `C vs B` = sigma_C - sigma_B,
             `D vs C` = sigma_D - sigma_C,
@@ -2390,7 +2392,7 @@ print(fit19.8)
 Extract the posterior draws.
 
 ```{r}
-draws_df <- as_draws_df(fit19.8)
+draws <- as_draws_df(fit19.8)
 ```
 
 Here we'll plot the three dimensions of the posterior, each with the corresponding value from the Cohen's $d$ formula marked off as a vertical line in the foreground.
@@ -2400,7 +2402,7 @@ lines <-
   tibble(name  = c("b_CompanionNumberVirgin1", "b_CompanionNumberVirgin8", "sigma"),
          value = c(y_bar_a, y_bar_b, s_p))
 
-draws_df %>% 
+draws %>% 
   pivot_longer(b_CompanionNumberVirgin1:sigma) %>% 
   
   ggplot(aes(x = value, y = 0)) +
@@ -2418,7 +2420,7 @@ draws_df %>%
 The model did a great job capturing all three parameters. If we would like to compute our Cohen's $d$ using the posterior iterations from `fit19.8`, we'd execute something like this.
 
 ```{r, fig.width = 3, fig.height = 2.5}
-draws_df %>% 
+draws %>% 
   mutate(d = (b_CompanionNumberVirgin1 - b_CompanionNumberVirgin8) / sigma) %>% 
   
   ggplot(aes(x = d, y = 0)) +
@@ -2464,9 +2466,9 @@ print(fit19.9)
 With this parameterization, our posterior for `Intercept` is the same, within simulation variation, as `CompanionNumberVirgin8` from `fit7`. The posterior for `sigma` is about the same for both models, too. But focus on `Virgin1`. This is the unstandardized mean difference, what we called $\bar y_A - \bar y_B$ when we computed Cohen's $d$ using sample statistics. Here's a look at its posterior distribution with its empirical estimate superimposed with a vertical line.
 
 ```{r, fig.width = 3, fig.height = 2.5}
-draws_df <- as_draws_df(fit19.9)
+draws <- as_draws_df(fit19.9)
 
-draws_df %>% 
+draws %>% 
   ggplot(aes(x = b_Virgin1, y = 0)) +
   stat_dotsinterval(point_interval = mode_hdi, .width = .95,
                     slab_fill = pp[2], color = pp[7],
@@ -2480,7 +2482,7 @@ draws_df %>%
 Here's how to standardize that unstandardized effect size into a Cohen's-$d$ metric.
 
 ```{r, fig.width = 3, fig.height = 2.5}
-draws_df %>% 
+draws %>% 
   mutate(d = b_Virgin1 / sigma) %>% 
   
   ggplot(aes(x = d, y = 0)) +
@@ -2736,7 +2738,7 @@ sessionInfo()
 
 ```{r, echo = F}
 # remove our objects
-rm(generate_data, n, grand_mean, d, densities, arrow, text, pp, p1, p2, my_arrow, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, layout, gamma_a_b_from_omega_sigma, sd_y, omega, sigma, s_r, my_data, mean_y, stanvars, fit19.1, draws_df, n_draws, draws_df_20, fit19.2, mw, fit19.3, fit19.4, p13, my_small_data, sd_thorax_c, fit19.5, r, f, differences, p14, p15, p16, p17, fit19.6, fit19.7, y_bar_a, y_bar_b, s_a, s_b, s_p, fit19.8, lines, fit19.9, fit19.10, n_a, n_b, fit19.11)
+rm(generate_data, n, grand_mean, d, densities, arrow, text, pp, p1, p2, my_arrow, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, layout, gamma_a_b_from_omega_sigma, sd_y, omega, sigma, s_r, my_data, mean_y, stanvars, fit19.1, draws, n_draws, draws_20, fit19.2, mw, fit19.3, fit19.4, p13, my_small_data, sd_thorax_c, fit19.5, r, f, differences, p14, p15, p16, p17, fit19.6, fit19.7, y_bar_a, y_bar_b, s_a, s_b, s_p, fit19.8, lines, fit19.9, fit19.10, n_a, n_b, fit19.11)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
