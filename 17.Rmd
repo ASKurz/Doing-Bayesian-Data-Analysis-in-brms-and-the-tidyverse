@@ -486,9 +486,9 @@ $$z_{\hat y} = \zeta_0 + \zeta_1 z_x.$$
 To implement those equations, we'll first extract the posterior draws. We begin with `fit17.1`, the model for which $N = 300$.
 
 ```{r}
-draws_df <- as_draws_df(fit17.1)
+draws <- as_draws_df(fit17.1)
 
-head(draws_df)
+head(draws)
 ```
 
 Let's wrap the consequences of Equation 17.2 into two functions.
@@ -511,8 +511,8 @@ sd_y <- sd(d$weight)
 m_x  <- mean(d$height)
 m_y  <- mean(d$weight)
 
-draws_df <-
-  draws_df %>% 
+draws <-
+  draws %>% 
   mutate(b_0 = make_beta_0(zeta_0 = b_Intercept,
                            zeta_1 = b_height_z,
                            sd_x   = sd_x,
@@ -523,7 +523,7 @@ draws_df <-
                            sd_x   = sd_x,
                            sd_y   = sd_y))
 
-glimpse(draws_df)
+glimpse(draws)
 ```
 
 Now we're finally ready to make the top panel of Figure 17.4.
@@ -534,7 +534,7 @@ n_lines <- 100
 
 d %>% 
   ggplot(aes(x = height, y = weight)) +
-  geom_abline(data = draws_df %>% slice(1:n_lines),
+  geom_abline(data = draws %>% slice(1:n_lines),
               aes(intercept = b_0, slope = b_1, group = .draw),
               color = bp[2], size = 1/4, alpha = 1/3) + 
   geom_point(alpha = 1/2, color = bp[5]) +
@@ -564,7 +564,7 @@ text <-
          name  = "Slope")
 
 # here are the primary data
-draws_df %>% 
+draws %>% 
   transmute(Intercept = b_0,
             Slope     = b_1,
             Scale     = sigma * sd_y,
@@ -592,7 +592,7 @@ draws_df %>%
 Here's the scatter plot for the slope and intercept.
 
 ```{r, fig.width = 3.25, fig.height = 3}
-draws_df %>% 
+draws %>% 
   ggplot(aes(x = b_1, y = b_0)) +
   geom_point(color = bp[3], size = 1/3, alpha = 1/3) +
   labs(x = expression(beta[1]),
@@ -602,7 +602,7 @@ draws_df %>%
 That is one strong correlation! Finally, here's the scatter plot for $\operatorname{log10}(\nu)$ and $\sigma_{\text{transformed back to its raw metric}}$.
 
 ```{r, fig.width = 3.25, fig.height = 3, warning = F}
-draws_df %>% 
+draws %>% 
   transmute(Scale     = sigma * sd_y,
             Normality = nu %>% log10()) %>% 
   ggplot(aes(x = Normality, y = Scale)) +
@@ -614,10 +614,10 @@ draws_df %>%
 Let's back track and make the plots for Figure 17.3 with `fit17.2`. We'll need to extract the posterior draws and wrangle, as before.
 
 ```{r}
-draws_df <- as_draws_df(fit17.2)
+draws <- as_draws_df(fit17.2)
 
-draws_df <-
-  draws_df %>% 
+draws <-
+  draws %>% 
   mutate(b_0 = make_beta_0(zeta_0 = b_Intercept,
                            zeta_1 = b_height_z,
                            sd_x   = sd_x,
@@ -628,7 +628,7 @@ draws_df <-
                            sd_x   = sd_x,
                            sd_y   = sd_y))
 
-glimpse(draws_df)
+glimpse(draws)
 ```
 
 Here's the top panel of Figure 17.3.
@@ -641,7 +641,7 @@ ggplot(data = d %>%
          filter(subset == 1), 
        aes(x = height, y = weight)) +
   geom_vline(xintercept = 0, color = bp[9]) +
-  geom_abline(data = draws_df %>% slice(1:n_lines),
+  geom_abline(data = draws %>% slice(1:n_lines),
               aes(intercept = b_0, slope = b_1, group = .draw),
               color = bp[6], size = 1/4, alpha = 1/3) +
   geom_point(alpha = 1/2, color = bp[3]) +
@@ -657,7 +657,7 @@ Next we'll make the histograms.
 
 ```{r, fig.width = 6, fig.height = 4, warning = F}
 # here are the primary data
-draws_df %>% 
+draws %>% 
   transmute(Intercept = b_0,
             Slope     = b_1,
             Scale     = sigma * sd_y,
@@ -682,13 +682,13 @@ draws_df %>%
 And we'll finish up with the scatter plots.
 
 ```{r, fig.width = 3.25, fig.height = 3, warning = F}
-draws_df %>% 
+draws %>% 
   ggplot(aes(x = b_1, y = b_0)) +
   geom_point(color = bp[4], size = 1/3, alpha = 1/3) +
   labs(x = expression(beta[1]),
        y = expression(beta[0]))
 
-draws_df %>% 
+draws %>% 
   transmute(Scale = sigma * sd_y,
             Normality = nu %>% log10()) %>% 
   ggplot(aes(x = Normality, y = Scale)) +
@@ -785,8 +785,17 @@ They had equally impressive autocorrelation plots.
 # set the bayesplot color scheme
 color_scheme_set(scheme = bp[c(1, 3, 8, 7, 5, 5)])
 
-mcmc_acf(as_draws_array(fit17.1), pars = c("b_Intercept", "b_height_z", "sigma", "nu"), lags = 10)
-mcmc_acf(as_draws_array(fit17.3), pars = c("b_Intercept", "b_height", "sigma", "nu"), lags = 10)
+as_draws_df(fit17.1) %>% 
+  mutate(chain = .chain) %>% 
+  mcmc_acf(pars = vars(b_Intercept:nu),
+           lags = 10) +
+  ggtitle("fit17.1")
+
+as_draws_df(fit17.3) %>% 
+  mutate(chain = .chain) %>% 
+  mcmc_acf(pars = vars(b_Intercept:nu),
+           lags = 10) +
+  ggtitle("fit17.3")
 ```
 
 Their $N_{eff}/N$ ratios were pretty similar. Both were reasonable. You'd probably want to run a simulation to contrast them with any rigor.
@@ -819,7 +828,7 @@ Halfway through the prose, Kruschke mentioned how the models provide entire post
 Since this is such a simple model, one way is to work directly with the posterior draws Here we use the model formula $y_i = \beta_0 + \beta_1 x_i$ by adding the transformed intercept `b_0` to the product of $50$ and the transformed coefficient for `height`, `b_1`.
 
 ```{r, fig.width = 3.5, fig.height = 2.5}
-draws_df %>% 
+draws %>% 
   mutate(weight_at_50 = b_0 + b_1 * 50) %>% 
   
   ggplot(aes(x = weight_at_50, y = 0)) +
@@ -1195,15 +1204,15 @@ summary(fit17.4)
 Keeping in the same spirit of [Section 17.2.4][Interpreting the posterior distribution.], we'll make the plots of Figure 17.5 in two ways. First, we'll use our `make_beta_0()` and  `make_beta_1()` functions to transform the model coefficients.
 
 ```{r, warning = F}
-draws_df <- as_draws_df(fit17.4)
+draws <- as_draws_df(fit17.4)
 
 sd_x <- sd(my_data$X)
 sd_y <- sd(my_data$Y)
 m_x  <- mean(my_data$X)
 m_y  <- mean(my_data$Y)
 
-draws_df <-
-  draws_df %>% 
+draws <-
+  draws %>% 
   mutate(b_0 = make_beta_0(zeta_0 = b_Intercept,
                            zeta_1 = b_x_z,
                            sd_x   = sd_x,
@@ -1215,7 +1224,7 @@ draws_df <-
                            sd_y   = sd_y)) %>% 
   select(.draw, b_0, b_1)
 
-head(draws_df)
+head(draws)
 ```
 
 Here's the top panel of Figure 17.4.
@@ -1228,7 +1237,7 @@ my_data %>%
   mutate(Subj = factor(Subj, levels = 25:1)) %>% 
   
   ggplot(aes(x = X, y = Y)) +
-  geom_abline(data = draws_df %>% slice(1:n_lines),
+  geom_abline(data = draws %>% slice(1:n_lines),
               aes(intercept = b_0, slope = b_1, group = .draw),
               color = "grey50", size = 1/4, alpha = 1/5) +
   geom_point(aes(color = Subj),
@@ -1496,7 +1505,7 @@ sd_y <- sd(my_data$MedianIncome)
 Now we'll extract our posterior draws and make the conversions.
 
 ```{r, fig.width = 7, fig.height = 6, warning = F}
-draws_df <- 
+draws <- 
   as_draws_df(fit17.5) %>% 
   mutate(b_0 = make_beta_0(zeta_0 = b_Intercept,
                            zeta_1 = b_family_size_z,
@@ -1523,15 +1532,15 @@ Our `geom_abline()` approach from before won't work with curves. We'll have to r
 n_lines <- 200
 
 set.seed(17)
-draws_df <-
-  draws_df %>% 
+draws <-
+  draws %>% 
   slice_sample(n = n_lines) %>% 
   rownames_to_column(var = "draw") %>% 
   expand(nesting(.draw, b_0, b_1, b_2),
          FamilySize = seq(from = 1, to = 9, length.out = 50)) %>% 
   mutate(MedianIncome = b_0 + b_1 * FamilySize + b_2 * FamilySize^2)
 
-head(draws_df)
+head(draws)
 ```
 
 Now we're ready to make the top panel of Figure 17.7.
@@ -1539,7 +1548,7 @@ Now we're ready to make the top panel of Figure 17.7.
 ```{r, fig.width = 4.25, fig.height = 4 }
 my_data %>%
   ggplot(aes(x = FamilySize, y = MedianIncome)) +
-  geom_line(data = draws_df,
+  geom_line(data = draws,
             aes(group = .draw),
             size  = 1/4, alpha = 1/5, color = "grey67") +
   geom_line(aes(group = State, color = State),
@@ -1598,8 +1607,9 @@ n_lines <- 200
 set.seed(17)
 c <-
   c %>% 
-  group_by(State) %>% 
+  group_by(State) %>%
   slice_sample(n = n_lines) %>%
+  ungroup() %>% 
   expand(nesting(draw, State, b_0, b_1, b_2),
          FamilySize = seq(from = 1, to = 9, length.out = 50)) %>% 
   mutate(MedianIncome = b_0 + b_1 * FamilySize + b_2 * FamilySize^2)
@@ -1663,7 +1673,7 @@ sessionInfo()
 
 ```{r, echo = F}
 # remove the objects
-rm(n_draw, d, curves, beyonce_palettes, bp, p1, p2, my_arrow, p3, p4, p5, p6, p7, p8, p9, p10, layout, HtWtDataGenerator, standardize, fit17.1, stanvars, fit17.2, draws_df, make_beta_0, make_beta_1, sd_x, sd_y, m_x, m_y, n_lines, rope, text, beta_0_sigma, beta_1_sigma, fit17.3, nd, my_data, p11, p12, p13, p14, p15, fit17.4, c, f, fit17.5, make_beta_2)
+rm(n_draw, d, curves, beyonce_palettes, bp, p1, p2, my_arrow, p3, p4, p5, p6, p7, p8, p9, p10, layout, HtWtDataGenerator, standardize, fit17.1, stanvars, fit17.2, draws, make_beta_0, make_beta_1, sd_x, sd_y, m_x, m_y, n_lines, rope, text, beta_0_sigma, beta_1_sigma, fit17.3, nd, my_data, p11, p12, p13, p14, p15, fit17.4, c, f, fit17.5, make_beta_2)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
