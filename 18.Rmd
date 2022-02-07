@@ -540,9 +540,9 @@ Based on Equation 18.1, we can convert the standardized coefficients from our mu
 To use them, we'll first extract the posterior draws
 
 ```{r}
-draws_df <- as_draws_df(fit18.1)
+draws <- as_draws_df(fit18.1)
 
-head(draws_df)
+head(draws)
 ```
 
 Like we did in [Chapter 17][Metric Predicted Variable with One Metric Predictor], let's wrap the consequences of Equation 18.1 into two functions.
@@ -567,8 +567,8 @@ m_x_1  <- mean(my_data$Spend)
 m_x_2  <- mean(my_data$PrcntTake)
 m_y    <- mean(my_data$SATT)
 
-draws_df <-
-  draws_df %>% 
+draws <-
+  draws %>% 
   mutate(b_0 = make_beta_0(zeta_0 = b_Intercept,
                            zeta_1 = b_spend_z,
                            zeta_2 = b_prcnt_take_z,
@@ -585,7 +585,7 @@ draws_df <-
                            sd_j   = sd_x_2,
                            sd_y   = sd_y))
 
-glimpse(draws_df)
+glimpse(draws)
 ```
 
 Before we make the figure, we'll update our overall plot theme to `cowplot::theme_minimal_grid()`. Our overall color scheme and plot aesthetic will be based on some of the plots in [Chapter 16, *Visualizing uncertainty*](https://clauswilke.com/dataviz/visualizing-uncertainty.html), of @wilkeFundamentalsDataVisualization2019. As we'll be making a lot of customized density plots in this chapter, we may as well cave those settings, here. We'll call the function with those settings `stat_wilke()`.
@@ -662,7 +662,7 @@ Here's the top panel of Figure 18.5.
 
 ```{r, fig.width = 6, fig.height = 4, warning = F, message = F}
 # here are the primary data
-draws_df %>% 
+draws %>% 
   transmute(Intercept      = b_0,
             Spend          = b_1,
             `Percent Take` = b_2,
@@ -686,7 +686,7 @@ draws_df %>%
 If you want those exact modes and, say, 50% intervals around them, you can just use `tidybayes::mode_hdi()`.
 
 ```{r, warning = F}
-draws_df %>% 
+draws %>% 
   transmute(Spend          = b_1,
             `Percent Take` = b_2) %>% 
   pivot_longer(everything()) %>% 
@@ -725,7 +725,7 @@ library(bayesplot)
 
 color_scheme_set(c("steelblue4", "steelblue4", "steelblue4", "steelblue4", "steelblue4", "steelblue4"))
 
-draws_df %>% 
+draws %>% 
   transmute(Intercept      = b_0,
             Spend          = b_1,
             `Percent Take` = b_2,
@@ -738,7 +738,7 @@ draws_df %>%
 One way to get the Pearson's correlation coefficients among the parameters is with `psych::lowerCor()`.
 
 ```{r, warning = F}
-draws_df %>% 
+draws %>% 
   transmute(Intercept      = b_0,
             Spend          = b_1,
             `Percent Take` = b_2,
@@ -792,7 +792,7 @@ my_lower <- function(data, mapping, ...) {
 Let's see what we've done.
 
 ```{r, fig.width = 6, fig.height = 5.5, warning = F, message = F}
-draws_df %>% 
+draws %>% 
   transmute(`Intercept~(beta[0])`    = b_0,
             `Spend~(beta[1])`        = b_1,
             `Percent~Take~(beta[2])` = b_2,
@@ -879,8 +879,11 @@ Let's move on. Kruschke mentioned high autocorrelations in the prose. Here are t
 ```{r, fig.width = 6.5, fig.height = 4}
 color_scheme_set(c("steelblue4", "steelblue4", "chocolate3", "steelblue4", "steelblue4", "steelblue4"))
 
-as_draws_array(fit18.2) %>% 
-  mcmc_acf(pars = c("b_Intercept", "b_spend_z", "b_prcnt_take_z", "b_prop_not_take_z"), 
+draws <- as_draws_df(fit18.2)
+
+draws %>% 
+  mutate(chain = .chain) %>% 
+  mcmc_acf(pars = vars(b_Intercept:b_prop_not_take_z),
            lags = 10)
 ```
 
@@ -908,9 +911,7 @@ Notice how much lower our `Spend_z` correlations are than those Kruschke display
 You can really get a sense of the silliness of the parameters if you plot them. We'll use `stat_wilke()` to get a sense of densities and summaries of the $\beta$'s.
 
 ```{r, fig.width = 8, fig.height = 1.75, warning = F}
-draws_df <- as_draws_df(fit18.2) 
-
-draws_df %>% 
+draws %>% 
   pivot_longer(b_Intercept:b_prop_not_take_z) %>% 
   # this line isn't necessary, but it does allow us to arrange the parameters on the y-axis
   mutate(name = factor(name, 
@@ -945,8 +946,8 @@ m_x_2  <- mean(my_data$PrcntTake)
 m_x_3  <- mean(my_data$prop_not_take)
 m_y    <- mean(my_data$SATT)
 
-draws_df <-
-  draws_df %>% 
+draws <-
+  draws %>% 
   transmute(Intercept = make_beta_0(zeta_0 = b_Intercept,
                                     zeta_1 = b_spend_z,
                                     zeta_2 = b_prcnt_take_z,
@@ -971,13 +972,13 @@ draws_df <-
             Scale     = sigma * sd_y,
             Normality = nu %>% log10())
 
-glimpse(draws_df)
+glimpse(draws)
 ```
 
 Now we've done the conversions, here are the histograms of Figure 18.6.
 
 ```{r, fig.width = 6, fig.height = 4}
-draws_df %>% 
+draws %>% 
   pivot_longer(everything()) %>% 
   
   ggplot(aes(x = value, y = 0)) +
@@ -994,7 +995,7 @@ draws_df %>%
 Their scatter plots are as follows.
 
 ```{r, fig.width = 7, fig.height = 6.75, warning = F, message = F}
-draws_df %>% 
+draws %>% 
   set_names("Intercept~(beta[0])", "Spend~(beta[1])", "Percent~Take~(beta[2])", "Percent~Not~Take~(beta[3])", "sigma", "log10(nu)") %>% 
   ggpairs(upper = list(continuous = my_upper),
           diag = list(continuous = my_diag),
@@ -1006,7 +1007,7 @@ draws_df %>%
 Figure 18.7 is all about the prior predictive distribution. Here we'll extract the priors with `prior_samples()` and wrangle all in one step.
 
 ```{r}
-prior_draws_df <- 
+prior_draws <- 
   prior_draws(fit18.2) %>% 
   transmute(Intercept = make_beta_0(zeta_0 = b_Intercept,
                                     zeta_1 = b_spend_z,
@@ -1032,13 +1033,13 @@ prior_draws_df <-
             Scale     = sigma * sd_y,
             Normality = nu %>% log10()) 
 
-glimpse(prior_draws_df)
+glimpse(prior_draws)
 ```
 
 Now we've wrangled the priors, we're ready to make the histograms at the top of Figure 18.7.
 
 ```{r, fig.width = 6, fig.height = 4}
-prior_draws_df %>% 
+prior_draws %>% 
   pivot_longer(everything()) %>% 
   
   ggplot(aes(x = value, y = 0)) +
@@ -1055,7 +1056,7 @@ prior_draws_df %>%
 Since we used the half-Gaussian prior for our $\sigma$, our `Scale` histogram looks different from Kruschke's. Otherwise, everything's on the up and up. Here are the pairs plots at the bottom of Figure 18.7.
 
 ```{r, fig.width = 7, fig.height = 6.75, warning = F, message = F}
-prior_draws_df %>% 
+prior_draws %>% 
   set_names("Intercept~(beta[0])", "Spend~(beta[1])", "Percent~Take~(beta[2])", "Percent~Not~Take~(beta[3])", "sigma", "log10(nu)") %>% 
   ggpairs(upper = list(continuous = my_upper),
           diag = list(continuous = my_diag),
@@ -1067,12 +1068,12 @@ prior_draws_df %>%
 At the top of page 523, Kruschke asked us to "notice that the posterior distribution in Figure 18.6 has ranges for the redundant parameters that are only a little smaller than their priors." With a little wrangling, we can compare the prior/posterior distributions for our redundant parameters more directly.
 
 ```{r, fig.width = 6, fig.height = 3}
-draws_df %>% 
+draws %>% 
   pivot_longer(everything(),
                names_to = "parameter", 
                values_to = "posterior") %>% 
   bind_cols(
-    prior_draws_df %>%
+    prior_draws %>%
       pivot_longer(everything()) %>% 
       transmute(prior = value)
     ) %>% 
@@ -1172,7 +1173,7 @@ Let's convert the posterior draws to the unstandardized metric.
 sd_x_3 <- sd(my_data$interaction)
 m_x_3  <- mean(my_data$interaction)
 
-draws_df <- 
+draws <- 
   as_draws_df(fit18.3) %>% 
   transmute(Intercept = make_beta_0(zeta_0 = b_Intercept,
                                     zeta_1 = b_spend_z,
@@ -1198,13 +1199,13 @@ draws_df <-
             Scale     = sigma * sd_y,
             Normality = nu %>% log10())
 
-glimpse(draws_df)
+glimpse(draws)
 ```
 
 Now we've done the conversions, here are our versions of the histograms of Figure 18.9.
 
 ```{r, fig.width = 6, fig.height = 4}
-draws_df %>% 
+draws %>% 
   pivot_longer(everything()) %>% 
   
   ggplot(aes(x = value, y = 0)) +
@@ -1225,7 +1226,7 @@ bounds <- range(my_data$PrcntTake)
 
 p1 <-
   # wrangle
-  draws_df %>% 
+  draws %>% 
   expand(nesting(Spend, `Spend : Percent Take`),
          PrcntTake = seq(from = bounds[1], to = bounds[2], length.out = 20)) %>% 
   mutate(slope = Spend + `Spend : Percent Take` * PrcntTake) %>% 
@@ -1251,7 +1252,7 @@ bounds <- range(my_data$Spend)
 
 p2 <-
   # wrangle
-  draws_df %>% 
+  draws %>% 
   expand(nesting(`Percent Take`, `Spend : Percent Take`),
          Spend = seq(from = bounds[1], to = bounds[2], length.out = 20)) %>% 
   mutate(slope = `Percent Take` + `Spend : Percent Take` * Spend) %>% 
@@ -1588,7 +1589,7 @@ m_x_13 <- mean(my_data$x_rand_11)
 m_x_14 <- mean(my_data$x_rand_12)
 m_y    <- mean(my_data$SATT)
 
-draws_df <-
+draws <-
   as_draws_df(fit18.4) %>% 
   transmute(Intercept      = make_beta_0(zeta_0 = b_Intercept,
                                          zeta_1  = b_spend_z,
@@ -1680,13 +1681,13 @@ draws_df <-
             Scale          = sigma * sd_y,
             Normality      = nu %>% log10())
 
-glimpse(draws_df)
+glimpse(draws)
 ```
 
 Okay, here are our versions of the histograms of Figure 18.11.
 
 ```{r, fig.width = 6, fig.height = 7}
-draws_df %>% 
+draws %>% 
   pivot_longer(cols = c(Intercept:x_rand_3, x_rand_10:Normality)) %>% 
   mutate(name = factor(name, 
                        levels = c("Intercept", "Spend", "Percent Take",
@@ -1726,7 +1727,7 @@ Note that unlike the one Kruschke displayed in the text, our `brms::bayes_R2()`-
 Sometimes when you have this many parameters you'd like to compare, it's better to display their summaries with an ordered coefficient plot.
 
 ```{r, fig.width = 8, fig.height = 3}
-draws_df %>% 
+draws %>% 
   pivot_longer(Spend:x_rand_12) %>% 
   mutate(name = fct_reorder(name, value)) %>% 
   
@@ -1742,7 +1743,7 @@ draws_df %>%
 Now we can see that by chance alone, the coefficients for `x_rand_8` and `x_rand_9` are clearly distinct from zero. Our `stat_wilke()` function can be informative, too.
 
 ```{r, fig.width = 8, fig.height = 3, warning = F, message = F}
-draws_df %>% 
+draws %>% 
   pivot_longer(Spend:x_rand_12) %>% 
 
   ggplot(aes(x = value, y = reorder(name, value), group = reorder(name, value))) +
@@ -1784,7 +1785,7 @@ posterior_summary(fit18.5) %>%
 Our `make_beta_0()` and `make_beta_1()` code remains obscene.
 
 ```{r, warning = F}
-draws_df <-
+draws <-
   as_draws_df(fit18.5) %>% 
   transmute(Intercept      = make_beta_0(zeta_0  = b_Intercept,
                                          zeta_1  = b_spend_z,
@@ -1876,13 +1877,13 @@ draws_df <-
             Scale          = sigma * sd_y,
             Normality      = nu %>% log10())
 
-glimpse(draws_df)
+glimpse(draws)
 ```
 
 And here are our `stat_wilke()` plot versions of the majority of the histograms of Figure 18.12.
 
 ```{r, fig.width = 6, fig.height = 7}
-draws_df %>% 
+draws %>% 
   pivot_longer(cols = c(Intercept:x_rand_3, x_rand_10:Normality)) %>% 
   mutate(name = factor(name, 
                        levels = c("Intercept", "Spend", "Percent Take",
@@ -1906,7 +1907,7 @@ Based on the distributions for the random predictors, it looks like our **brms**
 For kicks and giggles, here's the corresponding coefficient plot for $\beta_1$ through $\beta_{14}$.
 
 ```{r, fig.width = 8, fig.height = 3}
-draws_df %>% 
+draws %>% 
   pivot_longer(Spend:x_rand_12) %>% 
 
   ggplot(aes(x = value, y = reorder(name, value))) +
@@ -2291,7 +2292,7 @@ That gamma distribution looks like this.
 
 ```{r, fig.width = 4, fig.height = 2}
 tibble(x = seq(from = 0, to = 65, length.out = 1e3)) %>% 
-  ggplot(aes(x = x, y = dgamma(x, p[1], p[2]))) +
+  ggplot(aes(x = x, y = dgamma(x, shape = p[1], rate = p[2]))) +
   geom_area(color = "steelblue4", fill = "steelblue4", alpha = .6) +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab("Our gamma prior") +
@@ -2676,7 +2677,7 @@ sessionInfo()
 
 ```{r, echo = F}
 # here we'll remove our objects
-rm(n, d, d1, d2, grid, mus, sds, cors, covs, p1, p2, p3, my_data, my_arrow, p4, p5, p6, p7, p8, p9, p10, layout, standardize, stanvars, fit18.1, draws_df, my_upper, my_diag, my_lower, make_beta_0, make_beta_j, sd_x_1, sd_x_2, sd_y, m_x_1, m_x_2, m_y, stat_wilke, percent_take, fit18.2, sd_x_3, m_x_3, bounds, prior_draws_df, fit18.3, p11, p12, fit18.4, sd_x_4, sd_x_5, sd_x_6, sd_x_7, sd_x_8, sd_x_9, sd_x_10, sd_x_11, sd_x_12, sd_x_13, sd_x_14, m_x_4, m_x_5, m_x_6, m_x_7, m_x_8, m_x_9, m_x_10, m_x_11, m_x_12, m_x_13, m_x_14, fit18.5, fit18.6, fit18.7, fit18.8, mw, fit18.9, fit18.10, fit18.11, fit18.12, fit18.13, fit18.14, fit18.15, fit18.16, gamma_s_and_r_from_mode_sd, p, fit18.1111, fit18.0111, fit18.1011, fit18.1101, fit18.1110, fit18.0011, fit18.0101, fit18.0110, fit18.1001, fit18.1010, fit18.1100, fit18.0001, fit18.0010, fit18.0100, fit18.1000, fit18.0000, n_points, nd, pp)
+rm(n, d, d1, d2, grid, mus, sds, cors, covs, p1, p2, p3, my_data, my_arrow, p4, p5, p6, p7, p8, p9, p10, layout, standardize, stanvars, fit18.1, draws, my_upper, my_diag, my_lower, make_beta_0, make_beta_j, sd_x_1, sd_x_2, sd_y, m_x_1, m_x_2, m_y, stat_wilke, percent_take, fit18.2, sd_x_3, m_x_3, bounds, prior_draws, fit18.3, p11, p12, fit18.4, sd_x_4, sd_x_5, sd_x_6, sd_x_7, sd_x_8, sd_x_9, sd_x_10, sd_x_11, sd_x_12, sd_x_13, sd_x_14, m_x_4, m_x_5, m_x_6, m_x_7, m_x_8, m_x_9, m_x_10, m_x_11, m_x_12, m_x_13, m_x_14, fit18.5, fit18.6, fit18.7, fit18.8, mw, fit18.9, fit18.10, fit18.11, fit18.12, fit18.13, fit18.14, fit18.15, fit18.16, gamma_s_and_r_from_mode_sd, p, fit18.1111, fit18.0111, fit18.1011, fit18.1101, fit18.1110, fit18.0011, fit18.0101, fit18.0110, fit18.1001, fit18.1010, fit18.1100, fit18.0001, fit18.0010, fit18.0100, fit18.1000, fit18.0000, n_points, nd, pp)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
