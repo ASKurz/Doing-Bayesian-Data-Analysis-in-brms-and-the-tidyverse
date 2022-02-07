@@ -329,7 +329,7 @@ print(fit21.1)
 Now let's get ready to make our version of Figure 21.3. First, we extract the posterior draws.
 
 ```{r}
-draws_df <- as_draws_df(fit21.1)
+draws <- as_draws_df(fit21.1)
 ```
 
 Now we wrangle a bit to make the top panel of Figure 21.3.
@@ -338,7 +338,7 @@ Now we wrangle a bit to make the top panel of Figure 21.3.
 length <- 200
 n_draw <- 20
 
-draws_df %>% 
+draws %>% 
   tibble() %>% 
   # take 20 random samples of the posterior draws
   slice_sample(n = n_draw) %>% 
@@ -376,15 +376,15 @@ Now here we show the marginal distributions in our versions of the lower panels 
 ```{r, fig.width = 6, fig.height = 2.5, warning = F, message = F}
 library(tidybayes)
 
-draws_df <-
-  draws_df %>% 
+draws <-
+  draws %>% 
   # convert the parameter draws to their natural metric following Equation 21.1 (pp. 624--625)
   transmute(Intercept = b_Intercept - (b_weight_z * mean(my_data$weight) / sd(my_data$weight)),
             weight    = b_weight_z / sd(my_data$weight)) %>% 
   pivot_longer(everything())
 
 # plot
-draws_df %>% 
+draws %>% 
   ggplot(aes(x = value, y = 0)) +
   stat_halfeye(point_interval = mode_hdi, .width = .95, 
                shape = 15, point_size = 2.5, point_color = pm[4],
@@ -398,7 +398,7 @@ draws_df %>%
 And here are those exact posterior mode and 95% HDI values.
 
 ```{r}
-draws_df %>% 
+draws %>% 
   group_by(name) %>% 
   mode_hdi() %>% 
   mutate_if(is.double, round, digits = 3)
@@ -445,7 +445,7 @@ print(fit21.2)
 Before we make our plots for Figure 21.4, we'll need to extract the posterior samples and transform a little.
 
 ```{r, warning = F}
-draws_df <-
+draws <-
   as_draws_df(fit21.2) %>% 
   mutate(b_weight  = b_weight_z / sd(my_data$weight),
          b_height  = b_height_z / sd(my_data$height),
@@ -453,15 +453,15 @@ draws_df <-
                                          (b_height_z * mean(my_data$height) / sd(my_data$height)))) %>% 
   select(.draw, b_weight:Intercept)
 
-head(draws_df)
+head(draws)
 ```
 
 Here's our version of Figure 21.4.a.
 
 ```{r, fig.width = 4.25, fig.height = 4}
-set.seed(21)  # we need this for the `slice_sample_n()` function
+set.seed(21)  # we need this for the `slice_sample()` function
 
-draws_df %>% 
+draws %>% 
   slice_sample(n = 20) %>% 
   expand(nesting(.draw, Intercept, b_weight, b_height),
          weight = c(80, 280)) %>% 
@@ -484,7 +484,7 @@ draws_df %>%
 With just a tiny bit more wrangling, we'll be ready to make the bottom panels of Figure 21.4.
 
 ```{r, fig.width = 8, fig.height = 2.5, warning = F, message = F}
-draws_df %>% 
+draws %>% 
   pivot_longer(-.draw) %>% 
   mutate(name = factor(str_remove(name, "b_"),
                        levels = c("Intercept", "weight", "height"))) %>% 
@@ -672,7 +672,7 @@ print(fit21.3)
 Looks like the model did a good job recapturing those data-generating `b0` and `b1` values. Now make the top left panel of Figure 21.5.
 
 ```{r, fig.width = 4.5, fig.height = 3.75}
-draws_df <- as_draws_df(fit21.3)
+draws <- as_draws_df(fit21.3)
 
 # unclear if Kruschke still used 20 draws or not
 # perhaps play with the `n_draw` values
@@ -681,7 +681,7 @@ length <- 100
 
 set.seed(21)
 
-draws_df %>% 
+draws %>% 
   # take 20 random samples of the posterior draws
   slice_sample(n = n_draw) %>% 
   # add in a sequence of x
@@ -708,7 +708,7 @@ draws_df %>%
 Here are the two subplots at the bottom, left.
 
 ```{r, fig.width = 6, fig.height = 2.5, warning = F, message = F}
-draws_df %>% 
+draws %>% 
   mutate(Intercept = b_Intercept,
          x         = b_x) %>% 
   pivot_longer(Intercept:x) %>% 
@@ -759,12 +759,12 @@ print(fit21.4)
 Here's the code for the main plot in Figure 21.5.b.
 
 ```{r}
-draws_df <- as_draws_df(fit21.4)
+draws <- as_draws_df(fit21.4)
 
 set.seed(21)
 
 p1 <-
-  draws_df %>% 
+  draws %>% 
   slice_sample(n = n_draw) %>% 
   expand(nesting(.draw, b_Intercept, b_x),
          x = seq(from = -3.5, to = 3.5, length.out = length)) %>% 
@@ -787,7 +787,7 @@ Now make the two subplots at the bottom.
 
 ```{r, warning = F}
 p2 <-
-  draws_df %>% 
+  draws %>% 
   mutate(Intercept = b_Intercept,
          x         = b_x) %>% 
   pivot_longer(Intercept:x) %>% 
@@ -894,7 +894,7 @@ as_draws_df(fit21.5) %>%
 Them are some sloppy estimates! But we digress. Here's our version of Figure 21.6.a.
 
 ```{r, fig.width = 4.25, fig.height = 4}
-set.seed(21)  # we need this for the `slice_sample()` function
+set.seed(21)
 as_draws_df(fit21.5) %>% 
   slice_sample(n = 20) %>% 
   expand(nesting(.draw, b_Intercept, b_x1, b_x2),
@@ -1151,10 +1151,10 @@ conditional_effects(fit21.7) %>%
 The way we prep for our version of Figure 21.8 is a minor extension what we did for Figure 21.3, above. Here we make the top panel. The biggest change, from before, is our adjusted formula for computing `male`.
 
 ```{r, fig.width = 4.5, fig.height = 3.75}
-draws_df <- as_draws_df(fit21.7)
+draws <- as_draws_df(fit21.7)
 
 p1 <- 
-  draws_df %>% 
+  draws %>% 
   slice_sample(n = n_draw) %>% 
   expand(nesting(.draw, b_a_Intercept, b_b0_Intercept, b_b1_Intercept),
          weight_z = seq(from = -2, to = 3.5, length.out = length)) %>% 
@@ -1181,7 +1181,7 @@ Here we make the marginal-distribution plots for our versions of the lower panel
 
 ```{r, fig.width = 8, fig.height = 2.5, warning = F, message = F}
 p2 <-
-  draws_df %>% 
+  draws %>% 
   mutate(Intercept = b_b0_Intercept - (b_b1_Intercept * mean(my_data$weight) / sd(my_data$weight)),
          weight    = b_b1_Intercept / sd(my_data$weight),
          guessing  = b_a_Intercept) %>% 
@@ -1832,7 +1832,7 @@ sessionInfo()
 
 ```{r, message = F, echo = F}
 # Here we'll remove our objects
-rm(pm, p1, p2, my_arrow, p3, p4, p5, p6, p7, p8, p9, layout, my_data, p, fit21.1, length, n_draw, nd, draws_df, stat_wilke, fit21.2, f, b0, b1, n, d_rare, fit21.3, d_not_rare, fit21.4, s, m, d, b2, fit21.5, different_seed, my_upper, my_diag, my_lower, b3, fit21.6, fit21.7, logistic, positions, p10, fit21.8)
+rm(pm, p1, p2, my_arrow, p3, p4, p5, p6, p7, p8, p9, layout, my_data, p, fit21.1, length, n_draw, nd, draws, stat_wilke, fit21.2, f, b0, b1, n, d_rare, fit21.3, d_not_rare, fit21.4, s, m, d, b2, fit21.5, different_seed, my_upper, my_diag, my_lower, b3, fit21.6, fit21.7, logistic, positions, p10, fit21.8)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
