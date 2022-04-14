@@ -499,7 +499,7 @@ library(brms)
 
 Now we're ready to fit the model. As Kruschke pointed out, the priors on the standardized predictors are set with
 
-> an arbitrary standard deviation of 2.0. This value was chosen because standardized regression coefficients are algebraically constrained to fall between −1 and +1 in least-squares regression[^6], and therefore, the regression coefficients will not exceed those limits by much. A normal distribution with standard deviation of 2.0 is reasonably flat over the range from −1 to +1. (p. 516)
+> an arbitrary standard deviation of 2.0. This value was chosen because standardized regression coefficients are algebraically constrained to fall between −1 and +1 in least-squares regression[^5], and therefore, the regression coefficients will not exceed those limits by much. A normal distribution with standard deviation of 2.0 is reasonably flat over the range from −1 to +1. (p. 516)
 
 With data like this, even a `prior(normal(0, 1), class = b)` would be only mildly regularizing.
 
@@ -1772,6 +1772,7 @@ fit18.5 <-
                    prior(normal(0, 1), class = sigma),
                    prior(exponential(one_over_twentynine), class = nu)),
          seed = 18,
+         control = list(adapt_delta = .9),
       file = "fits/fit18.05")
 ```
 
@@ -2324,7 +2325,7 @@ make_stancode(count ~ Trt + log_Base4_c, epilepsy,
 
 Following the method, we tell `brm()` we'd like to estimate the $SD$ of our $\beta_{1+}$ priors with `prior(normal(0, tau), class = b)`, where the `tau` is a stand-in for the $SD$. In the next line, `set_prior("target += gamma_lpdf(tau | my_shape, my_rate)", check = FALSE)`, we tell `brm()` we'd like to estimate `tau` with a gamma(`my_shape`, `my_rate`), the values for which were saved in our `stanvars` object, above. And it's that `stanvar()` line in that code wherein we told `brm()` we'd like that parameter to have a lower bound of 0. Let's put it to use.
 
-```{r fit18.1111, message = F}
+```{r fit18.1111, message = F, warning = F}
 fit18.1111 <-
   brm(data = my_data,
       family = student,
@@ -2398,6 +2399,8 @@ fit18.0001 <-
 fit18.0010 <-
   update(fit18.1111,
          formula = satt_z ~ 1                          + stu_tea_rat_z           ,
+         control = list(adapt_delta = .99999),
+         seed = 18,
          file = "fits/fit18.0010")
 
 fit18.0100 <-
@@ -2499,15 +2502,6 @@ as_draws_df(fit18.0100) %>%
       pivot_longer(everything()) %>% 
       mutate(fit = "fit18.1100")
     )  %>% 
-  # fit18.0001
-  bind_rows(
-    as_draws_df(fit18.0001) %>% 
-      transmute(Salary    = make_beta_j(zeta_j = b_salary_z,
-                                        sd_j   = sd_x_4,
-                                        sd_y   = sd_y)) %>% 
-      pivot_longer(everything()) %>% 
-      mutate(fit = "fit18.0001")
-    )  %>% 
   # fit18.1000
   bind_rows(
     as_draws_df(fit18.1000) %>% 
@@ -2516,6 +2510,15 @@ as_draws_df(fit18.0100) %>%
                                         sd_y   = sd_y)) %>% 
       pivot_longer(everything()) %>% 
       mutate(fit = "fit18.1000")
+    )  %>% 
+  # fit18.0001
+  bind_rows(
+    as_draws_df(fit18.0001) %>% 
+      transmute(Salary    = make_beta_j(zeta_j = b_salary_z,
+                                        sd_j   = sd_x_4,
+                                        sd_y   = sd_y)) %>% 
+      pivot_longer(everything()) %>% 
+      mutate(fit = "fit18.0001")
     )  %>% 
   # fit18.0110       # spend_z + prcnt_take_z + stu_tea_rat_z
   bind_rows(
@@ -2531,8 +2534,7 @@ as_draws_df(fit18.0100) %>%
     ) %>% 
   # the next two lines just help order the grid the plots appear in
   mutate(name = factor(name, levels = c("Spend", "PrcntTake", "StuTeaRat", "Salary")),
-         fit = factor(fit, levels = c("fit18.0100", "fit18.0111", "fit18.1100", "fit18.0001", "fit18.1000", "fit18.0110"))) %>%
-  
+         fit = factor(fit, levels = c("fit18.0100", "fit18.0111", "fit18.1100", "fit18.1000", "fit18.0001", "fit18.0110"))) %>%
   # finally, the plot!
   ggplot(aes(x = value, y = 0)) +
   stat_wilke(normalize = "panels", point_size = 4) +
@@ -2688,5 +2690,5 @@ pacman::p_unload(pacman::p_loaded(), character.only = TRUE)
 
 ## Footnote {-}
 
-[^6]: In his [Corrigenda](https://sites.google.com/site/doingbayesiandataanalysis/corrigenda), Kruschke further clarified: "that is true only in case there is a single predictor, not for multiple predictors. The statement could have said that 'R^2 is algebraically constrained to fall between −1 and +1 in least-squares regression'. More relevantly, replace the statement with the following: 'In multiple linear regression, standardized regression coefficients tend to fall between -2 and +2 unless the predictors are very strongly correlated and have strongly opposing effects. If your data have strongly correlated predictors, consider widening the prior.'"
+[^5]: In his [Corrigenda](https://sites.google.com/site/doingbayesiandataanalysis/corrigenda), Kruschke further clarified: "that is true only in case there is a single predictor, not for multiple predictors. The statement could have said that 'R^2 is algebraically constrained to fall between −1 and +1 in least-squares regression'. More relevantly, replace the statement with the following: 'In multiple linear regression, standardized regression coefficients tend to fall between -2 and +2 unless the predictors are very strongly correlated and have strongly opposing effects. If your data have strongly correlated predictors, consider widening the prior.'"
 
