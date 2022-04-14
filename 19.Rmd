@@ -386,7 +386,7 @@ The noise standard deviation $\sigma_y$ is depicted in the prior statement inclu
 
 Kruschke set the upper bound for his $\sigma_y$ to 10 times the standard deviation of the criterion variable. The tails of the half-Cauchy are sufficiently fat that, in practice, I've found it doesn't matter much what you set the $SD$ of its prior to. One is often a sensible default for reasonably-scaled data. But if we want to take a more principled approach, we can set it to the size of the criterion's $SD$ or perhaps even 10 times that.
 
-Kruschke suggested using a gamma on $\sigma_\beta$, which is a sensible alternative to half-Cauchy often used within the Stan universe. Especially in situations in which you would like to (a) keep the variance parameter above zero, but (b) still allow it to be arbitrarily close to zero, and also (c) let the likelihood dominate the posterior, the Stan team recommends the gamma(2, 0) prior, based on the paper by Chung and colleagues [-@chungNondegeneratePenalizedLikelihood2013, click [here](http://www.stat.columbia.edu/~gelman/research/published/chung_etal_Pmetrika2013.pdf)]. But you should note that I don't mean a literal 0 for the second parameter in the gamma distribution, but rather some small value like 0.1 or so. This is all clarified in @chungNondegeneratePenalizedLikelihood2013. Here's what $\operatorname{gamma}(2, 0.1)$ looks like.
+Kruschke suggested using a gamma on $\sigma_\beta$, which is a sensible alternative to half-Cauchy often used within the Stan universe. Especially in situations in which you would like to (a) keep the variance parameter above zero, but (b) still allow it to be arbitrarily close to zero, and also (c) let the likelihood dominate the posterior, the Stan team recommends the gamma(2, 0) prior, based on the paper by Chung and colleagues [-@chungNondegeneratePenalizedLikelihood2013, click [here](http://www.stat.columbia.edu/~gelman/research/published/chung_etal_Pmetrika2013.pdf)]. But you should note that I don't mean a literal 0 for the second parameter in the gamma distribution, but rather some small value like 0.1 or so. This is all clarified in @chungNondegeneratePenalizedLikelihood2013. Here's what $\operatorname{Gamma}(2, 0.1)$ looks like.
 
 ```{r, fig.width = 6, fig.height = 2}
 tibble(x = seq(from = 0, to = 110, by = .1)) %>% 
@@ -400,7 +400,7 @@ tibble(x = seq(from = 0, to = 110, by = .1)) %>%
   scale_y_continuous(NULL, breaks = NULL, expand = expansion(mult = c(0, 0.05)))
 ```
 
-If you'd like that prior be even less informative, just reduce it to like $\operatorname{gamma}(2, 0.01)$ or so. Kruschke goes further to recommend "the shape and rate parameters of the gamma distribution are set so its mode is `sd(y)/2` and its standard deviation is `2*sd(y)`, using the function `gammaShRaFromModeSD` explained in [Section 9.2.2][A realistic model with MCMC.]." (pp. 560--561). Let's make that function.
+If you'd like that prior be even less informative, just reduce it to like $\operatorname{Gamma}(2, 0.01)$ or so. Kruschke goes further to recommend "the shape and rate parameters of the gamma distribution are set so its mode is `sd(y)/2` and its standard deviation is `2*sd(y)`, using the function `gammaShRaFromModeSD` explained in [Section 9.2.2][A realistic model with MCMC.]." (pp. 560--561). Let's make that function.
 
 ```{r}
 gamma_a_b_from_omega_sigma <- function(mode, sd) {
@@ -515,7 +515,7 @@ fit19.1 <-
       file = "fits/fit19.01")
 ``` 
 
-Much like Kruschke's JAGS chains, our **brms** chains are well behaved.
+Much like Kruschke's JAGS chains, our **brms** chains are well behaved, but only after fiddling with the `adapt_delta` setting.
 
 ```{r, fig.width = 8, fig.height = 4, message = F, warning = F}
 library(bayesplot)
@@ -778,7 +778,7 @@ differences %>%
 
 Speaking of all meaningful contrasts, if you'd like to make all pairwise comparisons in a hierarchical model of this form, **tidybayes** offers a convenient way to do so [see the [Comparing levels of a factor](https://mjskay.github.io/tidybayes/articles/tidy-brms.html#comparing-levels-of-a-factor) section of @kayExtractingVisualizingTidy2020]. Here we'll demonstrate with `stat_dotsinterval()`.
 
-```{r, fig.height = 4.5, fig.width = 6}
+```{r, fig.height = 4.5, fig.width = 6, warning = F}
 fit19.1 %>%
   # these two lines are where the magic is at
   spread_draws(r_CompanionNumber[CompanionNumber,]) %>%
@@ -909,8 +909,6 @@ fit19.3 <-
   update(fit19.1,
          newdata = my_data %>% 
            filter(CompanionNumber %in% c("Pregnant1", "Virgin8")),
-         control = list(adapt_delta = 0.999,
-                        max_treedepth = 12),
          seed = 19,
          file = "fits/fit19.03")
 ```
