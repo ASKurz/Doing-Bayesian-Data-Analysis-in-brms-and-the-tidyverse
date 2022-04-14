@@ -531,10 +531,9 @@ fit13.1 <-
   brm(data = tibble(y = rbinom(n, size, omega)),
       family = bernoulli(link = identity),
       y ~ 1,
-      prior(beta(1, 1), class = Intercept),
+      prior(beta(1, 1), class = Intercept, lb = 0, ub = 1),
       warmup = 1000, iter = 3000, chains = 4, cores = 1,
       seed = 13,
-      control = list(adapt_delta = .9),
       file = "fits/fit13.01")
 ```
 
@@ -550,7 +549,7 @@ plot(fit13.1, widths = c(2, 3))
 
 Looks like a dream. Let's move forward and run the simulation proper. In his script file, Kruschke suggested we simulate with large $N$s like 1,000 or so. Since this is just an example, I'm gonna cut that to 100.
 
-```{r, eval = F}
+```{r, eval = F, #1.179328 mins}
 # how many simulations would you like?
 n_sim <- 100
 
@@ -574,12 +573,22 @@ sim1 <-
   mutate(fit = map(data, ~update(fit13.1, newdata = list(y = .))))
 ```
 
-```{r, echo = F}
-# Even after reducing `sim1` through `sim5` by an order of magnitude, they take a long time to
+```{r load_sims, echo = F}
+# Even after reducing `sim1` through `sim5` by an order of magnitude, some of them take a long time to
 # complete. So instead of completing them on the fly for each new version of this project, I've
-# saved the results of `sim1` through `sim5` in an external file. 
-# save(list = c("sim1", "sim2", "sim3", "sim4", "sim5"), file = "13_sims/power_sims.rda")
-load("13_sims/power_sims.rda")
+# saved the sims in external files. 
+
+# save(sim1, file = "sims/sim13.01.rds")
+# save(sim2, file = "sims/sim13.02.rds")
+# save(sim3, file = "sims/sim13.03.rds")
+# save(sim4, file = "sims/sim13.04.rds")
+# save(sim5, file = "sims/sim13.05.rds")
+
+load(file = "sims/sim13.01.rds")
+load(file = "sims/sim13.02.rds")
+load(file = "sims/sim13.03.rds")
+load(file = "sims/sim13.04.rds")
+load(file = "sims/sim13.05.rds")
 
 # for later on, we also need
 n_sim <- 100
@@ -602,8 +611,9 @@ library(tidybayes)
 
 get_hdi <- function(fit) {
   fit %>%
-    posterior_samples() %>%
-    mode_hdi(b_Intercept) %>%
+    as_draws_df() %>%
+    # yields the highest-density *continuous* interval
+    mode_hdci(b_Intercept) %>%
     select(.lower:.upper)
 }
 
@@ -611,7 +621,7 @@ get_hdi <- function(fit) {
 get_hdi(fit13.1)
 ```
 
-Now we'll apply that function to our `fits` tibble to pull those simulated HDIs. Then we'll program in the markers for the ROPE and HDI width criteria, perform logical tests to see whether they were passes within each of the 100 simulations, and summarize the tests.
+Now we'll apply that function to our `fits` tibble to pull those simulated HDIs. Then we'll program in the markers for the ROPE and HDI width criteria, perform logical tests to see whether they were passed within each of the 100 simulations, and summarize the tests.
 
 ```{r, warning = F, message = F}
 sim1 %>% 
@@ -635,24 +645,24 @@ Those are our power estimates. To compute their HDIs, just increase them by a fa
 ```{r}
 # HDIs for the ROPE power estimate
 hdi_of_icdf(name = qbeta,
-            shape1 = 1 + 77,
-            shape2 = 1 + n_sim - 77) %>% 
+            shape1 = 1 + 91,
+            shape2 = 1 + n_sim - 91) %>% 
   round(digits = 2)
 
 # HDIs for the width power estimate
 hdi_of_icdf(name = qbeta,
-            shape1 = 1 + 0,
-            shape2 = 1 + n_sim - 0) %>% 
+            shape1 = 1 + 39,
+            shape2 = 1 + n_sim - 39) %>% 
   round(digits = 2)
 ```
 
 Following the middle of page 375, we'll want to do the whole thing again with $\kappa = 10$ and $N = 91$.
 
-Before we run the next simulation, notice how our first approach had us saving the model fits within our `sim1` object. When the models are simple and based on small data and when you’re only simulating 100 times, this isn't a huge deal. But saving 1,000+ `brms::brm()` fit objects of hierarchical models will bog you down. So for our next simulation, we’ll only save the HDIs from our `get_hdi()` function.
+Before we run the next simulation, notice how our first approach had us saving the model fits within our `sim1` object. When the models are simple and based on small data and when you’re only simulating 100 times, this isn't a huge deal. But saving 1,000+ `brms::brm()` fit objects of hierarchical models will bog you down. So for our next simulation, we'll only save the HDIs from our `get_hdi()` function.
 
-```{r, eval = F}
+```{r, eval = F, #1.30995 mins}
 # how many rows of 0s and 1s should we have in the data?
-n     <- 91
+n <- 91
 
 # how many simulations would you like?
 n_sim <- 100
@@ -700,8 +710,8 @@ hdi_of_icdf(name = qbeta,
 
 # HDIs for the width power estimate
 hdi_of_icdf(name = qbeta,
-            shape1 = 1 + 91,
-            shape2 = 1 + n_sim - 91) %>% 
+            shape1 = 1 + 92,
+            shape2 = 1 + n_sim - 92) %>% 
   round(digits = 2)
 ```
 
@@ -789,8 +799,8 @@ print(fit13.2)
 
 Here's a look at our two main parameters, our version of the top panels of Figure 13.3.
 
-```{r, fig.width = 6, fig.height = 2.5}
-posterior_samples(fit13.2) %>% 
+```{r, fig.width = 6, fig.height = 2.5, warning = F}
+as_draws_df(fit13.2) %>% 
   pivot_longer(b_Intercept:sd_s__Intercept) %>% 
   
   ggplot(aes(x = value, y = 0)) +
@@ -894,7 +904,7 @@ Before running the simulations in full, we fit the model once and save that fit 
 n_subj <- 14
 
 # how many trials should we have?
-n     <- 47
+n <- 47
 
 # fit that joint
 fit13.3 <-
@@ -907,7 +917,6 @@ fit13.3 <-
                 prior(normal(0, 1), class = sd)),
       iter = 2000, warmup = 1000, chains = 4, cores = 4,
       seed = 13,
-      control = list(adapt_delta = .9),
       file = "fits/fit13.03")
 ```
 
@@ -927,9 +936,10 @@ Now since we used an aggregated binomial model, we don't have a population-level
 get_theta_hdi <- function(fit) {
   
   fit %>% 
-    posterior_samples() %>% 
-    transmute(theta = inv_logit_scaled(b_Intercept)) %>% 
-    mode_hdi() %>% 
+    as_draws_df() %>% 
+    transmute(theta = inv_logit_scaled(b_Intercept)) %>%
+    # yields the highest-density *continuous* interval
+    mode_hdci() %>% 
     select(.lower:.upper)
   
 }
@@ -955,7 +965,8 @@ get_theta_s_hdi <- function(fit) {
                  names_to = "s") %>% 
     mutate(s = as.numeric(s)) %>% 
     group_by(s) %>% 
-    mode_hdi(value) %>% 
+    # yields the highest-density *continuous* interval
+    mode_hdci(value) %>% 
     select(s, .lower:.upper) %>% 
     rename(.lower_s = .lower,
            .upper_s = .upper)
@@ -982,7 +993,8 @@ fit_then_hdis <- function(data, seed) {
 
 Now we're ready to simulate.
 
-```{r, eval = F}
+```{r, eval = F, #11.82841 mins}
+t0 <- Sys.time()
 # how many subjects should we have?
 n_subj <- 14
 
@@ -996,6 +1008,16 @@ sim3 <-
   tibble(seed = 1:n_sim) %>% 
   mutate(data = map(seed, sample_data, n_subj = n_subj, n_trial = n_trial)) %>% 
   mutate(hdi = map2(data, seed, fit_then_hdis))
+
+t1 <- Sys.time()
+t1-t0
+```
+
+```{r}
+sim3 %>% 
+  filter(seed == 18) %>% 
+  select(hdi) %>% 
+  unnest(hdi)
 ```
 
 If we hold these by the criteria of each $\text{HDI}_{\theta_s} > \text{ROPE}$ and all to have widths less than 0.2, It looks like our initial data-generating `fit13.3` is in the ballpark. Here are the results for the full power analysis, `sim3`.
@@ -1021,10 +1043,6 @@ sim3 <-
 head(sim3)
 ```
 
-```{r}
-head(sim3)
-```
-
 Summarize the results.
 
 ```{r}
@@ -1046,14 +1064,14 @@ hdi_of_icdf(name = qbeta,
   round(digits = 2)
 
 hdi_of_icdf(name = qbeta,
-            shape1 = 1 + 43,
-            shape2 = 1 + n_sim - 43) %>% 
+            shape1 = 1 + 35,
+            shape2 = 1 + n_sim - 35) %>% 
   round(digits = 2)
 ```
 
 Hopefully it isn't a surprise our values differ from those in the text. We (a) used a different model and (b) used fewer simulation iterations. But I trust you get the overall idea. Like in the text, let's do the simulation again.
 
-```{r, eval = F}
+```{r, eval = F, #10.18966 mins}
 # how many subjects should we have?
 n_subj <- 7
 
@@ -1102,13 +1120,13 @@ Now compute the HDIs for `power_rope_theta` and `power_width_theta`.
 
 ```{r}
 hdi_of_icdf(name = qbeta,
-            shape1 = 1 + 99,
-            shape2 = 1 + n_sim - 99) %>% 
+            shape1 = 1 + 97,
+            shape2 = 1 + n_sim - 97) %>% 
   round(digits = 2)
 
 hdi_of_icdf(name = qbeta,
-            shape1 = 1 + 96,
-            shape2 = 1 + n_sim - 96) %>% 
+            shape1 = 1 + 95,
+            shape2 = 1 + n_sim - 95) %>% 
   round(digits = 2)
 ```
 
@@ -1121,8 +1139,8 @@ hdi_of_icdf(name = qbeta,
   round(digits = 2)
 
 hdi_of_icdf(name = qbeta,
-            shape1 = 1 + 90,
-            shape2 = 1 + n_sim - 90) %>% 
+            shape1 = 1 + 88,
+            shape2 = 1 + n_sim - 88) %>% 
   round(digits = 2)
 ```
 
@@ -1174,8 +1192,8 @@ print(fit13.4)
 
 Here's a look at our two main parameters, our version of the bottom panels of Figure 13.3.
 
-```{r, fig.width = 6, fig.height = 2.5}
-posterior_samples(fit13.4) %>% 
+```{r, fig.width = 6, fig.height = 2.5, warning = F}
+as_draws_df(fit13.4) %>% 
   pivot_longer(b_Intercept:sd_s__Intercept) %>% 
 
   ggplot(aes(x = value, y = 0)) +
@@ -1217,7 +1235,7 @@ f %>%
 
 Note the distribution is wider than the previous one. Anyway, now we're good to go. Here's our version of the first power analysis.
 
-```{r, eval = F}
+```{r, eval = F, #12.25984 mins}
 # how many subjects should we have?
 n_subj <- 14
 
@@ -1262,7 +1280,21 @@ sim5 %>%
             power_width_theta_s = mean(pass_width_theta_s))
 ```
 
-Here are the two interval types.
+First compute the HDIs for `power_rope_theta` and `power_width_theta`.
+
+```{r}
+hdi_of_icdf(name = qbeta,
+            shape1 = 1 + 100,
+            shape2 = 1 + n_sim - 100) %>% 
+  round(digits = 2)
+
+hdi_of_icdf(name = qbeta,
+            shape1 = 1 + 100,
+            shape2 = 1 + n_sim - 100) %>% 
+  round(digits = 2)
+```
+
+Second, we compute the HDIs for `power_rope_theta_s` and `power_width_theta_s`.
 
 ```{r}
 hdi_of_icdf(name = qbeta,
@@ -1271,8 +1303,8 @@ hdi_of_icdf(name = qbeta,
   round(digits = 2)
 
 hdi_of_icdf(name = qbeta,
-            shape1 = 1 + 22,
-            shape2 = 1 + n_sim - 22) %>% 
+            shape1 = 1 + 21,
+            shape2 = 1 + n_sim - 21) %>% 
   round(digits = 2)
 ```
 
