@@ -1184,17 +1184,17 @@ stanvars <- stanvar(x = 4, name = "n_cat", scode = "  int n_cat;")
 
 Now we're ready to fit the model with `brm()`. Notice how our use of the `family` and `stanvars` functions.
 
-```{r fit22.3}
+```{r fit22.3, warning = F}
 fit22.3 <-
   brm(data = d3, 
       family = cond_log_1,
       Y ~ 1 + X1 + X2,
-      prior = c(prior(normal(0, 20), class = Intercept, dpar = mu2),
-                prior(normal(0, 20), class = Intercept, dpar = mu3),
-                prior(normal(0, 20), class = Intercept, dpar = mu4),
-                prior(normal(0, 20), class = b, dpar = mu2),
-                prior(normal(0, 20), class = b, dpar = mu3),
-                prior(normal(0, 20), class = b, dpar = mu4)),
+      prior = c(prior(normal(0, 20), class = Intercept),
+                prior(normal(0, 20), class = Intercept, dpar = mub),
+                prior(normal(0, 20), class = Intercept, dpar = muc),
+                prior(normal(0, 20), class = b),
+                prior(normal(0, 20), class = b, dpar = mub),
+                prior(normal(0, 20), class = b, dpar = muc)),
       iter = 2000, warmup = 1000, cores = 4, chains = 4,
       seed = 22,
       stanvars = stan_lpmf_1 + stanvars,
@@ -1207,27 +1207,64 @@ Check the model summary.
 print(fit22.3)
 ```
 
-As they aren't the most intuitive, here's how to understand our three prefixes:
+As they aren't the most intuitive, here's how to understand our two prefixes:
 
-* `mu2_` has to do with $\lambda_{\{ 1 \} | \{ 1,2,3,4 \}}$,
-* `mu3_` has to do with $\lambda_{\{ 2 \} | \{ 2,3,4 \}}$, and
-* `mu4_` has to do with $\lambda_{\{ 3 \} | \{ 3,4 \}}$.
+* the lines with no prefix have to do with $\lambda_{\{ 1 \} | \{ 1,2,3,4 \}}$,
+* `mub_` has to do with $\lambda_{\{ 2 \} | \{ 2,3,4 \}}$, and
+* `muc_` has to do with $\lambda_{\{ 3 \} | \{ 3,4 \}}$.
 
 If you compare those posterior means of each of those parameters from the data-generating equations at the top of Figure 22.3, you'll see they are spot on (within simulation variance). Here's how we might visualize those posteriors in our version of the histograms in the top right panel(s) of Figure 22.6.
 
+
+```{r}
+draws %>% 
+  pivot_longer(starts_with("b_")) %>% 
+  mutate(name = str_remove(name, "b_")) %>% 
+  mutate(name = str_remove(name, "mu")) %>% 
+  mutate(lambda    = case_when(!str_detect(name, "_") ~ "lambda['{1}|{1,2,3,4}']",
+                               str_detect(name, "b_") ~ "lambda['{2}|{2,3,4}']",
+                               str_detect(name, "c_") ~ "lambda['{3}|{3,4}']"),
+         parameter = case_when(str_detect(name, "Intercept") ~ "beta[0]",
+                               str_detect(name, "X1")        ~ "beta[1]",
+                               str_detect(name, "X2")        ~ "beta[2]"))
+```
+
+```{r}
+draws %>% 
+  rename(a_Intercept = b_Intercept,
+         b_Intercept = b_mub_Intercept,
+         c_Intercept = b_muc_Intercept,
+         a_X1 = b_X1,
+         a_X2 = b_X2,
+         b_X1 = b_mub_X1,
+         b_X2 = b_mub_X2,
+         c_X1 = b_muc_X1,
+         c_X2 = b_muc_X2)
+```
+
+
+
 ```{r, fig.width = 8, fig.height = 4.5, warning = F, message = F}
 # extract the posterior draws
-draws <- as_draws_df(fit22.3)
+draws <- as_draws_df(fit22.3) %>% 
+  # our lives will be easier if we adjust the column names
+  rename(a_Intercept = b_Intercept,
+         b_Intercept = b_mub_Intercept,
+         c_Intercept = b_muc_Intercept,
+         a_X1 = b_X1,
+         a_X2 = b_X2,
+         b_X1 = b_mub_X1,
+         b_X2 = b_mub_X2,
+         c_X1 = b_muc_X1,
+         c_X2 = b_muc_X2)
 
 # wrangle
 p1 <-
   draws %>% 
-  pivot_longer(starts_with("b_")) %>% 
-  mutate(name = str_remove(name, "b_")) %>% 
-  mutate(number = str_extract(name, "[2-4]+")) %>% 
-  mutate(lambda    = case_when(number == "2" ~ "lambda['{1}|{1,2,3,4}']",
-                               number == "3" ~ "lambda['{2}|{2,3,4}']",
-                               number == "4" ~ "lambda['{3}|{3,4}']"),
+  pivot_longer(a_Intercept:c_X2) %>% 
+  mutate(lambda    = case_when(str_detect(name, "a_") ~ "lambda['{1}|{1,2,3,4}']",
+                               str_detect(name, "b_") ~ "lambda['{2}|{2,3,4}']",
+                               str_detect(name, "c_") ~ "lambda['{3}|{3,4}']"),
          parameter = case_when(str_detect(name, "Intercept") ~ "beta[0]",
                                str_detect(name, "X1")        ~ "beta[1]",
                                str_detect(name, "X2")        ~ "beta[2]")) %>% 
@@ -1239,7 +1276,8 @@ p1 <-
                     normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab("marginal posterior") +
-  facet_grid(lambda ~ parameter, labeller = label_parsed, scales = "free_x")
+  facet_grid(lambda ~ parameter, labeller = label_parsed, scales = "free_x") +
+  theme(axis.text = element_text(size = 8))
 ```
 
 If we use the threshold formula from above,
@@ -1248,16 +1286,14 @@ $$x_2 = (-\beta_0 / \beta_2) + (-\beta_1 / \beta_2)x_1,$$
 
 to the posterior draws, we can make our version of the upper left panel of Figure 22.6.
 
-```{r}
+```{r, warning = F}
 set.seed(22)
 
 p2 <-
   draws %>% 
-  tibble() %>% 
   slice_sample(n = 30) %>% 
-  pivot_longer(starts_with("b_")) %>% 
-  mutate(name = str_remove(name, "b_mu")) %>% 
-  separate(name, into = c("lambda", "parameter")) %>% 
+  pivot_longer(a_Intercept:c_X2) %>% 
+  separate(name, into = c("mu", "parameter"), sep = "_") %>% 
   pivot_wider(names_from = parameter, values_from = value) %>% 
   mutate(intercept = -Intercept / X2,
          slope     = -X1 / X2) %>% 
@@ -1268,8 +1304,8 @@ p2 <-
             size = 3, show.legend = F) +
   geom_abline(aes(intercept = intercept,
                   slope = slope,
-                  group = interaction(.draw, lambda),
-                  linetype = lambda),
+                  group = interaction(.draw, mu),
+                  linetype = mu),
               size = 1/4, alpha = 1/2, color = pl[1]) +
   scale_color_manual(values = pl[2:5]) +
   scale_linetype(NULL,
@@ -1306,9 +1342,9 @@ Here's what we'd need to do before computing information criteria estimates, suc
 
 ```{r}
 log_lik_cond_log_1 <- function(i, prep) {
-  mu  <- brms::get_dpar(prep, "mu2", i = i)
-  mub <- brms::get_dpar(prep, "mu3", i = i)
-  muc <- brms::get_dpar(prep, "mu4", i = i)
+  mu  <- brms::get_dpar(prep, "mu", i = i)
+  mub <- brms::get_dpar(prep, "mub", i = i)
+  muc <- brms::get_dpar(prep, "muc", i = i)
   n_cat <- prep$data$n_cat
   y <- prep$data$Y[i]
   cond_log_1_lpmf(y, mu, mub, muc, n_cat)
@@ -1323,9 +1359,9 @@ If we wanted to use one of the functions that relies on conditional expectations
 
 ```{r, fig.width = 4, fig.height = 2.75}
 posterior_epred_cond_log_1 <- function(prep) {
-  mu   <- brms::get_dpar(prep, "mu2")
-  mu_b <- brms::get_dpar(prep, "mu3")
-  mu_c <- brms::get_dpar(prep, "mu4")
+  mu   <- brms::get_dpar(prep, "mu")
+  mu_b <- brms::get_dpar(prep, "mub")
+  mu_c <- brms::get_dpar(prep, "muc")
   n_cat <- prep$data$n_cat
   y <- prep$data$Y
   prob <- cond_log_1_pred(y = y, mu = mu, mu_b = mu_b, mu_c = mu_c, n_cat = n_cat)
@@ -1353,9 +1389,9 @@ If we wanted to do a posterior predictive check with the `pp_check()` function, 
 
 ```{r, fig.width = 4, fig.height = 3.75}
 posterior_predict_cond_log_1 <- function(i, prep, ...) {
-  mu   <- brms::get_dpar(prep, "mu2", i = i)
-  mu_b <- brms::get_dpar(prep, "mu3", i = i)
-  mu_c <- brms::get_dpar(prep, "mu4", i = i)
+  mu   <- brms::get_dpar(prep, "mu", i = i)
+  mu_b <- brms::get_dpar(prep, "mub", i = i)
+  mu_c <- brms::get_dpar(prep, "muc", i = i)
   n_cat <- prep$data$n_cat
   y <- prep$data$Y[i]
   prob <- cond_log_1_pred(y, mu, mu_b, mu_c, n_cat)
@@ -1435,12 +1471,12 @@ fit22.4 <-
   brm(data = d4, 
       family = cond_log_2,
       Y ~ 1 + X1 + X2,
-      prior = c(prior(normal(0, 20), class = Intercept, dpar = mu2),
-                prior(normal(0, 20), class = Intercept, dpar = mu3),
-                prior(normal(0, 20), class = Intercept, dpar = mu4),
-                prior(normal(0, 20), class = b, dpar = mu2),
-                prior(normal(0, 20), class = b, dpar = mu3),
-                prior(normal(0, 20), class = b, dpar = mu4)),
+      prior = c(prior(normal(0, 20), class = Intercept),
+                prior(normal(0, 20), class = Intercept, dpar = mub),
+                prior(normal(0, 20), class = Intercept, dpar = muc),
+                prior(normal(0, 20), class = b),
+                prior(normal(0, 20), class = b, dpar = mub),
+                prior(normal(0, 20), class = b, dpar = muc)),
       iter = 2000, warmup = 1000, cores = 4, chains = 4,
       seed = 22,
       stanvars = stan_lpmf_2 + stanvars,
@@ -1457,30 +1493,38 @@ We can use the same basic workflow as before to make our version of the upper ha
 
 ```{r, fig.width = 8, fig.height = 4.5, warning = F, message = F}
 # extract the posterior draws
-draws <- as_draws_df(fit22.4)
+draws <- as_draws_df(fit22.4) %>% 
+  # like before, let's adjust the column names
+  rename(a_Intercept = b_Intercept,
+         b_Intercept = b_mub_Intercept,
+         c_Intercept = b_muc_Intercept,
+         a_X1 = b_X1,
+         a_X2 = b_X2,
+         b_X1 = b_mub_X1,
+         b_X2 = b_mub_X2,
+         c_X1 = b_muc_X1,
+         c_X2 = b_muc_X2)
 
 # 2D thresholds on the left
 set.seed(22)
 
 p1 <-
   draws %>% 
-  tibble() %>% 
   slice_sample(n = 30) %>% 
-  pivot_longer(starts_with("b_")) %>% 
-  mutate(name = str_remove(name, "b_mu")) %>% 
-  separate(name, into = c("lambda", "parameter")) %>% 
+  pivot_longer(a_Intercept:c_X2) %>% 
+  separate(name, into = c("mu", "parameter"), sep = "_") %>% 
   pivot_wider(names_from = parameter, values_from = value) %>% 
   mutate(intercept = -Intercept / X2,
          slope     = -X1 / X2) %>% 
-  
+
   ggplot() +
   geom_text(data = d4,
             aes(x = X1, y = X2, label = Y, color = factor(Y)),
             size = 3, show.legend = F) +
   geom_abline(aes(intercept = intercept,
                   slope = slope,
-                  group = interaction(.draw, lambda),
-                  linetype = lambda),
+                  group = interaction(.draw, mu),
+                  linetype = mu),
               size = 1/4, alpha = 1/2, color = pl[1]) +
   scale_color_manual(values = pl[2:5]) +
   scale_linetype(NULL,
@@ -1500,12 +1544,10 @@ p1 <-
 # marginal posteriors on the right
 p2 <-
   draws %>% 
-  pivot_longer(starts_with("b_")) %>% 
-  mutate(name = str_remove(name, "b_")) %>% 
-  mutate(number = str_extract(name, "[2-4]+")) %>% 
-  mutate(lambda    = case_when(number == "2" ~ "lambda['{1,2}|{1,2,3,4}']",
-                               number == "3" ~ "lambda['{1}|{1,2}']",
-                               number == "4" ~ "lambda['{3}|{3,4}']"),
+  pivot_longer(a_Intercept:c_X2) %>% 
+  mutate(lambda    = case_when(str_detect(name, "a_") ~ "lambda['{1,2}|{1,2,3,4}']",
+                               str_detect(name, "b_") ~ "lambda['{1}|{1,2}']",
+                               str_detect(name, "c_") ~ "lambda['{3}|{3,4}']"),
          parameter = case_when(str_detect(name, "Intercept") ~ "beta[0]",
                                str_detect(name, "X1")        ~ "beta[1]",
                                str_detect(name, "X2")        ~ "beta[2]")) %>% 
@@ -1537,9 +1579,9 @@ expose_functions(fit22.4, vectorize = TRUE)
 
 # for information criteria
 log_lik_cond_log_2 <- function(i, prep) {
-  mu  <- brms::get_dpar(prep, "mu2", i = i)
-  mub <- brms::get_dpar(prep, "mu3", i = i)
-  muc <- brms::get_dpar(prep, "mu4", i = i)
+  mu  <- brms::get_dpar(prep, "mu", i = i)
+  mub <- brms::get_dpar(prep, "mub", i = i)
+  muc <- brms::get_dpar(prep, "muc", i = i)
   n_cat <- prep$data$n_cat
   y <- prep$data$Y[i]
   cond_log_2_lpmf(y, mu, mub, muc, n_cat)
@@ -1547,9 +1589,9 @@ log_lik_cond_log_2 <- function(i, prep) {
 
 # for conditional expectations
 posterior_epred_cond_log_2 <- function(prep) {
-  mu   <- brms::get_dpar(prep, "mu2")
-  mu_b <- brms::get_dpar(prep, "mu3")
-  mu_c <- brms::get_dpar(prep, "mu4")
+  mu   <- brms::get_dpar(prep, "mu")
+  mu_b <- brms::get_dpar(prep, "mub")
+  mu_c <- brms::get_dpar(prep, "muc")
   n_cat <- prep$data$n_cat
   y <- prep$data$Y
   prob <- cond_log_2_pred(y = y, mu = mu, mu_b = mu_b, mu_c = mu_c, n_cat = n_cat)
@@ -1565,9 +1607,9 @@ posterior_epred_cond_log_2 <- function(prep) {
 
 # for posterior predictions
 posterior_predict_cond_log_2 <- function(i, prep, ...) {
-  mu   <- brms::get_dpar(prep, "mu2", i = i)
-  mu_b <- brms::get_dpar(prep, "mu3", i = i)
-  mu_c <- brms::get_dpar(prep, "mu4", i = i)
+  mu   <- brms::get_dpar(prep, "mu", i = i)
+  mu_b <- brms::get_dpar(prep, "mub", i = i)
+  mu_c <- brms::get_dpar(prep, "muc", i = i)
   n_cat <- prep$data$n_cat
   y <- prep$data$Y[i]
   prob <- cond_log_2_pred(y, mu, mu_b, mu_c, n_cat)
@@ -1611,7 +1653,7 @@ library(bayesplot)
 ac <-
   as_draws_df(fit22.4) %>% 
   mutate(chain = .chain) %>% 
-  select(b_mu2_Intercept:b_mu4_X2, chain) %>% 
+  select(b_Intercept:b_muc_X2, chain) %>% 
   mcmc_acf(lags = 5)
 
 ac$data %>% 
@@ -1666,40 +1708,20 @@ print(fit22.5)
 One thing that might not be apparent at first glance is that although this model is essentially equivalent to the `family = cond_log_1` version of the model we fit with `fit22.3`, above, the parameters are a little different. The intercepts are largely the same. However, the coefficients for the `X1` and `X2` predictors have switched signs. This will be easier to see with a coefficient plot comparing `fit22.3` and `fit22.5`.
 
 ```{r, fig.width = 6, fig.height = 2.25}
-# extract the posterior draws for fit22.5
-draws <- as_draws_df(fit22.5)
-
-# wrangle and combine the draws from the two models
-bind_rows(
-  # family = "cond_log_1"
-  as_draws_df(fit22.3) %>% 
-    pivot_longer(starts_with("b_")) %>% 
-    mutate(name = str_remove(name, "b_mu")) %>% 
-    separate(name, into = c("lambda", "parameter")) %>% 
-    mutate(lambda = as.double(lambda) - 1,
-           family = "cond_log_1") %>% 
-    select(family, lambda, parameter, value),
-  # family = "sratio"
-  draws %>% 
-    pivot_longer(starts_with("b_")) %>% 
-    mutate(name = str_remove(name, "b_") %>% str_remove(., "bcs_")) %>% 
-    separate(name, into = c("parameter", "lambda")) %>%
-    mutate(lambda = as.double(lambda),
-           family = "sratio") %>% 
-    select(family, lambda, parameter, value)
-) %>% 
-  mutate(lambda    = str_c("lambda==", lambda),
-         parameter = case_when(str_detect(parameter, "Intercept") ~ "beta[0]",
-                               str_detect(parameter, "X1")        ~ "beta[1]",
-                               str_detect(parameter, "X2")        ~ "beta[2]")) %>% 
+rbind(fixef(fit22.3)[c(1:4, 6, 8, 5, 7, 9), ], fixef(fit22.5)) %>% 
+  data.frame() %>% 
+  mutate(beta = rep(str_c("beta[", c(0:2, 0:2), "]"), each = 3),
+         lambda = rep(str_c("lambda==", 1:3), times = 3 * 2),
+         family = rep(c("cond_log_1", "sratio"), each = 9)) %>% 
   
   # plot!
-  ggplot(aes(x = value, y = family)) +
+  ggplot(aes(x = Estimate, xmin = Q2.5, xmax = Q97.5, y = family)) +
   geom_vline(xintercept = 0, color = "white") +
-  stat_pointinterval(.width = .95, point_size = 1.5, size = 1) +
+  geom_pointrange(size = 1/2, fatten = 5/4) +
+  # stat_pointinterval(.width = .95, point_size = 1.5, size = 1) +
   labs(x = "marginal posterior",
        y = NULL) +
-  facet_grid(lambda ~ parameter, labeller = label_parsed, scales = "free_x")
+  facet_grid(lambda ~ beta, labeller = label_parsed, scales = "free_x")
 ```
 
 Even though the $\beta_1$ and $\beta_2$ parameters switched signs, their magnitudes are about the same. Thus, if we want to use our `fit22.5` to plot the thresholds as in Figure 22.6, we'll have to update our threshold formula to 
@@ -1709,21 +1731,18 @@ pnw_palette(name = "Moth")[2]
 ```
 
 
-$$x_2 = (\color{#984136}+\beta_0 / \beta_2) + (\beta_1 / \beta_2)x_1.$$
+$$x_2 = (\color{#984136}{+\beta_0} / \beta_2) + (\beta_1 / \beta_2)x_1.$$
 
 With that adjustment in line, here's our updated version of the left panel of Figure 22.6.
 
-```{r, fig.width = 2.75}
-set.seed(22)
-
-draws %>% 
-  tibble() %>% 
+```{r, fig.width = 2.75, warning = F}
+# no need to rename the columns, this time
+as_draws_df(fit22.5)  %>% 
   slice_sample(n = 30) %>% 
   pivot_longer(starts_with("b")) %>% 
   mutate(name = str_remove(name, "b_") %>% str_remove(., "bcs_")) %>% 
   separate(name, into = c("parameter", "lambda")) %>% 
   pivot_wider(names_from = parameter, values_from = value) %>% 
-  # this line is different
   mutate(intercept = Intercept / X2,
          slope     = -X1 / X2) %>% 
   
@@ -1798,7 +1817,7 @@ print(fit22.6)
 
 If you look at the parameter summary, nothing obviously bad happened. The computer didn't crash or anything. To get a better sense of the damage, we plot.
 
-```{r}
+```{r, warning = F}
 # extract the posterior draws for fit22.6
 draws <- as_draws_df(fit22.6)
 
@@ -1807,7 +1826,6 @@ set.seed(22)
 
 p1 <- 
   draws %>% 
-  tibble() %>% 
   slice_sample(n = 30) %>% 
   pivot_longer(starts_with("b")) %>% 
   mutate(name = str_remove(name, "b_") %>% str_remove(., "bcs_")) %>% 
@@ -1861,7 +1879,8 @@ draws %>%
                     normalize = "panels") +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab("marginal posterior") +
-  facet_grid(lambda ~ parameter, labeller = label_parsed, scales = "free_x")
+  facet_grid(lambda ~ parameter, labeller = label_parsed, scales = "free_x") +
+  theme(axis.text = element_text(size = 9))
 
 # combine, entitle, and display the results
 (p1 + p2) & 
@@ -1890,7 +1909,7 @@ sessionInfo()
 
 ```{r, message = F, echo = F}
 # remove the objects
-rm(d1, d2, pl, d3, d4, numbers, greek, b01, b11, b21, b02, b12, b22, b03, b13, b23, lines, p1, p2, my_arrow, p3, p4, p5, p6, p7, p8, p9, layout, a, c, b, fit22.1, draws, nd, fit22.2, f, text, cond_log_1, stan_lpmf_1, cond_log_1_lpmf, cond_log_1_pred, stanvars, fit22.3, log_lik_cond_log_1, posterior_epred_cond_log_1, ce, posterior_predict_cond_log_1, cond_log_2, stan_lpmf_2, fit22.4, ac, fit22.5, fit22.6)
+rm(d1, d2, pl, d3, d4, numbers, greek, b01, b11, b21, b02, b12, b22, b03, b13, b23, lines, p1, p2, my_arrow, p3, p4, p5, p6, p7, p8, p9, layout, a, c, b, fit22.1, draws, nd, fit22.2, f, text, cond_log_1, stan_lpmf_1, cond_log_1_lpmf, cond_log_1_pred, stanvars, fit22.3, log_lik_cond_log_1, posterior_epred_cond_log_1, ce, posterior_predict_cond_log_1, cond_log_2, stan_lpmf_2, fit22.4, cond_log_2_lpmf, cond_log_2_pred, log_lik_cond_log_2, posterior_epred_cond_log_2, posterior_predict_cond_log_2, ac, fit22.5, fit22.6)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
