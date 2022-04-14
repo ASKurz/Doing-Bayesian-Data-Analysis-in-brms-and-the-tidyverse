@@ -14,7 +14,7 @@ knitr::opts_chunk$set(fig.align = "center")
 
 To learn more about Stan from the Stan team themselves, check out the main website [https://mc-stan.org/](https://mc-stan.org/). If you like to dive deep, bookmark the [*Stan user's guide*](https://mc-stan.org/docs/2_26/stan-users-guide/index.html) [@standevelopmentteamStanUserGuide2021] and the [*Stan reference manual*](https://mc-stan.org/docs/2_26/reference-manual/) [@standevelopmentteamStanReferenceManual2021].
 
-We won't be using Stan directly in this project. I prefer working with it indirectly through the interface of Bürkner's **brms** package instead. If you haven't already, bookmark the **brms** [GitHub repository](https://github.com/paul-buerkner/brms), [CRAN page](https://CRAN.R-project.org/package=brms), and [reference manual](https://CRAN.R-project.org/package=brms/brms.pdf) [@brms2021RM]. You can also view Bürkner's talk from the useR! International R User 2017 Conference, [*brms: Bayesian multilevel models using Stan*](https://www.youtube.com/watch?v=40o0_0XTB6E). Here's how Bürkner described **brms** in its GitHub repo:
+We won't be using Stan directly in this ebook. I prefer working with it indirectly through the interface of Bürkner's **brms** package instead. If you haven't already, bookmark the **brms** [GitHub repository](https://github.com/paul-buerkner/brms), [CRAN page](https://CRAN.R-project.org/package=brms), and [reference manual](https://CRAN.R-project.org/package=brms/brms.pdf) [@brms2021RM]. You can also view Bürkner's talk from the useR! International R User 2017 Conference, [*brms: Bayesian multilevel models using Stan*](https://www.youtube.com/watch?v=40o0_0XTB6E). Here's how Bürkner described **brms** in its GitHub repo:
 
 > The **brms** package provides an interface to fit Bayesian generalized (non-)linear multivariate multilevel models using Stan, which is a C++ package for performing full Bayesian inference (see [http://mc-stan.org/](http://mc-stan.org/)). The formula syntax is very similar to that of the package lme4 to provide a familiar and simple interface for performing regression analyses. A wide range of response distributions are supported, allowing users to fit – among others – linear, robust linear, count data, survival, response times, ordinal, zero-inflated, and even self-defined mixture models all in a multilevel context. Further modeling options include non-linear and smooth terms, auto-correlation structures, censored data, missing value imputation, and quite a few more. In addition, all parameters of the response distribution can be predicted in order to perform distributional regression. Multivariate models (i.e., models with multiple response variables) can be fit, as well. Prior specifications are flexible and explicitly encourage users to apply prior distributions that actually reflect their beliefs. Model fit can easily be assessed and compared with posterior predictive checks, cross-validation, and Bayes factors. (**emphasis** in the original)
 
@@ -129,7 +129,7 @@ The model Kruschke walked through in this section followed the form
 
 \begin{align*}
 y_i & \sim \operatorname{Bernoulli} (\theta) \\
-\theta & \sim \operatorname{beta} (1, 1),
+\theta & \sim \operatorname{Beta} (1, 1),
 \end{align*}
 
 where $\theta$ is the probability $y = 1$. Kruschke showed how to simulate the data at the top of page 409. Here's our **tidyverse** version.
@@ -156,7 +156,7 @@ fit14.1 <-
   brm(data = my_data, 
       family = bernoulli(link = identity),
       y ~ 1,
-      prior(beta(1, 1), class = Intercept),
+      prior(beta(1, 1), class = Intercept, lb = 0, ub = 1),
       iter = 1000, warmup = 200, chains = 3, cores = 3,
       seed = 14,
       file = "fits/fit14.01")
@@ -168,7 +168,7 @@ As Kruschke wrote,
 >
 > We did not specify the initial values of the chains in the example above, instead letting Stan randomly initialize the chains by default. The chains can be initialized by the user with the argument `init`, analogous to JAGS. (p. 409)
 
-Unlike what Kruschke showed on page 409, we did not use the `thin` argument, above, and will generally avoid thinning in this project. You just don't tend to need to thin your chains when using Stan. I do, however, tend to use the `seed` argument. Because computers use [pseudorandom number generators](https://en.wikibooks.org/wiki/R_Programming/Random_Number_Generation) to take random draws, I prefer to make my random draws reproducible by setting my seed. Others have argued against this. You do you.
+Unlike what Kruschke showed on page 409, we did not use the `thin` argument, above, and will generally avoid thinning in this ebook. You just don't tend to need to thin your chains when using Stan. I do, however, tend to use the `seed` argument. Because computers use [pseudorandom number generators](https://en.wikibooks.org/wiki/R_Programming/Random_Number_Generation) to take random draws, I prefer to make my random draws reproducible by setting my seed. Others have argued against this. You do you.
 
 Kruschke mentioned trace plots and model summaries. Here's our trace plot, which comes with a marginal density plot by **brms** default.
 
@@ -182,50 +182,6 @@ Here's the summary.
 print(fit14.1)
 ```
 
-Did you notice that divergent transitions warning at the top? I don't believe Kruschke discussed those in the text. For an good introduction, check out the [*Divergent Transitions* section](https://mc-stan.org/docs/2_26/reference-manual/divergent-transitions.html) in the *Stan reference manual*. In short, divergent transitions indicate your HMC chains had some difficulty exploring the parameter space. As indicated in the warning, increasing the `adapt_delta` parameter to a value above 0.8, but below 1, can help. Other times increasing the number of `warmup` iterations or using better priors will help, too. Sometimes divergent transitions indicate you might need to seriously reconsider your model. When you're stumped, the [Stan Forums](https://discourse.mc-stan.org/) can be a good place to look for help. You can even find a [subsection dedicated to **brms** users](https://discourse.mc-stan.org/c/interfaces/brms/36), there.
-
-Anyway, we will solve our divergent-transitions problem by setting `adapt_delta = 0.99` and using a better prior[^5]. If you recall, $\operatorname{beta}(1, 1)$ is flat. Why not use a weakly-regularizing $\operatorname{beta}(2, 2)$, instead? Before fitting the model, we can use the `tidybayes::stat_dist_halfeye()` function to visualize those two priors.
-
-```{r, fig.width = 3.5, fig.height = 2.5, warning = F, message = F}
-library(tidybayes)
-
-tibble(fit   = str_c("fit14.", 1:2),
-       alpha = 1:2,
-       beta  = 1:2,
-       x     = .5,
-       y     = c(1.33, 2.33),
-       label = c("beta(1, 1)", "beta(2, 2)")) %>% 
-  
-  ggplot() +
-  stat_dist_halfeye(aes(y = fit, dist = "beta", arg1 = alpha, arg2 = beta),
-                    .width = c(.5, .95)) +
-  geom_text(aes(x = x, y = y, label = label),
-            color = "grey94", size = 5) +
-  labs(title = "Plot your priors with\ntidybayes::stat_dist_halfeye()",
-       x = expression(italic(p)(theta)),
-       y = NULL)
-```
-
-Fit the updated model.
-
-```{r fit14.2}
-fit14.2 <-
-  brm(data = my_data, 
-      family = bernoulli(link = identity),
-      y ~ 1,
-      prior(beta(2, 2), class = Intercept),
-      iter = 1000, warmup = 200, chains = 3, cores = 3,
-      control = list(adapt_delta = 0.99),
-      seed = 14,
-      file = "fits/fit14.02")
-```
-
-```{r}
-print(fit14.2)
-```
-
-See? All better.
-
 ### Reusing the compiled model.
 
 "Because model compilation can take a while in Stan, it is convenient to store the DSO of a successfully compiled model and use it repeatedly for different data sets" (p. 410). This true for our **brms** paradigm, too. To reuse a compiled `brm()` model, we typically use the `update()` function. To demonstrate, we'll first want some new data. Here we'll increase our `z` value to 20.
@@ -238,22 +194,21 @@ my_data <- tibble(y = rep(1:0, times = c(z, n - z)))
 glimpse(my_data)
 ```
 
-For the first and most important argument, you need to tell `update()` what fit you're reusing. We'll use `fit14.2`. You also need to tell `update()` about your new data with the `newdata` argument. Because the model `formula` and `prior`s are the same as before, we don't need to use those arguments, here.
+For the first and most important argument, you need to tell `update()` what fit you're reusing. We'll use `fit14.1`. You also need to tell `update()` about your new data with the `newdata` argument. Because the model `formula` and `prior`s are the same as before, we don't need to use those arguments, here.
 
-```{r fit14.3}
-fit14.3 <-
-  update(fit14.2,
+```{r fit14.2}
+fit14.2 <-
+  update(fit14.1,
          newdata = my_data,
          iter = 1000, warmup = 200, chains = 3, cores = 3,
-         control = list(adapt_delta = 0.99),
          seed = 14,
-         file = "fits/fit14.03")
+         file = "fits/fit14.02")
 ```
 
 Here's the summary using the `fixef()` function.
 
 ```{r}
-fixef(fit14.3)
+fixef(fit14.2)
 ```
 
 ### General structure of Stan model specification.
@@ -261,69 +216,68 @@ fixef(fit14.3)
 "The general structure of model specifications in Stan consist of six blocks" (p. 410). We don't need to worry about this when using **brms**. Just use `brm()` or `update()`. But if you're curious about what the underlying Stan code is for your **brms** models, index the model fit with `$model`.
 
 ```{r}
-fit14.3$model
+fit14.2$model
 ```
 
 ### Think log probability to think like Stan.
 
-The material in this subsection is outside of the scope of this project.
+The material in this subsection is outside of the scope of this ebook.
 
 ### Sampling the prior in Stan.
 
-"There are several reasons why we might want to examine a sample from the prior distribution of a model" (p. 413). Happily, we can do this with **brms** with the `sample_prior` argument. By default, it is set to `"no"` and does not take prior samples. If you instead set `sample_prior = "yes"` or `sample_prior = TRUE`, samples are drawn solely from the prior. But do note that for technical reasons, **brms** will not sample from the prior of the default intercept. We can bypass that difficulty by using the `... ~ 0 + Intercept + ...` syntax, which makes the prior for the intercept of `class = b`.
+"There are several reasons why we might want to examine a sample from the prior distribution of a model" (p. 413). Happily, we can do this with **brms** with the `sample_prior` argument. By default, it is set to `"no"` and does not take prior samples. If you instead set `sample_prior = "yes"` or `sample_prior = TRUE`, samples are drawn solely from the prior.
 
-Here's how to do that with an updated version of `fit14.3`.
+Here's how to do that with an updated version of the model from `fit14.2`.
 
-```{r fit14.4}
-fit14.4 <-
+```{r fit14.3}
+fit14.3 <-
   brm(data = my_data, 
       family = bernoulli(link = identity),
-      y ~ 0 + Intercept,
-      prior(beta(2, 2), class = b, lb = 0, ub = 1),
+      y ~ 1,
+      prior(beta(1, 1), class = Intercept, lb = 0, ub = 1),
       iter = 1000, warmup = 200, chains = 3, cores = 3,
       sample_prior = "yes",
       seed = 14,
-      file = "fits/fit14.04")
+      file = "fits/fit14.03")
 ```
 
 Now we can gather the prior draws with the `prior_draws()` function.
 
 ```{r}
-prior_draws(fit14.4) %>% 
+prior_draws(fit14.3) %>% 
   head()
 ```
 
 Here's a look at the prior distribution.
 
 ```{r, fig.width = 3.5, fig.height = 2.5}
-prior_draws(fit14.4) %>% 
-  ggplot(aes(x = b, y = 0)) +
-  stat_halfeye(.width = c(.5, .95)) +
+prior_draws(fit14.3) %>% 
+  ggplot(aes(x = Intercept, y = 0)) +
+  stat_histinterval(.width = c(.5, .95)) +
   scale_y_continuous(NULL, breaks = NULL) +
-  labs(title = expression("Beta"*(2*", "*2)),
+  labs(title = expression("Beta"*(1*", "*1)),
        x = expression(italic(p)(theta)))
 ```
 
 ### Simplified scripts for frequently used analyses.
 
-This is not our approach when using **brms**. Throughout the chapters of this project, we will learn to make skillful use of the `brms::brm()` function to fit all our models. Once in a while we'll take a shortcut and reuse a precompiled fit with `update()`.
+This is not our approach when using **brms**. Throughout the chapters of this ebook, we will learn to make skillful use of the `brms::brm()` function to fit all our models. Once in a while we'll take a shortcut and reuse a precompiled fit with `update()`.
 
 ## Specify models top-down in Stan
 
 > For humans, descriptive models begin, conceptually, with the data that are to be described. We first know the measurement scale of the data and their structure. Then we conceive of a likelihood function for the data. The likelihood function has meaningful parameters, which we might want to re-express in terms of other data (called covariates, predictors, or regressors). Then we build a meaningful hierarchical prior on the parameters. Finally, at the top level, we specify constants that express our prior knowledge, which might be vague or noncommittal. (p. 414)
 
-If you look at how I typically organize the arguments within `brms::brm()`, you'll see this is generally the case there, too. Take another look at the code for `fit14.2`:
+If you look at how I typically organize the arguments within `brms::brm()`, you'll see this is generally the case there, too. Take another look at the code for `fit14.1`:
 
 ```{r, eval = F}
-fit14.2 <-
+fit14.1 <-
   brm(data = my_data, 
       family = bernoulli(link = identity),
       y ~ 1,
-      prior(beta(2, 2), class = Intercept),
+      prior(beta(1, 1), class = Intercept, lb = 0, ub = 1),
       iter = 1000, warmup = 200, chains = 3, cores = 3,
-      control = list(adapt_delta = 0.99),
       seed = 14,
-      file = "fits/fit14.02")
+      file = "fits/fit14.01")
 ```
 
 The first line within `brm()` defined the data. The second line defined the likelihood function and its link function. We haven't talked much about link functions, yet, but that will start in [Chapter 15][Overview of the Generalized Linear Model]. Likelihoods contain parameters and our third line within `brm()` defined the equation we wanted to use to predict/describe our parameter of interest, $\theta$. We defined our sole prior in the fourth line. The remaining arguments contain the unsexy technical specifications, such as how many MCMC chains we'd like to use and into what folder we'd like to save our fit as an external file.
@@ -354,6 +308,4 @@ pacman::p_unload(pacman::p_loaded(), character.only = TRUE)
 ```
 
 ## Footnote {-}
-
-[^5]: There's another way to fix this. You may have noticed how Kruschke has a habit of modeling binomial intercepts with the identity link and with the beta distribution as the prior. This can cause algorithmic difficulties because whereas our beta prior puts lower and upper boundaries for the intercept, **brms** expects the parameter space for an intercept to be unbounded. The solution for this is to explicitly tell **brms** that you want to model the intercept with lower and upper bounds. For an example of how to do this, revisit `fit8.2` from [Section 8.4][Example: Difference of biases]. I try not to make a big deal about this in the ebook because my guess is most applied scientists won't be fitting a lot of intercepts-only binomial models.
 
