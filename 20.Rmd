@@ -472,7 +472,7 @@ The big new element is multiple `(|)` parts in the `formula`. In this simple mod
 
 ### Example: It's only money.
 
-Load the salary data[^7].
+Load the salary data[^6].
 
 ```{r, message = F, warning = F}
 my_data <- read_csv("data.R/Salary.csv")
@@ -1479,10 +1479,10 @@ stanvars <-
 
 Recall that to fit a robust hierarchical variances model, we need to wrap our two formulas within the `bf()` function. 
 
-`r emo::ji("warning")` **Warning**: this one took several hours fit. `r emo::ji("warning")`
+`r emo::ji("warning")` **Warning**: this one took a few hours fit. `r emo::ji("warning")`
 
 ```{r, echo = F, eval = F}
-# Heads up: this took about 8 hours to fit (2-7-2020)
+# Heads up: this took 2.850737 hours to fit (4-15-2022)
 ```
 
 ```{r fit20.2}
@@ -1680,8 +1680,6 @@ Here's the current LOO difference.
 loo_compare(fit20.1, fit20.2) %>% print(simplify = F)
 ```
 
-For a more robust model comparison, we might follow the `kfold()` suggestion in the warning. However, be warned: The `kfold()` function entails refitting the model `K` times. `fit20.1` took about an hour to fit and `fit20.2` took several more. `r emo::ji("warning")` Proceed with caution. `r emo::ji("warning")`
-
 But really, "we might want to create a model that describes the data within each cell as a skewed distribution such as a Weibull" (p. 606). Yes, **brms** can handle Weibull regression (e.g., [here](https://discourse.mc-stan.org/t/fitting-time-to-event-data-with-weibull-hazard-using-brm-function/4638)).
 
 ```{r, echo = F}
@@ -1819,7 +1817,7 @@ fit20.3 <-
                 prior(cauchy(0, sd_y), class = sigma)),
       iter = 4000, warmup = 2000, chains = 4, cores = 4,
       seed = 20,
-      control = list(adapt_delta = 0.99,
+      control = list(adapt_delta = 0.9999,
                      max_treedepth = 12),
       stanvars = stanvars,
       file = "fits/fit20.03")
@@ -2042,10 +2040,9 @@ Executing that yielded the following warning message:
 
 To use the `moment_match` approach, the model in question must have been fit with the setting `save_pars = save_pars(all = TRUE)` within the `brm()` call. The default is `save_pars = NULL` and we used the default settings, above. If you go through the trouble of refitting the model with those updated settings, you'll find that the `moment_match` approach didn't help in this case. For the sake of reducing clutter, I'm not going to show the code for refitting the model. However, the next warning message I got after executing `fit20.3 <- add_criterion(fit20.3, "loo", moment_match = T)` was:
 
-> Some Pareto k diagnostic values are too high. See help('pareto-k-diagnostic') for details.
-Found 4 observations with a pareto_k > 0.7 in model 'fit20.3'. It is recommended to set 'reloo = TRUE' in order to calculate the ELPD without the assumption that these observations are negligible. This will refit the model 4 times to compute the ELPDs for the problematic observations directly.
+> Warning: Found 1 observations with a pareto_k > 0.7 in model 'fit20.3'. It is recommended to set 'reloo = TRUE' in order to calculate the ELPD without the assumption that these observations are negligible. This will refit the model 1 times to compute the ELPDs for the problematic observations directly.
 
-So it's time to bring in the big guns. Let's use `reloo`. Be warned that, because this requires the model to be refit 4 times, this will take a few minutes.
+So it's time to bring in the big guns. Let's use `reloo`. Be warned that, because this requires refitting the model multiple times, this will take a few minutes.
 
 ```{r, eval = F}
 fit20.3 <- add_criterion(fit20.3, criterion = "loo", reloo = TRUE)
@@ -2053,23 +2050,23 @@ fit20.3 <- add_criterion(fit20.3, criterion = "loo", reloo = TRUE)
 
 Okay, we're *finally* ready for the LOO comparison.
 
+```{r, eval = F}
+loo_compare(fit20.3, fit20.4) %>% 
+  print(simplify = F)
+```
+
 ```{r, echo = F}
-# For some unknown reason, brms doesn't seem to let met save the results of 
+# For some unknown reason, brms doesn't seem to let me save the results of 
 # reloo in the external model fit file. Executing reloo takes too long to do 
 # each time I render this file. So I'm saving the results of the loo comparison 
 # as an external object.
 
 # lc <- loo_compare(fit20.3, fit20.4)
 # 
-# save(lc, file = "fits/loo_compare_20.rda")
-load("fits/loo_compare_20.rda")
+# save(lc, file = "fits/loo_comparefit20.03fit20.04.rda")
+load("fits/loo_comparefit20.03fit20.04.rda")
 
 lc %>% print(simplify = F)
-```
-
-```{r, eval = F}
-loo_compare(fit20.3, fit20.4) %>% 
-  print(simplify = F)
 ```
 
 All good. Based on the LOO values, we should prefer the fuller model. This, of course, should be no surprise. The posterior for $\sigma_\text{Field}$ was a far cry from zero.
@@ -2103,5 +2100,5 @@ pacman::p_unload(pacman::p_loaded(), character.only = TRUE)
 
 ## Footnote {-}
 
-[^7]: It's not quite clear where these data come from. At the top of page 591, Kruschke wrote "in this section, we will be looking at some real-world salaries." Further down on the same page, Kruschke added: "The data are annual salaries of 1,080 tenure-track professors at a large-enrollment, small-city, Midwestern-American, research-oriented, state university. (Salaries at big- city and private universities tend to be higher, while salaries at liberal-arts colleges and teaching-oriented state universities tend to be lower.) The data span 60 academic departments that had at least seven members. The data also include the professor’s seniority." He did not provide a reference.
+[^6]: It's not quite clear where these data come from. At the top of page 591, Kruschke wrote "in this section, we will be looking at some real-world salaries." Further down on the same page, Kruschke added: "The data are annual salaries of 1,080 tenure-track professors at a large-enrollment, small-city, Midwestern-American, research-oriented, state university. (Salaries at big- city and private universities tend to be higher, while salaries at liberal-arts colleges and teaching-oriented state universities tend to be lower.) The data span 60 academic departments that had at least seven members. The data also include the professor’s seniority." He did not provide a reference.
 
