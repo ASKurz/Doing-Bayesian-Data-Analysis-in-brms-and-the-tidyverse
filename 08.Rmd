@@ -172,7 +172,7 @@ my_data %>%
   theme_minimal_hgrid()
 ```
 
-For the past couple chapters, we've been using the `cowplot::theme_cowplot()` theme for our plots. The **cowplot** package, however, includes a few more. The `theme_minimal_grid()` is similar, but subtracts the axis lines and adds in minimalistic grid lines. In his [-@Wilke2019Themes] [Themes vignette], however, Wilke explained that vertical gridlines are often unsightly in bar plots. To avoid offending Wilke with our grid lines, we used the `theme_minimal_hgrid()` theme, which only added horizontal grid lines.
+For the past couple chapters, we've been using the `cowplot::theme_cowplot()` theme for our plots. The **cowplot** package, however, includes a few more. The `theme_minimal_grid()` is similar, but subtracts the axis lines and adds in minimalistic grid lines. In his [-@Wilke2020Themes] [*Themes* vignette](https://wilkelab.org/cowplot/articles/themes.html), however, Wilke showed vertical grid lines are often unsightly in bar plots. To avoid offending Wilke with our grid lines, we used the `theme_minimal_hgrid()` theme, which only added horizontal grid lines.
 
 Anyway, if you wanted to compute "Ntotal", the number of rows in our tibble, one way is with `count()`.
 
@@ -213,19 +213,19 @@ Also note our use of the `file` argument. This automatically saved my fit object
 
 ### Initialize chains.
 
-In Stan, and in **brms** by extension, the initial values have default settings. In the [Initialization section of the Program Execution chapter](https://mc-stan.org/docs/2_26/reference-manual/initialization.html) in the *Stan reference manual, Version 2.26* [@standevelopmentteamStanReferenceManual2021] we read:
+In Stan, and in **brms** by extension, the initial values have default settings. In the [Initialization section of the Program Execution chapter](https://mc-stan.org/docs/2_29/reference-manual/initialization.html) in the *Stan reference manual, Version 2.29* [@standevelopmentteamStanReferenceManual2022] we read:
 
-> If there are no user-supplied initial values, the default initialization strategy is to initialize the unconstrained parameters directly with values drawn uniformly from the interval $(−2, 2)$. The bounds of this initialization can be changed but it is always symmetric around 0. The value of 0 is special in that it represents the median of the initialization. An unconstrained value of 0 corresponds to different parameter values depending on the constraints declared on the parameters.
+> If there are no user-supplied initial values, the default initialization strategy is to initialize the unconstrained parameters directly with values drawn uniformly from the interval $(−2, 2)$. The bounds of this initialization can be changed but it is always symmetric around $0$. The value of $0$ is special in that it represents the median of the initialization. An unconstrained value of $0$ corresponds to different parameter values depending on the constraints declared on the parameters.
 
 In general, I do not recommend setting custom initial values in **brms** or Stan. Under the hood, Stan will transform the parameters to the unconstrained space in models where they are bounded. In our Bernoulli model, $\theta$ is bounded at 0 and 1. A little further down in the same section, we read:
 
-> For parameters bounded above and below, the initial value of 0 on the unconstrained scale corresponds to a value at the midpoint of the constraint interval. For probability parameters, bounded below by 0 and above by 1, the transform is the inverse logit, so that an initial unconstrained value of 0 corresponds to a constrained value of 0.5, -2 corresponds to 0.12 and 2 to 0.88. Bounds other than 0 and 1 are just scaled and translated.
+> For parameters bounded above and below, the initial value of $0$ on the unconstrained scale corresponds to a value at the midpoint of the constraint interval. For probability parameters, bounded below by $0$ and above by $1$, the transform is the inverse logit, so that an initial unconstrained value of $0$ corresponds to a constrained value of $0.5$, $-2$ corresponds to $0.12$ and $2$ to $0.88$. Bounds other than $0$ and $1$ are just scaled and translated.
 
-If you want to play around with this, have at it. In my experience, the only time it helps to set these manually is when you want to fix them to zero. You can do that by specifying `inits = 0` within `brm()`.
+If you want to play around with this, have at it. In my experience, it sometimes helps to set these manually to zero, which you can do that by specifying `inits = 0` within `brm()`. But if you really want to experiment, you might check out my blog post, [*Don't forget your inits*](https://solomonkurz.netlify.app/post/2021-06-05-don-t-forget-your-inits/).
 
 ### Generate chains.
 
-By default, **brms** will use 4 chains of 2,000 iterations each. The type of MCMC **brms** uses is Hamiltonian Monte Carlo (HMC). You can learn more about HMC at the Stan website, [https://mc-stan.org](https://mc-stan.org), which includes resources such as the [*Stan user's guide*](https://mc-stan.org/docs/2_26/stan-users-guide/index.html) [@standevelopmentteamStanUserGuide2021], the [*Stan reference manual*](https://mc-stan.org/docs/2_26/reference-manual/) [@standevelopmentteamStanReferenceManual2021], and a list of [tutorials](https://mc-stan.org/users/documentation/tutorials). McElreath has a [nice intro lecture](https://www.youtube.com/watch?v=BWEtS3HuU5A&t=163s&frags=pl%2Cwn) on MCMC in general and HMC in particular. Michael Bentacourt has some good lectures on Stan and HMC, such as [here](https://www.youtube.com/watch?v=pHsuIaPbNbY&t=2638s&frags=pl%2Cwn) and [here](https://www.youtube.com/watch?v=jUSZboSq1zg&t=1325s&frags=pl%2Cwn). And, of course, we will cover HMC with Kruschke in [Chapter 14][Stan].
+By default, **brms** will use 4 chains of 2,000 iterations each. The type of MCMC **brms** uses is Hamiltonian Monte Carlo (HMC). You can learn more about HMC at the Stan website, [https://mc-stan.org](https://mc-stan.org), which includes resources such as the [*Stan user's guide*](https://mc-stan.org/docs/2_29/stan-users-guide/index.html) [@standevelopmentteamStanUserGuide2022], the [*Stan reference manual*](https://mc-stan.org/docs/2_29/reference-manual/) [@standevelopmentteamStanReferenceManual2022], and a list of [tutorials](https://mc-stan.org/users/documentation/tutorials). McElreath has a [nice intro lecture](https://www.youtube.com/watch?v=BWEtS3HuU5A) on MCMC in general and HMC in particular. Michael Bentacourt has some good lectures on Stan and HMC, such as [here](https://youtu.be/pHsuIaPbNbY) and [here](https://www.youtube.com/watch?v=jUSZboSq1zg). And, of course, we will cover HMC with Kruschke in [Chapter 14][Stan].
 
 Within each HMC chain, the first $n$ iterations are warmups. Within the Stan-HMC paradigm, [warmups are somewhat analogous to but not synonymous with burn-in iterations](https://andrewgelman.com/2017/12/15/burn-vs-warm-iterative-simulation-algorithms/) as done by the Gibbs sampling in JAGS. But HMC warmups are like Gibbs burn-ins in that both are discarded and not used to describe the posterior. As such, the **brms** default settings yield 1,000 post-warmup iterations for each of the 4 HMC chains. However, we specified `iter = 500 + 3334, warmup = 500, chains = 3`. Thus instead of defaults, we have 3 HMC chains. Each chain has 500 + 3,334 = 3,834 total iterations, of which 500 were discarded `warmup` iterations.
 
@@ -418,7 +418,7 @@ draws %>%
         title = element_text(size = 10.5))
 ```
 
-Similar, yet distinct. To get a sense of the full variety of ways **tidybayes** allows users to summarize and plot the results of a Bayesian model, check out Kay's [-@kaySlabIntervalStats2020] vignette, [*Slab + interval stats and geoms*](https://mjskay.github.io/ggdist/articles/slabinterval.html). Also, did you notice how we switched to `theme_minimal_vgrid()`? That's how we added the vertical grid lines in the absence of horizontal grid lines.
+Similar, yet distinct. To get a sense of the full variety of ways **tidybayes** allows users to summarize and plot the results of a Bayesian model, check out Kay's [-@kaySlabIntervalStats2022] vignette, [*Slab + interval stats and geoms*](https://mjskay.github.io/ggdist/articles/slabinterval.html). Also, did you notice how we switched to `theme_minimal_vgrid()`? That's how we added the vertical grid lines in the absence of horizontal grid lines.
 
 ## Simplified scripts for frequently used analyses
 
@@ -740,11 +740,11 @@ The **viridis** color palettes in functions like `scale_fill_viridis_c()` and `s
 
 ## Probability distributions available in ~~JAGS~~  brms
 
-> [**brms**] has a large collection of frequently used probability distributions that are built-in. These distributions include the beta, gamma, normal, Bernoulli, and binomial along with many others. A complete list of distributions, and their [**brms**] names, can be found in [Bürkner's [-@Bürkner2021Parameterization] vignette [*Parameterization of response distributions in brms*](https://CRAN.R-project.org/package=brms/vignettes/brms_families.html)]. [@kruschkeDoingBayesianData2015, pp. 213--214, **emphasis** added]
+> [**brms**] has a large collection of frequently used probability distributions that are built-in. These distributions include the beta, gamma, normal, Bernoulli, and binomial along with many others. A complete list of distributions, and their [**brms**] names, can be found in [Bürkner's [-@Bürkner2022Parameterization] vignette [*Parameterization of response distributions in brms*](https://CRAN.R-project.org/package=brms/vignettes/brms_families.html)]. [@kruschkeDoingBayesianData2015, pp. 213--214, **emphasis** added]
 
 ### Defining new likelihood functions.
 
-In addition to all the likelihood functions listed in above mentioned vignette, you can also make your own likelihood functions. Bürkner explained the method in his [-@Bürkner2021Define] vignette, [*Define custom response distributions with brms*](https://CRAN.R-project.org/package=brms/vignettes/brms_customfamilies.html).
+In addition to all the likelihood functions listed in above mentioned vignette, you can also make your own likelihood functions. Bürkner explained the method in his [-@Bürkner2022Define] vignette, [*Define custom response distributions with brms*](https://CRAN.R-project.org/package=brms/vignettes/brms_customfamilies.html).
 
 ## Faster sampling with parallel processing in ~~runjags~~ `brms::brm()`
 

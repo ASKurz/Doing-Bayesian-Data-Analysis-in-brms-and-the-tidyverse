@@ -34,7 +34,7 @@ hdi_of_icdf <- function(name, width = .95, tol = 1e-8, ... ) {
 }
 ```
 
-Our `hdi_of_icdf()` function will compute the analytic 95% highest density intervals (HDIs) for the distribution under consideration in Figure 7.1, $\operatorname{beta}(\theta | 15, 7)$.
+Our `hdi_of_icdf()` function will compute the analytic 95% highest density intervals (HDIs) for the distribution under consideration in Figure 7.1, $\operatorname{Beta}(\theta | 15, 7)$.
 
 ```{r}
 h <-
@@ -112,7 +112,7 @@ d %>%
   mode_hdi(theta)
 ```
 
-If you wanted a better sense of the phenomena, you could do a simulation. We'll make a custom simulation function to compute the modes from many random draws from our $\operatorname{beta}(\theta | 15, 7)$ distribution, with varying $N$ values.
+If you wanted a better sense of the phenomena, you could do a simulation. We'll make a custom simulation function to compute the modes from many random draws from our $\operatorname{Beta}(\theta | 15, 7)$ distribution, with varying $N$ values.
 
 ```{r}
 my_mode_simulation <- function(seed) {
@@ -206,7 +206,7 @@ tibble(theta = positions) %>%
   theme_cowplot()
 ```
 
-Did you notice that `scale_y_continuous()` line in the code? Claus Wilke, the author of the **cowplot** package, has a lot of thoughts on data visualization. He even wrote a [-@wilkeFundamentalsDataVisualization2019] book on it: [*Fundamentals of data visualization*](https://clauswilke.com/dataviz/). In his [-@Wilke2019Themes] [*Themes*](https://wilkelab.org/cowplot/articles/themes.html) vignette, Wilke recommended against allowing for space between the bottoms of the bars in a bar plot and the $x$-axis line. The **ggplot2** default is to allow for such a space. Here we followed Wilke and suppressed that space with `expand = expansion(mult = c(0, 0.05))`. You can learn more about the `ggplot2::expansion()` function [here](https://ggplot2.tidyverse.org/reference/expansion.html).
+Did you notice that `scale_y_continuous()` line in the code? Claus Wilke, the author of the **cowplot** package, has a lot of thoughts on data visualization. He even wrote a [-@wilkeFundamentalsDataVisualization2019] book on it: [*Fundamentals of data visualization*](https://clauswilke.com/dataviz/). In his [-@Wilke2020Themes] [*Themes*](https://wilkelab.org/cowplot/articles/themes.html) vignette, Wilke recommended against allowing for space between the bottoms of the bars in a bar plot and the $x$-axis line. The **ggplot2** default is to allow for such a space. Here we followed Wilke and suppressed that space with `expand = expansion(mult = c(0, 0.05))`. You can learn more about the `ggplot2::expansion()` function [here](https://ggplot2.tidyverse.org/reference/expansion.html).
 
 Here's the middle portion of Figure 7.2.
 
@@ -937,7 +937,7 @@ theta_1_data
 theta_2_data
 ```
 
-Kruschke said he was starting us out simply. From a regression perspective, we are getting ready to fit an intercepts-only multivariate Bernoulli model, which isn't the simplest of things to code into **brms**. Plus, this particular pair of data sets presents a complication we won't usually have to contend with in this book: The data vectors are different lengths. Remember how we pointed that out in [Section 7.4.2][The posterior via exact formal analysis.]? The issue is that whereas **brms** has extensive multivariate capacities [@Bürkner2021Multivariate], they're usually designed for data with equal sample sizes (i.e., when the rows in the two columns of a data frame are of the same number). Since these are Bernoulli data, we have two options at our disposal:
+Kruschke said he was starting us out simply. From a regression perspective, we are getting ready to fit an intercepts-only multivariate Bernoulli model, which isn't the simplest of things to code into **brms**. Plus, this particular pair of data sets presents a complication we won't usually have to contend with in this book: The data vectors are different lengths. Remember how we pointed that out in [Section 7.4.2][The posterior via exact formal analysis.]? The issue is that whereas **brms** has extensive multivariate capacities [@Bürkner2022Multivariate], they're usually designed for data with equal sample sizes (i.e., when the rows in the two columns of a data frame are of the same number). Since these are Bernoulli data, we have two options at our disposal:
 
 * employ the `resp_subset()` helper function or
 * fit an aggregated binomial[^2] model.
@@ -969,13 +969,13 @@ d <-
 d
 ```
 
-**brms** includes a handful of helper functions that let users incorporate additional information about the criterion variable(s) into the model. For a full listing of these helper functions, check out the `addition-terms` section of the [**brms** reference manual](https://CRAN.R-project.org/package=brms/brms.pdf) [@brms2021RM]. Though we won't be using a lot of these in this ebook, it just so turns out that two of them will come in handy for our multivariate Bernoulli data. In this case, we want the `resp_subset()` helper function, which, in practice, we will just call as `subset()`. From the **brms** reference manual, we read:
+**brms** includes a handful of helper functions that let users incorporate additional information about the criterion variable(s) into the model. For a full listing of these helper functions, check out the `addition-terms` section of the [**brms** reference manual](https://CRAN.R-project.org/package=brms/brms.pdf) [@brms2022RM]. Though we won't be using a lot of these in this ebook, it just so turns out that two of them will come in handy for our multivariate Bernoulli data. In this case, we want the `resp_subset()` helper function, which, in practice, we will just call as `subset()`. From the **brms** reference manual, we read:
 
-> For multivariate models, `subset` may be used in the `aterms` part, to use different subsets of the data in different univariate models. For instance, if `sub` is a logical variable and `y` is the response of one of the univariate models, we may write `y | subset(sub) ~ predictors` so that `y` is predicted only for those observations for which `sub` evaluates to `TRUE`. (p. 38)
+> For multivariate models, `subset` may be used in the `aterms` part, to use different subsets of the data in different univariate models. For instance, if `sub` is a logical variable and `y` is the response of one of the univariate models, we may write `y | subset(sub) ~ predictors` so that `y` is predicted only for those observations for which `sub` evaluates to `TRUE`. (p. 42)
 
 In our case, the `subset` variable in the data tibble will be the logical variable for our criterion `y2`, which would leave us with the formula `y2 | subset(subset) ~ 1`. Note the use of the `|` operator, which is what you always use when adding additional information with a help function of this kind. Since we will be using the data in all eight rows of the `y1` column, that corresponding formula would just be `y1 ~ 1`. In both cases, the `~ 1` portions of the formulas indicates these are intercept-only models. There are not predictor variables in the model.
 
-Next, we need to talk about how to combine these two formulas within the multivariate syntax. If you look through Bürkner's [-@Bürkner2021Multivariate] vignette, [*Estimating multivariate models with brms*](https://cran.r-project.org/web/packages/brms/vignettes/brms_multivariate.html), you'll see there are several ways to define a multivariate model with **brms**. In this case, I think it'll be easiest to define each model as a separate object, which we'll call `model_1` and `model_2`.
+Next, we need to talk about how to combine these two formulas within the multivariate syntax. If you look through Bürkner's [-@Bürkner2022Multivariate] vignette, [*Estimating multivariate models with brms*](https://cran.r-project.org/web/packages/brms/vignettes/brms_multivariate.html), you'll see there are several ways to define a multivariate model with **brms**. In this case, I think it'll be easiest to define each model as a separate object, which we'll call `model_1` and `model_2`.
 
 ```{r}
 model_1 <- bf(y1 ~ 1)
@@ -1232,7 +1232,7 @@ On page 179, Kruschke discussed *burn-in* steps within the Gibbs framework:
 
 > The preliminary steps, during which the chain moves from its unrepresentative initial value to the modal region of the posterior, is called the *burn-in* period. For realistic applications, it is routine to apply a burn-in period of several hundred to several thousand steps.
 
-For each HMC chain, the first $n$ iterations are called "warmups." In this example, $n = 500$ (i.e., `warmup = 500`). Within the Stan-HMC paradigm, [warmups are somewhat analogous to but not synonymous with burn-in iterations](https://andrewgelman.com/2017/12/15/burn-vs-warm-iterative-simulation-algorithms/) as done by the Gibbs sampling in JAGS. But HMC warmups are like Gibbs burn-ins in that both are discarded and not used to describe the posterior. For more on warmup, check out McElreath's lecture, [starting here](https://www.youtube.com/watch?v=13mEekRdOcQ&t=75s&frags=pl%2Cwn) or, for more detail, the [*HMC Algorithm Parameters* section (15.2)](https://mc-stan.org/docs/2_26/reference-manual/hmc-algorithm-parameters.html) of the *Stan reference manual*, version 2.26 [@standevelopmentteamStanReferenceManual2021].
+For each HMC chain, the first $n$ iterations are called "warmups." In this example, $n = 500$ (i.e., `warmup = 500`). Within the Stan-HMC paradigm, [warmups are somewhat analogous to but not synonymous with burn-in iterations](https://andrewgelman.com/2017/12/15/burn-vs-warm-iterative-simulation-algorithms/) as done by the Gibbs sampling in JAGS. But HMC warmups are like Gibbs burn-ins in that both are discarded and not used to describe the posterior. For more on warmup, check out McElreath's lecture, [starting here](https://www.youtube.com/watch?v=13mEekRdOcQ&t=75s&frags=pl%2Cwn) or, for more detail, the [*HMC Algorithm Parameters* section (15.2)](https://mc-stan.org/docs/2_29/reference-manual/hmc-algorithm-parameters.html) of the *Stan reference manual*, version 2.29 [@standevelopmentteamStanReferenceManual2022].
 
 It appears that the upshot of all this is some of the packages in the Stan ecosystem don't make it easy to extract the warmup values. For example, the `brms::plot()` function excludes them from the trace plot without the option to include them.
 
@@ -1583,9 +1583,9 @@ If you're curious of the effective sample sizes for the parameters in your **brm
 print(fit7.2)
 ```
 
-Look at the last two columns in the `Intercept` summary. Earlier versions of **brms** had one column named `Eff.Sample`, which reported the effect sample size as discussed by Kruschke. Starting with version 2.10.0, **brms** now returns `Bulk_ESS` and `Tail_ESS`, instead. These originate from a [-@vehtariRanknormalizationFoldingLocalization2019] [preprint](https://arxiv.org/abs/1903.08008?) by Stan-team all-stars Vehtari, Gelman, Simpson, Carpenter, and Bürkner. From their paper, we read:
+Look at the last two columns in the `Intercept` summary. Earlier versions of **brms** had one column named `Eff.Sample`, which reported the effect sample size as discussed by Kruschke. Starting with version 2.10.0, **brms** now returns `Bulk_ESS` and `Tail_ESS`, instead. These originate from a [-@vehtariRanknormalizationFoldingLocalization2021] [paper](https://doi.org/10.1214/20-BA1221) by Stan-team all-stars Vehtari, Gelman, Simpson, Carpenter, and Bürkner. From their paper, we read:
 
-> If you plan to report quantile estimates or posterior intervals, we strongly suggest assessing the convergence of the chains for these quantiles. In [Section 4.3][Probability distributions] we show that convergence of Markov chains is not uniform across the parameter space and propose diagnostics and effective sample sizes specifically for extreme quantiles. This is *different* from the standard ESS estimate (which we refer to as the "bulk-ESS"), which mainly assesses how well the centre of the distribution is resolved. Instead, these "tail-ESS" measures allow the user to estimate the MCSE for interval estimates. (p. 5, *emphasis* in the original)
+> When reporting quantile estimates or posterior intervals, we strongly suggest assessing the convergence of the chains for these quantiles. In Section 4.3, we show that convergence of Markov chains is not uniform across the parameter space, that is, convergence might be different in the bulk of the distribution (e.g., for the mean or median) than in the tails (e.g., for extreme quantiles). We propose diagnostics and effective sample sizes specifically for extreme quantiles. This is different from the standard ESS estimate (which we refer to as bulk-ESS), which mainly assesses how well the centre of the distribution is resolved. Instead, these "tail-ESS" measures allow the user to estimate the MCSE for interval estimates. (pp. 672--673)
 
 For more technical details, see the paper. The `Bulk_ESS` column in current versions of **brms** is what was previously referred to as `Eff.Sample`. This is what corresponds to what Kruschke meant when referring to effective sample size. Now rather than focusing solely on 'the center of the' posterior distribution' as indexed by `Bulk_ESS`, we also gauge the effective sample size in the posterior intervals using `Tail_ESS`.
 
@@ -1597,7 +1597,7 @@ If you're interested in the Monte Carlo standard error (MCSE) for your **brms** 
 fit7.2$fit
 ```
 
-This returns an [rstan-like summary](https://CRAN.R-project.org/package=rstan/vignettes/stanfit-objects.html) [@standevelopmentteamAccessingContentsStanfit2020]. The 'se_mean' column is the MCSE.
+This returns an [rstan-like summary](https://CRAN.R-project.org/package=rstan/vignettes/stanfit-objects.html) [@standevelopmentteamAccessingContentsStanfit2022]. The 'se_mean' column is the MCSE.
 
 ### MCMC efficiency.
 
