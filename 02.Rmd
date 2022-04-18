@@ -16,7 +16,7 @@ knitr::opts_chunk$set(fig.align = "center")
 
 ## Bayesian inference is reallocation of credibility across possibilities
 
-The first step toward making Figure 2.1 is putting together a data object. And to help with that, we'll open up the **tidyverse**.
+The first step toward making Figure 2.1 is putting together a data object. To help with that, we'll open up the **tidyverse**.
 
 ```{r, message = F, warning = F}
 library(tidyverse)
@@ -35,15 +35,15 @@ d <-
                            rep(0, times = 3), 1))
 ```
 
-When making data with man repetitions in the rows, it's good to have the `tidyr::expand()` function up your sleeve. Go [here](https://tidyr.tidyverse.org/reference/expand.html) to learn more.
+When making data with many repetitions in the rows, it's good to have the `tidyr::expand()` function up your sleeve. Go [here](https://tidyr.tidyverse.org/reference/expand.html) to learn more.
 
-We can take a look at the top few rows of the data with `head()`.
+We can take a look at the top few rows of the data with the `head()` function.
 
 ```{r}
 head(d)
 ```
 
-Before we attempt Figure 2.1, we'll need two supplemental data frames. The first one, `d_text`, will supply the coordinates for the annotation in the plot. The second, `d_arrow`, will supply the coordinates for the arrows.
+Before we attempt Figure 2.1, we'll need two supplemental data frames. The first one, `text`, will supply the coordinates for the annotation in the plot. The second, `arrow`, will supply the coordinates for the arrows.
 
 ```{r}
 text <-
@@ -108,8 +108,7 @@ crossing(stage         = factor(c("Prior", "Posterior"),
     Credibility   = c(.25, .99),
     stage         = factor("Posterior", levels = c("Prior", "Posterior"))
   ),
-  arrow = arrow(length = unit(0.30, "cm"), 
-                ends = "last", type = "closed"),
+  arrow = arrow(length = unit(0.30, "cm"), ends = "last", type = "closed"),
   color = "grey92") +
   facet_wrap(~ stage, ncol = 1) +
   theme(axis.ticks.x = element_blank(),
@@ -118,7 +117,7 @@ crossing(stage         = factor(c("Prior", "Posterior"),
 
 ### Data are noisy and inferences are probabilistic.
 
-Now on to Figure 2.3. I'm pretty sure the curves in the plot are Gaussian, which we'll make with the `dnorm()` function. After a little trial and error, their standard deviations look to be 1.2. However, it's tricky placing those curves in along with the probabilities, because the probabilities for the four discrete sizes (i.e., 1 through 4) are in a different metric than the Gaussian density curves. Since the probability metric for the four discrete sizes are the primary metric of the plot, we need to rescale the curves using a little algebra. We do that in the data code, below. After that, the code for the plot is relatively simple.
+Now on to Figure 2.3. I'm pretty sure the curves in the plot are Gaussian, which we'll make with the `dnorm()` function. After a little trial and error, their standard deviations look to be 1.2. However, it's tricky placing those curves in along with the probabilities, because the probabilities for the four discrete sizes (i.e., 1 through 4) are in a different metric than the Gaussian density curves. Since the probability metric for the four discrete sizes are the primary metric of the plot, we need to rescale the curves using a little algebra, which we do in the data code below. After that, the code for the plot is relatively simple.
 
 ```{r, fig.width = 2.25, fig.height = 2.5}
 # data
@@ -148,11 +147,11 @@ tibble(mu = 1:4,
         panel.grid = element_blank())
 ```
 
-We can use the same basic method to make the bottom panel. The new consideration is choosing the relative probabilities for the different `mu` values--keeping in mind they have to sum to 1. I just eyeballed them. The only other notable change from the previous plot is our addition of a `geom_point()` section, in which we defined the data on the fly.
+We can use the same basic method to make the bottom panel of Figure 2.3. Kruschke gave the relative probability values on page 21. Notice that they sum perfectly to 1. The only other notable change from the previous plot is our addition of a `geom_point()` section, the data in which we defined on the fly.
 
 ```{r, fig.width = 2.25, fig.height = 2.5}
 tibble(mu = 1:4,
-       p  = c(.1, .58, .3, .02)) %>% 
+       p  = c(.11, .56, .31, .02)) %>% 
   expand(nesting(mu, p), 
          x = seq(from = -2, to = 6, by = .1)) %>% 
   mutate(density = dnorm(x, mean = mu, sd = 1.2)) %>% 
@@ -186,7 +185,7 @@ tibble(mu = 1:4,
 
 "A key step in Bayesian analysis is defining the set of possibilities over which credibility is allocated. *This is not a trivial step*, because there might always be possibilities beyond the ones we include in the initial set" (p. 22, *emphasis* added).
 
-In the last section, we used the `dnorm()` function to make curves following the Normal distribution. Here we'll do that again, but also use the `rnorm()` function to simulate actual data from that same Normal distribution. Behold Figure 2.4.a.
+In the last section, we used the `dnorm()` function to make curves following the normal distribution (a.k.a. the Gaussian distribution). Here we'll do that again, but also use the `rnorm()` function to simulate actual data from that same normal distribution. Behold Figure 2.4.a.
 
 ```{r, fig.width = 3, fig.height = 2.5}
 # set the seed to make the simulation reproducible
@@ -209,7 +208,7 @@ ggplot(data = d, aes(x = x)) +
   theme(panel.grid = element_blank())
 ```
 
-Did you notice how we made the data for the density curve within `geom_line()`? That's one way to do it. In our next plot, we'll take a different and more elegant approach with `stat_function()`. Here's our Figure 2.4.b.
+Did you notice how we made the data for the density curve within `geom_line()`? That's one way to do it, and in our next plot we'll take a more elegant approach with the `stat_function()` function. Here's our Figure 2.4.b.
 
 ```{r, fig.width = 3, fig.height = 2.5}
 ggplot(data = d, aes(x = x)) +
@@ -240,7 +239,7 @@ model.
 
 I will show you a few more details than Kruschke did in the text. But just has he did, we'll cover this workflow in much more detail in the chapters to come.
 
-In order to recreate Figure 2.5, we need to generate the data and fit the model. In his `HtWtDataDenerator.R` script, Kruschke provided the code for a function that will generate height/weight data of the kind in his text. Here is the code in full:
+In order to recreate Figure 2.5, we need to generate the data and fit a model to those data. In his `HtWtDataDenerator.R` script, Kruschke provided the code for a function that will generate height/weight data of the kind in his text. Here is the code in full:
 
 ```{r HtWtDataGenerator}
 HtWtDataGenerator <- function(nSubj, rndsd = NULL, maleProb = 0.50) {
@@ -321,7 +320,7 @@ d %>%
   head()
 ```
 
-We're about ready for the model. We will fit it with HMC via the [**brms** package](https://CRAN.R-project.org/package=brms) (go [here](https://github.com/paul-buerkner/brms) for an introduction). 
+We're about ready for the model, which we will fit it with the Hamiltonian Monte Carlo (HMC) method via the [**brms** package](https://CRAN.R-project.org/package=brms). We'll introduce **brms** more fully in [Chapter 8][~~JAGS~~ brms] and you can go [here](https://github.com/paul-buerkner/brms) for an introduction, too. In the meantime, let's just load the package and see what happens.
 
 ```{r, message = F, warning = F}
 library(brms)
@@ -342,7 +341,7 @@ fit2.1 <-
       file = "fits/fit02.01")
 ```
 
-If you wanted a quick model summary, you could execute `print(fit1)`. We'll walk through that and other diagnostics in greater detail starting in [Chapter 8][~~JAGS~~ brms]. But for now, here's how we might make Figure 2.5.a.
+If you wanted a quick model summary, you could execute `print(fit1)`. Again, we'll walk through that and other diagnostics in greater detail starting in [Chapter 8][~~JAGS~~ brms]. For now, here's how we might make Figure 2.5.a.
 
 ```{r, fig.width = 3.25, fig.height = 3}
 # extract the posterior draws
@@ -370,7 +369,7 @@ draws %>%
   theme(panel.grid = element_blank())
 ```
 
-For Figure 2.5.b., we'll use the handy `stat_histinterval()` function from the [**tidybayes** package](http://mjskay.github.io/tidybayes) [@R-tidybayes] to mark off the mode and 95% highest density interval (HDI) underneath a histogram.
+For Figure 2.5.b., we'll mark off the mode and 95% highest density interval (HDI) with help from the handy `stat_histinterval()` function, provided by the [**tidybayes** package](http://mjskay.github.io/tidybayes) [@R-tidybayes].
 
 ```{r, warning = F, message = F, fig.width = 3, fig.height = 3}
 library(tidybayes)
@@ -388,7 +387,7 @@ draws %>%
   theme(panel.grid = element_blank())
 ```
 
-Here's Figure 2.6. We'll go over the `brms::predict()` function later.
+To make Figure 2.6, we use the `brms::predict()` function, which we'll cover more fully in the pages to come.
 
 ```{r, fig.width = 4, fig.height = 4}
 nd <- tibble(height = seq(from = 53, to = 81, length.out = 20))
@@ -430,6 +429,8 @@ predict(fit2.1, newdata = nd) %>%
        y = "Weight in inches") +
   theme(panel.grid = element_blank())
 ```
+
+"We have seen the five steps of Bayesian analysis in a fairly realistic example. This book explains how to do this sort of analysis for many different applications and types of descriptive models" (p. 30). Are you intrigued and excited? You should be. Welcome to Bayes, friends!
 
 ## Session info {-}
 
