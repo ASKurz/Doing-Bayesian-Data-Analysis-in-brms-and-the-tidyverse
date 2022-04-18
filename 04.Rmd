@@ -116,7 +116,7 @@ d %>%
 >
 > For continuous outcome spaces, we can *discretize* the space into a finite set of mutually exclusive and exhaustive "bins." (p. 78, *emphasis* in the original)
 
-In order to recreate Figure 4.2, we need to generate the heights data. In his `HtWtDataDenerator.R` script, Kruschke provided the code for a function that will generate height data of the kind in his text. Here is the code.
+In order to recreate Figure 4.2, we need to generate the heights data with Kruschke's `HtWtDataDenerator()` function. You can find the original code in Kruschke's `HtWtDataDenerator.R` script, and we first used this function in [Section 2.3][The steps of Bayesian data analysis]. Once again, here's how to make the function.
 
 ```{r}
 HtWtDataGenerator <- function(n_subj, rndsd = NULL, male_prob = 0.50) {
@@ -198,7 +198,7 @@ d %>%
   head()
 ```
 
-For Figure 4.2, we'll make extensive use of the `case_when()` syntax, which you can learn more about from [hrbrmstr](https://twitter.com/hrbrmstr)'s blog post, [*Making a case for case_when*](https://rud.is/b/2017/03/10/making-a-case-for-case_when/).
+For Figure 4.2, we'll discretize the continuous `height` values into bins with the `case_when()` function, which you can learn more about from [hrbrmstr](https://twitter.com/hrbrmstr)'s blog post, [*Making a case for case_when*](https://rud.is/b/2017/03/10/making-a-case-for-case_when/).
 
 ```{r, fig.height = 2, fig.width = 7, message = F}
 d_bin <-
@@ -244,19 +244,32 @@ d %>%
 
 Because we're simulating and we don't know what seed number Kruschke used for his plot, ours will differ a little from his. But the overall pattern is the same.
 
-It's a little less work to make Figure 4.2.b.
+One way to make a version of the histogram in Kruschke's Figure 4.2.b would be to input the `d` data directly into `ggplot()` and set `x = height` and `y = stat(density)` within the `aes()`. Then you could set `binwidth = 2` within `geom_histogram()` to make the bins within the histogram perform like the bins in the plot above. However, since we have already discretized the `height` values into bins in our `d_bin` data, it might make more sense to plot those bins with `geom_col()`. The only other step we need is to manually compute the density values using the formula Kruschke showed in Figure 4.2.b. Here' how:
 
 ```{r, fig.height = 1.75, fig.width = 7}
-d %>%
-  ggplot(aes(x = height)) +
-  geom_histogram(aes(y = stat(density)),
-                 binwidth = 2, fill = "grey67",
-                 color = "grey92", size = 1/8) +
-  scale_y_continuous("Probability density", breaks = c(0, .04, .08)) +
+d_bin %>% 
+  # density is the probability mass divided by the bin width
+  mutate(density = (n / sum(n)) / 2) %>% 
+  
+  ggplot(aes(x = height, y = density, fill = bin == 65)) +
+  geom_col() +
+  scale_fill_manual(values = c("gray67", "gray30"), breaks = NULL) +
+  scale_y_continuous("Probability density", breaks = c(0, 0.04, 0.08)) +
   xlab("Height (inches)") +
   coord_cartesian(xlim = c(51, 83)) +
   theme(panel.grid = element_blank())
 ```
+
+In the text, Kruschke singled out the bin for the values between 63 and 65 with an arrow. In our plot, we highlighted that bin with shading, instead. Here's how we computed the exact density value for that bin.
+
+```{r}
+d_bin %>% 
+  mutate(density = (n / sum(n)) / 2) %>% 
+  filter(bin == 65) %>% 
+  select(n, density)
+```
+
+Due to sampling variation, our density value is a little different from the one in the text.
 
 Our data binning approach for Figure 4.2.c will be a little different than what we did, above. Here we'll make our bins with the `round()` function.
 
@@ -286,15 +299,26 @@ d %>%
 However, our method for Figure 4.2.d will be like what we did, before.
 
 ```{r, fig.height = 1.75, fig.width = 7}
-d %>%
-  ggplot(aes(x = height)) +
-  geom_histogram(aes(y = stat(density)), boundary = 0,
-                 binwidth = 1, fill = "grey67",
-                 color = "grey92", size = 1/8) +
-  scale_y_continuous("Probability density", breaks = c(0, .04, .08)) +
+d_bin %>% 
+  # density is the probability mass divided by the bin width
+  mutate(density = (n / sum(n)) / 1) %>% 
+  
+  ggplot(aes(x = height, y = density, fill = bin == 64)) +
+  geom_col() +
+  scale_fill_manual(values = c("gray67", "gray30"), breaks = NULL) +
+  scale_y_continuous("Probability density", breaks = c(0, 0.04, 0.08)) +
   xlab("Height (inches)") +
   coord_cartesian(xlim = c(51, 83)) +
   theme(panel.grid = element_blank())
+```
+
+Here's the hand-computed density value for the focal bin.
+
+```{r}
+d_bin %>% 
+  mutate(density = (n / sum(n)) / 1) %>% 
+  filter(bin == 64) %>% 
+  select(n, density)
 ```
 
 > The probability of a discrete outcome, such as the probability of falling into an interval on a continuous scale, is referred to as a probability *mass.* Loosely speaking, the term "mass" refers the amount of stuff in an object. When the stuff is probability and the object is an interval of a scale, then the mass is the proportion of the outcomes in the interval. (p. 80, *emphasis* in the original)
@@ -325,8 +349,9 @@ library(santoku)
 d_bin <-
   d %>% 
   mutate(bin = chop(height, 
-                    breaks = seq(from = 83.6, to = 84.4, length.out = 31),
-                    labels = seq(from = 83.6, to = 84.4, length.out = 31)[-1]))
+                    breaks = seq(from = 83.6, to = 84.4, length.out = 32),
+                    # label the boundaries with 3 decimal places, separated by a dash
+                    labels = lbl_dash(fmt = "%.3f"))
 
 head(d_bin)
 ```
@@ -335,21 +360,27 @@ head(d_bin)
 d_bin <-
   d %>% 
   mutate(bin = santoku::chop(height, 
-                    breaks = seq(from = 83.6, to = 84.4, length.out = 31),
-                    labels = seq(from = 83.6, to = 84.4, length.out = 31)[-1]))
+                    breaks = seq(from = 83.6, to = 84.4, length.out = 32),
+                    # label the boundaries with 3 decimal places, separated by a dash
+                    labels = lbl_dash(fmt = "%.3f")))
 
 head(d_bin)
 ```
 
-We've labeled our `bin` levels by their upper bounds. Note how they are saved as factors. To make use of those values in our plot, we'll need to convert them to numerals. Here we make that conversion and complete the data wrangling.
+With this format, the lower-limit for each level of `bin` is the left side of the dash and the upper-limit is on the right. Though the cut points are precise to many decimal places, the `lbl_dash(fmt = "%.3f")` part of the code rounded the numbers to three decimal places in the `bin` labels. The width of each bin is just a bit over 0.0258.
 
-```{r, message = F}
-d_bin <-
-  d_bin %>% 
-  mutate(bin = as.character(bin) %>% as.double()) %>% 
+```{r}
+(84.4 - 83.6) / (32 - 1)
+```
+
+Now to make use of the `d_bin` data in a plot, we'll have to summarize and separate the values from the `bin` names to compute the midway points. Here's one way how.
+
+```{r}
+d_bin <- d_bin %>% 
   group_by(bin) %>%
   summarise(n = n()) %>% 
-  mutate(height = bin - (83.62667 - 83.6) / 2)
+  separate(bin, c("min", "max"), sep = "—", remove = F, convert = T) %>% 
+  mutate(height = (min + max) / 2)
 
 head(d_bin)
 ```
@@ -360,7 +391,7 @@ Now we plot.
 d %>%
   ggplot(aes(x = height, y = door)) +
   geom_point(size = 3/4, color = "grey67", alpha = 1/2) +
-  geom_vline(xintercept = seq(from = 83.6, to = 84.4, length.out = 31),
+  geom_vline(xintercept = seq(from = 83.6, to = 84.4, length.out = 32),
              linetype = 3, color = "grey33") +
   geom_text(data = d_bin,
             aes(y = 5000, label = n, angle = 90),
@@ -372,19 +403,33 @@ d %>%
   theme(panel.grid = element_blank())
 ```
 
-Figure 4.3.b is a breeze.
+The only tricky thing about Figure 4.3.b is getting the denominator in the density equation correct.
 
 ```{r, fig.height = 1.75, fig.width = 7}
-d %>%
-  ggplot(aes(x = height)) +
-  geom_histogram(aes(y = stat(density)), boundary = 0,
-                 binwidth = .025, fill = "grey67",
-                 color = "grey92", size = 1/8) +
+d_bin %>% 
+  # density is the probability mass divided by the bin width
+  mutate(density = (n / sum(n)) / ((84.4 - 83.6) / (32 - 1))) %>% 
+  
+  ggplot(aes(x = height, y = density, fill = bin == "83.910—83.935")) +
+  geom_col() +
+  scale_fill_manual(values = c("gray67", "gray30"), breaks = NULL) +
   scale_y_continuous("Probability density", breaks = 0:4) +
   xlab("Height (inches)") +
   coord_cartesian(xlim = c(83.6, 84.4)) +
   theme(panel.grid = element_blank())
 ```
+
+Here's the density value for that focal bin.
+
+```{r}
+d_bin %>% 
+  # density is the probability mass divided by the bin width
+  mutate(density = (n / sum(n)) / ((84.4 - 83.6) / (32 - 1))) %>% 
+  filter(bin == "83.910—83.935") %>% 
+  select(bin, n, density)
+```
+
+As Kruschke remarked: "There is nothing mysterious about probability densities larger than 1.0; it means merely that there is a high concentration of probability mass relative to the scale" (p. 82).
 
 #### Properties of probability density functions.
 
@@ -420,7 +465,7 @@ where $\mu$ governs the mean and $\sigma$ governs the standard deviation.
 
 ### Mean and variance of a distribution.
 
-The mean of a probability distribution is also called the *expected value*, which follow the form
+The mean of a probability distribution is also called the *expected value*, which follows the form
 
 $$E[x] = \sum_x p(x) x$$
 
@@ -438,7 +483,7 @@ If you take the square root of the variance, you get the standard deviation.
 
 > The HDI indicates which points of a distribution are most credible, and which cover most of the distribution. Thus, the HDI summarizes the distribution by specifying an interval that spans most of the distribution, say 95% of it, such that every point inside the interval has higher credibility than any point outside the interval. (p. 87)
 
-In Chapter 10 (p. 294), Kruschke briefly mentions his `HDIofICDF()` function, the code for which you can find in his `DBDA2E-utilities.R` file. It's a handy function which we'll put to use from time to time. Here's a mild reworking of his code.
+In Chapter 10 (p. 294), Kruschke briefly mentioned his `HDIofICDF()` function, the code for which you can find in his `DBDA2E-utilities.R` file. It's a handy function which we'll put to use from time to time. Here's a mild reworking of his code.
 
 ```{r}
 hdi_of_icdf <- function(name, width = .95, tol = 1e-8, ... ) {
@@ -471,7 +516,8 @@ hdi_of_icdf <- function(name, width = .95, tol = 1e-8, ... ) {
 }
 ```
 
-Now we already know from the text, and perhaps from prior experience, what the 95% HDIs for the unit normal. But it's nice to be able to confirm that with a function.
+
+We already know from the text, and perhaps from prior experience, what the 95% HDI is for the unit normal. But it's nice to be able to confirm that with a function.
 
 ```{r}
 h <-
@@ -550,7 +596,7 @@ d <-
 glimpse(d)
 ```
 
-As you'll see, it's not exactly right. But it's close enough to give you a sense of what's going on. But anyway, since we're working with simulated data rather than an analytic solution, we'll want to use a powerful convenience function from the **tidybayes** package.
+As you'll see, it's not exactly right. But it's close enough to give you a sense of what's going on. But anyway, since we're working with simulated data rather than an analytic solution, we'll want to use one of the powerful convenience functions from the **tidybayes** package.
 
 ```{r, warning = F, message = F}
 library(tidybayes)
@@ -627,7 +673,7 @@ d <- read_csv("data.R/HairEyeColor.csv")
 glimpse(d)
 ```
 
-We'll need to transform `Hair` and `Eye` just a bit to ensure our output matches the order in Table 4.1.
+We'll need to transform `Hair` and `Eye` a bit to ensure our output matches the order in Table 4.1.
 
 ```{r}
 d <- 
@@ -648,7 +694,7 @@ d <-
   tabyl(Eye, Hair) %>% 
   adorn_totals(c("row", "col")) %>% 
   data.frame() %>% 
-  mutate_if(is.double, ~(. / 592))
+  mutate_if(is.double, ~ . / 592)
 
 d %>% 
   mutate_if(is.double, round, digits = 2)
@@ -666,10 +712,9 @@ d %>%
   pivot_longer(Black:Blond,
                names_to = "Hair",
                values_to = "proportion") %>% 
-  rename(`Eye color` = Eye,
-         `proportion Eyes == "Blue"` = Total,
-         `Hair color` = Hair) %>% 
-  mutate(`conditional probability` = proportion / `proportion Eyes == "Blue"`)
+  rename(`p(Eyes = "Blue")` = Total) %>% 
+  mutate(`conditional probability` = proportion / `p(Eyes = "Blue")`) %>% 
+  select(Eye, Hair, `p(Eyes = "Blue")`, proportion, `conditional probability`)
 ```
 
 The only reason our values differ from those in Table 4.2 is because Kruschke rounded.
