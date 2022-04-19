@@ -17,11 +17,11 @@ knitr::opts_chunk$set(fig.align = "center")
 
 ## The likelihood function: The Bernoulli distribution
 
-If we denote a set of possible outcomes as $\{y_i\}$  Kruschke's Bernoulli likelihood function for a set of $N$ trials follows the form
+If we denote a set of possible outcomes as $\{y_i\}$, Kruschke's Bernoulli likelihood function for a set of $N$ trials follows the form
 
 $$p(\{y_i\} | \theta) = \theta^z \cdot (1 - \theta) ^ {N - z},$$
 
-where $z$ is the number of 1's in the data (i.e., heads in a series of coin flips) and the sole parameter a given observation will be a 1 is $\theta$ (i.e., the probability; $p(y_i = 1 | \theta)$).
+where $z$ is the number of 1's in the data (i.e., heads in a series of coin flips) and the sole parameter $\theta$ is the probability a given observation will be a 1. Otherwise put, the Bernoulli function gives us $p(y_i = 1 | \theta)$.
 
 If you follow that equation closely, here is how we might express it in **R**.
 
@@ -44,7 +44,7 @@ This will come in handy in just a bit.
 
 > In this chapter, we use purely mathematical analysis, with no numerical approximation, to derive the mathematical form of the posterior credibilities of parameter values. To do this, we need a mathematical description of the prior allocation of credibilities...
 >
-> In principle, we could use any probability density function supported on the interval [0, 1]. When we intend to apply Bayes' rule (Equation 5.7, p. 106), however, there are two desiderata for mathematical tractability. First, it would be convenient if the product of $p(y | \theta)$ and $p(\theta)$, which is in the numerator of Bayes' rule, results in a function of the same form as $p(\theta)$... Second, we desire the denominator of Bayes' rule (Equation 5.9, p. 107), namely $\int \text d \; \theta p(y | \theta) p(\theta)$, to be solvable analytically. This quality also depends on how the form of the function $p(\theta)$ relates to the form of the function $p(y | \theta)$. When the forms of $p(y | \theta)$ and $p(\theta)$ combine so that the posterior distribution has the same form as the prior distribution, then $p(\theta)$ is called a *conjugate prior* for $p(y | \theta)$. (p. 127 *emphasis* in the original)
+> In principle, we could use any probability density function supported on the interval $[0, 1]$. When we intend to apply Bayes' rule (Equation 5.7, p. 106), however, there are two desiderata for mathematical tractability. First, it would be convenient if the product of $p(y | \theta)$ and $p(\theta)$, which is in the numerator of Bayes' rule, results in a function of the same form as $p(\theta)$... Second, we desire the denominator of Bayes' rule (Equation 5.9, p. 107), namely $\int \text d  \theta\ p(y | \theta) p(\theta)$, to be solvable analytically. This quality also depends on how the form of the function $p(\theta)$ relates to the form of the function $p(y | \theta)$. When the forms of $p(y | \theta)$ and $p(\theta)$ combine so that the posterior distribution has the same form as the prior distribution, then $p(\theta)$ is called a *conjugate prior* for $p(y | \theta)$. (p. 127 *emphasis* in the original)
 
 When we want a conjugate prior for $\theta$ of the Bernoulli likelihood, the *beta distribution* is a handy choice. Beta has two parameters, $a$ and $b$ (also sometimes called $\alpha$ and $\beta$), and the density is defined as
 
@@ -58,7 +58,7 @@ where $B(a, b)$ is a normalizing constant, keeping the results in a probability 
 ```{r}
 theta <- .5
 a     <- 3
-b     <- 3
+b     <- 3 
 
 dbeta(theta, a, b)
 beta(a, b)
@@ -77,16 +77,16 @@ Before we make Figure 6.1, we'll need some data.
 ```{r, fig.width = 6, fig.height = 6, warning = F, message = F}
 library(tidyverse)
 
-length <- 1e4
+length <- 1e2
 
 d <-
   crossing(shape1 = c(.1, 1:4),
            shape2 = c(.1, 1:4)) %>%
   expand(nesting(shape1, shape2),
          x = seq(from = 0, to = 1, length.out = length)) %>% 
-  mutate(a     = str_c("a = ", shape1),
-         b     = str_c("b = ", shape2),
-         group = rep(1:length, each = 25))
+  mutate(a = str_c("a = ", shape1),
+         b = str_c("b = ", shape2)) %>% 
+  mutate(density = dbeta(x, shape1 = shape1, shape2 = shape2))
 
 head(d)
 ```
@@ -95,10 +95,8 @@ Now we're ready for our Figure 6.1.
 
 ```{r, fig.width = 6, fig.height = 6, warning = F, message = F}
 d %>% 
-  ggplot(aes(x = x, group = group)) +
-  
-  geom_line(aes(y = dbeta(x, shape1 = shape1, shape2 = shape2)),
-            color = "grey50", size = 1.25) +
+  ggplot(aes(x = x, y = density)) +
+  geom_area(fill = "grey50") +
   scale_x_continuous(expression(theta), breaks = c(0, .5, 1)) +
   coord_cartesian(ylim = c(0, 3)) +
   labs(title = "Examples of the beta distribution",
@@ -113,11 +111,33 @@ We have a lot of practice with the beta distribution waiting for us in the chapt
 
 ### Specifying a beta prior.
 
-> It is useful to know the central tendency and spread of the beta distribution expressed in terms of $a$ and $b$. It turns out that the mean of the $\operatorname{beta}(\theta | a, b)$ distribution is $\mu = a / (a + b)$ and the mode is $\omega = (a − 1) / (a + b − 2)$ for $a > 1$ and $b > 1$ ($\mu$ is Greek letter mu and $\omega$ is Greek letter omega)... The spread of the beta distribution is related to the "concentration" $\kappa = a + b$ ($\kappa$ is Greek letter kappa). You can see from Figure 6.1 that as $\kappa = a + b$ gets larger, the beta distribution gets narrower or more concentrated. (p. 129)
+Though the $a$ and $b$ parameters in the beta distribution might initially seem confusing, they have a nice connection to the kinds of binary coin-flipping-type data we explores with the Bernoulli distribution in the last chapter. As Kruschke wrote: "You can think of $a$ and $b$ in the prior as if they were previously observed data, in which there were $a$ heads and $b$ tails in a total of $n = a + b$ flips" (pp. 127--128). For example, a popular default minimally-informative prior would be $\operatorname{Beta}(1, 1)$, which is like the sum of two coin flips of one tails and one heads. That produces a uniform distribution like so:
 
-As such, if you'd like to specify a beta distribution in terms of $\omega$ and $\kappa$, it'd follow the form
+```{r, fig.width = 2.5, fig.height = 2.5}
+d %>% 
+  filter(shape1 == 1 & shape2 == 1) %>% 
+  ggplot(aes(x = x, y = density)) +
+  geom_area(fill = "grey50") +
+  scale_x_continuous(expression(theta), breaks = c(0, .5, 1)) +
+  coord_cartesian(ylim = c(0, 3)) +
+  labs(title = expression("Beta(1, 1) is a lot like "*italic(n)==2*", with one tails and one heads."),
+       y = expression(p(theta*"|"*a*", "*b))) +
+  theme(panel.grid = element_blank())
+```
 
-$$\operatorname{beta} \big (\alpha = \omega (\kappa - 2) + 1, \beta = (1 - \omega) \cdot (\kappa - 2) + 1 \big ),$$
+We read further:
+
+> It is useful to know the central tendency and spread of the beta distribution expressed in terms of $a$ and $b$. It turns out that the mean of the $\operatorname{beta}(\theta | a, b)$ distribution is $\mu = a / (a + b)$ and the mode is $\omega = (a − 1) / (a + b − 2)$ for $a > 1$ and $b > 1$ ($\mu$ is Greek letter mu and $\omega$ is Greek letter omega). (p. 129)
+
+In the case of our $\operatorname{Beta}(1, 1)$, the mean is then $1 / (1 + 1) = 0.5$ and the mode is undefined (which hopefully makes sense given the uniform distribution). Kruschke continued:
+
+> The spread of the beta distribution is related to the "concentration" $\kappa = a + b$ ($\kappa$ is Greek letter kappa). You can see from Figure 6.1 that as $\kappa = a + b$ gets larger, the beta distribution gets narrower or more concentrated. (p. 129)
+
+In the case of our $\operatorname{Beta}(1, 1)$, the concentration is $1 + 1 = 2$, which is also like the hypothetical sample size we've been using, $n = 2$.
+
+If we further explore Kruschke's formulas, we learn you can specify a beta distribution in terms of $\omega$ and $\kappa$ by
+
+$$\operatorname{Beta} \big (\alpha = \omega (\kappa - 2) + 1, \beta = (1 - \omega) \cdot (\kappa - 2) + 1 \big ),$$
 
 as long as $\kappa > 2$. Kruschke further clarified:
 
@@ -127,7 +147,7 @@ He went on to clarify why we might prefer the mode to the mean when discussing t
 
 > The mode can be more intuitive than the mean, especially for skewed distributions, because the mode is where the distribution reaches its tallest height, which is easy to visualize. The mean in a skewed distribution is somewhere away from the mode, in the direction of the longer tail. (pp. 129--130)
 
-Figure 6.2 helped contrast the mean and mode for beta. We'll use the same process for Figure 6.2 and create the data, first.
+Figure 6.2 helped contrast the mean and mode for beta. We'll use the same process from Figure 6.1 and create the data, first.
 
 ```{r}
 d <-
@@ -140,7 +160,8 @@ d <-
   mutate(kappa = factor(kappa, levels = c("kappa==7", "kappa==22")),
          label = str_c(a, ", ", b)) %>% 
   expand(nesting(shape1, shape2, a, b, label, kappa, mu_omega), 
-         x = seq(from = 0, to = 1, length.out = length))
+         x = seq(from = 0, to = 1, length.out = 1e3)) %>% 
+  mutate(density = dbeta(x, shape1 = shape1, shape2 = shape2))
 
 head(d)
 ```
@@ -150,9 +171,9 @@ Here's Figure 6.2.
 ```{r, fig.width = 6, fig.height = 4}
 d %>%
   ggplot(aes(x = x)) +
-  geom_vline(xintercept = .8, color = "white") +
-  geom_line(aes(y = dbeta(x, shape1 = shape1, shape2 = shape2)),
-            color = "grey50", size = 1.25) +
+  geom_area(aes(y = density),
+            fill = "grey50") +
+  geom_vline(xintercept = .8, color = "grey92", linetype = 2) +
   geom_text(data = . %>% group_by(label) %>% slice(1),
             aes(x = .025, y = 4.75, label = label),
             hjust = 0, size = 3) +
@@ -162,6 +183,15 @@ d %>%
   theme(panel.grid = element_blank()) +
   facet_grid(mu_omega ~ kappa, labeller = label_parsed)
 ```
+
+It's also possible to define the beta distribution in terms of the mean $\mu$ and standard deviation $\sigma$. In this case,
+
+$$
+\begin{align*}
+\alpha & = \mu \left ( \frac{\mu(1 - \mu)}{\sigma^2} - 1\right), \text{and} \\
+\beta & = (1 - \mu) \left ( \frac{\mu(1 - \mu)}{\sigma^2} - 1\right).
+\end{align*}
+$$
 
 In lines 264 to 290 in his `DBDA2E-utilities.R` file, Kruschke provided a series of `betaABfrom...()` functions that will allow us to compute the $a$ and $b$ parameters from measures of central tendency (i.e., mean and mode) and of spread (i.e., $\kappa$ and $\sigma$). Here are those bits of his code.
 
@@ -202,7 +232,7 @@ betaABfromModeKappa(mode = .25, kappa = 4)
 betaABfromMeanSD(mean = .5, sd = .1)
 ```
 
-You can also save the results as an object, which can then be indexed by parameter.
+You can also save the results as an object, which can then be indexed by parameter using the base-**R** `$` syntax.
 
 ```{r}
 beta_param <- betaABfromModeKappa(mode = .25, kappa = 4)
@@ -218,6 +248,8 @@ We'll find this trick quite handy in the sections to come.
 I'm not going to reproduce all of Formula 6.8. But this a fine opportunity to re-express Bayes' rule in terms of $z$ and $N$,
 
 $$p(\theta | z, N) = \frac{p(z, N | \theta) \; p(\theta)}{p(z, N)}.$$
+
+A key insight from the equations Kruschke worked through this section is: "If the prior distribution is $\operatorname{beta}(a, b)$, and the data have $z$ heads in $N$ flips, then the posterior distribution is $\operatorname{beta}(\theta | z + a, N - z + b)$" (p. 132).
 
 ### Posterior is compromise of prior and likelihood.
 
@@ -283,8 +315,8 @@ z <- 1
 a <- 5
 b <- 5
 
-(proportion_heads <- z / n)
 (prior_mean <- a / (a + b))
+(proportion_heads <- z / n)
 (posterior_mean <- (z + a) / (n + a + b))
 ```
 
@@ -332,7 +364,7 @@ text <-
 
 Finally, here's our Figure 6.3.
 
-```{r, warning = F, message = F, fig.width = 6, fig.height = 5}
+```{r, warning = F, message = F, fig.width = 5, fig.height = 5}
 library(cowplot)
 
 d %>% 
@@ -362,7 +394,7 @@ d %>%
   theme_cowplot()
 ```
 
-Note how we loaded the [**cowplot** package](https://wilkelab.org/cowplot) [@R-cowplot]. We played around a bit with plotting conventions in the previous chapters. From this chapter onward we'll explore plotting conventions in a more deliberate fashion. One quick way to alter the look and feel of a plot is by altering its theme. The **cowplot** package includes several theme options. In this chapter, we'll focus on making simple and conventional looking plots with the `theme_cowplot()` function.
+Note how we loaded the [**cowplot** package](https://wilkelab.org/cowplot) [@R-cowplot]. We played around a bit with plotting conventions in the previous chapters. From this chapter onward we'll explore plotting conventions in a more deliberate fashion. One quick way to alter the look and feel of a plot is by altering its theme, and the **cowplot** package includes several theme options. In this chapter, we'll focus on making simple and conventional-looking plots with the `theme_cowplot()` function.
 
 ## Examples
 
@@ -374,13 +406,13 @@ If you flip an unaltered freshly-minted coin 20 times and end up with 17 heads, 
  100 * (17 / 20)
 ```
 
-In the first paragraph of this section, Kruschke suggested we consider a beta prior with a mode of $\omega = .5$ and an effective sample size $\kappa = 500$. We might use Kruschke's `betaABfromModeKappa()` function to use those values to compute the corresponding $a$ and $b$ parameters for the beta distribution.
+In the first paragraph of this section, Kruschke suggested we consider a beta prior with a mode of $\omega = .5$ and an effective sample size $\kappa = 500$. Why? Because even in the face of 17 heads out of 20 flips, our default prior assumption should still be that freshly-minted coins are fair. To compute the $a$ and $b$ parameters that correspond to $\omega = .5$ and $\kappa = 500$, we might use Kruschke's `betaABfromModeKappa()` function.
 
 ```{r}
 betaABfromModeKappa(mode = .5, kappa = 500)
 ```
 
-Confusingly, Kruschke switched from $\operatorname{beta(250, 250)}$ in the prose to $\operatorname{beta(100, 100)}$ in Figure 6.4.a, which he acknowledged in his [Corrigenda](https://sites.google.com/site/doingbayesiandataanalysis/corrigenda). We'll stick with $\operatorname{beta(100, 100)}$, which corresponds to $\omega = .5$ and $\kappa = 200$.
+Confusingly, Kruschke switched from $\operatorname{Beta(250, 250)}$ in the prose to $\operatorname{Beta(100, 100)}$ in Figure 6.4.a, which he acknowledged in his [Corrigenda](https://sites.google.com/site/doingbayesiandataanalysis/corrigenda). We'll stick with $\operatorname{Beta(100, 100)}$, which corresponds to $\omega = .5$ and $\kappa = 200$.
 
 ```{r}
 betaABfromModeKappa(mode = .5, kappa = 200)
@@ -505,8 +537,7 @@ For the next example, we consider the probability a professional basketball play
 
 ```{r}
 # update the beta parameters for the prior
-beta_param$a <- 18.25
-beta_param$b <- 6.75
+beta_param <- betaABfromModeKappa(mode = .75, kappa = 25)
 
 # update the HDIs
 prior_hdi <-
@@ -600,7 +631,7 @@ Here are the the modes for our prior and posterior densities.
 (z + beta_param$a - 1) / (z + beta_param$a + n - z + beta_param$b - 2)
 ```
 
-For our final example, we consider the tendency of a newly discovered substance on a distant planet to be blue versus green. Just as in the previous two examples, we discover 17 out of 20 trials come up positive (i.e., blue). This time we have a noncommittal uniform prior, $\operatorname{beta}(1, 1)$. Here's how to plot the results, as shown in the right column of Figure 6.4.
+For our final example, we consider the tendency of a newly discovered substance on a distant planet to be blue versus green. Just as in the previous two examples, we discover 17 out of 20 trials come up positive (i.e., blue). This time we have a noncommittal uniform prior, $\operatorname{Beta}(1, 1)$. Here's how to plot the results, as shown in the right column of Figure 6.4.
 
 ```{r, fig.width = 5, fig.height = 2.25}
 # update beta_param
@@ -678,7 +709,7 @@ Here are the exact HDI values for the posterior density.
 post_hdi
 ```
 
-Because both the $a$ and $b$ parameters for our beta prior are 1, we can't use the formula from above to compute the mode. I hope this makes sense if you look back at the plot. The density for $\operatorname{beta}(1, 1)$ is uniform and has no mode. We can, at least, compute the mode for the posterior.
+Because both the $a$ and $b$ parameters for our beta prior are 1, we can't use the formula from above to compute the mode. I hope this makes sense if you look back at the plot. The density for $\operatorname{Beta}(1, 1)$ is uniform and has no mode. We can, at least, compute the mode for the posterior.
 
 ```{r}
 (z + beta_param$a - 1) / (z + beta_param$a + n - z + beta_param$b - 2)
@@ -688,7 +719,7 @@ Because both the $a$ and $b$ parameters for our beta prior are 1, we can't use t
 
 > The beauty of using a beta distribution to express prior knowledge is that the posterior distribution is again exactly a beta distribution, and therefore, no matter how much data we include, we always have an exact representation of the posterior distribution and a simple way of computing it. But not all prior knowledge can be expressed by a beta distribution, because the beta distribution can only be in the forms illustrated by Figure 6.1. If the prior knowledge cannot be expressed as a beta distribution, then we must use a different method to derive the posterior. In particular, we might revert to grid approximation as was explained in Section 5.5 (p. 116).
 
-For such a small section in the text, the underlying code is a bit of a beast. Fir kicks, we'll practice two ways. First we'll follow the code Kruschke used in the text. Our second attempt will be in a more **tidyverse** sort of way.
+For such a small section in the text, the underlying code is a bit of a beast. For kicks, we'll practice two ways. First we'll follow the code Kruschke used in the text. Our second attempt will be in a more **tidyverse** sort of way.
 
 #### Figure 6.5 in Kruschke style.
 
@@ -943,7 +974,7 @@ BernGrid(theta, p_theta, Data, plotType = "Bars",
          showCentTend = "None", showHDI = FALSE, showpD = FALSE)
 ```
 
-The method works fine. But, I'm not a fan. It's clear Kruschke put a lot of thought into the `BernGrid()` function. However, its inner workings are too opaque, for me, which leads to our next section...
+The method works fine, but I'm not a fan. It's clear Kruschke put a lot of thought into the `BernGrid()` function. However, its inner workings are too opaque, for me, which leads to our next section...
 
 #### Figure 6.5 in **tidyverse** style.
 
@@ -1025,7 +1056,7 @@ We could have taken this same approach to combine all our subplots from the thre
 >
 > Unfortunately, there are two severe limitations with this approach... Thus, although it is interesting and educational to see how Bayes' rule can be solved analytically, we will have to abandon exact mathematical solutions when doing complex applications. We will instead use Markov chain Monte Carlo (MCMC) methods. (p. 139)
 
-And if you're using this project, I imagine that's exactly what you're looking for. We want to use the power of a particular kind of MCMC, Hamiltonian Monte Carlo, through the interface of the [**brms** package](https://github.com/paul-buerkner/brms). Get excited. It's coming.
+And if you're using this ebook, I imagine that's exactly what you're looking for. We want to use the power of a particular kind of MCMC, Hamiltonian Monte Carlo, through the interface of the [**brms** package](https://github.com/paul-buerkner/brms). Get excited. It's coming.
 
 ## Session info {-}
 
