@@ -25,7 +25,7 @@ $$y_i \sim \operatorname{Bernoulli}(\theta).$$
 
 We'll use the beta density for our prior distribution for $\theta$,
 
-$$\theta \sim \operatorname{beta}(\alpha, \beta).$$
+$$\theta \sim \operatorname{Beta}(\alpha, \beta).$$
 
 And we can re-express $\alpha$ and $\beta$ in terms of the mode $\omega$ and concentration $\kappa$, such that
 
@@ -68,7 +68,7 @@ tibble(k = seq(from = 10, to = 200, by = 10)) %>%
   theme_minimal_hgrid()
 ```
 
-Holding $\omega$ constant, the density gets more concentrated around $\omega$ as $\kappa$ increases. But back to the text: "Now we make the essential expansion of our scenario into the realm of hierarchical models. Instead of thinking of $\omega$ as fixed by prior knowledge, we think of it as another parameter to be estimated" (p. 224). In the hierarchical model diagram of Figure 9.1, Kruschke depicted how we might treat $\omega$ as a parameter controlled by the prior distribution, $\operatorname{beta}(A_\omega, B_\omega)$. Here's our version of the diagram.
+Holding $\omega$ constant, the density gets more concentrated around $\omega$ as $\kappa$ increases. But back to the text: "Now we make the essential expansion of our scenario into the realm of hierarchical models. Instead of thinking of $\omega$ as fixed by prior knowledge, we think of it as another parameter to be estimated" (p. 224). In the hierarchical model diagram of Figure 9.1, Kruschke depicted how we might treat $\omega$ as a parameter controlled by the prior distribution, $\operatorname{Beta}(A_\omega, B_\omega)$. Here's our version of the diagram.
 
 ```{r, fig.width = 3.8, fig.height = 5, message = F}
 library(ggforce)
@@ -228,7 +228,7 @@ That is, the mode of $\operatorname{beta}(2, 2)$ is $.5$.
 
 We won't be able to make the wireframe plots on the left of Figure 9.2, but we can make the others. We'll make the initial data following Kruschke's (p. 226) formulas.
 
-$$p(\theta, \omega) = p(\theta | \omega) \; p(\omega) = \operatorname{beta} \big (\theta | \omega (100 - 2) + 1, (1 - \omega) (100 - 2) + 1 \big ) \; \operatorname{beta}(\omega | 2, 2)$$
+$$p(\theta, \omega) = p(\theta | \omega) \; p(\omega) = \operatorname{Beta} \big (\theta | \omega (100 - 2) + 1, (1 - \omega) (100 - 2) + 1 \big ) \; \operatorname{Beta}(\omega | 2, 2)$$
 
 First, we'll make a custom function, `make_prior()` based on the formulas.
 
@@ -287,7 +287,7 @@ d %>%
   theme(legend.position = "none")
 ```
 
-You could also make this with `geom_tile()`, but `geom_raster()` with the `interpolate = T` argument smooths the color transitions. Since we are going to be making a lot of plots like this in this chapter, we should consider streamlining our plotting code. In [Chapter 19](https://ggplot2-book.org/programming.html) of Wichkam's [-@wickhamGgplot2ElegantGraphics2016] *ggplot2: Elegant graphics for data analysis*, we learn how to make a custom geom. Here we'll use those skills to wrap the bulk of the plot code from above into a single geom we'll call `geom_2dd()`, for 2D-density plots.
+You could also make this with `geom_tile()`, but `geom_raster()` with `interpolate = TRUE` smooths the color transitions. Since we are going to be making a lot of plots like this in this chapter, we should consider streamlining our plotting code. In [Chapter 19](https://ggplot2-book.org/programming.html) of Wichkam's [-@wickhamGgplot2ElegantGraphics2016] *ggplot2: Elegant graphics for data analysis*, we learn how to make a custom geom. Here we'll use those skills to wrap the bulk of the plot code from above into a single geom we'll call `geom_2dd()`, for 2D-density plots.
 
 ```{r}
 geom_2dd <- function(...) {
@@ -543,7 +543,7 @@ d %>%
   facet_wrap(~ label, ncol = 1, labeller = label_parsed, scales = "free")
 ```
 
-In the next example depicted in Figure 9.3, we consider what happens when we combine the same data of 9 heads out of 12 trials to the same Bernoulli likelihood $p(y | \theta)$, but his time with a much lower $K$ values expressing greater uncertainty in the $\operatorname{beta} \big (\theta | \omega (6 - 2) + 1, (1 - \omega) (6 - 2) + 1 \big )$ portion of the joint prior and with a more certain hyperprior for $\omega$, $\operatorname{beta}(\omega | 20, 20)$.
+In the next example depicted in Figure 9.3, we consider what happens when we combine the same data of 9 heads out of 12 trials to the same Bernoulli likelihood $p(y | \theta)$, but his time with a much lower $K$ values expressing greater uncertainty in the $\operatorname{Beta} \big (\theta | \omega (6 - 2) + 1, (1 - \omega) (6 - 2) + 1 \big )$ portion of the joint prior and with a more certain hyperprior for $\omega$, $\operatorname{Beta}(\omega | 20, 20)$.
 
 To repeat the process for Figure 9.3, we'll first compute the new joint prior.
 
@@ -682,7 +682,7 @@ d %>%
   facet_wrap(~ label, ncol = 1, labeller = label_parsed, scales = "free")
 ```
 
-> In summary, Bayesian inference in a hierarchical model is merely Bayesian inference on a joint parameter space, but we look at the joint distribution (e.g., $p(\theta, \omega)$) in terms of its marginal on a subset of parameters (e.g., $p(\omega)$) and its conditional distribution for other parameters (e.g., p$p(\theta | \omega)$. We do this primarily because it is meaningful in the context of particular models. (p. 230)
+> In summary, Bayesian inference in a hierarchical model is merely Bayesian inference on a joint parameter space, but we look at the joint distribution (e.g., $p(\theta, \omega)$) in terms of its marginal on a subset of parameters (e.g., $p(\omega)$) and its conditional distribution for other parameters (e.g., $p(\theta | \omega)$). We do this primarily because it is meaningful in the context of particular models. (p. 230)
 
 ## Multiple coins from a single mint
 
@@ -828,7 +828,7 @@ Now we have two coins,
 
 > the full prior distribution is a joint distribution over three parameters: $\omega$, $\theta_1$, and $\theta_2$. In a grid approximation, the prior is specified as a three-dimensional (3D) array that holds the prior probability at various grid points in the 3D space. (p. 233)
 
-The biases for both coins, $\theta_1$, and $\theta_2$, have the same prior $\operatorname{beta}\big (\theta _j| \omega (5 - 2) + 1, (1 - \omega)(5 - 2) + 1 \big) $, which, if it's not apparent, is marked by the rather uncertain $K = 5$. As in our first example depicted in Figure 9.2, we have a gentle hyperprior $\operatorname{beta}(\omega | 2, 2)$, which centers the posterior mode for $\omega$ at .5. To express this in plots, we're going to have to update our `make_prior()` function. It was originally designed to handle two dimensions, $\theta$ and $\omega$. But now we have to update it to handle our three dimensions.
+The biases for both coins, $\theta_1$, and $\theta_2$, have the same prior $\operatorname{Beta} \big(\theta_j| \omega (5 - 2) + 1, (1 - \omega)(5 - 2) + 1 \big)$, which, if it's not apparent, is marked by the rather uncertain $K = 5$. As in our first example depicted in Figure 9.2, we have a gentle hyperprior $\operatorname{Beta}(\omega | 2, 2)$, which centers the posterior mode for $\omega$ at .5. To express this in plots, we're going to have to update our `make_prior()` function. It was originally designed to handle two dimensions, $\theta$ and $\omega$. But now we have to update it to handle our three dimensions.
 
 ```{r}
 make_prior <- function(theta1, theta2, omega, alpha, beta, kappa) {
@@ -868,7 +868,7 @@ d <-
 glimpse(d)
 ```
 
-Unlike what Kruschke said in the text, we're not using a 3D data array. Rather, we're just using a tibble with which `prior` has been expanded across all possible dimensions of the three indexing variables: `theta_1`, `theta_2`, and `omega`. As you can see from the 'Rows' count, above, this makes for a very long tibble.
+Unlike what Kruschke said in the text (p. 233), we're not using a 3D data array. Rather, we're just using a tibble with which `prior` has been expanded across all possible dimensions of the three indexing variables: `theta_1`, `theta_2`, and `omega`. As you can see from the 'Rows' count, above, this makes for a very long tibble.
 
 "Because the parameter space is 3D, a distribution on it cannot easily be displayed on a 2D page. Instead, Figure 9.5 shows various marginal distributions" (p. 234). The consequence of that is when we marginalize, we'll have to group by the two variables we'd like to retain for the plot. For example, the plots in the left and middle columns of the top row are the same save for their indices. So let's just do the plot for `theta_1`. In order to marginalize over `theta_2`, we'll need to `group_by(theta_1, omega)` and then `summarise(prior = sum(prior))`.
 
@@ -1269,7 +1269,7 @@ p51
 p52
 ```
 
-Did you notice how we saved each of plot from this last batch as objects? For our grand finale for this subsection, we'll be stitching all those subplots together using syntax from the **patchwork** package. But before we do, we need to define three more subplots: the subplots with the annotation.
+Did you notice how we saved each of plot from this last batch as objects? For the grand finale of this subsection, we'll be stitching all those subplots together using syntax from the **patchwork** package. But before we do, we need to define three more subplots: the subplots with the annotation.
 
 ```{r, fig.width = 3, fig.height = 3}
 text <-
@@ -1648,7 +1648,7 @@ As it turns out, the $N(0, 1.5)$ prior is flat in the probability space for the 
 
 Here are the trace plots and posterior densities of the main parameters.
 
-```{r, fig.width = 8, fig.height = 2.5}
+```{r, fig.width = 8, fig.height = 2.75}
 plot(fit9.1, widths = c(2, 3))
 ```
 
@@ -1898,8 +1898,7 @@ fit9.1_prior <-
 If we feed `fit9.1_prior` into the `as_draws_df()` function, we'll get back a data frame of draws from the prior, but with the same parameter names we'd get from the posterior.
 
 ```{r}
-prior_draws <-
-  as_draws_df(fit9.1_prior)
+prior_draws <- as_draws_df(fit9.1_prior)
 
 head(prior_draws)
 ```
@@ -1995,7 +1994,7 @@ Further,
 
 Recall Formula 9.4 from page 223,
 
-$$\theta \sim \operatorname{beta} \big(\omega(\kappa - 2) + 1 \big ), (1 - \omega)(\kappa - 2) + 1).$$
+$$\theta \sim \operatorname{Beta} \big(\omega(\kappa - 2) + 1 \big ), (1 - \omega)(\kappa - 2) + 1).$$
 
 With that formula, we can express `dbeta()`'s `shape1` and `shape2` in terms of $\omega$ and $\kappa$ and make the shapes in Figure 9.12.
 
@@ -2022,6 +2021,31 @@ tibble(x = seq(from = 0, to = 1, by = .001)) %>%
   panel_border() +
   facet_wrap(~ name, labeller = label_parsed)
 ```
+
+This isn't in the text, but it might help if we gave a sense of multilevel shrinkage by plotting the phenomena using the results from our model `fit9.1`.
+
+```{r, fig.width = 4, fig.height = 2.75}
+my_data %>% 
+  group_by(s) %>% 
+  summarise(p = mean(y)) %>% 
+  mutate(theta = coef(fit9.1)$s[, 1, "Intercept"] %>% inv_logit_scaled()) %>% 
+  pivot_longer(-s) %>% 
+  # add a little jitter to reduce the overplotting
+  mutate(value = value + runif(n = n(), min = -0.02, max = 0.02),
+         name  = if_else(name == "p", "italic(z/N)", "theta")) %>% 
+
+  ggplot(aes(x = value, y = name, group = s)) +
+  geom_point(color = alpha(a_purple, 1/2)) +
+  geom_line(size = 1/3, alpha = 1/3) +
+  scale_x_continuous(breaks = 0:5 / 5, expand = c(0.01, 0.01), limits = 0:1) +
+  scale_y_discrete(NULL, labels = ggplot2:::parse_safe) +
+  labs(title = "Multilevel shrinkage in fit9.1",
+       x = "data proportion or theta value") +
+  theme_minimal_hgrid() +
+  panel_border() 
+```
+
+The dots in the $z/N$ row are the sample statistics. The dots in the $\theta$ row are the posterior means for each of the levels of `s`, the grouping variable in the `my_data` data. You'll note that we jittered the values for both within the second `mutate()` line to help reduce the overplotting. If you don't understand what that means, run the code without that line or set the values within `runif()` closer to zero. You'll see. Anyway, for more on multilevel shrinkage and for plots of this kind, check out Efron and Morris's classic [-@efronSteinParadoxStatistics1977] paper, [*Stein's paradox in statistics*](http://statweb.stanford.edu/~ckirby/brad/other/Article1977.pdf), and [my blog post](https://solomonkurz.netlify.app/post/2019-02-23-stein-s-paradox-and-what-partial-pooling-can-do-for-you/) walking out one of their examples in **brms**.
 
 ## Speeding up ~~JAGS~~ brms
 
@@ -2064,7 +2088,7 @@ brm(data = my_data,
 stop_time_binomial <- proc.time()
 ```
 
-See how we're using `proc.time()` to record when we began and finished evaluating our `brm()` code? The last time we covered that was way back in [Section 3.7.5][Measuring processing time]. In that section, we also learned how subtracting the former from the latter yields the total elapsed time.
+See how we're using `proc.time()` to record when we began and finished evaluating our `brm()` code? The last time we covered that was way back in [Section 3.7.5][Measuring processing time.]. In that section, we also learned how subtracting the former from the latter yields the total elapsed time.
 
 ```{r}
 stop_time_bernoulli - start_time_bernoulli
@@ -2075,7 +2099,7 @@ These times are based on my current laptop (a 2019 MacBook Pro). Your mileage ma
 
 As to the issue of parallel processing, we've been doing this all along. Note our `chains = 4, cores = 4` arguments.
 
-Since Kruschke wrote his text, we have other options for speeding up your **brms** models related to within-chain parallelization and the `backend = "cmdstanr"` option. For all the details, see Weber & Bürkner's (-@weberRunningBrmsModels2022) vignette, *Running brms models with within-chain parallelization*.
+Since Kruschke wrote his text, we have other options for speeding up your **brms** models related to within-chain parallelization and the `backend = "cmdstanr"` option. For all the details, see Weber & Bürkner's [-@weberRunningBrmsModels2022] vignette, [*Running brms models with within-chain parallelization*](https://CRAN.R-project.org/package=brms/vignettes/brms_threading.html).
 
 ## Extending the hierarchy: Subjects within categories
 
@@ -2711,7 +2735,7 @@ fitted_players %>%
   mutate_if(is.double, round, digits = 3)
 ```
 
-To make our version of Figure 9.7, we'll have to switch gears from player-specific effects to those specific to positions averaged over individual players. The `fitted()` approach will probably make this the easiest. To do this, we'll need to specify values for `AtBats`, which will need to be a positive integer . However, since we're asking for fitted values of the linear predictors by setting `scale = "linear"`, any value meeting the positive-integer criterion will return the same results. We'll keep things simple and set `AtBats = 1`.
+To make our version of Figure 9.7, we'll have to switch gears from player-specific effects to those specific to positions averaged over individual players. The `fitted()` approach will probably make this the easiest. To do this, we'll need to specify values for `AtBats`, which will need to be a positive integer. However, since we're asking for fitted values of the linear predictors by setting `scale = "linear"`, any value meeting the positive-integer criterion will return the same results. We'll keep things simple and set `AtBats = 1`.
 
 Another consideration is if we'd like to use `fitted()` to average across one of the hierarchical grouping parameters (i.e., `(1 | PriPos:Player)`), we'll need to employ the `re_formula` argument. With the line `re_formula = ~ (1 | PriPos)`, we'll instruct `fitted()` to return the `PriPos`-specific effects after averaging across levels of `Player`. The rest is quire similar to our method from above.
 
