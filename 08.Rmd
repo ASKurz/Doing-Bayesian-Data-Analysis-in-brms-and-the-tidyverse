@@ -36,7 +36,7 @@ Our prior will be
 
 $$\theta \sim \operatorname{Beta}(\alpha, \beta).$$
 
-Kruschke pictured the relationships among the data, the likelihood, and the prior in the model diagram in Figure 8.2 (p. 196). If you're tricky, you can make those in **R**. I'm not going to walk my method out in great detail in this ebook. If you want a step-by-step tutorial, check my blog post, [*Make model diagrams, Kruschke style*](https://solomonkurz.netlify.app/post/make-model-diagrams-kruschke-style/). Here's the code for our version of Figure 8.2.
+Kruschke pictured the relationships among the data, the likelihood, and the prior in the model diagram in Figure 8.2 (p. 196). If you're tricky, you can make those in **R**. I'm not going to walk my method out in great detail in this ebook. If you want a step-by-step tutorial, check my blog post, [*Make model diagrams, Kruschke style*](https://solomonkurz.netlify.app/post/2020-03-09-make-model-diagrams-kruschke-style/). Here's the code for our version of Figure 8.2.
 
 ```{r, warning = F, message = F}
 library(tidyverse)
@@ -203,13 +203,13 @@ fit8.1 <-
   brm(data = my_data, 
       family = bernoulli(link = identity),
       formula = y ~ 1,
-      prior(beta(2, 2), class = Intercept),
+      prior(beta(2, 2), class = Intercept, lb = 0, ub = 1),
       iter = 500 + 3334, warmup = 500, chains = 3,
       seed = 8,
       file = "fits/fit08.01")
 ```
 
-Also note our use of the `file` argument. This automatically saved my fit object as an external file. You don't have to do that and you can avoid doing so by omitting the `file` argument. For a more detailed explanation of the `brms::brm()` function, spend some time with the `brm` section of the [**brms** reference manual](https://CRAN.R-project.org/package=brms) [@R-brms].
+Also note our use of the `file` argument. This automatically saved the fit object as an external file. You don't have to do that and you can avoid doing so by omitting the `file` argument. For a more detailed explanation of the `brms::brm()` function, spend some time with the `brm` section of the [**brms** reference manual](https://CRAN.R-project.org/package=brms) [@R-brms].
 
 ### Initialize chains.
 
@@ -277,7 +277,7 @@ rhat(fit8.1)["b_Intercept"]
 
 We'll have to employ `brms::as.mcmc()` and `coda::gelman.plot()` to make our running $\widehat R$ plot.
 
-```{r, fig.width = 4, fig.height = 3}
+```{r, fig.width = 4, fig.height = 3, warning = F}
 fit8.1_c <- as.mcmc(fit8.1)
 
 coda::gelman.plot(fit8.1_c[, "b_Intercept", ])
@@ -293,7 +293,7 @@ We'll get into plotting in just a moment. But before we do, here's a summary of 
 print(fit8.1)
 ```
 
-To summarize a posterior in terms of central tendency, **brms** defaults to the mean value (i.e., the value in the 'Estimate' column of the `print()` output). In many of the other convenience functions, you can also request the median instead. For example, we can use the `robust = T` argument to get the 'Estimate' in terms of the median.
+To summarize a posterior in terms of central tendency, **brms** defaults to the mean value (i.e., the value in the 'Estimate' column of the `print()` output). In many of the other convenience functions, you can also request the median instead. For example, we can set `robust = TRUE` to get the 'Estimate' in terms of the median.
 
 ```{r}
 posterior_summary(fit8.1, robust = T)
@@ -563,8 +563,6 @@ fit8.2 <-
 
 More typically, we'd parameterize the model as `y ~ 1 + s`. This form would yield an intercept and a slope. Behind the scenes, **brms** would treat the nominal `s` variable as an 0-1 coded dummy variable. One of the nominal levels would become the reverence category, depicted by the `Intercept`, and the difference between that and the other category would be the `s` slope. However, with our `y ~ 0 + s` syntax, we've suppressed the typical model intercept. The consequence is that each level of the nominal variable `s` gets its own intercept or [i] index, if you will. This is analogous to Kruschke's `y[i] ∼ dbern(theta[s[i]])` code.
 
-Also, notice how we set `lb = 0` and `ub = 1` within the `prior()` function. These told **brms** that the lower and upper boundaries for our two intercept parameters are 0 and 1, respectively. The current version of **brms** will allow you to fit the model with out explicitly setting these. However, it will throw a warning. This is because there are no natural boundaries for the parameters of `class = b` on a model like this. Or at least, there aren't any that **brms** has been made aware of. However, those beta priors presume the lower and upper boundaries of 0 and 1. As we'll see later on in this ebook, we won't usually fit models using the identity link and the Bernoulli likelihood for data like these. But that's for another section...
-
 All that aside, here are the chains.
 
 ```{r, fig.width = 10, fig.height = 3}
@@ -628,7 +626,7 @@ long_draws %>%
 
 In this context, the `mode_hdi()` summary yields:
 
-* `key` (i.e., the name we used to denote the parameters)
+* `name` (i.e., the name we used to denote the parameters)
 * `value` (i.e., the value of the measure of central tendency)
 * `.lower` (i.e., the lower level of the 95% HDI)
 * `.upper` (i.e., the upper level...)
@@ -638,7 +636,7 @@ In this context, the `mode_hdi()` summary yields:
 
 ## Sampling from the prior distribution in ~~JAGS~~ brms
 
-There are a few ways to sample from the prior distribution with **brms**. Here we'll do so by setting `sample_prior = "only"`. As a consequence, `brm()` will ignore the likelihood and return draws based solely on the model priors.
+There are a few ways to sample from the prior distribution with **brms**. Here we'll practice by setting `sample_prior = "only"`. As a consequence, `brm()` will ignore the likelihood and return draws based solely on the model priors.
 
 ```{r fit8.3}
 fit8.3 <-
@@ -657,8 +655,9 @@ fit8.3 <-
 
 Because we set `sample_prior = "only"`, the `as_draws_df()` function will now return draws from the priors.
 
-```{r}
-draws <- as_draws_df(fit8.3) %>% select(-lp__)
+```{r, warning = F}
+draws <- as_draws_df(fit8.3) %>% 
+  select(starts_with("b_"))
 
 head(draws)
 ```
