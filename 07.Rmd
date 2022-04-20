@@ -15,7 +15,7 @@ Statistician David Draper covered some of the history of MCMC in his lecture, [*
 
 > The concept of representing a distribution by a large representative sample is foundational for the approach we take to Bayesian analysis of complex models. The idea is applied intuitively and routinely in everyday life and in science. For example, polls and surveys are founded on this concept: By randomly sampling a subset of people from a population, we estimate the underlying tendencies in the entire population. The larger the sample, the better the estimation. What is new in the present application is that the population from which we are sampling is a mathematically defined distribution, such as a posterior probability distribution. (p. 145)
 
-Like in Chapters 4 and 6, we need to define our `hdi_of_icdf()` function.
+Like in Chapters 4 and 6, we need to define the `hdi_of_icdf()` function.
 
 ```{r}
 hdi_of_icdf <- function(name, width = .95, tol = 1e-8, ... ) {
@@ -58,9 +58,10 @@ library(tidyverse)
 library(cowplot)
 
 tibble(theta = seq(from = 0, to = 1, length.out = 100)) %>% 
+  mutate(density = dbeta(theta, shape1 = 15, shape2 = 7)) %>% 
   
   ggplot() +
-  geom_area(aes(x = theta, y = dbeta(theta, shape1 = 15, shape2 = 7)),
+  geom_area(aes(x = theta, y = density),
             fill = "steelblue") +
   geom_segment(aes(x = h[1], xend = h[2], y = 0, yend = 0),
                size = .75) +
@@ -97,7 +98,8 @@ library(tidybayes)
 
 d %>% 
   ggplot(aes(x = theta, y = 0)) +
-  stat_histinterval(point_interval = mode_hdi, .width = .95, breaks = 30) +
+  stat_histinterval(point_interval = mode_hdi, .width = .95, 
+                    breaks = 30, fill = "steelblue") +
   scale_x_continuous(expression(theta), limits = c(0, 1)) +
   scale_y_continuous(NULL, breaks = NULL) +
   theme_cowplot() +
@@ -578,6 +580,15 @@ d %>%
 
 > Regardless of the which proposal distribution in Figure 7.4 is used, the Metropolis algorithm will eventually produce an accurate representation of the posterior distribution, as is suggested by the histograms in the upper row of Figure 7.4. What differs is the efficiency of achieving a good approximation. (p. 160)
 
+Before we move on, you may have noticed the top row of Kruschke's Figure 7.4 contains the estimates for the effective sample size (Eff.Sz.) for each chain, which Kruschke briefly mentioned on page 160. We'll walk out effective sample sizes, later. But for now we can compute them with some of the helper functions from the **posterior** package [@R-posterior]. As it turns out, there are several kinds of effective sample size. With regards to the helper functions from **posterior**, I suspect the one closest to what Kruschke used in the text will be `ess_mean()`. Here's how you might use `ess_mean()` to compute the Eff.Sz. estimate for each of our three chains.
+
+```{r}
+d %>% 
+  select(proposal_sd, accepted_traj) %>% 
+  group_by(proposal_sd) %>%
+  summarise(Eff.Sz. = posterior::ess_mean(accepted_traj))
+```
+
 ### Summary of Metropolis algorithm.
 
 > The motivation for methods like the Metropolis algorithm is that they provide a high-resolution picture of the posterior distribution, even though in complex models we cannot explicitly solve the mathematical integral in Bayes' rule. The idea is that we get a handle on the posterior distribution by generating a large sample of representative values. The larger the sample, the more accurate is our approximation. As emphasized previously, this is a sample of representative credible parameter values from the posterior distribution; it is not a resampling of data (there is a fixed data set).
@@ -627,7 +638,7 @@ betas %>%
   theme_cowplot()
 ```
 
-Remember how we talked about suppressing the unsightly white space between the bottom of bar-plot bars and the $x$-axis? Well, look at all that unsightly white space between the axes and the boundaries of the parameter space in our bivariate Beta plot. We can further flex our `expansion()` skills to get rid of those in the next plot. Speaking of which, we might make a more precise version of that plot with careful use of `dbeta()`. This approach is also more in line with the title of this subsection: *The posterior via exact formal analysis*.
+Remember how we talked about suppressing the unsightly white space between the bottom of bar-plot bars and the $x$-axis? Well, look at all that unsightly white space between the axes and the boundaries of the parameter space in our bivariate Beta plot. We can further flex our `expansion()` skills to get rid of those in the next plot. Speaking of which, we might make a more precise version of that plot with the `dbeta()` function. This approach is also more in line with the title of this subsection: *The posterior via exact formal analysis*.
 
 ```{r, fig.height = 3}
 theta_sequence <- seq(from = 0, to = 1, by = .01)
@@ -685,7 +696,7 @@ theta_1_data
 theta_2_data
 ```
 
-Note how these data sequences are of different sample sizes $(N_1 = 8; N_2 = 7 )$. Though it doesn't matter much for the formal analysis approach, this will be important when we fit the model with **brms**. But for right now, we're finally ready to make a version of the middle right panel of Figure 7.5.
+Note how these data sequences are of different sample sizes $(N_1 = 8; N_2 = 7 )$. Though it doesn't matter much for the formal analysis approach, this will become very important when we fit the model with **brms**. But for right now, we're finally ready to make a version of the middle right panel of Figure 7.5.
 
 ```{r, fig.width = 5.5, fig.height = 3}
 tibble(theta_1 = theta_sequence,
@@ -705,7 +716,7 @@ tibble(theta_1 = theta_sequence,
   theme_cowplot()
 ```
 
-Here's the two-dimensional posterior, the lower right panel of Figure 7.5.
+Here's how to make the two-dimensional posterior in the lower right panel of Figure 7.5.
 
 ```{r, fig.width = 4.5, fig.height = 3}
 # this is a redo from two plots up, but saved as `d_prior`
@@ -797,7 +808,7 @@ target_rel_prob <- function(theta1, data1, theta2, data2) {
 }
 ```
 
-The next bit defines how we'll apply the Metropolis algorithm to our bivariate binomial data. Although the guts contain a lot of moving parts, there are only two parameters at the top level. The `traj_length` argument is set to 50,000, which will be our default number of MCMC draws. Of greater interest is the `proposal_sd` argument. From the text, we read:
+The next bit defines how we'll apply the Metropolis algorithm to our bivariate Bernoulli data. Although the guts contain a lot of moving parts, there are only two parameters at the top level. The `traj_length` argument is set to 50,000, which will be our default number of MCMC draws. Of greater interest is the `proposal_sd` argument. From the text, we read:
 
 > Recall that the Metropolis algorithm is a random walk through the parameter space that starts at some arbitrary point. We propose a jump to a new point in parameter space, with the proposed jump randomly generated from a proposal distribution from which it is easy to generate values. For our present purposes, the proposal distribution is a *bivariate* normal. (p. 168, *emphasis* in the original)
 
@@ -902,7 +913,25 @@ mh %>%
             ess_theta_2 = effectiveSize(accepted_traj2))
 ```
 
-We really won't use the **coda** package in this ebook beyond this chapter and the next. But do note it has a lot to offer and Kruschke used it a bit in his code. Anyway, now we make our version of Figure 7.6.
+We really won't use the **coda** package in this ebook beyond this chapter and the next. But do note it has a lot to offer and Kruschke used it a bit in his code.
+
+Recall we might also compute the effective sample size estimates with functions from **posterior**, like at the end of [Section 7.3.1][Metropolis algorithm applied to Bernoulli likelihood and beta prior.]. Here are the results using `ess_mean()` and `ess_bulk()`.
+
+```{r}
+# posterior::ess_mean()
+mh %>% 
+  group_by(proposal_sd) %>% 
+  summarise(ess_theta_1 = posterior::ess_mean(accepted_traj1),
+            ess_theta_2 = posterior::ess_mean(accepted_traj2))
+# posterior::ess_bulk()
+mh %>% 
+  group_by(proposal_sd) %>% 
+  summarise(ess_theta_1 = posterior::ess_bulk(accepted_traj1),
+            ess_theta_2 = posterior::ess_bulk(accepted_traj2))
+
+```
+
+Different functions from different packages yield different results. Exciting, eh? Welcome to applied statistics, friends. Anyway, now we make our version of Figure 7.6.
 
 ```{r, fig.height = 5, warning = F}
 mh %>% 
@@ -946,7 +975,7 @@ Since each has its strengths and weaknesses, we'll split this section up and fit
 
 #### Uneven multivariate Benoulli via the `resp_subset()` approach.
 
-Though **brms** can receive data from a few different formats, our approach throughout this text will usually be with data frames or tibbles. Here's how we might combine our two data vectors, `theta_1_data` and `theta_2_data`, into a single tibble called `d`.
+Though **brms** can receive data from a few different formats, our approach throughout this ebook will usually be with data frames or tibbles. Here's how we might combine our two data vectors, `theta_1_data` and `theta_2_data`, into a single tibble called `d`.
 
 ```{r}
 d <-
@@ -966,14 +995,15 @@ d <-
   d %>% 
   mutate(subset = if_else(is.na(y2), FALSE, TRUE))
 
+# what is this?
 d
 ```
 
-**brms** includes a handful of helper functions that let users incorporate additional information about the criterion variable(s) into the model. For a full listing of these helper functions, check out the `addition-terms` section of the [**brms** reference manual](https://CRAN.R-project.org/package=brms/brms.pdf) [@brms2022RM]. Though we won't be using a lot of these in this ebook, it just so turns out that two of them will come in handy for our multivariate Bernoulli data. In this case, we want the `resp_subset()` helper function, which, in practice, we will just call as `subset()`. From the **brms** reference manual, we read:
+**brms** includes a handful of helper functions that let users incorporate additional information about the criterion variable(s) into the model. For a full listing of these helper functions, check out the `addition-terms` section of the [**brms** reference manual](https://CRAN.R-project.org/package=brms/brms.pdf) [@brms2022RM]. Though we won't be using a lot of these in this ebook, it just so turns out that two of them will come in handy for our multivariate Bernoulli data. In this case, we want the `resp_subset()` helper function, which, in practice, we will just call `subset()`. From the **brms** reference manual, we read:
 
 > For multivariate models, `subset` may be used in the `aterms` part, to use different subsets of the data in different univariate models. For instance, if `sub` is a logical variable and `y` is the response of one of the univariate models, we may write `y | subset(sub) ~ predictors` so that `y` is predicted only for those observations for which `sub` evaluates to `TRUE`. (p. 42)
 
-In our case, the `subset` variable in the data tibble will be the logical variable for our criterion `y2`, which would leave us with the formula `y2 | subset(subset) ~ 1`. Note the use of the `|` operator, which is what you always use when adding additional information with a help function of this kind. Since we will be using the data in all eight rows of the `y1` column, that corresponding formula would just be `y1 ~ 1`. In both cases, the `~ 1` portions of the formulas indicates these are intercept-only models. There are not predictor variables in the model.
+In our case, the `subset` variable in the data tibble will be the logical variable for our criterion `y2`, which would leave us with the formula `y2 | subset(subset) ~ 1`. Note the use of the `|` operator, which is what you always use when adding information with a helper function of this kind. Since we will be using the data in all eight rows of the `y1` column, that corresponding formula would just be `y1 ~ 1`. In both cases, the `~ 1` portions of the formulas indicates these are intercept-only models. There are not predictors for either variable.
 
 Next, we need to talk about how to combine these two formulas within the multivariate syntax. If you look through Bürkner's [-@Bürkner2022Multivariate] vignette, [*Estimating multivariate models with brms*](https://cran.r-project.org/web/packages/brms/vignettes/brms_multivariate.html), you'll see there are several ways to define a multivariate model with **brms**. In this case, I think it'll be easiest to define each model as a separate object, which we'll call `model_1` and `model_2`.
 
@@ -984,30 +1014,34 @@ model_2 <- bf(y2 | subset(subset) ~ 1)
 
 Note how the formula syntax for each was wrapped within the `bf()` function. That's shorthand for `brmsformula()`. If you wanted to, you could have defined these as `model_1 <- brmsformula(y1 ~ 1)`, and so on.
 
-Another issue we need to contend with is Kruschke's $\operatorname{Beta}(2, 2)$ prior. By default, **brms** assumes an unbounded parameter space for the standard intercept priors. But we know that the beta distribution imposes boundaries within the range of $[0, 1]$. This is technically okay with a standard **brms** intercept prior, but it can lead to computational difficulties. When possible, it's better to formally tell **brms** when you are using bounded priors. The difficulty is the the current version of **brms** does not allow users to set lower or upper boundaries in priors of `class = Intercept`. The way to get around that is with the `0 + Intercept` syntax. Here, we remove the default intercept with the `0` part. Then we redefine the intercept with the `+ Intercept` part. The reason you would do such a thing is now our new `Intercept` parameter takes a prior of `class = b`, which is the generic class of priors for predictor variables which CAN accept upper and/or lower boundaries. As a consequence, we will want to redefine our two model objects to use the `0 + Intercept` syntax.
-
-```{r}
-model_1 <- bf(y1 ~ 0 + Intercept)
-model_2 <- bf(y2 | subset(subset) ~ 0 + Intercept)
-```
-
-Here, then, is how we'll define our $\operatorname{Beta}(2, 2)$ prior within the `prior()` function.
+Another issue we need to contend with is Kruschke's $\operatorname{Beta}(2, 2)$ prior. By default, **brms** assumes an unbounded parameter space for the standard intercept priors. But we know that the beta distribution imposes boundaries within the range of $[0, 1]$. This is technically okay with a standard **brms** intercept prior, but it can lead to computational difficulties. When possible, it's better to formally tell **brms** when you are using bounded priors. Here, then, is how we'll define our $\operatorname{Beta}(2, 2)$ prior within the `prior()` function.
 
 ```{r, eval = F}
-prior(beta(2, 2), class = b, lb = 0, ub = 1, resp = y1)
+prior(beta(2, 2), class = Intercept, lb = 0, ub = 1, resp = y1)
 ```
 
 We set the lower boundary with the `lb` argument and then set the upper boundary with the `ub` argument. Also notice our use of the `resp` argument, which told **brms** this prior was connected to the `y1` criterion. For the other criterion, we'd set that to `resp = y2`.
 
 Okay, here's how to put all of this together to fit the model.
 
+```{r}
+fit7.1a <-
+  brm(data = d, 
+      family = bernoulli(link = identity),
+      model_1 + model_2,
+      prior = c(prior(beta(2, 2), class = Intercept, lb = 0, ub = 1, resp = y1),
+                prior(beta(2, 2), class = Intercept, lb = 0, ub = 1, resp = y2)),
+      iter = 3000, warmup = 500, cores = 3, chains = 3,
+      seed = 7)
+```
+
 ```{r fit7.1a, message = F}
 fit7.1a <-
   brm(data = d, 
       family = bernoulli(link = identity),
       model_1 + model_2,
-      prior = c(prior(beta(2, 2), class = b, lb = 0, ub = 1, resp = y1),
-                prior(beta(2, 2), class = b, lb = 0, ub = 1, resp = y2)),
+      prior = c(prior(beta(2, 2), class = Intercept, lb = 0, ub = 1, resp = y1),
+                prior(beta(2, 2), class = Intercept, lb = 0, ub = 1, resp = y2)),
       iter = 3000, warmup = 500, cores = 3, chains = 3,
       seed = 7,
       file = "fits/fit07.01a")
@@ -1047,7 +1081,7 @@ p1 <-
 p1
 ```
 
-Finally, after all that terrible technical talk, our efforts payed off! I promise, it won't always be this difficult to fit a model in **brms**. This is just one of those unfortunate cases where a textbook author's seemingly simple example required a lot of non-default settings and approaches when applied to a different software package from the one they highlighted in their textbook.
+Finally, after all that terrible technical talk, our efforts payed off! I promise, it won't always be this difficult to fit a model in **brms**. This is just one of those unfortunate cases where a textbook author's seemingly simple example required non-default settings and approaches when applied to a software package that wasn't the one they highlighted in their textbook.
 
 Now let's try out the second approach.
 
@@ -1066,16 +1100,16 @@ d <-
 d
 ```
 
-The `resp_trials()` function is the second helper that will let us incorporate additional information about the criterion variable(s) into the model. In actual practice, we'll use it as `trials()`. The basic idea is that for the first coin, we have `z1 == 6` heads out of `n1 == 8` trials. We can express that as an intercept-only model as `z1 | trials(n1) ~ 1`. Since we're still modeling a probability, and therefore want to continue using Kruschke's $\operatorname{Beta}(2, 2)$ prior, we'll want to bring in the `0 + Intercept` syntax. Thus, we'll define our two submodels like this.
+The `resp_trials()` function is the second helper that will let us incorporate additional information about the criterion variable(s) into the model. In actual practice, we'll use it as `trials()`. The basic idea is that for the first coin, we have `z1 == 6` heads out of `n1 == 8` trials. We can express that as an intercept-only model as `z1 | trials(n1) ~ 1`. Thus, we'll define our two submodels like this.
 
 ```{r}
-model_1 <- bf(z1 | trials(n1) ~ 0 + Intercept)
-model_2 <- bf(z2 | trials(n2) ~ 0 + Intercept)
+model_1 <- bf(z1 | trials(n1) ~ 1)
+model_2 <- bf(z2 | trials(n2) ~ 1)
 ```
 
 Notice that when our data are in an aggregated format, we expressed both series of coin flips in one row of the data frame. Therefore, even though the first coin had more trials than the second coin (`n1 > n2`), we don't need to invoke the `subset()` helper. We just need to use `trials()` to tell **brms** how long each sequence of coin flips was.
 
-The other new thing is that instead of directly using the Bernoulli likelihood function, we'll instead be setting `family = binomial(link = "identity")`. Recall that the Bernoulli function is a special case of the binomial function for which $N = 1$, for which each data point is a discrete trial. When each data point is an aggregate of multiple trials, we use the binomial likelihood, instead.
+The other new thing is that instead of directly using the Bernoulli likelihood function, we'll instead be setting `family = binomial(link = "identity")`. Recall that the Bernoulli function is a special case of the binomial function for which $N = 1$, for which each data point is a discrete trial[^3]. When each data point is an aggregate of multiple trials, we use the binomial likelihood, instead.
 
 Here's how to fit the model.
       
@@ -1084,8 +1118,8 @@ fit7.1b <-
   brm(data = d, 
       family = binomial(link = "identity"),
       model_1 + model_2,
-      prior = c(prior(beta(2, 2), class = b, lb = 0, ub = 1, resp = z1),
-                prior(beta(2, 2), class = b, lb = 0, ub = 1, resp = z2)),
+      prior = c(prior(beta(2, 2), class = Intercept, lb = 0, ub = 1, resp = z1),
+                prior(beta(2, 2), class = Intercept, lb = 0, ub = 1, resp = z2)),
       iter = 3000, warmup = 500, cores = 3, chains = 3,
       seed = 7,
       file = "fits/fit07.01b")
@@ -1123,7 +1157,7 @@ p1 + p2
 
 Just for kicks and giggles, we might also compare the two model types by plotting the marginal posterior densities. This will give is a better sense of how each of the marginal $\theta$ densities are shaped like the beta distribution.
 
-```{r, fig.height = 2.25, fig.width = 6, warning = F}
+```{r, fig.height = 2.5, fig.width = 6, warning = F}
 # combine the posterior samples from the two models
 draws <-
   bind_rows(
@@ -1147,15 +1181,18 @@ draws %>%
   facet_grid(fit ~ name, labeller = label_parsed)
 ```
 
-I hope this makes clear that the two estimation methods returned results that are within simulation variance of one another.
+I hope this makes clear that the two estimation methods returned results that are within simulation variance of one another. Had we asked **brms** for a larger number of posterior draws from each, the results would have been even closer.
 
 ### Is there a difference between biases?
 
 In his Figure 7.9, Kruschke compared the marginal posterior for $\theta_1 - \theta_2$, as computed by two methods from the Metropolis algorithm and another two methods from the Gibbs sampler. Here we'll focus, instead, on the two methods we explored using **brms**-based Hamiltonian Monte Carlo (HMC).
 
-```{r, fig.height = 2.5, fig.width = 3.25}
+```{r, fig.height = 2.5, fig.width = 5.25}
 draws %>% 
-  mutate(dif = `theta[1]` - `theta[2]`) %>% 
+  mutate(dif = `theta[1]` - `theta[2]`,
+         fit = if_else(fit == "fit7.1a", 
+                       "fit7.1a (resp_subset() method)", 
+                       "fit7.1b (aggregated binomial method)")) %>% 
 
   ggplot(aes(x = dif, y = fit)) +
   stat_histinterval(point_interval = mode_hdi, .width = .95,
@@ -1205,7 +1242,7 @@ In case you didn't know, **brms** is a user-friendly interface for the [Stan pro
 
 ### MCMC representativeness.
 
-Kruschke defined our new data in the note for Figure 7.10.
+Kruschke defined our new data in the note for Figure 7.10 (p. 179).
 
 ```{r}
 z <- 35
@@ -1221,9 +1258,8 @@ fit7.2 <-
   brm(data = d, 
       family = bernoulli(link = identity),
       y ~ 1,
-      prior(beta(2, 2), class = Intercept),
+      prior(beta(2, 2), class = Intercept, lb = 0, ub = 1),
       iter = 10000, warmup = 500, cores = 3, chains = 3,
-      control = list(adapt_delta = 0.9),
       seed = 7,
       file = "fits/fit07.02")
 ```
@@ -1232,7 +1268,7 @@ On page 179, Kruschke discussed *burn-in* steps within the Gibbs framework:
 
 > The preliminary steps, during which the chain moves from its unrepresentative initial value to the modal region of the posterior, is called the *burn-in* period. For realistic applications, it is routine to apply a burn-in period of several hundred to several thousand steps.
 
-For each HMC chain, the first $n$ iterations are called "warmups." In this example, $n = 500$ (i.e., `warmup = 500`). Within the Stan-HMC paradigm, [warmups are somewhat analogous to but not synonymous with burn-in iterations](https://andrewgelman.com/2017/12/15/burn-vs-warm-iterative-simulation-algorithms/) as done by the Gibbs sampling in JAGS. But HMC warmups are like Gibbs burn-ins in that both are discarded and not used to describe the posterior. For more on warmup, check out McElreath's lecture, [starting here](https://www.youtube.com/watch?v=13mEekRdOcQ&t=75s&frags=pl%2Cwn) or, for more detail, the [*HMC Algorithm Parameters* section (15.2)](https://mc-stan.org/docs/2_29/reference-manual/hmc-algorithm-parameters.html) of the *Stan reference manual*, version 2.29 [@standevelopmentteamStanReferenceManual2022].
+For each HMC chain, the first $n$ iterations are called "warmups." In this example, $n = 500$ (i.e., `warmup = 500`). Within the Stan-HMC paradigm, [warmups are somewhat analogous to but not synonymous with burn-in iterations](https://andrewgelman.com/2017/12/15/burn-vs-warm-iterative-simulation-algorithms/) as done by the Gibbs sampling in JAGS. But HMC warmups are like Gibbs burn-ins in that both are discarded and not used to describe the posterior. For more on warmup, check out McElreath's lecture, [starting here](https://www.youtube.com/watch?v=13mEekRdOcQ&t=75s) or, for more detail, the [*HMC Algorithm Parameters* section (15.2)](https://mc-stan.org/docs/2_29/reference-manual/hmc-algorithm-parameters.html) of the *Stan reference manual*, version 2.29 [@standevelopmentteamStanReferenceManual2022].
 
 It appears that the upshot of all this is some of the packages in the Stan ecosystem don't make it easy to extract the warmup values. For example, the `brms::plot()` function excludes them from the trace plot without the option to include them.
 
@@ -1432,7 +1468,7 @@ We want
 
 > measures of chain length and accuracy that take into account the clumpiness of the chain. And for that, we need a measure of clumpiness. We will measure clumpiness as *autocorrelation*, which is simply the correlation of the chain values with the chain values $k$ steps ahead. There is a different autocorrelation for each choice of $k$. (p. 182, *emphasis* in the original)
 
-We made a couple autocorrelation plots in the last section, but now it's time to get a better sense of what they mean. Just a little further in the text, Kruschke wrote: "The number of steps between the chain and its superimposed copy is called the *lag*" (p. 182, *emphasis* in the original). In case it's not clear, *lag* is a general term and can be applied to contexts outside of MCMC chains. You find it used sometimes in the longitudinal statistical literature, particularly for what are called timeseries models. Sadly, we won't be fitting those in this book. If you're curious, McElreath discussed them briefly in Chapter 16 of his [-@mcelreathStatisticalRethinkingBayesian2020] text.
+We made a couple autocorrelation plots in the last section, but now it's time to get a better sense of what they mean. Just a little further in the text, Kruschke wrote: "The number of steps between the chain and its superimposed copy is called the *lag*" (p. 182, *emphasis* in the original). In case it's not clear, *lag* is a general term and can be applied to contexts outside of MCMC chains. You find it used sometimes in the longitudinal statistical literature, particularly for what are called *timeseries* models. Sadly, we won't be fitting those in this book. If you're curious, McElreath discussed them briefly in Chapter 16 of his [-@mcelreathStatisticalRethinkingBayesian2020] text.
 
 We, however, will have to contend with a technical quirk within the **tidyverse**. The two **dplyr** functions relevant to lags are called `lag()` and `lead()`. Here's a little example to see how they work.
 
@@ -1444,7 +1480,7 @@ tibble(step = 1:5) %>%
 
 The original values are `1:5` in the `step` column. When you plug those into `lag(n = 1)`, you get back the value from the *previous row*. The opposite happens when you plug `step` into `lead(n = 1)`; there you get back the value from the *next row*. Returning to the block quote above, Kruschke wrote that autocorrelations are "the correlation of the chain values with the chain values $k$ *steps ahead*" (p. 182, *emphasis* added). Within the context of the `lag()` and `lead()` functions, their `n` arguments are what Kruschke called $k$, which is no big deal. Confusingly, though, since Kruschke wanted to focus on MCMC chains values that were "$k$ steps ahead," that means we'll have to use the `lead()` function, not `lag()`. Please don't fret about the semantics, here. Both Kruschke and the **dplyr** package are correct. We're lagging. But in this specific case, we'll be lagging our data with the `lead()` function. You can learn more about `lag()` and `lead()` [here](https://dplyr.tidyverse.org/reference/lead-lag.html).
 
-On to the plot. If you read closely in the text (pp. 182--183), Kruschke didn't elaborate on which model he was showcasing in Figure 7.12. We just get the vague explanation that the "upper panels show an MCMC chain of 70 steps, superimposed with the same chain translated a certain number of steps ahead" (p. 182). To make our lives simple, let's just use the model we've been working with, `fit7.2`. Our sole parameter is the intercept which, as it turns out, will not be on the same scale as you see in the $y$-axis of Figure 7.12. So it goes... But anyways, our first step towards making our variant of the plot is to wrangle out posterior draws a bit. We'll call the wrangled data frame `lagged_draws`.
+On to the plot! If you read closely in the text (pp. 182--183), Kruschke didn't elaborate on which model he was showcasing in Figure 7.12. We just get the vague explanation that the "upper panels show an MCMC chain of 70 steps, superimposed with the same chain translated a certain number of steps ahead" (p. 182). To make our lives simple, let's just use the model we've been working with, `fit7.2`. Our sole parameter is the intercept which, as it turns out, will not be on the same scale as you see in the $y$-axis of Figure 7.12. So it goes... But anyways, our first step towards making our variant of the plot is to wrangle out posterior draws a bit. We'll call the wrangled data frame `lagged_draws`.
 
 ```{r, warning = F}
 lagged_draws <- 
@@ -1471,7 +1507,7 @@ p1 <-
   geom_point(aes(alpha = .draw == 50, shape = .draw == 50)) +
   geom_line(size = 1/3, alpha = 1/2) +
   annotate(geom = "text",
-           x = 32, y = c(.825, .79),
+           x = 46, y = c(.825, .79),
            label = c("Original", "Lagged"),
            color = c("black", "steelblue")) +
   scale_color_manual(values = c("black", "steelblue")) +
@@ -1625,4 +1661,6 @@ pacman::p_unload(pacman::p_loaded(), character.only = TRUE)
 ## Footnote {-}
 
 [^2]: We will get a proper introduction to the binomial probability distribution in [Section 11.1.2][With intention to fix $N$.].
+
+[^3]: Kruschke briefly addressed this in his footnote #2 in Section 6.2 (p. 126). We will connect the Bernoulli and binomial approaches more fully in [Chapter 21][Dichotomous Predicted Variable].
 
