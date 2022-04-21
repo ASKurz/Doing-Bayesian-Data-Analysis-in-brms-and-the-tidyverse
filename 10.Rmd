@@ -17,11 +17,11 @@ In the text, the emphasis is on the Bayes Factor paradigm. While we will discuss
 So far we have spoken of
 
 * the data, denoted by $D$ or $y$;
-* the model parameters, generically denoted by $\theta$;
-* the likelihood function, denoted by $p(D | \theta)$; and
-* the prior distribution, denoted by $p(\theta)$.
+* the model parameters, generically denoted $\theta$;
+* the likelihood function, denoted $p(D | \theta)$; and
+* the prior distribution, denoted $p(\theta)$.
 
-Now we add to that $m$, which is a model index with $m = 1$ standing for the first model, $m = 2$ standing for the second model, and so on. So when we have more than one model in play, we might refer to the likelihood as $p_m(y | \theta_m, m)$ and the prior as $p_m(\theta_m | m)$. It's also the case, then, that each model can be given a prior probability $p(m)$.
+Now we add $m$, which is a model index where $m = 1$ stands for the first model, $m = 2$ stands for the second model, and so on. So when we have more than one model in play, we might refer to the likelihood as $p_m(y | \theta_m, m)$ and the prior as $p_m(\theta_m | m)$. It's also the case, then, that *each model* can be given a prior probability $p(m)$.
 
 "The Bayes factor (BF) is the ratio of the probabilities of the data in models 1 and 2" (p. 268).
 
@@ -53,7 +53,7 @@ d %>%
   knitr::kable()
 ```
 
-Thus given $\omega_1 = .25$, $\omega_2 = .75$ and $\kappa = 12$, we can describe the bias of the two coin factories as $\operatorname{beta}(\theta_{[m = 1]} | 3.5, 8.5)$ and $\operatorname{beta}(\theta_{[m = 2]} | 8.5, 3.5)$. With a little wrangling, we can use our `d` tibble to make the densities of Figure 10.2. But before we do, we should discuss plotting.
+Thus given $\omega_1 = .25$, $\omega_2 = .75$ and $\kappa = 12$, we can describe the bias of the two coin factories as $\operatorname{Beta}(\theta_{[m = 1]} | 3.5, 8.5)$ and $\operatorname{Beta}(\theta_{[m = 2]} | 8.5, 3.5)$. With a little wrangling, we can use our `d` tibble to make the densities of Figure 10.2. But before we do, we should discuss plotting.
 
 In the past few chapters, we have explored different plotting conventions using themes from Wilke's [**cowplot** package](https://wilkelab.org/cowplot), such as `theme_cowplot()` and `theme_minimal_grid()`. We also modified some of our plots using principles from Wilke's [-@wilkeFundamentalsDataVisualization2019] text, [*Fundamentals of data visualization*](https://clauswilke.com/dataviz/), and his [-@Wilke2020Themes] [*Themes*](https://wilkelab.org/cowplot/articles/themes.html) vignette. To further build on those principles, each chapter from here onward will have its own color scheme. The scheme in this chapter is based on [Katsushika Hokusai](https://www.katsushikahokusai.org/)'s [-@HokusaiGreatWaveOffKanagawa1820] woodblock print, [*The great wave off Kanagawa*](https://artsandculture.google.com/asset/the-great-wave-off-kanagawa/MgHm0BHMRIT73g). We can get a prearranged color palette based on *The great wave off Kanagawa* from  [Tyler Littlefield](https://twitter.com/tyluRp)'s [**lisa** package](https://github.com/tyluRp/lisa) [@R-lisa].
 
@@ -92,7 +92,7 @@ theme_set(
 )
 ```
 
-You can undo this by executing `theme_set(theme_grey())`. Next we'll save the color names from a 9-color version of "KatsushikaHokusai" as a conveniently-named object, `kh`. We'll use `kh` to adjust the `fill` and `color` settings within our plots on the fly.
+You can undo this by executing `theme_set(theme_grey())`. Next we'll save the color names from a 9-color version of `"KatsushikaHokusai"` as a conveniently-named object, `kh`. We'll use `kh` to adjust the `fill` and `color` settings within our plots on the fly.
 
 ```{r}
 kh <- lisa_palette("KatsushikaHokusai", 9, "continuous")
@@ -335,7 +335,7 @@ Note how we used the `geom_shape()` function from the [**ggforce** package](http
 
 ### Solution by formal analysis.
 
-Here we rehearse if we have $\operatorname{beta}(\theta, a, b)$ prior for $\theta$ of the Bernoulli likelihood function, then the analytic solution for the posterior is $\operatorname{beta}(\theta | z + a, N – z + b)$. Within this paradigm, if you would like to compute $p(D | m)$, don't use the following function. If suffers from [underflow](https://en.wikipedia.org/wiki/Arithmetic_underflow) with large values.
+Here we rehearse if we have a $\operatorname{Beta}(\theta, a, b)$ prior for $\theta$ of the Bernoulli likelihood function, then the analytic solution for the posterior is $\operatorname{Beta}(\theta | z + a, N – z + b)$. Within this paradigm, if you would like to compute $p(D | m)$, don't use the following function. If suffers from [underflow](https://en.wikipedia.org/wiki/Arithmetic_underflow) with large values.
 
 ```{r, eval = F}
 p_d <- function(z, n, a, b) { 
@@ -524,8 +524,7 @@ trial_data <- rep(0:1, times = c(n - z, z))
 
 d <-
   d %>% 
-  mutate(likelihood = bernoulli_likelihood(theta = theta, 
-                                           data  = trial_data))
+  mutate(likelihood = bernoulli_likelihood(theta = theta, data = trial_data))
 
 p32 <-
   d %>%
@@ -699,7 +698,7 @@ d %>%
   mutate(BF = model_2 / model_1)
 ```
 
-Please note[^3] how, in the previous section, Kruschke computed the BF as
+Please note[^4] how, in the previous section, Kruschke computed the BF as
 
 $$\frac{p(m = 1 | D)}{p(m = 2 | D)} = .213,$$
 
@@ -881,8 +880,7 @@ Boom!
 
 I'm not aware of a way to specify a model "in which the top-level parameter is the index across models" in **brms** (p. 278). If you know of a way, [share your code](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues).
 
-However, we do have options. We can compare and weight models using information criteria, about which you can learn more [here](https://youtu.be/t0pRuy1_190?t=978) or [here](https://www.youtube.com/watch?v=gjrsYDJbRh0&list=PLDcUM9US4XdNM4Edgs7weiyIguLSToZRI&index=8)
-. In **brms**, the LOO and WAIC are two primary information criteria available. You can compute them for a given model with the `loo()` and `waic()` functions, respectively. Here's a quick example of how to use the `waic()` function.
+However, we do have options. We can compare and weight models using information criteria, about which you can learn more [here](https://youtu.be/t0pRuy1_190?t=978) or [here](https://www.youtube.com/watch?v=gjrsYDJbRh0&list=PLDcUM9US4XdNM4Edgs7weiyIguLSToZRI&index=8). The LOO and WAIC are two primary information criteria available for **brms**. You can compute them for a given model with the `loo()` and `waic()` functions, respectively. Here's a quick example of how to use the `waic()` function.
 
 ```{r}
 waic(fit10.1)
@@ -901,9 +899,9 @@ You can extract the same WAIC output for `fit10.1` we saw above by executing `fi
 fit10.2$criteria$loo
 ```
 
-You get a wealth of output, more of which can be seen by executing `str(fit10.1$criteria$loo)`. First, notice the message "All Pareto k estimates are good (k < 0.5)." Pareto $k$ values can be used for diagnostics [@vehtariUsingLooPackage2022, [*Plotting Pareto* $k$ *diagnostics*](https://cran.r-project.org/web/packages/loo/vignettes/loo2-example.html#plotting-pareto-k-diagnostics)]. Each case in the data gets its own $k$ value and we like it when those $k$s are low. The makers of the [**loo** package](https://github.com/stan-dev/loo) [@R-loo; @vehtariPracticalBayesianModel2017] get worried when $k$ values exceed 0.7 and, as a result, we will get warning messages when they do. Happily, we have no such warning messages in this example.
+You get a wealth of output, more of which can be seen by executing `str(fit10.1$criteria$loo)`. First, notice the message "All Pareto k estimates are good (k < 0.5)." Pareto $k$ values can be used for diagnostics [@vehtariUsingLooPackage2022, [*Plotting Pareto* $k$ *diagnostics*](https://cran.r-project.org/web/packages/loo/vignettes/loo2-example.html#plotting-pareto-k-diagnostics)]. Each case in the data gets its own $k$ value and we like it when those $k$'s are low. The makers of the [**loo** package](https://github.com/stan-dev/loo) [@R-loo; @vehtariPracticalBayesianModel2017] get worried when $k$ values exceed 0.7 and, as a result, we will get warning messages when they do. Happily, we have no such warning messages in this example.
 
-In the main section, we get estimates for the expected log predictive density (`elpd_loo`), the estimated effective number of parameters (`p_loo`), and the Pareto smoothed importance-sampling leave-one-out cross-validation (PSIS-LOO; `looic`). Each estimate comes with a standard error (i.e., `SE`). Like other information criteria, the LOO values aren't of interest in and of themselves. However, the estimate of one model's LOO relative to that of another is of great interest. We generally prefer models with lower information criteria. With the `loo_compare()` function, we can compute a formal difference score between two models.
+In the main section, we get estimates for the expected log predictive density (`elpd_loo`), the estimated effective number of parameters (`p_loo`), and the Pareto smoothed importance-sampling leave-one-out cross-validation (PSIS-LOO; `looic`). Each estimate comes with a standard error (i.e., `SE`). Like other information criteria, the LOO values aren't of interest in and of themselves. However, the estimate of one model's LOO relative to that of another can be of great interest. We generally prefer models with lower information criteria. With the `loo_compare()` function, we can compute a formal difference score between two models.
 
 ```{r}
 loo_compare(fit10.1, fit10.2, criterion = "loo")
@@ -925,7 +923,7 @@ I don't know that I'd call these weights probabilities, but they do sum to one. 
 mw[1] / mw[2]
 ```
 
-With `brms::model_weights()`, we have a variety of weighting schemes available to us. Since we didn't specify any in the `weights` argument, we used the default `"stacking"`, which is--perhaps confusingly given the name--the stacking method according to the paper by @yaoUsingStackingAverage2018 Vehtari has [written about the paper](https://statmodeling.stat.columbia.edu/2017/04/11/stacking-pseudo-bma-and-aic-weights/) on Gelman's blog, too. But anyway, the point is that different weighting schemes might not produce the same results. For example, here's the result from weighting using the WAIC.
+With `brms::model_weights()`, we have a variety of weighting schemes available to us. Since we didn't specify any in the `weights` argument, we used the default `"stacking"`method, which is described in @yaoUsingStackingAverage2018. Vehtari has [written about the paper](https://statmodeling.stat.columbia.edu/2017/04/11/stacking-pseudo-bma-and-aic-weights/) on Gelman's blog, too. But anyway, the point is that different weighting schemes might not produce the same results. For example, here's the result from weighting using the WAIC.
 
 ```{r}
 model_weights(fit10.1, fit10.2, weights = "waic")
@@ -942,10 +940,19 @@ Since we didn't use Kruschke's method from the last subsection, we don't have th
 ```{r, fig.width = 4, fig.height = 4, message = F, warning = F}
 library(bayesplot)
 
-color_scheme_set(scheme = c(lisa_palette("KatsushikaHokusai", n = 9, type = "continuous")[6:1]))
-
+color_scheme_set(
+  scheme = c(lisa_palette("KatsushikaHokusai", n = 9, type = "continuous")[6:1])
+)
 
 theta %>% 
+  mutate(chain = .chain) %>% 
+  mcmc_acf(pars = "b_Intercept",
+           lags = 35)
+```
+
+```{r, fig.width = 4, fig.height = 4, echo = F, eval = F}
+# confirm the results for fit10.2 were similar
+as_draws_df(fit10.2) %>% 
   mutate(chain = .chain) %>% 
   mcmc_acf(pars = "b_Intercept",
            lags = 35)
@@ -972,7 +979,7 @@ neff_ratio(fit10.1)[1] %>%
   yaxis_text(hjust = 0)
 ```
 
-But we specified a lot of post-warmup draws, so we're still in good shape. Plus, the $\hat R$ was fine.
+But we specified a lot of post-warmup draws, so we're still in good shape. Plus, the $\widehat R$ was fine.
 
 ```{r}
 rhat(fit10.1)[1]
@@ -1020,13 +1027,13 @@ The resulting data look like this.
 d %>% 
   ggplot(aes(x = y)) +
   geom_histogram(color = kh[9], fill = kh[3],
-                 size = .2, bins = 30) +
+                 size = .1, bins = 30) +
   scale_y_continuous(NULL, breaks = NULL,
                      expand = expansion(mult = c(0, 0.05))) +
   theme(panel.grid = element_blank())
 ```
 
-As you'd expect with a small-$\nu$ Student's $t$, some of our values are far from the central clump. If you don't recall, Student's $t$-distribution has three parameters: $\nu$, $\mu$, and $\sigma$. The Gaussian is a special case of Student's $t$ for which $\nu = \infty$. As $\nu$ gets small, the distribution allocates more mass in the tails. From a Gaussian perspective, the small-$\nu$ Student's $t$ expects more outliers--though it's a little odd calling them outliers from a small-$\nu$ Student's $t$ perspective.
+As you'd expect with a small-$\nu$ Student's $t$, some of our values are far from the central clump. If you don't recall, Student's $t$-distribution has three parameters: $\nu$, $\mu$, and $\sigma$. The Gaussian is a special case of Student's $t$ where $\nu = \infty$. As $\nu$ gets small, the distribution allocates more mass in the tails. From a Gaussian perspective, the small-$\nu$ Student's $t$ expects more outliers--though it's a little odd calling them outliers from a small-$\nu$ Student's $t$ perspective.
 
 Let's see how well the Gaussian versus the Student's $t$ likelihoods handle the data. Here we'll use fairly liberal priors.
 
@@ -1036,7 +1043,8 @@ fit10.3 <-
       family = gaussian,
       y ~ 1,
       prior = c(prior(normal(0, 5), class = Intercept),
-                prior(normal(0, 5), class = sigma)),  # by default, this has a lower bound of 0
+                # by default, this has a lower bound of 0
+                prior(normal(0, 5), class = sigma)),
       chains = 4, cores = 4,
       seed = 10,
       file = "fits/fit10.03")
@@ -1047,7 +1055,8 @@ fit10.4 <-
       y ~ 1,
       prior = c(prior(normal(0, 5), class = Intercept),
                 prior(normal(0, 5), class = sigma),
-                prior(gamma(2, 0.1), class = nu)),  # this is the brms default prior for nu
+                # this is the brms default prior for nu
+                prior(gamma(2, 0.1), class = nu)),
       chains = 4, cores = 4,
       seed = 10,
       file = "fits/fit10.04")
@@ -1066,11 +1075,11 @@ tibble(x = seq(from = 1, to = 100, by = 1)) %>%
 
 That prior puts most of the probability mass below 50, but the right tail gently fades off into the triple digits, allowing for the possibility of larger estimates.
 
-We can use the `posterior_summary()` function to get a compact look at the model summaries.
+We can use the `posterior_summary()` function to get a compact look at the parameter summaries.
 
 ```{r}
-posterior_summary(fit10.3) %>% round(digits = 2)
-posterior_summary(fit10.4) %>% round(digits = 2)
+posterior_summary(fit10.3)[1:2, ] %>% round(digits = 2)
+posterior_summary(fit10.4)[1:3, ] %>% round(digits = 2)
 ```
 
 Now we can compare the two approaches using information criteria. For kicks, we'll use the WAIC.
@@ -1096,7 +1105,7 @@ Remember what that $p(\nu)$ looked like? Here's our posterior distribution for $
 as_draws_df(fit10.4) %>% 
   ggplot(aes(x = nu)) +
   geom_histogram(color = kh[9], fill = kh[3],
-                 size = .2, bins = 30) +
+                 size = .1, bins = 30) +
   scale_x_continuous(expression(italic(p)(nu*"|"*italic(D))), 
                      expand = c(0, 0)) +
   scale_y_continuous(NULL, breaks = NULL,
@@ -1109,9 +1118,13 @@ Even though our prior for $\nu$ was relatively weak, the posterior ended up conc
 
 We can also compare the models using posterior-predictive checks. There are a variety of ways we might do this, but the most convenient way is with `brms::pp_check()`, which is itself a wrapper for the family of `ppc` functions from the **bayesplot** package.
 
-```{r, fig.width = 4, fig.height = 2, message = F}
-pp_check(fit10.3, ndraws = 50) + coord_cartesian(xlim = c(-10, 10))
-pp_check(fit10.4, ndraws = 50) + coord_cartesian(xlim = c(-10, 10))
+```{r, fig.width = 4, fig.height = 2.25, message = F}
+pp_check(fit10.3, ndraws = 50) + 
+  coord_cartesian(xlim = c(-10, 10)) +
+  ggtitle("Gaussian model")
+pp_check(fit10.4, ndraws = 50) + 
+  coord_cartesian(xlim = c(-10, 10)) +
+  ggtitle("Student-t model")
 ```
 
 The default `pp_check()` setting allows us to compare the density of the data $y$ (i.e., the dark blue) with 10 densities simulated from the posterior $y_\text{rep}$ (i.e., the light blue). By `ndraws = 50`, we adjusted that default to 50 simulated densities. We prefer models that produce $y_\text{rep}$ distributions resembling $y$. Though the results from both models were similar, the simulated distributions from `fit10.4` mimicked the original data a little more convincingly. To learn more about this approach to posterior predictive checks, check out Gabry's [-@gabryGraphicalPosteriorPredictive2022] vignette, [*Graphical posterior predictive checks using the bayesplot package*](https://CRAN.R-project.org/package=bayesplot/vignettes/graphical-ppcs.html).
@@ -1120,7 +1133,7 @@ The default `pp_check()` setting allows us to compare the density of the data $y
 
 > In many applications of model comparison, the analyst wants to identify the best model and then base predictions of future data on that single best model, denoted with index $b$. In this case, predictions of future $\hat y$ are based exclusively on the likelihood function $p_b(\hat y | \theta_b, m = b)$ and the posterior distribution $p_b(\theta_b | D, m = b)$ of the winning model:
 >
-> $$p_b(\hat y | D, m = b) = \int \text d \theta_b \; p_b (\hat y | \theta_b, m = b) p_b(\theta_b | D, m = b)$$
+> $$p(\hat y | D, m = b) = \int \text d \theta_b \; p_b (\hat y | \theta_b, m = b) p_b(\theta_b | D, m = b)$$
 >
 > But the full model of the data is actually the complete hierarchical structure that spans all the models being compared, as indicated in Figure 10.1 (p. 267). Therefore, if the hierarchical structure really expresses our prior beliefs, then the most complete prediction of future data takes into account all the models, weighted by their posterior credibilities. In other words, we take a weighted average across the models, with the weights being the posterior probabilities of the models. Instead of conditionalizing on the winning model, we have
 >
@@ -1149,13 +1162,13 @@ as_draws_df(fit10.1) %>%
                      expand = expansion(mult = c(0, 0)), 
                      breaks = 0:5 / 5, limits = c(0, 1)) +
   scale_y_continuous(NULL, breaks = NULL,
-                     expand = expansion(mult = c(0.01, 0.05))) +
+                     expand = expansion(mult = c(0.02, 0.05))) +
   labs(subtitle = "The posterior for the probability, given fit10.1") 
 ```
 
 > But the overall model included $\omega = 0.75$, and if we use the overall model, then the predicted value of future data should be based on the complete posterior summed across values of $\omega$. The complete posterior distribution [is] $p(\theta | D)$ (p. 289).
 
-The cool thing about the model weighting stuff we learned about earlier is that you can use those model weights to average across models. Again, we're not weighting the models by posterior probabilities the way Kruschke discussed in text. However, the spirit is similar. We can use the `brms::pp_average()` function to make posterior predictive prediction with mixtures of the models, weighted by our chosen weighting scheme. Here, we’ll go with the default stacking weights.
+The cool thing about the model weighting stuff we learned about earlier is that you can use those model weights to average across models. Again, we're not weighting the models by posterior probabilities the way Kruschke discussed in text, but the spirit is similar. We can use the `brms::pp_average()` function to make posterior predictive prediction with mixtures of the models, weighted by our chosen weighting scheme. Here, we’ll go with the default stacking weights.
 
 ```{r pp_averaged_fit10.1_fit10.2, warning = F, message = F}
 nd <- tibble(y = 1)
@@ -1163,7 +1176,8 @@ nd <- tibble(y = 1)
 pp_a <-
   pp_average(fit10.1, fit10.2, 
              newdata = nd,
-             # this line is not necessary, but you should see how to choose weighing methods
+             # this line is not necessary, 
+             # but you should see how to choose weighing methods
              weights = "stacking",
              method = "fitted",
              summary = F) %>% 
@@ -1174,7 +1188,7 @@ pp_a <-
 head(pp_a) 
 ```
 
-We can plot our model-averaged $\theta$ with a little help from good old `tidybayes::stat_histintervalh()`.
+We can plot our model-averaged $\theta$ with a little help from good old `tidybayes::stat_histinterval()`.
 
 ```{r, fig.width = 3.5, fig.height = 3}
 pp_a %>% 
@@ -1186,7 +1200,7 @@ pp_a %>%
                      expand = expansion(mult = c(0, 0)), 
                      breaks = 0:5 / 5, limits = c(0, 1)) +
   scale_y_continuous(NULL, breaks = NULL,
-                     expand = expansion(mult = c(0.01, 0.05))) +
+                     expand = expansion(mult = c(0.02, 0.05))) +
   labs(subtitle = "The posterior for the probability, given the\nweighted combination of fit10.1 and fit10.2")
 ```
 
@@ -1200,8 +1214,8 @@ As Kruschke concluded, "you can see the contribution of $p(\theta | D, \omega = 
 
 Now our two models are:
 
-* $p(\theta | D, \kappa = 2000)$ (i.e., the "must-be-fair" model) and
-* $p(\theta | D, \kappa = 2)$ (i.e., the "anything's-possible" model).
+* the "must-be-fair" model $p(\theta | D, \kappa = 1{,}000)$, and
+* the "anything's-possible" model $p(\theta | D, \kappa = 2)$.
 
 They look like this.
 
@@ -1333,7 +1347,7 @@ In this case, just a little more of the weight went to the full model, `fit9.2`.
 
 However, "the sensitivity of Bayes factors to prior distributions is well known in the literature [e.g., @kassBayesFactors1995; @liuBayesFactorsPrior2008; @vanpaemelPriorSensitivityTheory2010]," and furthermore, when comparing Bayesian models using the methods Kruschke outlined in this chapter of the text, "different forms of vague priors can yield very different Bayes factors" (p. 293).
 
-In the two BFs to follow, we compare the must-be-fair model and the anything's-possible models from 10.5 to new data: $z = 65, N = 100$.
+In the two BFs to follow, we compare the must-be-fair model and the anything's-possible models from [Section 10.5][Model complexity naturally accounted for] to new data: $z = 65, N = 100$.
 
 ```{r}
 z <- 65
@@ -1350,17 +1364,19 @@ Another way to express the anything's-possible model is with the Haldane prior, 
 p_d(z, n, a = 500, b = 500) / p_d(z, n, a = .01, b = .01)
 ```
 
-Now we flipped to favoring the must-be-fair model. You might be asking, *Wait, kind of distribution did that Haldane prior produce?* Here we compare it to the $\operatorname{beta}(1, 1)$.
+Now we flipped to favoring the must-be-fair model. You might be asking, *Wait, kind of distribution did that Haldane prior produce?* Here we compare it to the $\operatorname{Beta}(1, 1)$.
 
 ```{r, fig.width = 7, fig.height = 3}
+# save this text for later
+text <- c("Uninformative prior, Beta(1, 1)", "Haldane prior, Beta(0.01, 0.01)")
+
 # how granular to you want the theta sequence?
 length <- 1e3
 
 # simulate the data
 tibble(alpha = c(1, .01),
        beta  = c(1, .01),
-       model = factor(c("Uninformative prior, beta(1, 1)", "Haldane prior, beta(0.01, 0.01)"),
-                      levels = c("Uninformative prior, beta(1, 1)", "Haldane prior, beta(0.01, 0.01)"))) %>%
+       model = factor(text, levels = text)) %>%
   expand(nesting(alpha, beta, model),
          theta = seq(from = 0, to = 1, length.out = length)) %>% 
   mutate(density = dbeta(theta, 
@@ -1375,7 +1391,7 @@ tibble(alpha = c(1, .01),
                      limits = c(0, 1)) +
   scale_y_continuous(NULL, breaks = NULL,
                      expand = expansion(mult = c(0, 0.05))) +
-  labs(title = "We have two anything’s-possible models.",
+  labs(title = "We have two anything’s-possible models!",
        subtitle = "These y-axes are on the same scale.") +
   facet_wrap(~ model)
 ```
@@ -1400,7 +1416,7 @@ hdi_of_icdf <- function(name, width = .95, tol = 1e-8, ... ) {
 }
 ```
 
-And here we'll make a custom variant to be more useful within the context of `map2()`.
+And here we'll make a custom variant to be more useful within the context of the `map2()` function.
 
 ```{r}
 hdi_of_qbeta <- function(shape1, shape2) {
@@ -1415,7 +1431,7 @@ hdi_of_qbeta <- function(shape1, shape2) {
 }
 ```
 
-Recall that when we combine a $\operatorname{beta}(\theta | \alpha, \beta)$ prior with the results of a Bernoulli likelihood, we get a posterior defined by $\operatorname{beta}(\theta | z + \alpha, N - z + \beta)$.
+Recall that when we combine a $\operatorname{Beta}(\theta | \alpha, \beta)$ prior with the results of a Bernoulli likelihood, we get a posterior defined by $\operatorname{Beta}(\theta | z + \alpha, N - z + \beta)$.
 
 ```{r}
 d <-
@@ -1545,7 +1561,7 @@ model_weights(fit10.6, fit10.7, fit10.8, weights = "loo") %>%
   round(digits = 2)
 ```
 
-The evidence varied a bit by the specific weighting scheme. Across both, the model with the Haldane prior (`fit10.8`) did arguably the best, but the model with the uniform prior (`fit10.7`) was clearly in the running. Overall, the evidence for one versus another was weak.
+The evidence varied a bit by the specific weighting scheme. Across both, the model with the uniform prior (`fit10.7`) did arguably the best, but the model with the Haldane prior (`fit10.8`) was clearly in the running. Overall, the evidence for one versus another was weak.
 
 Like we did earlier with `fit10.1` and `fit10.2`, we can use the `pp_average()` function to compute the stacking weighted posterior for $\theta$.
 
@@ -1577,17 +1593,17 @@ Just for the sake of practice, we can also compare the models with separate post
 p1 <-
   pp_check(fit10.6, type = "bars", ndraws = 1e3) +
   ggtitle("fit10.6",
-          subtitle = expression("beta"*(500*", "*500)))
+          subtitle = expression("Beta"*(500*", "*500)))
 
 p2 <-
   pp_check(fit10.7, type = "bars", ndraws = 1e3) +
   ggtitle("fit10.7",
-          subtitle = expression("beta"*(1*", "*1)))
+          subtitle = expression("Beta"*(1*", "*1)))
 
 p3 <-
   pp_check(fit10.8, type = "bars", ndraws = 1e3) +
   ggtitle("fit10.8",
-          subtitle = expression("beta"*(0.01*", "*0.01)))
+          subtitle = expression("Beta"*(0.01*", "*0.01)))
 
 ((p1 + p2 + p3) & 
     scale_x_continuous(breaks = 0:1) &
@@ -1611,7 +1627,7 @@ sessionInfo()
 
 ```{r, echo = F}
 # remove our objects
-rm(d, kh, length, p1, p2, my_arrow, p3, p4, p5, p6, p7, p8, p9, layout, p_d, p_d_1, p_d_2, odds, bernoulli_likelihood, n, z, trial_data, p11, p21, p51, p12, p22, p32, p42, p52, p13, p23, p33, p43, p53, omega, kappa, stanvars, fit10.1, theta, mean_theta, sd_theta, a_post, b_post, one_over_pd, fit10.2, mw, nd, pp_a, fit10.3, fit10.4, my_data, fit9.2, fit10.5, fit10.6, hdi_of_icdf, hdi_of_qbeta, fit10.7, fit10.8)
+rm(d, kh, length, p1, p2, my_arrow, p3, p4, p5, p6, p7, p8, p9, layout, p_d, p_d_1, p_d_2, odds, bernoulli_likelihood, n, z, trial_data, p11, p21, p51, p12, p22, p32, p42, p52, p13, p23, p33, p43, p53, omega, kappa, stanvars, fit10.1, theta, mean_theta, sd_theta, a_post, b_post, one_over_pd, fit10.2, mw, nd, pp_a, fit10.3, fit10.4, my_data, fit9.2, fit10.5, fit10.6, text, hdi_of_icdf, hdi_of_qbeta, fit10.7, fit10.8)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
@@ -1622,5 +1638,5 @@ pacman::p_unload(pacman::p_loaded(), character.only = TRUE)
 
 ## Footnote {-}
 
-[^3]: I point this out because in previous versions of this book, I accidentally flipped this order. Thankfully, Omid Ghasemi caught the mistake and kindly pointed it out in [GitHub issue #34](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues/34).
+[^4]: I point this out because in previous versions of this book, I accidentally flipped this order. Thankfully, Omid Ghasemi caught the mistake and kindly pointed it out in [GitHub issue #34](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues/34).
 
