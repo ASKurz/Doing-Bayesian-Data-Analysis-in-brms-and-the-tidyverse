@@ -171,7 +171,7 @@ tibble(theta = seq(from = 0, to = 1, length.out = 1e3)) %>%
        x = expression(theta))
 ```
 
-In his second example (p. 337), Kruschke considered $z = 490$ heads out of $N = 1000$ flips.
+In his second example (p. 337), Kruschke considered $z = 490$ heads out of $N = 1{,}000$ flips.
 
 ```{r, fig.width = 6, fig.height = 2, warning = F, message = F}
 # we need these to compute the likelihood
@@ -248,7 +248,7 @@ fit9.2 <-
       file = "fits/fit09.02")
 ```
 
-Let's use `coef()` to pull the relevant posterior draws.
+Let's use the `coef()` function with `summary = FALSE` to pull the relevant posterior draws.
 
 ```{r, warning = F}
 c <-
@@ -453,22 +453,23 @@ d %>%
 
 ### Why HDI and not equal-tailed interval?
 
-Though Kruschke told us Figure 12.2 was of a gamma distribution, he didn't tell us the parameters for that particular gamma. After playing around for a bit, it appeared `dgamma(x, 2, .2)` worked pretty well.
+Though Kruschke told us Figure 12.2 was of a gamma distribution, he didn't tell us the parameters for that particular gamma. After playing around for a bit, it appeared `dgamma(x, 2, 0.2)` worked pretty well.
 
-```{r, fig.width = 4, fig.height = 2}
+```{r, fig.width = 4, fig.height = 2.5}
 tibble(x = seq(from = 0, to = 40, by = .1)) %>% 
   
-  ggplot(aes(x = x, y = dgamma(x, 2, .2))) +
+  ggplot(aes(x = x, y = dgamma(x, shape = 2, rate = 0.2))) +
   geom_area(fill = oa[4]) +
   scale_x_continuous(expand = expansion(mult = c(0, 0.05))) +
-  scale_y_continuous(expand = expansion(mult = c(0, 0.05))) +
+  scale_y_continuous("density", expand = expansion(mult = c(0, 0.05))) +
+  ggtitle("Gamma(2, 0.2)") +
   coord_cartesian(xlim = c(0, 35))
 ```
 
 If you want to get the quantile-based intervals (i.e., the ETIs), you can plug in the desired quantiles into the `qgamma()` function.
 
 ```{r}
-(ex <- qgamma(c(.025, .975), shape = 2, rate = .2))
+(ex <- qgamma(c(.025, .975), shape = 2, rate = 0.2))
 ```
 
 To analytically derive the gamma HDIs, we just use the good old `hdi_of_icdf()` function.
@@ -478,17 +479,17 @@ To analytically derive the gamma HDIs, we just use the good old `hdi_of_icdf()` 
   hx <-
     hdi_of_icdf(name = qgamma,
                 shape = 2,
-                rate = .2)
+                rate = 0.2)
 )
 ```
 
-Next you need to determine how high up to go on the y-axis. For the quantile-based intervals, the ETIs, you can use `dgamma()`. The trick is pump the output of `qgamma()` into `dgamma()`.
+Next you need to determine how high up to go on the y-axis. For the quantile-based intervals, the ETIs, you can use `dgamma()`. The trick is pump the output of `qgamma()` right into `dgamma()`.
 
 ```{r}
 (
   ey <-
     qgamma(c(.025, .975), shape = 2, rate = .2) %>% 
-    dgamma(shape = 2, rate = .2)
+    dgamma(shape = 2, rate = 0.2)
 )
 ```
 
@@ -497,8 +498,8 @@ We follow the same basic principle to get the $y$-axis values for the HDIs.
 ```{r}
 (
   hy <-
-    hdi_of_icdf(name = qgamma, shape = 2, rate = .2) %>% 
-    dgamma(shape = 2, rate = .2)
+    hdi_of_icdf(name = qgamma, shape = 2, rate = 0.2) %>% 
+    dgamma(shape = 2, rate = 0.2)
 )
 ```
 
@@ -526,7 +527,7 @@ text <-
 # plot!
 tibble(x = seq(from = 0, to = 40, by = .1)) %>% 
   ggplot(aes(x = x)) +
-  geom_area(aes(y = dgamma(x, 2, .2)),
+  geom_area(aes(y = dgamma(x, 2, 0.2)),
             fill = oa[4]) +
   geom_path(data = lines,
             aes(y = y, color = interval),
@@ -534,7 +535,7 @@ tibble(x = seq(from = 0, to = 40, by = .1)) %>%
   geom_text(data = text,
             aes(y = y, color = interval, label = label)) +
   scale_color_manual(values = oa[c(5, 1)]) +
-  scale_x_continuous("Density Value", expand = expansion(mult = c(0, 0.05))) +
+  scale_x_continuous("Parameter Value", expand = expansion(mult = c(0, 0.05))) +
   scale_y_continuous(NULL, breaks = NULL, expand = expansion(mult = c(0, 0.05))) +
   coord_cartesian(xlim = c(0, 35)) +
   theme(legend.position = "none")
@@ -567,7 +568,7 @@ fitted(fit9.2,
   mean_hdi(value)
 ```
 
-As you may have gathered, Kruschke clearly prefers using HDIs over ETIs. His preference isn't without controversy. If you'd like to explore the topic further in the form of saucy twitter banter, the inimitable [Dan Simpson](https://twitter.com/dan_p_simpson) has just [the thread](https://twitter.com/dan_p_simpson/status/1134095728190676992) for you. Here's [the link](https://discourse.mc-stan.org/t/quantiles-vs-hpdi-from-rstan-summary/9025) to the corresponding thread in the Stan discourse forum.
+As you may have gathered, Kruschke clearly prefers using HDIs over ETIs. His preference isn't without controversy. If you'd like to explore the topic further, here are links to discussion threads on HDIs in [the link to the corresponding thread in the [Stan forum](https://discourse.mc-stan.org/t/quantiles-vs-hpdi-from-rstan-summary/9025) and the [**posterior** GitHub repo](https://github.com/stan-dev/posterior/issues/216).
 
 ## The model-comparison approach
 
@@ -611,7 +612,8 @@ p1 <-
            label = expression(epsilon == 0.01), 
            size = 3.5, color = oa[5]) +
   labs(title = "Prior (beta)",
-       y = expression("beta"*(theta*"|"*epsilon*", "*epsilon)))
+       y = expression("Beta"*(theta*"|"*epsilon*", "*epsilon))) +
+  coord_cartesian(ylim = c(0, 5))
 
 p2 <-
   d %>% 
@@ -625,7 +627,7 @@ p3 <-
   ggplot(aes(x = theta, y = posterior)) +
   geom_area(fill = oa[4]) +
   labs(title = "Posterior (beta)",
-       y = expression("beta"*(theta*"|"*7.01*", "*17.01)))
+       y = expression("Beta"*(theta*"|"*7.01*", "*17.01)))
 
 library(patchwork)
 
@@ -671,7 +673,8 @@ p1 <-
   ggplot(aes(x = theta, y = prior)) +
   geom_area(fill = oa[4]) +
   labs(title = "Prior (beta)",
-       y = expression("beta"*(theta*"|"*2*", "*4)))
+       y = expression("Beta"*(theta*"|"*2*", "*4))) +
+  coord_cartesian(ylim = c(0, 5))
 
 p2 <-
   d %>% 
@@ -685,7 +688,7 @@ p3 <-
   ggplot(aes(x = theta, y = posterior)) +
   geom_area(fill = oa[4]) +
   labs(title = "Posterior (beta)",
-       y = expression("beta"*(theta*"|"*9*", "*21)))
+       y = expression("Beta"*(theta*"|"*9*", "*21)))
 
 (p1 / p2 / p3) & 
   scale_x_continuous(expression(theta), breaks = 0:5 / 5, 
@@ -703,7 +706,7 @@ z + alpha
 n - z + beta
 ```
 
-Following the formula for the null hypothesis,
+Following the formula for the null hypothesis (Equation 2.1, p. 344),
 
 $$p(z, N|M_\text{null}) = \theta_\text{null}^z(1 - \theta_\text{null})^{(N - z)},$$
 
@@ -727,7 +730,7 @@ p_d <- function(a, b) {
 }
 ```
 
-With `p_d_null` and our `p_d()` function in hand, we can reproduce and extend the results in Kruschke's Equation 12.4.
+With `p_d_null` and our `p_d()` function in hand, we can reproduce and extend the results in Kruschke's Equation 12.4 (p. 345).
 
 ```{r}
 options(scipen = 999)
@@ -780,7 +783,7 @@ Further,
 
 > of the Bayes' factors in Equation 12.4, which is most appropriate? If your analysis is driven by the urge for a default, uninformed alternative prior, then the prior that best approximates the Haldane is most appropriate. Following from that, we should strongly prefer the null hypothesis to the Haldane alternative. While this is mathematically correct, it is meaningless for an applied setting because the Haldane alternative represents nothing remotely resembling a credible alternative hypothesis. The Haldane prior sets prior probabilities of virtually zero at all values of $\theta$ except $\theta = 0$ and $\theta = 1$. There are very few applied settings where such a U-shaped prior represents a genuinely meaningful theory. (p. 346).
 
-### Bayes' factor can accept null with poor precision.
+#### Bayes' factor can accept null with poor precision.
 
 Here are the steps to make the left column of Figure 12.4 (i.e., the column based on very weak data and the Haldane prior).
 
@@ -809,7 +812,8 @@ p1 <-
            label = expression(epsilon == 0.01), 
            size = 3.5, color = oa[5]) +
   labs(title = "Prior (beta)",
-       y = expression("Beta"*(theta*"|"*epsilon*", "*epsilon)))
+       y = expression("Beta"*(theta*"|"*epsilon*", "*epsilon))) +
+  coord_cartesian(ylim = c(0, 5))
 
 p2 <-
   d %>% 
@@ -823,7 +827,8 @@ p3 <-
   ggplot(aes(x = theta, y = posterior)) +
   geom_area(fill = oa[4]) +
   labs(title = "Posterior (beta)",
-       y = expression("Beta"*(theta*"|"*7.01*", "*17.01)))
+       y = expression("Beta"*(theta*"|"*7.01*", "*17.01))) +
+  coord_cartesian(ylim = c(0, 0.005))
 
 (p1 / p2 / p3) & 
   scale_x_continuous(expression(theta), breaks = 0:5 / 5, 
@@ -878,7 +883,8 @@ p1 <-
   ggplot(aes(x = theta, y = prior)) +
   geom_area(fill = oa[4]) +
   labs(title = "Prior (beta)",
-       y = expression("Beta"*(theta*"|"*1*", "*1)))
+       y = expression("Beta"*(theta*"|"*1*", "*1))) +
+  coord_cartesian(ylim = c(0, 3.5))
 
 p2 <-
   d %>% 
@@ -892,7 +898,8 @@ p3 <-
   ggplot(aes(x = theta, y = posterior)) +
   geom_area(fill = oa[4]) +
   labs(title = "Posterior (beta)",
-       y = expression("Beta"*(theta*"|"*8*", "*8)))
+       y = expression("Beta"*(theta*"|"*8*", "*8))) +
+  coord_cartesian(ylim = c(0, 0.0035))
 
 (p1 / p2 / p3) & 
   scale_x_continuous(expression(theta), breaks = 0:5 / 5, 
@@ -903,6 +910,8 @@ p3 <-
 Here are the updated shape parameters and the HDIs.
 
 ```{r}
+epsilon <- 1
+
 (alpha <- z + epsilon)
 (beta <- n - z + epsilon)
 
@@ -924,9 +933,10 @@ b <- 1
 
 A BF of 3.14 in favor of the null is lackluster evidence. And happily so given the breadth of the HDIs.
 
-Kruschke discussed how we'd need $z = 1200$ and $N = 2400$ before the posterior HDIs would fit within a narrow ROPE like .48 and .52. Here's what that would look like based on the priors from Figure 12.4.
+Kruschke discussed how we'd need $z = 1{,}200$ and $N = 2{,}400$ before the posterior HDIs would fit within a narrow ROPE like .48 and .52. Here's what that would look like based on the priors from Figure 12.4.
 
 ```{r, fig.width = 6, fig.height = 4, warning = F, message = F}
+epsilon <- 0.01
 z <- 1200
 n <- 2400
 alpha <-     z + epsilon
@@ -958,7 +968,7 @@ p2 <-
             ymin = -Inf, ymax = Inf,
             color = "transparent", fill = oa[2]) +
   geom_area(fill = oa[4]) +
-  ggtitle("This time we used the flat beta (1, 1).")
+  ggtitle("This time we used the flat Beta(1, 1).")
 
 (p1 / p2) & 
   scale_x_continuous(expression(theta), breaks = 0:5 / 5, 
@@ -974,11 +984,11 @@ p2 <-
 >
 > As a concrete example, suppose we conduct an experiment about the effect of background music on the ability to remember. As a simple test of memory, each person tries to memorize the same list of 20 words (such as "chair," "shark," "radio," etc.). They see each word for a specific time, and then, after a brief retention interval, recall as many words as they can. (p. 348)
 
-If you look in Kruschke's `OneOddGroupModelComp2E.R` file, you can get his simulation code. Here we've dramatically simplified it. This attempt does not exactly reproduce what his script did, but it gets it in spirit.
+If you look in Kruschke's `OneOddGroupModelComp2E.R` file, you can get his simulation code. Here we use a dramatically simplified version. This attempt does not exactly reproduce what his script did, but it gets it in spirit.
 
 ```{r}
-# For each subject, specify the condition s/he was in,
-# the number of trials s/he experienced, and the number correct.
+# For each subject, specify the condition they were in,
+# the number of trials they experienced, and the number correct.
 n_g <- 20  # number of subjects per group
 n_t <- 20  # number of trials per subject
 
@@ -1072,7 +1082,7 @@ post %>%
   facet_wrap(~ name, labeller = label_parsed)
 ```
 
-Also, do note we're working with the $\theta$ parameters in our aggregated binomial models, rather than $\omega$s.
+Also, do note we're working with the $\theta$ parameters in our aggregated binomial models, rather than $\omega$'s.
 
 Here's how you'd get the posterior mean and HDI summaries.
 
@@ -1173,7 +1183,7 @@ hypothesis(fit12.1,
   plot()
 ```
 
-We won't use the `hypothesis()` much in this ebook. But if you're interested, there are other trick ways to make good use of it. To learn more, check out Vourre's handy blog post, [*How to calculate contrasts from a fitted brms model*](https://vuorre.netlify.com/post/2020/02/06/how-to-calculate-contrasts-from-a-fitted-brms-model/).
+We won't use the `hypothesis()` much in this ebook. But if you're interested, there are other tricky ways to make good use of it. To learn more, check out Vourre's handy blog post, [*How to calculate contrasts from a fitted brms model*](https://vuorre.netlify.com/post/2020/02/06/how-to-calculate-contrasts-from-a-fitted-brms-model/).
 
 ## Relations of parameter estimation and model comparison
 
