@@ -205,14 +205,13 @@ in which $\beta_0$ simply models the mean of $y$.
 We won't be able to reproduce the wireframe plots of Figure 15.2, exactly. But we can use some `geom_raster()` tricks from back in [Chapter 10][Model Comparison and Hierarchical Modeling] to express the third $y$ dimension as fill gradients.
 
 ```{r, fig.height = 5, fig.align = "left"}
-crossing(x1 = seq(from = 0, to = 10, by = .5),
-         x2 = seq(from = 0, to = 10, by = .5)) %>% 
+crossing(x1 = seq(from = 0, to = 10, by = 0.5),
+         x2 = seq(from = 0, to = 10, by = 0.5)) %>% 
   mutate(`y[1] ==  0 + 1 * x[1] + 0 * x[2]` =  0 + 1 * x1 + 0 * x2,
          `y[2] ==  0 + 0 * x[1] + 2 * x[2]` =  0 + 0 * x1 + 2 * x2,
          `y[3] ==  0 + 1 * x[1] + 2 * x[2]` =  0 + 1 * x1 + 2 * x2,
          `y[4] == 10 + 1 * x[1] + 2 * x[2]` = 10 + 1 * x1 + 2 * x2) %>%
   pivot_longer(cols = -c(x1, x2),
-               names_to = "key",
                values_to = "y") %>% 
   
   ggplot(aes(x = x1, y = x2, fill = y)) +
@@ -223,24 +222,23 @@ crossing(x1 = seq(from = 0, to = 10, by = .5),
   scale_y_continuous(expression(x[2]), expand = c(0, 0),
                      breaks = seq(from = 0, to = 10, by = 2)) +
   coord_equal() +
-  facet_wrap(~ key, labeller = label_parsed)
+  facet_wrap(~ name, labeller = label_parsed)
 ```
 
-Here we've captured some of Kruschke's grid aesthetic by keeping the `by` argument within `seq()` somewhat coarse and omitting the `interpolate = T` argument from `geom_raster()`. If you'd prefer smoother fill transitions for the y-values, set `by = .1` and `interpolate = T`.
+Here we've captured some of Kruschke's grid aesthetic by keeping the `by` argument within `seq()` somewhat coarse and omitting the `interpolate = T` argument from `geom_raster()`. If you'd prefer smoother fill transitions for the $y$-values, set `by = 0.1` and `interpolate = T`.
 
 ### Nonadditive interaction of metric predictors.
 
 As it turns out, "the combined influence of two predictors does not have to be additive" (p. 427). Let's explore what that can look like with our version of Figure 15.3.
 
 ```{r, fig.height = 5, fig.align = "left"}
-crossing(x1 = seq(from = 0, to = 10, by = .5),
-         x2 = seq(from = 0, to = 10, by = .5)) %>% 
+crossing(x1 = seq(from = 0, to = 10, by = 0.5),
+         x2 = seq(from = 0, to = 10, by = 0.5)) %>% 
   mutate(`y[1] == 0 +  0 * x[1] + 0 * x[2] +  0.2 * x[1] * x[2]` = 0 +  0 * x1 + 0 * x2 +  0.2 * x1 * x2,
          `y[2] == 0 +  1 * x[1] + 1 * x[2] +  0   * x[1] * x[2]` = 0 +  1 * x1 + 1 * x2 +  0   * x1 * x2,
          `y[3] == 0 +  1 * x[1] + 1 * x[2] + -0.3 * x[1] * x[2]` = 0 +  1 * x1 + 1 * x2 + -0.3 * x1 * x2,
          `y[4] == 0 + -1 * x[1] + 1 * x[2] +  0.2 * x[1] * x[2]` = 0 + -1 * x1 + 1 * x2 +  0.2 * x1 * x2) %>%
   pivot_longer(cols = -c(x1, x2),
-               names_to = "key",
                values_to = "y") %>% 
   
   ggplot(aes(x = x1, y = x2, fill = y)) +
@@ -251,14 +249,16 @@ crossing(x1 = seq(from = 0, to = 10, by = .5),
   scale_y_continuous(expression(x[2]), expand = c(0, 0),
                      breaks = seq(from = 0, to = 10, by = 2)) +
   coord_equal() +
-  facet_wrap(~ key, labeller = label_parsed)
+  facet_wrap(~ name, labeller = label_parsed)
 ```
 
-Did you notice all those `*` operators in the `mutate()` code? We're no longer just additive. We're square in multiplicative town!
+Did you notice all those `*` operators in the `mutate()` code? We're no longer restricting ourselves to additive functions. We're square in the middle of multiplicative town!
 
 > There is a subtlety in the use of the term "linear" that can sometimes cause confusion in this context. The interactions shown in Figure 15.3 are *not* linear on the *two* predictors $x_1$ and $x_2$. But if the product of the two predictors, $x_1 x_2$, is thought of as a third predictor, then the model *is* linear on the *three* predictors, because the predicted value of $y$ is a weighted additive combination of the three predictors. This reconceptualization can be useful for implementing nonlinear interactions in software for linear models, but we will not be making that semantic leap to a third predictor, and instead we will think of a nonadditive combination of two predictors.
 >
 > A nonadditive interaction of predictors does not have to be multiplicative. Other types of interaction are possible. (p. 428, *emphasis* in the original)
+
+In my experience, this "subtlety" is really easy to misunderstand. You might be surprised how often it pops up even among senior scholars. Which is all to say, this stuff is difficult, so give yourself a break.
 
 ### Nominal predictors.
 
@@ -273,7 +273,7 @@ Did you notice all those `*` operators in the `mutate()` code? We're no longer j
 >   & = \beta_0 + \vec{\beta} \cdot \vec{x}
 > \end{align*}
 >
-> where the notation $\vec{\beta} \cdot \vec{x}$ is sometimes called the 'dot product' of the vectors. (p. 429)
+> where the notation $\vec{\beta} \cdot \vec{x}$ is sometimes called the "dot product" of the vectors. (p. 429)
 
 #### Additive combination of nominal predictors.
 
@@ -286,7 +286,7 @@ y & = \beta_0 + \vec \beta_1 \vec x_1 + \vec \beta_2 \vec x_2 \\
 
 given the constraints
 
-$$\sum_{j} \beta_{1[j]} = 0 \;\;\; \text{and} \;\;\; \sum_{j} \beta_{2[k]} = 0.$$
+$$\sum_{j} \beta_{1[j]} = 0 \;\;\; \text{and} \;\;\; \sum_{k} \beta_{2[k]} = 0.$$
 
 Both panels in Figure 15.4 are going to require three separate data objects. Here's the code for the top panel.
 
@@ -385,7 +385,7 @@ Did you notice our `filter()` trick in the code?
 
 #### Nonadditive interaction of nominal predictors.
 
-> We need new notation to formalize the nonadditive influence of a combination of nominal values. Just as $\vec x_1$ refers to the value of predictor 1, and $\vec x_2$ refers to the value of predictor 2, the notation $\vec x_{1 \times 2}$ will refer to a particular *combination* of values of predictors 1 and 2. If there are $J$ levels of predictor 1 and $K$ levels of predictor 2, then there are $J \times K$ combinations of the two predictors. To indicate a particular combination of levels from predictors 1 and 2, the corresponding component of $\vec x_{1 \times 2}$ is set to 1 while all other components are set to 0. A nonadditive interaction of predictors is formally represented by including a term for the influence of combinations of predictors, beyond the additive influences, as follows: $y = \beta_0 + \vec \beta_1 \cdot \vec x_1 + \vec \beta_2 \cdot \vec x_2 + \vec \beta_{1 \times 2} \cdot \vec x_{1 \times 2}$. (pp. 432--433, *emphasis* in the original)
+> We need new notation to formalize the nonadditive influence of a combination of nominal values. Just as $\vec x_1$ refers to the value of predictor $1$, and $\vec x_2$ refers to the value of predictor $2$, the notation $\vec x_{1 \times 2}$ will refer to a particular *combination* of values of predictors $1$ and $2$. If there are $J$ levels of predictor $1$ and $K$ levels of predictor $2$, then there are $J \times K$ combinations of the two predictors. To indicate a particular combination of levels from predictors $1$ and $2$, the corresponding component of $\vec x_{1 \times 2}$ is set to $1$ while all other components are set to $0$. A nonadditive interaction of predictors is formally represented by including a term for the influence of combinations of predictors, beyond the additive influences, as follows: $y = \beta_0 + \vec \beta_1 \cdot \vec x_1 + \vec \beta_2 \cdot \vec x_2 + \vec \beta_{1 \times 2} \cdot \vec x_{1 \times 2}$. (pp. 432--433, *emphasis* in the original)
 
 Now we're in nonadditive interaction land, here's the code for the right panel of Figure 15.5.
 
@@ -435,7 +435,7 @@ $$y = \operatorname{logistic}(x) = \frac{1}{ \big (1 + \exp (-x) \big )}.$$
 
 We can write the logistic function for a univariable metric predictor as
 
-$$y = \operatorname{logistic}(x; \beta_0, \beta_1) = \frac{1}{\big (1 + \exp (-[\beta_0 + \beta_1]) \big )}.$$
+$$y = \operatorname{logistic}(x; \beta_0, \beta_1) = \frac{1}{\big (1 + \exp (-[\beta_0 + \beta_1x]) \big )}.$$
 
 And if we prefer to parameterize it in terms of gain $\gamma$ and threshold $\theta$, it'd be
 
@@ -484,7 +484,7 @@ text <-
 
 # make the data
 crossing(gamma = c(2, .2),
-         x     = seq(from = -11, to = 11, by = .2)) %>% 
+         x     = seq(from = -11, to = 11, by = 0.2)) %>% 
   mutate(y = make_logistic(x, gamma, theta = 4)) %>% 
   
   # plot!
@@ -514,8 +514,8 @@ logistic <- function(x) {
 Now we'll just extend the same method we used for Figures 15.2 and 15.3.
 
 ```{r, fig.height = 5, fig.align = "left"}
-crossing(x1 = seq(from = -6, to = 6, by = .5),
-         x2 = seq(from = -6, to = 6, by = .5)) %>% 
+crossing(x1 = seq(from = -6, to = 6, by = 0.5),
+         x2 = seq(from = -6, to = 6, by = 0.5)) %>% 
   mutate(`y[1] == logistic(1 * ( 0    * x[1] + 1    * x[2] -  0))` = logistic(1 * ( 0    * x1 + 1    * x2 -  0)),
          `y[2] == logistic(1 * ( 0.71 * x[1] + 0.71 * x[2] -  0))` = logistic(1 * ( 0.71 * x1 + 0.71 * x2 -  0)),
          `y[3] == logistic(2 * ( 0    * x[1] + 1    * x[2] - -3))` = logistic(2 * ( 0    * x1 + 1    * x2 - -3)),
@@ -536,16 +536,16 @@ crossing(x1 = seq(from = -6, to = 6, by = .5),
   facet_wrap(~ name, labeller = label_parsed)
 ```
 
-"The threshold determines the *position* of the logistical cliff. In other words, the threshold determines the x values for which $y = 0.5$... The gain determines the *steepness* of the logistical cliff" (pp. 437--439, *emphasis* in the original).
+"The threshold determines the *position* of the logistical cliff. In other words, the threshold determines the $x$ values for which $y = 0.5$... The gain determines the *steepness* of the logistical cliff" (pp. 437--438, *emphasis* in the original).
 
 #### The cumulative normal function.
 
-> The cumulative normal is denoted $\Phi (x; \mu, \sigma)$, where x is a real number and where $\mu$ and $\sigma$ are parameter values, called the mean and standard deviation of the normal distribution. The parameter $\mu$ governs the point at which the cumulative normal, $\Phi(x)$, equals 0.5. In other words, $\mu$ plays the same role as the threshold in the logistic. The parameter $\sigma$ governs the steepness of the cumulative normal function at $x = \mu$, but inversely, such that a *smaller* value of $\sigma$ corresponds to a steeper cumulative normal. (p. 440, *emphasis* in the original)
+> The cumulative normal is denoted $\Phi (x; \mu, \sigma)$, where $x$ is a real number and where $\mu$ and $\sigma$ are parameter values, called the mean and standard deviation of the normal distribution. The parameter $\mu$ governs the point at which the cumulative normal, $\Phi(x)$, equals $0.5$. In other words, $\mu$ plays the same role as the threshold in the logistic. The parameter $\sigma$ governs the steepness of the cumulative normal function at $x = \mu$, but inversely, such that a *smaller* value of $\sigma$ corresponds to a steeper cumulative normal. (p. 440, *emphasis* in the original)
 
 Here we plot the standard normal density in the top panel of Figure 15.8.
 
 ```{r, fig.width = 3.25, fig.height = 3}
-tibble(x = seq(from = -4, to = 4, by = .05)) %>% 
+tibble(x = seq(from = -4, to = 4, by = 0.05)) %>% 
   mutate(d = dnorm(x, mean = 0, sd = 1)) %>% 
   
   ggplot(aes(x = x, y = d)) +
@@ -560,7 +560,7 @@ tibble(x = seq(from = -4, to = 4, by = .05)) %>%
 Here's the analogous cumulative normal function depicted in the bottom panel of Figure 15.8.
 
 ```{r, fig.width = 3.25, fig.height = 3}
-tibble(x = seq(from = -4, to = 4, by = .05)) %>%
+tibble(x = seq(from = -4, to = 4, by = 0.05)) %>%
   
   ggplot(aes(x = x)) +
   stat_function(fun = pnorm, 
@@ -582,7 +582,7 @@ tibble(x = seq(from = -4, to = 4, by = .05)) %>%
 >
 > To make this notion of probabilistic tendency precise, we need to specify a probability distribution for $y$ that depends on $f (\operatorname{lin} (x))$. To keep the notation tractable, first define $\mu = f (\operatorname{lin} (x))$. The value $\mu$ represents the central tendency of the predicted $y$ values, which might or might not be the mean. With this notation, we then denote the probability distribution of $y$ as some to-be-specified probability density function, abbreviated as "pdf":
 >
-> $y \sim \operatorname{pdf} \big ( \mu, [\text{scale, shape, etc.}] \big )$
+> $$y \sim \operatorname{pdf} \big ( \mu, [\text{scale, shape, etc.}] \big )$$
 >
 > As indicated by the bracketed terms after $\mu$, the pdf might have various additional parameters that control the distribution’s scale (i.e., standard deviation), shape, etc. 
 >
@@ -626,7 +626,7 @@ In case it's not clear, we'll be plotting with the `x` and `y` columns. Think of
 n_samples <- 750
 
 # generate the points
-tibble(x = runif(n = n_samples, -10, 10)) %>% 
+tibble(x = runif(n = n_samples, min = -10, max = 10)) %>% 
   mutate(y = rnorm(n = n_samples, mean = 10 + 2 * x, sd = 2)) %>% 
   
   # plot!
@@ -644,7 +644,75 @@ tibble(x = runif(n = n_samples, -10, 10)) %>%
   coord_cartesian(ylim = c(-10, 30))
 ```
 
-We'll revisit this method in Chapter 17. The wireframe plots at the bottom of Figure 15.9 and in Figure 15.10 are outside of our **ggplot2** purview.
+We'll revisit this method in Chapter 17. The wireframe plots at the bottom of Figure 15.9 and in Figure 15.10 are outside of our **ggplot2** purview. However, we can continue on with our approach of expressing the third $y$ dimension as fill gradients. Thus, here's a version of the botton of Figure 15.9
+
+```{r, fig.height = 3.75, message = F, warning = F}
+# how many points would you like?
+n_samples <- 750
+
+# generate and save the points
+set.seed(15)
+d <- 
+  tibble(x1 = runif(n = n_samples, min = 0, max = 10),
+         x2 = runif(n = n_samples, min = 0, max = 10)) %>% 
+  mutate(y = rnorm(n = n(), mean = 10 + 1 * x1 + 2 * x2, sd = 4))
+
+# make the grid
+crossing(x1 = seq(from = 0, to = 10, by = 0.5),
+         x2 = seq(from = 0, to = 10, by = 0.5)) %>% 
+  mutate(y = 10 + 1 * x1 + 2 * x2) %>%
+
+  # plot!
+  ggplot(aes(x = x1, y = x2, fill = y)) +
+  geom_raster() +
+  geom_point(data = d,
+             shape = 21, stroke = 1/10) +
+  scale_color_viridis_c(option = "E", limits = c(0, 50)) +
+  scale_fill_viridis_c(option = "E", limits = c(0, 50)) +
+  scale_x_continuous(expression(x[1]), expand = c(0, 0), breaks = 0:5 * 2) +
+  scale_y_continuous(expression(x[2]), expand = c(0, 0), breaks = 0:5 * 2,
+                     position = "right") +
+  coord_equal() +
+  labs(subtitle = expression("y ~ N(m, sd=4), "*m==10+1*x[1]+2*x[2])) +
+  theme(legend.position = "left")
+```
+
+For Figure 15.10, we can simulate Bernoulli distributed data with the `purrr::rbernoulli()` function. But since `rbernoulli()` returns a logical vector of `FALSE` and `TRUE` values, we'll need to transform the results into the `0`/`1` metric in a second step.
+
+```{r, fig.height = 3.75, message = F, warning = F}
+# how many points would you like?
+n_samples <- 750
+
+# generate and save the points
+set.seed(15)
+d <- 
+  tibble(x1 = runif(n = n_samples, min = -6, max = 6),
+         x2 = runif(n = n_samples, min = -6, max = 6)) %>% 
+  mutate(y = rbernoulli(n = n(), p = logistic(1 * (0.71 * x1 + 0.71 * x2 - 0)))) %>% 
+  mutate(y = as.double(y))
+
+# make the grid
+crossing(x1 = seq(from = -6, to = 6, by = 0.5),
+         x2 = seq(from = -6, to = 6, by = 0.5)) %>% 
+  mutate(y = logistic(1 * (0.71 * x1 + 0.71 * x2 - 0))) %>%
+
+  # plot!
+  ggplot(aes(x = x1, y = x2, fill = y)) +
+  geom_raster() +
+  geom_text(data = d,
+            aes(label = y, color = factor(y)),
+            size = 2.5) +
+  scale_color_manual(values = c("white", "black"), breaks = NULL) +
+  scale_fill_viridis_c(expression(italic(p)(y==1)), option = "E", limits = 0:1) +
+  scale_x_continuous(expression(x[1]), expand = c(0, 0), breaks = 0:5 * 2) +
+  scale_y_continuous(expression(x[2]), expand = c(0, 0), breaks = 0:5 * 2,
+                     position = "right") +
+  coord_equal() +
+  labs(subtitle = expression("y ~ Bernoulli(m), "*m==logistic(1*(0.71*x[1]+0.71*x[2]-0)))) +
+  theme(legend.position = "left")
+```
+
+Because of their use of the logistic function, we typically refer to models of this kind as *logistic regression*.
 
 ## Formal expression of the GLM
 
