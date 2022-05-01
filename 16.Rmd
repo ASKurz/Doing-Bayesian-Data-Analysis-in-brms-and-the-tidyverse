@@ -95,19 +95,32 @@ d %>%
   facet_grid(sigma ~ mu, labeller = label_parsed)
 ```
 
+Here's how you might compute the $p(D | \mu, \sigma)$ values and identify which combination of $\mu$ and $\sigma$ returns the maximum value for the data set.
+
+```{r, message = F, warning = F}
+ crossing(y     = c(85, 100, 115),
+          mu    = c(87.8, 100, 112),
+          sigma = c(7.35, 12.2, 18.4))  %>% 
+  mutate(density = dnorm(y, mean = mu, sd = sigma)) %>% 
+  group_by(mu, sigma) %>% 
+  summarise(`p(D|mu, sigma)` = prod(density)) %>% 
+  ungroup() %>%
+  mutate(maximum = `p(D|mu, sigma)` == max(`p(D|mu, sigma)`))
+```
+
 ### ~~Solution by mathematical analysis~~ Heads up on precision.
 
 Not much for us, here. But we might reiterate that sometimes we talk about the *precision* (see page 453), which is the reciprocal of the variance (i.e., $\frac{1}{\sigma^2}$). As we'll see, the **brms** package doesn't use priors parameterized in terms of precision. But JAGS does, which means we'll need to be able to translate Kruschke's precision-laden JAGS code into $\sigma$-oriented **brms** code in many of the remaining chapters. Proceed with caution.
 
 ### Approximation by ~~MCMC in JAGS~~ HMC in brms.
 
-Let's load and `glimpse()` at the data.
+Let's load and `glimpse()` at the `TwoGroupIQ.csv` data.
 
 ```{r, message = F}
 my_data <- read_csv("data.R/TwoGroupIQ.csv")
 
 glimpse(my_data)
-```
+``` 
 
 The data file included values from two groups.
 
@@ -131,23 +144,23 @@ my_data %>%
   ggplot(aes(x = Score)) +
   geom_histogram(fill = bp[2], binwidth = 5) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.05))) +
-  ggtitle("The ticks show individual data points.")
+  ggtitle("The smart-drug group")
 ```
 
-Here are the mean and $SD$ of the `Score` data.
+Here are the mean and standard deviation of the `Score` values.
 
 ```{r}
 (mean_y <- mean(my_data$Score))
 (sd_y <- sd(my_data$Score))
 ```
 
-Those values will come in handy in just a bit. But first, let's load **brms**.
+The values of those sample statistics will come in handy in just a bit. But first, let's load **brms**.
 
 ```{r, message = F, warning = F}
 library(brms)
 ```
 
-If we want to pass user-defined values into our `brm()` prior code, we'll need to define them first in using `brms::stanvar()`.
+If we want to pass user-defined values into our `brm()` prior code, we'll need to define them first in using the `brms::stanvar()` function.
 
 ```{r}
 stanvars <- 
@@ -155,17 +168,17 @@ stanvars <-
   stanvar(sd_y,   name = "sd_y")
 ```
 
-It's been a while since we used the `stanvar()` function, so we should review. Though we've saved that as `stanvars`, you could name it whatever you want. The main trick is to them tell `brms::brm()` about your values in a `stanvars` statement.
+It's been a while since we used `stanvar()`, so we should review. Though we've saved the object as `stanvars`, you could name it whatever you want. The main trick is to tell **brms** about your values with the `stanvars` argument within `brm()`.
 
 Kruschke mentioned that the "the conventional noncommittal gamma prior [for the precision] has shape and rate constants that are close to zero, such as Sh = 0.01 and R = 0.01" (p. 456). Here's what that looks like.
 
 ```{r, fig.width = 6, fig.height = 3}
-tibble(x = seq(from = 0, to = 12, by = .025)) %>% 
+tibble(x = seq(from = 0, to = 12, by = 0.025)) %>% 
   mutate(d = dgamma(x, shape = 0.01, rate = 0.01)) %>% 
   
   ggplot(aes(x = x, y = d)) +
   geom_area(fill = bp[3]) +
-  geom_vline(xintercept = 1 / sd_y, linetype = 2, color = bp[5]) +
+  geom_vline(xintercept = 1 / sd_y^2, linetype = 2, color = bp[5]) +
   labs(subtitle = "The grey density in the background is the conventional gamma prior for precision.\nThe dashed vertical line is our precision value.") +
   scale_x_continuous(expand = expansion(mult = c(0, 0.05))) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.05)), breaks = NULL) +
@@ -178,7 +191,7 @@ The thing is, with **brms** we typically estimate $\sigma$ rather than precision
 Here we'll use the half normal. By "half normal," we mean that the mean is zero and it's bounded from zero to positive infinity--no negative $\sigma$ values for us! By the "half normal," we also mean to suggest that smaller values are more credible than those approaching infinity. When working with unstandardized data, an easy default for a weakly-regularizing half normal is to set the $\sigma$ hyperparameter (i.e., *S*) to the standard deviation of the criterion variable (i.e., $s_Y$). Here's that that looks like for this example.
 
 ```{r, fig.width = 6, fig.height = 3}
-tibble(x   = seq(from = 0, to = 110, by = .1)) %>% 
+tibble(x = seq(from = 0, to = 110, by = 0.1)) %>% 
   mutate(d = dnorm(x, mean = 0, sd = sd_y)) %>% 
   
   ggplot(aes(x = x, y = d)) +
@@ -190,7 +203,7 @@ tibble(x   = seq(from = 0, to = 110, by = .1)) %>%
   coord_cartesian(xlim = c(0, 100))
 ```
 
-This prior isn't quite as non-committal as the conventional gamma prior for precision. It discourages the HMC algorithm from exploring $\sigma$ values much larger than two or three times the standard deviation in the data themselves. In practice, I've found it to have a minimal influence on the posterior. If you'd like to make it even less committal, try setting that $\sigma$ hyperparameter to some multiple of $s_Y$ like $2 \times s_Y$ or $10 \times s_Y$. Compare this to Kruschke's recommendations for setting a noncommittal uniform prior for $\sigma$. When using the uniform distribution, $\operatorname{Uniform}(L, H)$,
+This prior isn't quite as non-committal as the conventional gamma prior for precision. However, it will discourage the HMC algorithm from exploring $\sigma$ values much larger than two or three times the standard deviation in the data themselves. In practice, I've found it to have a minimal influence on the posterior. If you'd like to make it even less committal, try setting that $\sigma$ hyperparameter to some multiple of $s_Y$ like $2 \times s_Y$ or $10 \times s_Y$. Compare this to Kruschke's recommendations for setting a noncommittal uniform prior for $\sigma$. When using the uniform distribution, $\operatorname{Uniform}(L, H)$,
 
 > we will set the high value $H$ of the uniform prior on $\sigma$ to a huge multiple of the standard deviation in the data, and set the low value $L$ to a tiny fraction of the standard deviation in the data. Again, this means that the prior is vague no matter what the scale of the data happens to be. (p. 455)
 
@@ -209,21 +222,21 @@ tibble(x = 0:(sd_y * 1000)) %>%
   coord_cartesian()
 ```
 
-That's really noncommittal. I'll stick with my half normal. You do you. Kruschke has this to say about the prior for the mean:
+That's really noncommittal. I'll stick with my half normal. You do you. Kruschke had this to say about the prior for the mean:
 
-> In this application we seek broad priors relative to typical data, so that the priors have minimal influence on the posterior. One way to discover the constants is by asking an expert in the domain being studied. But in lieu of that, we will use the data themselves to tell us what the typical scale of the data is. We will set $M$ to the mean of the data, and set $S$ to a huge multiple (e.g., 100) of the standard deviation of the data. This way, no matter what the scale of the data is, the prior will be vague. (p. 455)
+> In this application we seek broad priors relative to typical data, so that the priors have minimal influence on the posterior. One way to discover the constants is by asking an expert in the domain being studied. But in lieu of that, we will use the data themselves to tell us what the typical scale of the data is. We will set $M$ to the mean of the data, and set $S$ to a huge multiple (e.g., $100$) of the standard deviation of the data. This way, no matter what the scale of the data is, the prior will be vague. (p. 455)
 
 In case you're not following along closely in the text, we often use the normal distribution for the intercept and slope parameters in a simple regression model. By $M$ and $S$, Kruschke was referring to the $\mu$ and $\sigma$ parameters of the normal prior for our intercept. Here's what that prior looks like in this data example.
 
 ```{r, fig.width = 6, fig.height = 3}
-tibble(x = seq(from = -10000, to = 10000, by = 1)) %>% 
+tibble(x = seq(from = -10000, to = 10000, by = 10)) %>% 
   mutate(d = dnorm(x, mean = mean_y, sd = sd_y * 100)) %>% 
   
   ggplot(aes(x = x, y = d)) +
   geom_area(fill = bp[3]) +
   geom_vline(xintercept = mean_y, linetype = 2, color = bp[5]) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.05)), breaks = NULL) +
-  labs(subtitle = "The grey density in the background is the normal prior for mu.\nThe dashed vertical line is our 'mean_y' value.")
+  labs(subtitle = "The brown density in the background is the normal prior for mu.\nThe dashed vertical line is our 'mean_y' value.")
 ```
 
 Yep, Kruschke's right. That is one noncommittal prior given our data. We could tighten that up by an order of magnitude and still have little influence on the posterior. Now we've decided on our parameterization ($\sigma$, not $\tau$) and our priors (half-normal, not uniform or gamma), we are ready to make our version of the model diagram in Figure 16.2.
@@ -471,7 +484,7 @@ Before I show that plotting code, it might make sense to slow down on the prepar
 n_lines <- 63
 ```
 
-Now we've got our `n_lines` value, we'll use it to subset the rows in `draws` with the `slice()` function. We'll then use `expand()` to include a sequence of `Score` values to correspond to the formula implied in each of the remaining rows of `post`. Notice how we also kept the `.draw` index in the game. That will help us with the plot in a bit. But the main event is how we used `Score`, `b_Intercept`, and `sigma` as the input for the arguments in the `dnorm()`. The output is a column of the corresponding density values.
+Now we've got our `n_lines` value, we'll use it to subset the rows in `draws` with the `slice()` function. We'll then use `expand()` to include a sequence of `Score` values to correspond to the formula implied in each of the remaining rows of `draws`. Notice how we also kept the `.draw` index in the game. That will help us with the plot in a bit. But the main event is how we used `Score`, `b_Intercept`, and `sigma` as the input for the arguments in the `dnorm()`. The output is a column of the corresponding density values.
 
 ```{r}
 draws <-
@@ -506,21 +519,21 @@ Kruschke pointed out this last plot
 
 > constitutes a form of posterior-predictive check, by which we check whether the model appears to be a reasonable description of the data. With such a small amount of data, it is difficult to visually assess whether normality is badly violated, but there appears to be a hint that the normal model is straining to accommodate some outliers: The peak of the data protrudes prominently above the normal curves, and there are gaps under the shoulders of the normal curves. (p. 458)
 
-We can perform a similar posterior-predictive check with the `brms::pp_check()` function. By default, it will return 10 simulated density lines. Like we did above, we'll increase that by setting the `nsamples` argument to our `n_lines` value.
+We can perform a similar posterior-predictive check with the `brms::pp_check()` function. By default, it will return 10 simulated density lines. Like we did above, we'll increase that by setting the `ndraws` argument to our `n_lines` value.
 
 ```{r, fig.width = 4, fig.height = 2.25, warning = F, message = F}
 library(bayesplot)
 
 color_scheme_set(scheme = bp[c(3, 1, 2, 5, 4, 6)])
 
-pp_check(fit16.1, nsamples = n_lines)
+pp_check(fit16.1, ndraws = n_lines)
 ```
 
 In principle, we didn't need to load the **bayesplot** package to use the `brms::pp_check()` function. But doing so gave us access to the `bayesplot::color_scheme_set()`, which allowed us to apply the colors from our color palette to the plot.
 
 Before we move on, we should talk a little about effect sizes, which we all but glossed over in our code.
 
-> *Effect size* is simply the amount of change induced by the treatment relative to the standard deviation: $(\mu - 100) / \sigma$. In other words, the effect size is the "standardized" change... A conventionally "small" effect size in psychological research is 0.2 [@cohenStatisticalPowerAnalysis1988], and the ROPE limits are set at half that size for purposed of illustration. (p. 457, *emphasis* in the original).
+> *Effect size* is simply the amount of change induced by the treatment relative to the standard deviation: $(\mu - 100) / \sigma$. In other words, the effect size is the "standardized" change... A conventionally "small" effect size in psychological research is $0.2$ [@cohenStatisticalPowerAnalysis1988], and the ROPE limits are set at half that size for purposed of illustration. (p. 457, *emphasis* in the original).
 
 Another way to describe this kind of effect size is as a *standardized mean difference*. In addition to the seminal work by Cohen, you might brush up on effect sizes with Kelley and Preacher's [-@kelley2012effect] [*On effect size*](https://www3.nd.edu/~kkelley/publications/articles/Kelley_and_Preacher_Psychological_Methods_2012.pdf).
 
@@ -560,6 +573,10 @@ tibble(y = seq(from = -10, to = 20, length.out = 1e3)) %>%
   annotate(geom = "point",  
            x = c(-2:2, 15), y = 0.002,
            size = 2, color = bp[6]) +
+  annotate(geom = "text",
+           x = c(1, 4), y = c(0.2, 0.08),
+           label = c("italic(t)", "italic(N)"),
+           color = bp[1], parse = T) +
   scale_y_continuous(expression(p(y)), expand = expansion(mult = c(0, 0.05))) +
   ggtitle("Maximum Likelihood Estimates") +
   coord_cartesian(xlim = c(-5, 15))
@@ -584,6 +601,10 @@ tibble(y = seq(from = -3, to = 12, length.out = 1e3)) %>%
             color = bp[2]) +
   geom_line(aes(y = metRology::dt.scaled(y, df = 2.63, mean = 1.11, sd = 0.15)),
             color = bp[2]) +
+  annotate(geom = "text",
+           x = c(1.5, 1.9), y = c(1.5, 0.6),
+           label = c("italic(t)", "italic(N)"),
+           color = bp[1], parse = T) +
   scale_x_continuous(breaks = seq(from = -2, to = 10, by = 2)) +
   scale_y_continuous(expression(p(y)), expand = expansion(mult = c(0, 0.05))) +
   ggtitle("Maximum Likelihood Estimates") +
@@ -613,7 +634,7 @@ tibble(seed = 1:200) %>%
   coord_flip()
 ```
 
-> It is important to understand that the scale parameter $\sigma$ in the $t$ distribution is not the standard deviation of the distribution. (Recall that the standard deviation is the square root of the variance, which is the expected value of the squared deviation from the mean, as defined back in Equation 4.8, p. 86.) The standard deviation is actually larger than $\sigma$ because of the heavy tails... While this value of the scale parameter is not the standard deviation of the distribution, it does have an intuitive relation to the spread of the data. Just as the range $\pm \sigma$ covers the middle 68% of a *normal* distribution, the range $\pm \sigma$ covers the middle 58% of a $t$ distribution when $\nu = 2$, and the middle 50% when $\nu = 1$. These areas are illustrated in the left column of Figure 16.6. The right column of Figure 16.6 shows the width under the middle of a $t$ distribution that is needed to span 68.27% of the distribution, which is the area under a normal distribution for $\sigma = \pm 1$. (pp. 459--461, *emphasis* in the original)
+> It is important to understand that the scale parameter $\sigma$ in the $t$ distribution is not the standard deviation of the distribution. (Recall that the standard deviation is the square root of the variance, which is the expected value of the squared deviation from the mean, as defined back in Equation 4.8, p. 86.) The standard deviation is actually larger than $\sigma$ because of the heavy tails... While this value of the scale parameter is not the standard deviation of the distribution, it does have an intuitive relation to the spread of the data. Just as the range $\pm \sigma$ covers the middle $68\%$ of a *normal* distribution, the range $\pm \sigma$ covers the middle $58\%$ of a $t$ distribution when $\nu = 2$, and the middle $50\%$ when $\nu = 1$. These areas are illustrated in the left column of Figure 16.6. The right column of Figure 16.6 shows the width under the middle of a $t$ distribution that is needed to span $68.27\%$ of the distribution, which is the area under a normal distribution for $\sigma = \pm 1$. (pp. 459--461, *emphasis* in the original)
 
 Speaking of which, here's the code for the left column for Figure 16.6.
 
@@ -698,7 +719,7 @@ p1 + p2
 
 ### Using the $t$ distribution in ~~JAGS~~ brms.
 
-It's easy to use Student's $t$ in **brms**. Make sure to specify `family = student`. By default, **brms** already sets the lower bound for $\nu$ to 1. But we do still need to use 1/29. To get a sense, let's simulate exponential data using the `rexp()` function. Like Kruschke covered in the text (p. 462), the `rexp()` function has one parameter, `rate`, which is the reciprocal of the mean. Here we'll set the mean to 29.
+It's easy to use Student's $t$ in **brms**. Just make sure to set `family = student`. By default, **brms** already sets the lower bound for $\nu$ to 1. But we do still need to use 1/29. To get a sense, let's simulate exponential data using the `rexp()` function. Like Kruschke covered in the text (p. 462), the `rexp()` function has one parameter, `rate`, which is the reciprocal of the mean. Here we'll set the mean to 29.
 
 ```{r, message = F}
 n_draws <- 1e7
@@ -713,7 +734,7 @@ tibble(y = rexp(n = n_draws, rate = 1 / mu)) %>%
   summarise(mean = mean(value, na.rm = T))
 ```
 
-The simulation showed that when we define the exponential rate as 1/29 and use the typical boundary at 0, the mean of our samples converges to 29. But when we only consider the samples of 1 or greater, the mean converges to 30. Thus, our exponential(1/29) prior with a boundary at 1 is how we get a shifted exponential distribution when we use it as our prior for $\nu$ in **brms**. Just make sure to remember that if you want the mean to be 30, you'll need to specify the rate of 1/29.
+The simulation showed that when we define the exponential rate as 1/29 and use the typical boundary at 0, the mean of our samples converges to 29. But when we only consider the samples of 1 or greater, the mean converges to 30. Thus, our $\operatorname{Exponential}(1/29)$ prior with a boundary at 1 is how we get a shifted exponential distribution when we use it as our prior for $\nu$ in **brms**. Just make sure to remember that if you want the mean to be 30, you'll need to specify the rate of 1/29.
 
 Also, Stan will bark if you simply try to set that exponential prior with the code `prior(exponential(1/29), class = nu)`:
 
@@ -765,7 +786,7 @@ p1 <-
   geom_histogram(fill = bp[2],
                  size = .2, binwidth = 5, boundary = 1) +
   stat_pointinterval(aes(y = 0), 
-                     point_interval = mode_hdi, .width = .5, color = bp[6]) +
+                     point_interval = mode_hdi, .width = .95, color = bp[6]) +
   scale_y_continuous(NULL, breaks = NULL) +
   labs(title = expression(exponential(lambda==29)~shifted~+1),
        x = expression(nu)) +
@@ -778,7 +799,7 @@ p2 <-
   geom_histogram(fill = bp[2],
                  size = .2, binwidth = .1, boundary = 0) +
   stat_pointinterval(aes(y = 0), 
-                     point_interval = mode_hdi, .width = .5, color = bp[6]) +
+                     point_interval = mode_hdi, .width = .95, color = bp[6]) +
   scale_y_continuous(NULL, breaks = NULL) +
   xlab(expression(log10(nu))) +
   coord_cartesian(xlim = c(0, 2.5))
@@ -801,14 +822,15 @@ draws <- as_draws_df(fit16.2)
 
 draws %>% 
   mutate(`log10(nu)` = log10(nu)) %>% 
-  select(b_Intercept, sigma, `log10(nu)`) %>% 
+  rename(mu = b_Intercept) %>% 
+  select(mu, sigma, `log10(nu)`) %>% 
   pivot_longer(-`log10(nu)`) %>% 
 
   ggplot(aes(x = `log10(nu)`, y = value)) +
   geom_point(color = bp[6], size = 1/3, alpha = 1/3) +
   labs(x = expression(log10(nu)),
        y = NULL) +
-  facet_grid(name ~ ., scales = "free", switch = "y")
+  facet_grid(name ~ ., scales = "free", switch = "y", labeller = label_parsed)
 ```
 
 If you want the Pearson's correlation coefficients, you can use base **R** `cor()`.
@@ -925,7 +947,8 @@ bind_rows(as_draws_df(fit16.1) %>% select(b_Intercept),
   stat_interval(point_interval = mode_hdi, .width = c(.5, .8, .95)) +
   scale_color_manual("HDI", values = c(bp[c(4, 3, 1)]),
                      labels = c("95%", "80%", "50%")) +
-  ylab(NULL) +
+  labs(x = expression(mu),
+       y = NULL) +
   theme(legend.key.size = unit(0.45, "cm"))
 ```
 
@@ -1007,7 +1030,7 @@ p2 <-
 p1 + p2
 ```
 
-It's subtle, but you might notice that the simulated CDFs from `fit16.1` have steeper slopes in the middle when compared to the original data in the dark blue. However, the `fit16.2`-based simulated CDFs match up more closely with the original data. This suggests an edge for `fit16.2`. Revisiting our skills from [Chapter 10][Model Comparison and Hierarchical Modeling], we might also compare their model weights.
+It's subtle, but you might notice that the simulated CDFs from `fit16.1` have shallower slopes in the middle when compared to the original data in the pink. However, the `fit16.2`-based simulated CDFs match up more closely with the original data. This suggests an edge for `fit16.2`. Revisiting our skills from [Chapter 10][Model Comparison and Hierarchical Modeling], we might also compare their model weights.
 
 ```{r, warning = F, message = F}
 model_weights(fit16.1, fit16.2) %>% 
@@ -1176,7 +1199,7 @@ stanvars <-
 ```
 
 Within the **brms** framework, Bürkner calls it distributional modeling when you model more than the mean. Since we're now modeling both $\mu$ and $\sigma$, we're fitting a distributional model. When doing so with **brms**, you typically wrap your `formula` syntax into the `bf()` function. It's also important to know that when modeling $\sigma$, **brms** defaults to modeling its log. So we'll use `log(sd_y)` in its prior. For more on all this, see Bürkner's [-@Bürkner2022Distributional] vignette, [*Estimating distributional models with brms*](https://cran.r-project.org/web/packages/brms/vignettes/brms_distreg.html).
-f
+
 ```{r fit16.3}
 fit16.3 <-
   brm(data = my_data,
@@ -1200,7 +1223,7 @@ Let's look at the model summary.
 print(fit16.3)
 ```
 
-Remember that the $\sigma$s are now in the log scale. If you want a quick conversion, you might just exponentiate the point estimates from `fixef()`.
+Remember that the $\sigma$'s are now in the log scale. If you want a quick conversion, you might just exponentiate the point estimates from `fixef()`.
 
 ```{r}
 fixef(fit16.3)[3:4, 1] %>% exp()
@@ -1270,7 +1293,7 @@ draws %>%
 
 Now let's make the upper two panels in the right column of Figure 16.12.
 
-You might note a few things in our wrangling code. First, in the `mutate()` function, we defined the density values for the two `Group` conditions one at a time. If you look carefully within those definitions, you’ll see we used `10^Normality` for the `df` argument, rather than just `Normality`. *Why?* Remember how a few code blocks up we transformed the original `nu` column to `Normality` by placing it within `log10()`? Well, if you want to undo that, you have to take 10 to the power of `Normality`. Next, notice that we subset the `post` tibble with `select()`. This wasn't technically necessary, but it made the next line easier. Finally, with the `gather()` function, we transformed the `Placebo` and `Smart Drug` columns into an index column strategically named `Group`, which matched up with the original `my_data` data, and a `density` column, which contained the actual density values for the lines.
+You might note a few things in our wrangling code. First, in the `mutate()` function, we defined the density values for the two `Group` conditions one at a time. If you look carefully within those definitions, you’ll see we used `10^Normality` for the `df` argument, rather than just `Normality`. *Why?* Remember how a few code blocks up we transformed the original `nu` column to `Normality` by placing it within `log10()`? Well, if you want to undo that, you have to take 10 to the power of `Normality`. Next, notice that we subset the `draws` tibble with `select()`. This wasn't technically necessary, but it made the next line easier. Finally, with the `pivot_longer()` function, we transformed the `Placebo` and `Smart Drug` columns into an index column strategically named `Group`, which matched up with the original `my_data` data, and a `density` column, which contained the actual density values for the lines.
 
 I know. That's a lot to take in. If you're confused, run the lines in the code one at a time to see how they work. But anyway, here's the final result!
 
@@ -1379,7 +1402,7 @@ Execute `str(h)` for more insights. Back to the text:
 >
 > The $t$ test has other problems. Unlike the Bayesian analysis, the $t$ test provides only a test of the equality of means, without a test of the equality of variances. To test equality of variances, we need to run an additional test, namely an $F$ test of the ratio of variances, which would inflate the $p$ values of both tests. Moreover, both tests compute $p$ values based on hypothetical normally distributed data, and the $F$ test is particularly sensitive to violations of this assumption. Therefore it would be better to use resampling methods to compute the $p$ values (and correcting them for multiple tests). (pp. 471--472)
 
-Don't do all that. Use robust Bayes, instead. Just for kicks, we can compare the $\sigma$s with `hypothesis()`, too.
+Don't do all that. Use robust Bayes, instead. Just for kicks, we can compare the $\sigma$'s with `hypothesis()`, too.
 
 ```{r}
 hypothesis(fit16.3, "exp(sigma_GroupPlacebo) - exp(sigma_GroupSmartDrug) = 0")
@@ -1393,7 +1416,7 @@ It's worth repeating a portion of this section.
 
 > If the initially assumed noise distribution does not match the data distribution, there are two ways to pursue a better description. The preferred way is to use a better noise distribution. The other way is to transform the data to a new scale so that they tolerably match the shape of the assumed noise distribution. In other words, we can either change the shoe to fit the foot, or we can squeeze the foot to fit in the shoe. Changing the shoe is preferable to squeezing the foot. In traditional statistical software, users were stuck with the pre-packaged noise distribution, and had no way to change it, so they transformed their data and squeezed them into the software. This practice can lead to confusion in interpreting the parameters because they are describing the transformed data, not the data on the original scale. In software such as [**brms**, we can spend less time squeezing our feet into ill-fitting shoes]. (p. 472)
 
-We'll have more practice with the robust Student's $t$ in some of the following chapters. But if you'd like even more, you might check out my blog post on the topic, [*Robust Linear Regression with Student's $t$-Distribution*](https://solomonkurz.netlify.com/post/robust-linear-regression-with-the-robust-student-s-t-distribution/), and the companion post, [*Bayesian robust correlations with brms (and why you should love Student's $t$)*](https://solomonkurz.netlify.com/post/bayesian-robust-correlations-with-brms-and-why-you-should-love-student-s-t/).
+We'll have more practice with the robust Student's $t$ in some of the following chapters. But if you'd like even more, you might check out my blog post on the topic, [*Robust linear regression with Student's $t$-distribution*](https://solomonkurz.netlify.app/post/2019-02-02-robust-linear-regression-with-student-s-t-distribution/), and the companion post, [*Bayesian robust correlations with brms (and why you should love Student's $t$)*](https://solomonkurz.netlify.app/post/2019-02-10-bayesian-robust-correlations-with-brms-and-why-you-should-love-student-s-t).
 
 ## Session info {-}
 
