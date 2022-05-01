@@ -11,7 +11,7 @@ options(width = 100)
 
 ## Simple linear regression
 
-It wasn't entirely clear how Kruschke simulated the bimodal data on the right panel of Figure 17.1. I figured an even split of two Gaussians would suffice and just sighted their $\mu$s and $\sigma$s.
+It wasn't entirely clear how Kruschke simulated the bimodal data on the right panel of Figure 17.1. I figured an even split of two Gaussians would suffice and just sighted their $\mu$'s and $\sigma$'s.
 
 ```{r, message = F, warning = F}
 library(tidyverse)
@@ -33,8 +33,8 @@ head(d)
 In case you missed it, Kruschke defied the formula for these data in Figure 17.1. It is
 
 \begin{align*}
-y_i & \sim \operatorname{Normal}(\mu, \sigma = 2), \text{where} \\
-\mu & = 10 + 2 x_i.
+y_i & \sim \operatorname{Normal}(\mu_i, \sigma = 2), \text{where} \\
+\mu_i & = 10 + 2 x_i.
 \end{align*}
 
 "Note that the model only specifies the dependency of $y$ on $x$. The model does not say anything about what generates $x$, and there is no probability distribution assumed for describing $x$" (p. 479). Let this sink into your soul. It took a long time, for me. E.g., a lot of people fret over the distributions of their $x$ variables. Now one might should examine them to make sure nothing looks off, such as for data coding mistakes. But if they're not perfectly or even approximately Gaussian, that isn't necessarily an issue. The typical linear model makes no presumption about the distribution of the predictors. Often times, the largest issue is whether the $x$ variables are categorical or continuous.
@@ -384,7 +384,16 @@ d <-
 head(d)
 ```
 
-> Fortunately, we do not have to worry much about analytical derivations because we can let JAGS or Stan generate a high resolution picture of the posterior distribution. Our job, therefore, is to specify sensible priors and to make sure that the MCMC process generates a trustworthy posterior sample that is converged and well mixed. (p. 483)
+Note how we set the seed for the the pseudorandom number generator with the `rndsd` argument, which makes the results in this ebook reproducible. But since we do not know what seed value  Kruschke used to simulate the data in this section of the test, the results of our models in the next section will differ a little from those in the text. However, if you want to more closely reproduce Kruschke's examples, load the `HtWtData30.csv` and `HtWtData300.csv` data files and fit the models to those, instead.
+
+```{r, eval = F, echo = F}
+Data30 <- read_csv("data.R/HtWtData30.csv")
+Data300 <- read_csv("data.R/HtWtData300.csv")
+```
+
+Anyway,
+
+> fortunately, we do not have to worry much about analytical derivations because we can let JAGS or Stan generate a high resolution picture of the posterior distribution. Our job, therefore, is to specify sensible priors and to make sure that the MCMC process generates a trustworthy posterior sample that is converged and well mixed. (p. 483)
 
 ### Robust linear regression in ~~JAGS~~ brms.
 
@@ -407,6 +416,12 @@ Like we discussed in Chapter 16, we won't be using the uniform prior for $\sigma
 Also, look at how we just pumped the definition of our sole `stanvar(1/29, name = "one_over_twentynine")` operation right into the `stanvar` argument. If we were defining multiple values this way, I'd prefer to save this as an object first and then just pump that object into `stanvars`. But in this case, it was simple enough to just throw directly into the `brm()` function.
 
 #### Standardizing the data for MCMC sampling.
+
+"Standardizing simply means re-scaling the data relative to their mean and standard deviation" (p. 485). For any variable $x$, that follows the formula
+
+$$z_i = \frac{x_i - \bar x}{s},$$
+
+where $x_i$ is the $i$th row in the vector of $x$ values, $\bar x$ is the sample mean for $x$, $s$ is the sample standard deviation for $x$, and the product of the standardizing procedure is $z_i$ (i.e., the $z$-score).
 
 Kruschke mentioned how standardizing your data before feeding it into JAGS often helps the algorithm operate smoothly. The same basic principle holds for **brms** and Stan. Stan can often handle unstandardized data just fine. But if you ever run into estimation difficulties, consider standardizing your data and trying again.
 
@@ -463,6 +478,43 @@ fit17.2 <-
          chains = 4, cores = 4,
          seed = 17,
          file = "fits/fit17.02")
+```
+
+```{r, eval = F, echo = F}
+Data30 <- read_csv("data.R/HtWtData30.csv")
+Data300 <- read_csv("data.R/HtWtData300.csv")
+
+Data30 <- Data30 %>% 
+  mutate(height_z = standardize(height),
+         weight_z = standardize(weight))
+
+Data300 <- Data300 %>% 
+  mutate(height_z = standardize(height),
+         weight_z = standardize(weight))
+
+fit17.1b <-
+  brm(data = Data300,
+      family = student,
+      weight_z ~ 1 + height_z,
+      prior = c(prior(normal(0, 10), class = Intercept),
+                prior(normal(0, 10), class = b),
+                prior(normal(0, 1), class = sigma),
+                prior(exponential(one_over_twentynine), class = nu)),
+      chains = 4, cores = 4,
+      stanvars = stanvar(1/29, name = "one_over_twentynine"),
+      seed = 17)
+
+fit17.2b <-
+  update(fit17.1b,
+         newdata = Data30,
+         chains = 4, cores = 4,
+         seed = 17)
+
+print(fit17.1)
+print(fit17.1b)
+
+print(fit17.2)
+print(fit17.2b)
 ```
 
 Here are the results.
@@ -823,9 +875,9 @@ p1 / p2 + plot_layout(guide = "collect")
 
 Halfway through the prose, Kruschke mentioned how the models provide entire posteriors for the `weight` of a 50-inch-tall person. **brms** offers a few ways to do so.
 
-> In some applications, there is interest in extrapolating or interpolating trends at $x$ values sparsely represented in the current data. For instance, we might want to predict the weight of a person who is 50 inches tall. A feature of Bayesian analysis is that we get an entire distribution of credible predicted values, not only a point estimate. (p. 489)
+> In some applications, there is interest in extrapolating or interpolating trends at $x$ values sparsely represented in the current data. For instance, we might want to predict the weight of a person who is $50$ inches tall. A feature of Bayesian analysis is that we get an entire distribution of credible predicted values, not only a point estimate. (p. 489)
 
-Since this is such a simple model, one way is to work directly with the posterior draws Here we use the model formula $y_i = \beta_0 + \beta_1 x_i$ by adding the transformed intercept `b_0` to the product of $50$ and the transformed coefficient for `height`, `b_1`.
+Since this is such a simple model, one way is to work directly with the posterior draws Here we use the model formula $y_i = \beta_0 + \beta_1 x_i$ by adding the transformed intercept `b_0` to the product of 50 and the transformed coefficient for `height`, `b_1`.
 
 ```{r, fig.width = 3.5, fig.height = 2.5}
 draws %>% 
@@ -839,7 +891,7 @@ draws %>%
   xlab("lbs")
 ```
 
-Looks pretty wide, doesn’t it? Hopefully this isn't a surprise. Recall that this `post` is from `fit17.2`, the posterior based on the $n = 30$ data. With so few cases, most predictions from that model are uncertain. But also, 50 inches is way out of the bounds of the data the model was based on, so we should be uncertain in this range.
+Looks pretty wide, doesn't it? Hopefully this isn't a surprise. Recall that this `draws` is from `fit17.2`, the posterior based on the $n = 30$ data. With so few cases, most predictions from that model are uncertain. But also, 50 inches is way out of the bounds of the data the model was based on, so we should be uncertain in this range.
 
 Let's practice a second method. With the `brms::fitted()` function, we can specify the desired `height` value into a tibble, which we'll then feed into the `newdata` argument. Fitted will then return the model-implied criterion value for that predictor variable. To warm up, we'll first to it with `fit17.3`, the model based on the untransformed data.
 
@@ -1172,7 +1224,7 @@ my_data <-
          y_z = standardize(Y))
 ```
 
-In my experience, you typically use the `(|)` syntax when fitting a hierarchical model with the`brm()` function. The terms before the `|` are those varying by group and you tell `brm()` what the grouping variable is after the `|`. In the case of multiple group-level parameters--which is the case with this model (i.e., both intercept and the `x_z` slope--, this syntax also estimates correlations among the group-level parameters. Kruschke's model doesn't appear to include such a correlation. Happily, we can use the `(||)` syntax instead, which omits correlations among the group-level parameters. If you're curious about the distinction, fit the model both ways and explore the differences in the `print()` output. For more on the topic, see the *Group-level terms* subsection of the `brmsformula` section of the [**brms** reference manual](https://CRAN.R-project.org/package=brms/brms.pdf) [@brms2022RM].
+In my experience, you typically use the `(|)` syntax when fitting a hierarchical model with the`brm()` function. The terms before the `|` are those varying by group and you tell `brm()` what the grouping variable is after the `|`. In the case of multiple group-level parameters--which is the case with this model (i.e., both intercept and the `x_z` slope)--, this syntax also estimates correlations among the group-level parameters. Kruschke's model doesn't appear to include such a correlation. Happily, we can use the `(||)` syntax instead, which omits correlations among the group-level parameters. If you're curious about the distinction, fit the model both ways and explore the differences in the `print()` output. For more on the topic, see the *Group-level terms* subsection of the `brmsformula` section of the [**brms** reference manual](https://CRAN.R-project.org/package=brms/brms.pdf) [@brms2022RM].
 
 ```{r fit17.4}
 fit17.4 <-
@@ -1440,7 +1492,7 @@ my_data <-
 glimpse(my_data)
 ```
 
-With **brms**, there are a couple ways to handle measurement error on a variable (e.g., see [Chapter 14](https://bookdown.org/content/3890/missing-data-and-other-opportunities.html) of my ebook, [*Statistical rethinking with brms, ggplot2, and the tidyverse*](https://bookdown.org/content/3890/) [@kurzStatisticalRethinkingBrms2020]. Here we'll use the `se()` syntax, following the form `response | se(se_response, sigma = TRUE)`. In this form, `se` stands for standard error, the loose frequentist analogue to the Bayesian posterior $SD$. Unless you're fitting a meta-analysis on summary information, make sure to specify `sigma = TRUE`. Without that you'll have no estimate for $\sigma$! For more information on the `se()` method, go to the [**brms** reference manual](https://CRAN.R-project.org/package=brms/brms.pdf) and find the *Additional response information* subsection of the `brmsformula` section [@brms2022RM, p. 42].
+With **brms**, there are a couple ways to handle measurement error on a variable (e.g., see [Chapter 14](https://bookdown.org/content/3890/missing-data-and-other-opportunities.html) of my ebook, [*Statistical rethinking with brms, ggplot2, and the tidyverse*](https://bookdown.org/content/3890/) [@kurzStatisticalRethinkingBrms2020]. Here we'll use the `se()` syntax, following the form `response | se(se_response, sigma = TRUE)`. In this form, `se` stands for standard error, the loose frequentist analogue to the Bayesian posterior $\textit{SD}$. Unless you're fitting a meta-analysis on summary information, make sure to specify `sigma = TRUE`. Without that you'll have no estimate for $\sigma$! For more information on the `se()` method, go to the [**brms** reference manual](https://CRAN.R-project.org/package=brms/brms.pdf) and find the *Additional response information* subsection of the `brmsformula` section [@brms2022RM, p. 42].
 
 ```{r fit17.5, warning = F}
 fit17.5 <-
