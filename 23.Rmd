@@ -7,7 +7,7 @@ options(width = 110)
 
 # Ordinal Predicted Variable
 
-> This chapter considers data that have an ordinal predicted variable. For example, we might want to predict people's happiness ratings on a 1-to-7 scale as a function of their total financial assets. Or we might want to predict ratings of movies as a function of the year they were made.
+> This chapter considers data that have an ordinal predicted variable. For example, we might want to predict people's happiness ratings on a $1$-to-$7$ scale as a function of their total financial assets. Or we might want to predict ratings of movies as a function of the year they were made.
 >
 > One traditional treatment of this sort of data structure is called *ordinal or ordered probit regression*. We will consider a Bayesian approach to this model. As usual, in Bayesian software, it is easy to generalize the traditional model so it is robust to outliers, allows different variances within levels of a nominal predictor, or has hierarchical structure to share information across levels or factors as appropriate.
 >
@@ -18,7 +18,7 @@ We might follow Kruschke's advice and rewind a little before tackling this chapt
 ```{r, warning = F, message = F}
 library(tidyverse)
 
-d <-
+d <- 
   tibble(z = seq(from = -3, to = 3, by = .1)) %>% 
   # add the density values
   mutate(`p(z)`   = dnorm(z, mean = 0, sd = 1),
@@ -70,7 +70,7 @@ p2 <-
             show.legend = F) +
   geom_line(size = 1, color = sl[3]) +
   scale_fill_manual(values = c("transparent", sl[2])) +
-  scale_y_continuous(expand = expansion(mult = c(0, 0))) + 
+  scale_y_continuous(expand = expansion(mult = c(0, 0)), limits = 0:1) + 
   labs(title = "Cumulative Normal",
        y = expression(Phi(italic(z))))
 
@@ -88,7 +88,7 @@ The inverse of $\Phi(x)$ is the *probit* function. As indicated in the above blo
 
 ## Modeling ordinal data with an underlying metric variable
 
-> You can imagine that the distribution of ordinal values might not resemble a normal distribution, even though the underlying metric values are normally distributed. Figure 23.1 shows some examples of ordinal outcome probabilities generated from an underlying normal distribution. The horizontal axis is the underlying continuous metric value. Thresholds are plotted as vertical dashed lines, labeled $\theta$. In all examples, the ordinal scale has 7 levels, and hence, there are 6 thresholds. The lowest threshold is set at $\theta_1 = 1.5$ (to separate outcomes 1 and 2), and the highest threshold is set at $\theta_1 = 6.5$ (to separate outcomes 6 and 7). The normal curve in each panel shows the distribution of underlying continuous values. What differs across panels are the settings of means, standard deviations, and remaining thresholds. (p. 672)
+> You can imagine that the distribution of ordinal values might not resemble a normal distribution, even though the underlying metric values are normally distributed. Figure 23.1 shows some examples of ordinal outcome probabilities generated from an underlying normal distribution. The horizontal axis is the underlying continuous metric value. Thresholds are plotted as vertical dashed lines, labeled $\theta$. In all examples, the ordinal scale has $7$ levels, and hence, there are $6$ thresholds. The lowest threshold is set at $\theta_1 = 1.5$ (to separate outcomes $1$ and $2$), and the highest threshold is set at $\theta_1 = 6.5$ (to separate outcomes $6$ and $7$). The normal curve in each panel shows the distribution of underlying continuous values. What differs across panels are the settings of means, standard deviations, and remaining thresholds. (p. 672)
 
 The various Figure 23.1 subplots require a lot of ins and outs. We'll start with the top panel and build from there. Here is how we might make the values necessary for the density curve.
 
@@ -161,12 +161,12 @@ bar %>%
   geom_text(aes(y = percent + 2, label = percent_label),
             size = 3.5) +
   annotate(geom = "text", 
-           x = theta_1, y = -6.5, label = theta_1, 
+           x = theta_1, y = -5.55, label = theta_1, 
            size = 3) +
   scale_x_continuous(NULL, expand = c(0, 0),
                      breaks = theta_1,
                      labels = parse(text = str_c("theta[", 1:6, "]"))) +
-  scale_y_continuous(NULL, breaks = NULL, expand = expansion(mult = c(0, 0.05))) +
+  scale_y_continuous(NULL, breaks = NULL, expand = expansion(mult = c(0, 0.06))) +
   coord_cartesian(ylim = c(0, 28.5), clip = F) +
   theme(plot.margin = margin(5.5, 5.5, 11, 5.5)) +
   facet_wrap(~ strip, labeller = label_parsed)
@@ -544,7 +544,7 @@ z_1 \sigma + \mu & = y_1, \;\; \text{therefore}  \\
 \mu & = y_1 - z_1 \sigma
 \end{align*}
 
-Big shout out to my math-stats savvy friends academic twitter for the formulas, especially [Ph.Demetri](https://twitter.com/PhDemetri), [Lukas Neugebauer](https://twitter.com/lukasneugebau), and [Brenton Wiernik](https://twitter.com/bmwiernik) for walking the formulas out (see [this twitter thread](https://twitter.com/SolomonKurz/status/1219649489016958976)). For our application, `Intercept[1]` and `Intercept[6]` will be our two $z$-scores and Kruschke's 1.5 and 6.5 will be their corresponding $y$-values.
+Big shout out to my math-stats savvy friends academic twitter for the formulas, especially [Ph.Demetri](https://twitter.com/PhDemetri), [Lukas Neugebauer](https://twitter.com/lukasneugebau), and [Brenton Wiernik](https://twitter.com/bmwiernik) for walking out the formulas (see [this twitter thread](https://twitter.com/SolomonKurz/status/1219649489016958976)). For our application, `Intercept[1]` and `Intercept[6]` will be our two $z$-scores and Kruschke's 1.5 and 6.5 will be their corresponding $y$-values.
 
 ```{r, fig.width = 8, fig.height = 2.25, message = F, warning = F}
 library(tidybayes)
@@ -627,7 +627,7 @@ as_draws_df(fit23.1) %>%
 # fitted(fit23.1)
 ```
 
-Kruschke didn't do this in the text, but it might be informative to plot the probability distributions for the seven categories from `Y` (i.e., $p(y = k | \mu = 0, \sigma = 1, \{ \theta_i \})$).
+Kruschke didn't do this in the text, but it might be informative to plot the probability distributions for the seven categories from `Y`, $p(y = k | \mu = 0, \sigma = 1, \{ \theta_i \})$.
 
 ```{r, fig.width = 6, fig.height = 2.25, warning = F, message = F}
 library(tidybayes)
@@ -977,7 +977,7 @@ p2 <-
 
 Just for fun,
 
-> rate how much you agree with the statement, "Bayesian estimation is more informative than null-hypothesis significance testing," by selecting one option from the following: 1 = strongly disagree; 2 = disagree; 3 = undecided; 4 = agree; 5 = strongly agree. This sort of ordinal response interface is often called a Likert-type response [@likertTechniqueMeasurementAttitudes1932], pronounced LICK-ert not LIKE-ert). Sometimes, it is called a Likert "scale" but the term "scale" in this context is more properly reserved for referring to an underlying metric variable that is indicated by the arithmetic mean of several meaningfully related Likert-type responses [e.g., @carifio2007ten; @carifioResolving50yearDebate2008; @normanLikertScalesLevels2010]. (p. 681)
+> rate how much you agree with the statement, "Bayesian estimation is more informative than null-hypothesis significance testing," by selecting one option from the following: $1$ = strongly disagree; $2$ = disagree; $3$ = undecided; $4$ = agree; $5$ = strongly agree. This sort of ordinal response interface is often called a Likert-type response [@likertTechniqueMeasurementAttitudes1932], pronounced LICK-ert not LIKE-ert). Sometimes, it is called a Likert "scale" but the term "scale" in this context is more properly reserved for referring to an underlying metric variable that is indicated by the arithmetic mean of several meaningfully related Likert-type responses [e.g., @carifio2007ten; @carifioResolving50yearDebate2008; @normanLikertScalesLevels2010]. (p. 681)
 
 Kruschke then briefly introduced how one might combine several such meaningfully-related Likert-type responses with latent variable methods. He then clarified this text will not explore that approach, further. The current version of **brms** (i.e., [2.12.0](https://CRAN.R-project.org/package=brms/news/news.html)) has very limited latent variable capacities. However, they are in the works. Interested modelers can follow Bürkner's progress in [GitHub issue #304](https://github.com/paul-buerkner/brms/issues/304). He also has a [-@burknerBayesianItemResponse2020] [paper](https://arxiv.org/pdf/1905.09501.pdf) on how one might use **brms** to fit item response theory models, which can be viewed as a special family of latent variable models. One can also fit Bayesian latent variable models with the [**blavaan** package](https://faculty.missouri.edu/~merklee/blavaan/).
 
@@ -1131,7 +1131,7 @@ tibble(X     = LETTERS[1:2],
   mutate(d = dnorm(y, mu, sigma)) %>% 
   
   ggplot(aes(x = y, y = d, fill = X)) +
-  geom_area(alpha = 2/3) +
+  geom_area(alpha = 2/3, position = "identity") +
   geom_vline(xintercept = fixef(fit23.5)[1:4, 1], linetype = 3, color = sl[9]) +
   scale_fill_scico_d(palette = "lajolla", begin = .33, end = .67) +
   scale_x_continuous(sec.axis = dup_axis(breaks = fixef(fit23.5)[1:4, 1] %>% as.double(),
@@ -1263,7 +1263,7 @@ Check the summary.
 print(fit23.6)
 ```
 
-Here are the marginal posteriors, including the effect size (i.e., a standardized mean difference using the pooled standard deviation formula presuming equal sample sizes, $(\mu_2 - \mu_1) / \sqrt{(\sigma_1^2 + \sigma_2^2) / 2}$).
+Here are the marginal posteriors, including the effect size (i.e., a standardized mean difference using the pooled standard deviation formula presuming equal sample sizes, $(\mu_2 - \mu_1) / \sqrt{(\sigma_1^2 + \sigma_2^2) / 2}$.
 
 ```{r, fig.width = 6, fig.height = 7, warning = F}
 as_draws_df(fit23.6) %>% 
@@ -1287,7 +1287,7 @@ as_draws_df(fit23.6) %>%
 
 Compare those results to those Kruschke reported from an NHST analysis in the note below Figure 23.4:
 
-> $M_1 = 1.43, M_2 = 1.86, t = 2.18, p = 0.032$, with effect size $d = 0.466$ with 95% CI of $0.036-0.895$. An $F$ test of the variances concludes that the standard deviations are significantly different: $S_1 = 0.76, S_2 = 1.07, p = 0.027$. Notice in this case that treating the values as metric greatly underestimates their variances, as well as erroneously concludes the variances are different. (p. 684)
+> $M_1 = 1.43, M_2 = 1.86, t = 2.18, p = 0.032$, with effect size $d = 0.466$ with $95\%$ CI of $0.036-0.895$. An $F$ test of the variances concludes that the standard deviations are significantly different: $S_1 = 0.76, S_2 = 1.07, p = 0.027$. Notice in this case that treating the values as metric greatly underestimates their variances, as well as erroneously concludes the variances are different. (p. 684)
 
 As to the data in the analyses Kruschke reported in Figure 23.5 and the prose in the second paragraph on page 685, I'm not aware that Kruschke provided them. From his footnote #2, we read: "Data in Figure 23.5 are from an as-yet unpublished study I conducted with the collaboration of Allison Vollmer as part of her undergraduate honors project." In place of the real data, I eyeballed the values based on the upper-right panels in Figure 23.5. Here they are.
 
@@ -1543,7 +1543,7 @@ set.seed(23)
 conditional_effects(fit23.9, categorical = T)
 ```
 
-Recall that our thresholds, $\theta_1,...,\theta_{K-1}$, in conjunction with the standard normal density, give us the probability of a given `Y` value, given `X_s` (i.e., $p(y = k | \mu, \sigma, \{ \theta_j \})$, where $\mu$ is conditional on $x$). This plot returned the fitted lines of those conditional probabilities, each depicted by the posterior mean and percentile-based 95% intervals. At lower values of `X_s`, lower values of `Y` are more probable. At higher values of `X_s`, higher values of `Y` are more probable.
+Recall that our thresholds, $\theta_1,...,\theta_{K-1}$, in conjunction with the standard normal density, give us the probability of a given `Y` value, given `X_s`. That is, $p(y = k | \mu, \sigma, \{ \theta_j \})$, where $\mu$ is conditional on $x$. This plot returned the fitted lines of those conditional probabilities, each depicted by the posterior mean and percentile-based 95% intervals. At lower values of `X_s`, lower values of `Y` are more probable. At higher values of `X_s`, higher values of `Y` are more probable.
 
 It might be useful to get more practice in with this model. Here we'll use `fitted()` to make a similar plot, depicting the model with may fitted lines instead of summary statistics.
 
@@ -2477,6 +2477,8 @@ cbind(
 In this section, Kruschke mentioned extensions of this class of models might include using the cumulative $t$ function to handle outliers or adding a guessing parameter. Full disclosure: I have not fit models like these. Based on my knowledge of **brms**, I suspect they're possible. For insights how, you might review Bürkner's [-@Bürkner2022Define] [*Define custom response distributions with brms*](https://cran.r-project.org/web/packages/brms/vignettes/brms_customfamilies.html) and his [-@Bürkner2022Non_linear] [*Estimating non-linear models with brms*](https://cran.r-project.org/web/packages/brms/vignettes/brms_nonlinear.html) vignettes.
 
 In addition, there are other likelihoods one might use to model ordinal data using **brms**. Your first stop should be Bürkner and Vourre's [-@burknerOrdinalRegressionModels2019] [*Ordinal regression models in psychology: A Tutorial*](https://psyarxiv.com/x8swp/), where, in addition to the cumulative normal model, they cover the sequential and adjacent category models. You might also check out [Chapter 11](https://bookdown.org/content/3890/monsters-and-mixtures.html) of my [-@kurzStatisticalRethinkingBrms2020] ebook recoding McElreath's [*Statistical rethinking*](https://xcelab.net/rm/statistical-rethinking/), wherein I show how one might use the logit link (i.e., `family = cumulative(logit)`) to fit ordered-categorical models with **brms**.
+
+If you'd just like more practice with the cumulative probit model, you might check out my blog post called [*Notes on the Bayesian cumulative probit*](https://solomonkurz.netlify.app/post/2021-12-29-notes-on-the-bayesian-cumulative-probit/).
 
 ## Session info {-}
 
