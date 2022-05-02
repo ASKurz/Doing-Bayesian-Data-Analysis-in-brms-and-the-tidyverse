@@ -384,9 +384,9 @@ fit <-
 
 The noise standard deviation $\sigma_y$ is depicted in the prior statement including the argument `class = sigma`. The grand mean is depicted by the first `1` in the model formula and its prior is indicated by the `class = Intercept` argument. We indicate we'd like group-based deviations from the grand mean with the `(1 | categirical_variable)` syntax, where the `1` on the left side of the bar indicates we'd like our intercepts to vary by group and the `categirical_variable` part simply represents the name of a given categorical variable we'd like those intercepts to vary by. The **brms** default is to do this with deviance scores, the mean for which will be zero. Although it's not obvious in the formula syntax, the model presumes the group-based deviations are normally distributed with a mean of zero and a standard deviation, which Kruschke termed $\sigma_\beta$. There is no prior for the mean. It's set at zero. But there is a prior for $\sigma_\beta$, which is denoted by the argument `class = sd`. We, of course, are not using a uniform prior on any of our variance parameters. But in order to be weakly informative, we will use the half-Cauchy. Recall that since the **brms** default is to set the lower bound for any variance parameter to 0, there's no need to worry about doing so ourselves. So even though the syntax only indicates `cauchy`, it's understood to mean Cauchy with a lower bound at zero; since the mean is usually 0, that makes is a half-Cauchy.
 
-Kruschke set the upper bound for his $\sigma_y$ to 10 times the standard deviation of the criterion variable. The tails of the half-Cauchy are sufficiently fat that, in practice, I've found it doesn't matter much what you set the $SD$ of its prior to. One is often a sensible default for reasonably-scaled data. But if we want to take a more principled approach, we can set it to the size of the criterion's $SD$ or perhaps even 10 times that.
+Kruschke set the upper bound for his $\sigma_y$ to 10 times the standard deviation of the criterion variable. The tails of the half-Cauchy are sufficiently fat that, in practice, I've found it doesn't matter much what you set the $\textit{SD}$ of its prior to. One is often a sensible default for reasonably-scaled data. But if we want to take a more principled approach, we can set it to the size of the criterion's $\textit{SD}$ or perhaps even 10 times that value.
 
-Kruschke suggested using a gamma on $\sigma_\beta$, which is a sensible alternative to half-Cauchy often used within the Stan universe. Especially in situations in which you would like to (a) keep the variance parameter above zero, but (b) still allow it to be arbitrarily close to zero, and also (c) let the likelihood dominate the posterior, the Stan team recommends the gamma(2, 0) prior, based on the paper by Chung and colleagues [-@chungNondegeneratePenalizedLikelihood2013, click [here](http://www.stat.columbia.edu/~gelman/research/published/chung_etal_Pmetrika2013.pdf)]. But you should note that I don't mean a literal 0 for the second parameter in the gamma distribution, but rather some small value like 0.1 or so. This is all clarified in @chungNondegeneratePenalizedLikelihood2013. Here's what $\operatorname{Gamma}(2, 0.1)$ looks like.
+Kruschke suggested using a gamma on $\sigma_\beta$, which is a sensible alternative to half-Cauchy often used within the Stan universe. Especially in situations in which you would like to (a) keep the variance parameter above zero, but (b) still allow it to be arbitrarily close to zero, and also (c) let the likelihood dominate the posterior, the Stan team recommends the $\operatorname{Gamma}(2, 0)$ prior, based on the paper by Chung and colleagues [-@chungNondegeneratePenalizedLikelihood2013, click [here](http://www.stat.columbia.edu/~gelman/research/published/chung_etal_Pmetrika2013.pdf)]. But you should note that I don't mean a literal 0 for the second parameter in the gamma distribution, but rather some small value like 0.1 or so. This is all clarified in @chungNondegeneratePenalizedLikelihood2013. Here's what $\operatorname{Gamma}(2, 0.1)$ looks like.
 
 ```{r, fig.width = 6, fig.height = 2}
 tibble(x = seq(from = 0, to = 110, by = .1)) %>% 
@@ -394,7 +394,7 @@ tibble(x = seq(from = 0, to = 110, by = .1)) %>%
   ggplot(aes(x = x, y = dgamma(x, 2, 0.1))) +
   geom_area(fill = pp[10]) +
   annotate(geom = "text", 
-           x = 14.25, y = 0.015, label = "'gamma'*(2*', '*0.1)", 
+           x = 14.25, y = 0.015, label = "'Gamma'*(2*', '*0.1)", 
            parse = T, color = pp[1], size = 4.25) +
   scale_x_continuous(expand = c(0, 0), limits = c(0, 110)) +
   scale_y_continuous(NULL, breaks = NULL, expand = expansion(mult = c(0, 0.05)))
@@ -433,7 +433,7 @@ tibble(x = seq(from = 0, to = 21, by = .01)) %>%
   ggplot(aes(x = x, y = dgamma(x, s_r$shape, s_r$rate))) +
   geom_area(fill = pp[8]) +
   annotate(geom = "text", 
-           x = 2.75, y = 0.02, label = "'gamma'*(1.283196*', '*0.5663911)", 
+           x = 2.75, y = 0.02, label = "'Gamma'*(1.283196*', '*0.5663911)", 
            parse = T, color = pp[7], size = 2.75) +
   scale_x_continuous(breaks = c(0, 1, 5, 10, 20), expand = c(0, 0), limits = c(0, 21)) +
   scale_y_continuous(NULL, breaks = NULL, expand = expansion(mult = c(0, 0.05)))
@@ -672,24 +672,22 @@ For clarity, the "see the right panel of Figure 17.1, p. 478" part was changed f
 
 > It is straight forward to examine the posterior distribution of credible differences. Every step in the MCMC chain provides a combination of group means that are jointly credible, given the data. Therefore, every step in the MCMC chain provides a credible difference between groups...
 >
->To construct the credible differences of group 1 and group 2, at every step in the MCMC chain we compute
+>To construct the credible differences of group $1$ and group $2$, at every step in the MCMC chain we compute
 >
 > \begin{align*}
 > \mu_1 - \mu_2 & =  (\beta_0 + \beta_1) - (\beta_0 + \beta_2) \\
 >               & =  (+1) \cdot \beta_1 + (-1) \cdot \beta_2
 > \end{align*}
 >
-> In other words, the baseline cancels out of the calculation, and the difference is a sum of weighted group deflections. Notice that the weights sum to zero. To construct the credible differences of the average of groups 1-3 and the average of groups 4-5, at every step in the MCMC chain we compute
+> In other words, the baseline cancels out of the calculation, and the difference is a sum of weighted group deflections. Notice that the weights sum to zero. To construct the credible differences of the average of groups $1$-$3$ and the average of groups $4$-$5$, at every step in the MCMC chain we compute
 >
-> \small{
 > \begin{align*}
-> (\mu_1 + \mu_2 + \mu_3) / 3 - (\mu_4 + \mu_5) / 2 & = ((\beta_0 + \beta_1)  + (\beta_0 + \beta_2)  + (\beta_0 + \beta_3) ) / 3 - ((\beta_0 + \beta_4) + (\beta_0 + \beta_5) ) / 2 \\
-> & = (\beta_1 + \beta_2 + \beta_3) / 3 - (\beta_4 + \beta_5) / 2 \\
-> & = (+ 1/3) \cdot \beta_1 + (+ 1/3) \cdot \beta_2 + (+ 1/3) \cdot \beta_3 + (- 1/2) \cdot \beta_4 + (- 1/2) \cdot \beta_5
+> \small{(\mu_1 + \mu_2 + \mu_3) / 3 - (\mu_4 + \mu_5) / 2} & = \small{((\beta_0 + \beta_1)  + (\beta_0 + \beta_2)  + (\beta_0 + \beta_3) ) / 3 - ((\beta_0 + \beta_4) + (\beta_0 + \beta_5) ) / 2} \\
+> & = \small{(\beta_1 + \beta_2 + \beta_3) / 3 - (\beta_4 + \beta_5) / 2} \\
+> & = \small{(+ 1/3) \cdot \beta_1 + (+ 1/3) \cdot \beta_2 + (+ 1/3) \cdot \beta_3 + (- 1/2) \cdot \beta_4 + (- 1/2) \cdot \beta_5}
 > \end{align*}
-> }
 > 
-> Again, the difference is a sum of weighted group deflections. The coefficients on the group deflections have the properties that they sum to zero, with the positive coefficients summing to +1 and the negative coefficients summing to −1. Such a combination is called a contrast. The differences can also be expressed in terms of effect size, by dividing the difference by $\sigma_y$ at each step in the chain. (pp. 565--566)
+> Again, the difference is a sum of weighted group deflections. The coefficients on the group deflections have the properties that they sum to zero, with the positive coefficients summing to $+1$ and the negative coefficients summing to $−1$. Such a combination is called a contrast. The differences can also be expressed in terms of effect size, by dividing the difference by $\sigma_y$ at each step in the chain. (pp. 565--566)
 
 To warm up, here's how to compute the first contrast shown in the lower portion of Kruschke's Figure 19.3--the contrast between the two pregnant conditions and the none-control condition.
 
@@ -810,7 +808,7 @@ fit19.2 <-
       file = "fits/fit19.02")
 ``` 
 
-Here's the model summary.
+Check the model summary.
 
 ```{r}
 print(fit19.2)
@@ -839,7 +837,7 @@ mw %>%
   round(digits = 3)
 ```
 
-Yep, in complimenting the LOO difference, virtually all the stacking weight went to the hierarchical model. You might think of this another way. The conceptual question we're asking is *Does it make sense to say that the* $\sigma_\beta$ *parameter is zero? Is zero a credible value?* We'll, I suppose we could just look at the posterior to assess for that.
+Yep, in complimenting the LOO difference, virtually all the stacking weight went to the hierarchical model. You might think of this another way. The conceptual question we're asking is: *Does it make sense to say that the* $\sigma_\beta$ *parameter is zero? Is zero a credible value?* We'll, I suppose we could just look at the posterior to assess for that.
 
 ```{r, fig.width = 4, fig.height = 2.5}
 draws %>% 
@@ -858,7 +856,7 @@ Yeah, zero and other values close to zero don't look credible for that parameter
 
 ### Multiple comparisons and shrinkage.
 
-> The previous section suggested that an analyst should investigate all contrasts of interest. This recommendation can be thought to conflict with traditional advice in the context on null hypothesis significance testing, which instead recommends that a minimal number of comparisons should be conducted in order to maximize the power of each test while keeping the overall false alarm rate capped at 5% (or whatever maximum is desired).... Instead, a Bayesian analysis can mitigate false alarms by incorporating prior knowledge into the model. In particular, hierarchical structure (which is an expression of prior knowledge) produces shrinkage of estimates, and shrinkage can help rein in estimates of spurious outlying data. For example, in the posterior distribution from the fruit fly data, the modal values of the posterior group means have a range of 23.2. The sample means of the groups have a range of 26.1. Thus, there is some shrinkage in the estimated means. The amount of shrinkage is dictated only by the data and by the prior structure, not by the intended tests. (p. 568)
+> The previous section suggested that an analyst should investigate all contrasts of interest. This recommendation can be thought to conflict with traditional advice in the context on null hypothesis significance testing, which instead recommends that a minimal number of comparisons should be conducted in order to maximize the power of each test while keeping the overall false alarm rate capped at 5% (or whatever maximum is desired).... Instead, a Bayesian analysis can mitigate false alarms by incorporating prior knowledge into the model. In particular, hierarchical structure (which is an expression of prior knowledge) produces shrinkage of estimates, and shrinkage can help rein in estimates of spurious outlying data. For example, in the posterior distribution from the fruit fly data, the modal values of the posterior group means have a range of $23.2$. The sample means of the groups have a range of $26.1$. Thus, there is some shrinkage in the estimated means. The amount of shrinkage is dictated only by the data and by the prior structure, not by the intended tests. (p. 568)
 
 We may as well compute those ranges by hand. Here's the range of the observed data.
 
@@ -1037,7 +1035,7 @@ The results are pretty much the same as that of the two-group hierarchical model
 
 ## Including a metric predictor
 
-"In Figure 19.3, the data within each group have a large standard deviation. For example, longevities in the Virgin8 group range from 20 to 60 days" (p. 568). Turns out Kruschke's slightly wrong on this. Probably just a typo.
+"In Figure 19.3, the data within each group have a large standard deviation. For example, longevities in the Virgin8 group range from $20$ to $60$ days" (p. 568). Turns out Kruschke's slightly wrong on this. Probably just a typo.
 
 ```{r, message = F}
 my_data %>% 
@@ -1373,11 +1371,6 @@ as_draws_df(fit19.5) %>%
 ```
 
 Yep, sure did! Now our between-group comparisons should be more precise. Heck, if we wanted to we could even make a difference plot.
-
-```{r}
-tibble(sigma1 = as_draws_df(fit19.1) %>% pull(sigma),
-       sigma5 = as_draws_df(fit19.5) %>% pull(sigma))
-```
 
 ```{r, fig.width = 4, fig.height = 2.25, warning = F}
 tibble(sigma1 = as_draws_df(fit19.1) %>% pull(sigma),
@@ -1949,7 +1942,7 @@ my_data <- read_csv("data.R/NonhomogVarData.csv")
 head(my_data)
 ```
 
-Here are the means and $SD$s for each `Group`.
+Here are the means and $\textit{SD}$s for each `Group`.
 
 ```{r, message = F}
 my_data %>% 
@@ -2143,7 +2136,7 @@ fit19.7 <-
 
 The chains look good.
 
-```{r, fig.width = 8, fig.height = 5}
+```{r, fig.width = 8, fig.height = 5.5}
 plot(fit19.7, widths = c(2, 3))
 ```
 
