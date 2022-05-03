@@ -27,12 +27,12 @@ my_data <- read_csv("data.R/HairEyeColor.csv")
 glimpse(my_data)
 ```
 
-In order to retain some of the ordering in Table 24.1, we'll want to make `Hair` a factor and recode `Brown` as `Brunette`.
+In order to retain some of the ordering in Table 24.1, we'll want to make `Hair` a factor and `recode()` `Brown` as `Brunette`.
 
 ```{r}
 my_data <-
   my_data %>% 
-  mutate(Hair = if_else(Hair == "Brown", "Brunette", Hair) %>% 
+  mutate(Hair = recode(Hair, "Brown" = "Brunette") %>% 
            factor(., levels = c("Black", "Brunette", "Red", "Blond")))
 ```
 
@@ -54,7 +54,7 @@ my_data %>%
   knitr::kable()
 ```
 
-That last `knitr::kable()` line just formatted the output a bit.
+That last `knitr::kable()` line just formatted the output a bit. You'll note that the cell counts from the last two code blocks are a little different from those Kruschke displayed in his Table 24.1. I'm pretty sure Kruschke mislabeled his column names, which it appears he has acknowledged in his [Corrigenda](https://sites.google.com/site/doingbayesiandataanalysis/corrigenda).
 
 ### Exponential link function.
 
@@ -149,29 +149,19 @@ theme_set(
 
 Now we have our palette and theme, we're ready to make our version of the Poisson histograms in Figure 24.1.
 
-```{r, fig.width = 5.5, fig.height = 5}
-set.seed(24)
-
-tibble(lambda = c(1.8, 8.3, 32.1)) %>% 
-  mutate(y = map(lambda, rpois, n = 1e5)) %>% 
-  unnest(y) %>%
+```{r, fig.width = 5, fig.height = 5}
+crossing(y      = 0:50,
+         lambda = c(1.8, 8.3, 32.1)) %>% 
+  mutate(d = dpois(y, lambda = lambda)) %>% 
   
-  ggplot(aes(x = y)) +
-  geom_histogram(aes(y = stat(density)),
-                 binwidth = 1, fill = hr[3]) +
-  scale_x_continuous(expand = expansion(mult = c(0, 0.05))) +
+  ggplot(aes(x = y, y = d)) +
+  geom_col(fill = hr[3], color = hr[3], width = 0.5) +
   scale_y_continuous("p(y)", expand = expansion(mult = c(0, 0.05))) +
   facet_wrap(~ lambda, ncol = 1,
              labeller = label_bquote(dpois(y*"|"*lambda == .(lambda))))
 ```
 
-For more on our `labeller = label_bquote` syntax, check out [this](https://ggplot2.tidyverse.org/reference/label_bquote.html).
-
-But anyway, given $\lambda$, the Poisson distribution gives the probabilities of specific non-negative integers. And instead of using our hand-coded function from above, we can also use `dpois()` to get precise density values.
-
-```{r}
-dpois(2, lambda = 5.5)
-```
+For more on our `labeller = label_bquote` syntax, check out [this](https://ggplot2.tidyverse.org/reference/label_bquote.html). But anyway, given $\lambda$, the Poisson distribution gives the probabilities of specific non-negative integers.
 
 ### The complete model and implementation in ~~JAGS~~ brms.
 
@@ -486,6 +476,8 @@ my_data %>%
   ggplot(aes(x = Hair, y = Eye, label = value)) +
   geom_raster(aes(fill = value)) +
   geom_text(aes(color = value < 250)) +
+  geom_hline(yintercept = 1.5, color = hr[8], size = 1/2) +
+  geom_vline(xintercept = 4.5, color = hr[8], size = 1/2) +
   scale_fill_gradient(low = hr[9], high = hr[2]) +
   scale_color_manual(values = hr[c(9, 2)]) +
   scale_x_discrete(expand = c(0, 0), position = "top") +
@@ -537,7 +529,7 @@ As a quick detour, it might be interesting to see what the kind of gamma distrib
 
 ```{r, fig.width = 4, fig.height = 2}
 tibble(x = seq(from = 0, to = 70, length.out = 1e3)) %>% 
-  mutate(density = dgamma(x, s_r$shape, s_r$rate)) %>% 
+  mutate(density = dgamma(x, shape = s_r$shape, rate = s_r$rate)) %>% 
   
   ggplot(aes(x = x, y = density)) +
   geom_area(fill = hr[4]) +
@@ -585,10 +577,10 @@ s_r <- gamma_a_b_from_omega_sigma(mode = y_log_sd, sd = y_log_sd)
 bind_rows(
   # define beta[0]
   tibble(x = seq(from = y_log_mean - (4 * y_log_sd), to = y_log_mean + (4 * y_log_sd), length.out = 1e3)) %>%
-    mutate(density = dnorm(x, y_log_mean, y_log_sd)),
+    mutate(density = dnorm(x, mean = y_log_mean, sd = y_log_sd)),
   # define sigma[beta[x]]
   tibble(x = seq(from = 0, to = 40, length.out = 1e3)) %>% 
-    mutate(density = dgamma(x, s_r$shape, s_r$rate))
+    mutate(density = dgamma(x, shape = s_r$shape, rate = s_r$rate))
 ) %>%
   mutate(prior = rep(c("beta[0]", "sigma[beta*x]"), each = n() / 2)) %>% 
   
@@ -941,7 +933,7 @@ deflections %>%
   facet_wrap(~ name, scales = "free")
 ```
 
-> The model presented here has no way to conduct an "ominbus" test of interaction. However, like the ANOVA-style models presented in Chapters 19 and 20, it is easy to extend the model so it has an inclusion coefficient on the interaction deflections. The inclusion coefficient can have values of 0 or 1, and is given a Bernoulli prior. (p. 716)
+> The model presented here has no way to conduct an "ominbus" test of interaction. However, like the ANOVA-style models presented in Chapters 19 and 20, it is easy to extend the model so it has an inclusion coefficient on the interaction deflections. The inclusion coefficient can have values of $0$ or $1$, and is given a Bernoulli prior. (p. 716)
 
 Like we discussed in earlier chapters, this isn't a feasible approach for **brms**. However, we can compare this model with a simpler one that omits the interaction. First, fit the model.
 
@@ -1096,7 +1088,7 @@ rbind(fitted(fit24.2),
 
 The black points are the raw data. The colored point-ranges to the left and right of each data point are the posterior means and percentile-based 95% intervals for each of the cells. The results are virtually the same between the two models. Also note how both models partially pooled towards the grand mean. That's one of the distinctive features of using the hierarchical approach.
 
-Wrapping up, this chapter focused on how one might use the Poisson likelihood to model contingency-table data from a multilevel modeling framework. The Poisson likelihood is also handy for count data within a single-level structure, with metric predictors, and with various combinations of metric and nominal predictors. For more practice along those lines, check out [Section 10.2](https://bookdown.org/content/3890/counting-and-classification.html#poisson-regression) in my project recoding McElreath's [*Statistical rethinking*](https://xcelab.net/rm/statistical-rethinking/).
+Wrapping up, this chapter focused on how one might use the Poisson likelihood to model contingency-table data from a multilevel modeling framework. The Poisson likelihood is also handy for count data within a single-level structure, with metric predictors, and with various combinations of metric and nominal predictors. For more practice along those lines, check out [Section 10.2](https://bookdown.org/content/3890/counting-and-classification.html#poisson-regression) in my ebook recoding McElreath's [*Statistical rethinking*](https://xcelab.net/rm/statistical-rethinking/).
 
 ## Session info {-}
 
