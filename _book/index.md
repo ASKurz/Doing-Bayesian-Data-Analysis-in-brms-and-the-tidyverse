@@ -1,8 +1,8 @@
 --- 
 title: "*Doing Bayesian Data Analysis* in brms and the tidyverse"
-subtitle: "version 1.0.0"
+subtitle: "version 1.0.1"
 author: "A Solomon Kurz"
-date: "2022-05-04"
+date: "2023-01-06"
 site: bookdown::bookdown_site
 output: 
   bookdown::gitbook
@@ -104,7 +104,7 @@ The 0.4.0 update came in May 6, 2021. Noteworthy changes included:
 
 ### Version 1.0.0. {-}
 
-Welcome to version 1.0.0! This is the first full draft in the sense that it contains **brms** versions of all of Kruschke's JAGS and Stan models, excluding examples that are not possible with the **brms** paradigm (e.g., [Section 10.3.2][Hierarchical MCMC computation ~~of relative model probability~~ is not available in brms: We'll cover information criteria instead.]). Noteworthy changes include:
+The big 1.0.0 update came in May 4, 2022. This was the first full draft in the sense that it contained **brms** versions of all of Kruschke's JAGS and Stan models, excluding examples not currently possible with the **brms** paradigm (e.g., [Section 10.3.2][Hierarchical MCMC computation ~~of relative model probability~~ is not available in brms: We'll cover information criteria instead.]). Noteworthy changes included:
 
 * two new solutions for the conditional logistic models of [Chapter 22][Nominal Predicted Variable] thanks to the generous efforts by [Henrik Singmann](https://github.com/singmann) and [Mattan Ben-Shachar](https://github.com/mattansb/);
 * replacing the depreciated `posterior_samples()` function with the new `posterior::as_draws_df()`-based workflow;
@@ -112,6 +112,10 @@ Welcome to version 1.0.0! This is the first full draft in the sense that it cont
 * improving the efficiency of the intercept-only Bernoulli models with the new `lb` and `ub` arguments for priors of `class = Intercept` (e.g., `fit7.1a`, `fit7.1b`, and `fit7.2` in [Chapter 7][Markov Chain Monte Carlo]);
 * updating all model fits with **brms** version 2.17.0; and
 * various minor code, hyperlink, and typo corrections.
+
+### Version 1.0.1. {-}
+
+Welcome to version 1.0.1! In this minor update, I have fixed the broken links to my professional website, https://solomonkurz.netlify.app/, and corrected a couple typos.
 
 ### Some minor issues remain. {-}
 
@@ -132,6 +136,7 @@ Before we enter the primary text, I'd like to thank the following for their help
 * David Baumeister ([\@xdavebx](https://github.com/xdavebx)),
 * Mattan Ben-Shachar ([\@mattansb](https://github.com/mattansb/)),
 * Paul-Christian Bürkner ([\@paul-buerkner](https://github.com/paul-buerkner)),
+* flachboard ([\@flachboard](https://github.com/flachboard)),
 * Andrew Gelman ([\@andrewgelman](https://github.com/andrewgelman)),
 * Omid Ghasemi ([\@OmidGhasemi21](https://github.com/OmidGhasemi21)),
 * Mladen Jovanović ([\@mladenjovanovic](https://github.com/mladenjovanovic)),
@@ -156,9 +161,9 @@ This book is licensed under the Creative Commons Zero v1.0 Universal license. Yo
 @book{kurzDoingBayesianDataAnalysis2022,
   title = {Doing {{Bayesian}} data analysis in brms and the tidyverse},
   author = {Kurz, A. Solomon},
-  year = {2022},
-  month = {5},
-  edition = {Version 1.0.0},
+  year = {2023},
+  month = {1},
+  edition = {Version 1.0.1},
   url = {https://bookdown.org/content/3686/}
 }
 ```

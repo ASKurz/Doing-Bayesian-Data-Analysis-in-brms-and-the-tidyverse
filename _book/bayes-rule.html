@@ -6,7 +6,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <title>5 Bayes’ Rule | Doing Bayesian Data Analysis in brms and the tidyverse</title>
   <meta name="description" content="This project is an attempt to re-express the code in Kruschke’s (2015) textbook. His models are re-fit in brms, plots are redone with ggplot2, and the general data wrangling code predominantly follows the tidyverse style." />
-  <meta name="generator" content="bookdown 0.26 and GitBook 2.6.7" />
+  <meta name="generator" content="bookdown 0.28 and GitBook 2.6.7" />
 
   <meta property="og:title" content="5 Bayes’ Rule | Doing Bayesian Data Analysis in brms and the tidyverse" />
   <meta property="og:type" content="book" />
@@ -23,7 +23,7 @@
 <meta name="author" content="A Solomon Kurz" />
 
 
-<meta name="date" content="2022-05-04" />
+<meta name="date" content="2023-01-06" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -164,6 +164,7 @@ div.csl-indent {
 <li class="chapter" data-level="" data-path="index.html"><a href="index.html#version-0.3.0."><i class="fa fa-check"></i>Version 0.3.0.</a></li>
 <li class="chapter" data-level="" data-path="index.html"><a href="index.html#version-0.4.0."><i class="fa fa-check"></i>Version 0.4.0.</a></li>
 <li class="chapter" data-level="" data-path="index.html"><a href="index.html#version-1.0.0."><i class="fa fa-check"></i>Version 1.0.0.</a></li>
+<li class="chapter" data-level="" data-path="index.html"><a href="index.html#version-1.0.1."><i class="fa fa-check"></i>Version 1.0.1.</a></li>
 <li class="chapter" data-level="" data-path="index.html"><a href="index.html#some-minor-issues-remain."><i class="fa fa-check"></i>Some minor issues remain.</a></li>
 </ul></li>
 <li class="chapter" data-level="" data-path="index.html"><a href="index.html#thank-yous-are-in-order"><i class="fa fa-check"></i>Thank-you’s are in order</a></li>
@@ -804,25 +805,25 @@ p(\theta|D) &amp; = \frac{p(D|\theta) \; p(\theta)}{\sum\limits_{\theta^*}p(D|\t
 </blockquote>
 <p>In this ebook, I will generally avoid Kruschke’s idiosyncratic use of the term “bias.” Though be warned: it may pop up from time to time.</p>
 <p>As the the coin example at hand, here’s a way to expres Kruschke’s initial prior distribution in a data frame and then make Figure 5.1.a.</p>
-<div class="sourceCode" id="cb377"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb377-1"><a href="bayes-rule.html#cb377-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse)</span>
-<span id="cb377-2"><a href="bayes-rule.html#cb377-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb377-3"><a href="bayes-rule.html#cb377-3" aria-hidden="true" tabindex="-1"></a><span class="co"># make the data frame for the prior</span></span>
-<span id="cb377-4"><a href="bayes-rule.html#cb377-4" aria-hidden="true" tabindex="-1"></a>d <span class="ot">&lt;-</span></span>
-<span id="cb377-5"><a href="bayes-rule.html#cb377-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tibble</span>(<span class="at">theta =</span> <span class="fu">seq</span>(<span class="at">from =</span> <span class="dv">0</span>, <span class="at">to =</span> <span class="dv">1</span>, <span class="at">by =</span> .<span class="dv">1</span>),</span>
-<span id="cb377-6"><a href="bayes-rule.html#cb377-6" aria-hidden="true" tabindex="-1"></a>         <span class="at">prior =</span> <span class="fu">c</span>(<span class="dv">0</span><span class="sc">:</span><span class="dv">5</span>, <span class="dv">4</span><span class="sc">:</span><span class="dv">0</span>) <span class="sc">*</span> <span class="fl">0.04</span>)</span>
-<span id="cb377-7"><a href="bayes-rule.html#cb377-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb377-8"><a href="bayes-rule.html#cb377-8" aria-hidden="true" tabindex="-1"></a><span class="co"># plot</span></span>
-<span id="cb377-9"><a href="bayes-rule.html#cb377-9" aria-hidden="true" tabindex="-1"></a>d <span class="sc">%&gt;%</span></span>
-<span id="cb377-10"><a href="bayes-rule.html#cb377-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> theta, <span class="at">y =</span> prior)) <span class="sc">+</span></span>
-<span id="cb377-11"><a href="bayes-rule.html#cb377-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_col</span>(<span class="at">width =</span> .<span class="dv">025</span>, <span class="at">color =</span> <span class="st">&quot;grey50&quot;</span>, <span class="at">fill =</span> <span class="st">&quot;grey50&quot;</span>) <span class="sc">+</span></span>
-<span id="cb377-12"><a href="bayes-rule.html#cb377-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_continuous</span>(<span class="fu">expression</span>(theta), <span class="at">breaks =</span> <span class="fu">seq</span>(<span class="at">from =</span> <span class="dv">0</span>, <span class="at">to =</span> <span class="dv">1</span>, <span class="at">by =</span> .<span class="dv">2</span>)) <span class="sc">+</span></span>
-<span id="cb377-13"><a href="bayes-rule.html#cb377-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">&quot;Prior&quot;</span>,</span>
-<span id="cb377-14"><a href="bayes-rule.html#cb377-14" aria-hidden="true" tabindex="-1"></a>       <span class="at">y =</span> <span class="fu">expression</span>(<span class="fu">p</span>(theta))) <span class="sc">+</span></span>
-<span id="cb377-15"><a href="bayes-rule.html#cb377-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">panel.grid =</span> <span class="fu">element_blank</span>())</span></code></pre></div>
+<div class="sourceCode" id="cb378"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb378-1"><a href="bayes-rule.html#cb378-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse)</span>
+<span id="cb378-2"><a href="bayes-rule.html#cb378-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb378-3"><a href="bayes-rule.html#cb378-3" aria-hidden="true" tabindex="-1"></a><span class="co"># make the data frame for the prior</span></span>
+<span id="cb378-4"><a href="bayes-rule.html#cb378-4" aria-hidden="true" tabindex="-1"></a>d <span class="ot">&lt;-</span></span>
+<span id="cb378-5"><a href="bayes-rule.html#cb378-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tibble</span>(<span class="at">theta =</span> <span class="fu">seq</span>(<span class="at">from =</span> <span class="dv">0</span>, <span class="at">to =</span> <span class="dv">1</span>, <span class="at">by =</span> .<span class="dv">1</span>),</span>
+<span id="cb378-6"><a href="bayes-rule.html#cb378-6" aria-hidden="true" tabindex="-1"></a>         <span class="at">prior =</span> <span class="fu">c</span>(<span class="dv">0</span><span class="sc">:</span><span class="dv">5</span>, <span class="dv">4</span><span class="sc">:</span><span class="dv">0</span>) <span class="sc">*</span> <span class="fl">0.04</span>)</span>
+<span id="cb378-7"><a href="bayes-rule.html#cb378-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb378-8"><a href="bayes-rule.html#cb378-8" aria-hidden="true" tabindex="-1"></a><span class="co"># plot</span></span>
+<span id="cb378-9"><a href="bayes-rule.html#cb378-9" aria-hidden="true" tabindex="-1"></a>d <span class="sc">%&gt;%</span></span>
+<span id="cb378-10"><a href="bayes-rule.html#cb378-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> theta, <span class="at">y =</span> prior)) <span class="sc">+</span></span>
+<span id="cb378-11"><a href="bayes-rule.html#cb378-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_col</span>(<span class="at">width =</span> .<span class="dv">025</span>, <span class="at">color =</span> <span class="st">&quot;grey50&quot;</span>, <span class="at">fill =</span> <span class="st">&quot;grey50&quot;</span>) <span class="sc">+</span></span>
+<span id="cb378-12"><a href="bayes-rule.html#cb378-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_continuous</span>(<span class="fu">expression</span>(theta), <span class="at">breaks =</span> <span class="fu">seq</span>(<span class="at">from =</span> <span class="dv">0</span>, <span class="at">to =</span> <span class="dv">1</span>, <span class="at">by =</span> .<span class="dv">2</span>)) <span class="sc">+</span></span>
+<span id="cb378-13"><a href="bayes-rule.html#cb378-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">&quot;Prior&quot;</span>,</span>
+<span id="cb378-14"><a href="bayes-rule.html#cb378-14" aria-hidden="true" tabindex="-1"></a>       <span class="at">y =</span> <span class="fu">expression</span>(<span class="fu">p</span>(theta))) <span class="sc">+</span></span>
+<span id="cb378-15"><a href="bayes-rule.html#cb378-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">panel.grid =</span> <span class="fu">element_blank</span>())</span></code></pre></div>
 <p><img src="05_files/figure-html/unnamed-chunk-2-1.png" width="384" style="display: block; margin: auto;" /></p>
 <p>If you were curious, it is indeed the case that those <code>prior</code> values sum to 1.</p>
-<div class="sourceCode" id="cb378"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb378-1"><a href="bayes-rule.html#cb378-1" aria-hidden="true" tabindex="-1"></a>d <span class="sc">%&gt;%</span> </span>
-<span id="cb378-2"><a href="bayes-rule.html#cb378-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">s =</span> <span class="fu">sum</span>(prior))</span></code></pre></div>
+<div class="sourceCode" id="cb379"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb379-1"><a href="bayes-rule.html#cb379-1" aria-hidden="true" tabindex="-1"></a>d <span class="sc">%&gt;%</span> </span>
+<span id="cb379-2"><a href="bayes-rule.html#cb379-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">s =</span> <span class="fu">sum</span>(prior))</span></code></pre></div>
 <pre><code>## # A tibble: 1 × 1
 ##       s
 ##   &lt;dbl&gt;
@@ -830,20 +831,20 @@ p(\theta|D) &amp; = \frac{p(D|\theta) \; p(\theta)}{\sum\limits_{\theta^*}p(D|\t
 <p>On page 109, Kruschke proposed the Bernoulli distribution for coin-tossing data, which he defined in Equation 5.10 as</p>
 <p><span class="math display">\[p(y | \theta) = \theta^y (1 - \theta)^{(1 - y)}.\]</span></p>
 <p>We can express it as a function in <strong>R</strong> like this.</p>
-<div class="sourceCode" id="cb380"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb380-1"><a href="bayes-rule.html#cb380-1" aria-hidden="true" tabindex="-1"></a>bernoulli <span class="ot">&lt;-</span> <span class="cf">function</span>(theta, y) {</span>
-<span id="cb380-2"><a href="bayes-rule.html#cb380-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(theta<span class="sc">^</span>y <span class="sc">*</span> (<span class="dv">1</span> <span class="sc">-</span> theta)<span class="sc">^</span>(<span class="dv">1</span> <span class="sc">-</span> y))</span>
-<span id="cb380-3"><a href="bayes-rule.html#cb380-3" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<div class="sourceCode" id="cb381"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb381-1"><a href="bayes-rule.html#cb381-1" aria-hidden="true" tabindex="-1"></a>bernoulli <span class="ot">&lt;-</span> <span class="cf">function</span>(theta, y) {</span>
+<span id="cb381-2"><a href="bayes-rule.html#cb381-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(theta<span class="sc">^</span>y <span class="sc">*</span> (<span class="dv">1</span> <span class="sc">-</span> theta)<span class="sc">^</span>(<span class="dv">1</span> <span class="sc">-</span> y))</span>
+<span id="cb381-3"><a href="bayes-rule.html#cb381-3" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
 <p>To get a sense of how it works, consider a single coin flip which comes up. In this example we wanted heads, which means the trial was a success. In the <code>bernoulli()</code> function, we’ll refer to that single successful trial by setting <code>y = 1</code>. We can then compute the likelihood of different values of <span class="math inline">\(\theta\)</span> by inserting those values one at a time or in bulk into the <code>theta</code> argument. Here we’ll look at a sequene of 11 candidate <span class="math inline">\(\theta\)</span> values, which we’ll save in a vector called <code>theta_sequence</code>.</p>
-<div class="sourceCode" id="cb381"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb381-1"><a href="bayes-rule.html#cb381-1" aria-hidden="true" tabindex="-1"></a>theta_sequence <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="at">from =</span> <span class="dv">0</span>, <span class="at">to =</span> <span class="dv">1</span>, <span class="at">by =</span> .<span class="dv">1</span>)</span>
-<span id="cb381-2"><a href="bayes-rule.html#cb381-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb381-3"><a href="bayes-rule.html#cb381-3" aria-hidden="true" tabindex="-1"></a><span class="fu">bernoulli</span>(<span class="at">theta =</span> theta_sequence, <span class="at">y =</span> <span class="dv">1</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb382"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb382-1"><a href="bayes-rule.html#cb382-1" aria-hidden="true" tabindex="-1"></a>theta_sequence <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="at">from =</span> <span class="dv">0</span>, <span class="at">to =</span> <span class="dv">1</span>, <span class="at">by =</span> .<span class="dv">1</span>)</span>
+<span id="cb382-2"><a href="bayes-rule.html#cb382-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb382-3"><a href="bayes-rule.html#cb382-3" aria-hidden="true" tabindex="-1"></a><span class="fu">bernoulli</span>(<span class="at">theta =</span> theta_sequence, <span class="at">y =</span> <span class="dv">1</span>)</span></code></pre></div>
 <pre><code>##  [1] 0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0</code></pre>
 <p>Those values are the probability of the data (<code>y = 1</code>) given different values of theta (<code>theta = theta_sequence</code>). In terms of Bayes’ rule from the previous section, we call that the likelihood <span class="math inline">\(p(D|\theta)\)</span>. Here’s how we might compute the likelihood within the context of our <code>d</code> data frame.</p>
-<div class="sourceCode" id="cb383"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb383-1"><a href="bayes-rule.html#cb383-1" aria-hidden="true" tabindex="-1"></a>d <span class="ot">&lt;-</span></span>
-<span id="cb383-2"><a href="bayes-rule.html#cb383-2" aria-hidden="true" tabindex="-1"></a>  d <span class="sc">%&gt;%</span> </span>
-<span id="cb383-3"><a href="bayes-rule.html#cb383-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">likelihood =</span> <span class="fu">bernoulli</span>(<span class="at">theta =</span> theta, <span class="at">y =</span> <span class="dv">1</span>))</span>
-<span id="cb383-4"><a href="bayes-rule.html#cb383-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb383-5"><a href="bayes-rule.html#cb383-5" aria-hidden="true" tabindex="-1"></a>d</span></code></pre></div>
+<div class="sourceCode" id="cb384"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb384-1"><a href="bayes-rule.html#cb384-1" aria-hidden="true" tabindex="-1"></a>d <span class="ot">&lt;-</span></span>
+<span id="cb384-2"><a href="bayes-rule.html#cb384-2" aria-hidden="true" tabindex="-1"></a>  d <span class="sc">%&gt;%</span> </span>
+<span id="cb384-3"><a href="bayes-rule.html#cb384-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">likelihood =</span> <span class="fu">bernoulli</span>(<span class="at">theta =</span> theta, <span class="at">y =</span> <span class="dv">1</span>))</span>
+<span id="cb384-4"><a href="bayes-rule.html#cb384-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb384-5"><a href="bayes-rule.html#cb384-5" aria-hidden="true" tabindex="-1"></a>d</span></code></pre></div>
 <pre><code>## # A tibble: 11 × 3
 ##    theta prior likelihood
 ##    &lt;dbl&gt; &lt;dbl&gt;      &lt;dbl&gt;
@@ -859,29 +860,29 @@ p(\theta|D) &amp; = \frac{p(D|\theta) \; p(\theta)}{\sum\limits_{\theta^*}p(D|\t
 ## 10   0.9  0.04        0.9
 ## 11   1    0           1</code></pre>
 <p>Now our <code>d</code> data contains information about the likelihood, we can use those results to make the middle panel of Figure 5.1.</p>
-<div class="sourceCode" id="cb385"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb385-1"><a href="bayes-rule.html#cb385-1" aria-hidden="true" tabindex="-1"></a>d <span class="sc">%&gt;%</span> </span>
-<span id="cb385-2"><a href="bayes-rule.html#cb385-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> theta, <span class="at">y =</span> likelihood)) <span class="sc">+</span></span>
-<span id="cb385-3"><a href="bayes-rule.html#cb385-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_col</span>(<span class="at">width =</span> .<span class="dv">025</span>, <span class="at">color =</span> <span class="st">&quot;grey50&quot;</span>, <span class="at">fill =</span> <span class="st">&quot;grey50&quot;</span>) <span class="sc">+</span></span>
-<span id="cb385-4"><a href="bayes-rule.html#cb385-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_continuous</span>(<span class="fu">expression</span>(theta), <span class="at">breaks =</span> <span class="fu">seq</span>(<span class="at">from =</span> <span class="dv">0</span>, <span class="at">to =</span> <span class="dv">1</span>, <span class="at">by =</span> .<span class="dv">2</span>)) <span class="sc">+</span></span>
-<span id="cb385-5"><a href="bayes-rule.html#cb385-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">&quot;Likelihood&quot;</span>,</span>
-<span id="cb385-6"><a href="bayes-rule.html#cb385-6" aria-hidden="true" tabindex="-1"></a>       <span class="at">y =</span> <span class="fu">expression</span>(<span class="fu">p</span>(D<span class="sc">*</span><span class="st">&#39;|&#39;</span><span class="sc">*</span>theta))) <span class="sc">+</span></span>
-<span id="cb385-7"><a href="bayes-rule.html#cb385-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">panel.grid =</span> <span class="fu">element_blank</span>())</span></code></pre></div>
+<div class="sourceCode" id="cb386"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb386-1"><a href="bayes-rule.html#cb386-1" aria-hidden="true" tabindex="-1"></a>d <span class="sc">%&gt;%</span> </span>
+<span id="cb386-2"><a href="bayes-rule.html#cb386-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> theta, <span class="at">y =</span> likelihood)) <span class="sc">+</span></span>
+<span id="cb386-3"><a href="bayes-rule.html#cb386-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_col</span>(<span class="at">width =</span> .<span class="dv">025</span>, <span class="at">color =</span> <span class="st">&quot;grey50&quot;</span>, <span class="at">fill =</span> <span class="st">&quot;grey50&quot;</span>) <span class="sc">+</span></span>
+<span id="cb386-4"><a href="bayes-rule.html#cb386-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_continuous</span>(<span class="fu">expression</span>(theta), <span class="at">breaks =</span> <span class="fu">seq</span>(<span class="at">from =</span> <span class="dv">0</span>, <span class="at">to =</span> <span class="dv">1</span>, <span class="at">by =</span> .<span class="dv">2</span>)) <span class="sc">+</span></span>
+<span id="cb386-5"><a href="bayes-rule.html#cb386-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">&quot;Likelihood&quot;</span>,</span>
+<span id="cb386-6"><a href="bayes-rule.html#cb386-6" aria-hidden="true" tabindex="-1"></a>       <span class="at">y =</span> <span class="fu">expression</span>(<span class="fu">p</span>(D<span class="sc">*</span><span class="st">&#39;|&#39;</span><span class="sc">*</span>theta))) <span class="sc">+</span></span>
+<span id="cb386-7"><a href="bayes-rule.html#cb386-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">panel.grid =</span> <span class="fu">element_blank</span>())</span></code></pre></div>
 <p><img src="05_files/figure-html/unnamed-chunk-7-1.png" width="384" style="display: block; margin: auto;" /></p>
 <p>In order to compute <span class="math inline">\(p(D)\)</span> (i.e., the <em>evidence</em> or the <em>marginal likelihood</em>), we’ll need to multiply our respective prior and likelihood values for each point in our theta sequence and then sum all that up. That sum will be our <em>marginal likelihood</em>. Then we can compute the posterior <span class="math inline">\(p(\theta | D)\)</span> by dividing the product of the prior and the likelihood by the marginal likelihood and make Figure 5.1.c.</p>
-<div class="sourceCode" id="cb386"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb386-1"><a href="bayes-rule.html#cb386-1" aria-hidden="true" tabindex="-1"></a><span class="co"># compute</span></span>
-<span id="cb386-2"><a href="bayes-rule.html#cb386-2" aria-hidden="true" tabindex="-1"></a>d <span class="ot">&lt;-</span></span>
-<span id="cb386-3"><a href="bayes-rule.html#cb386-3" aria-hidden="true" tabindex="-1"></a>  d <span class="sc">%&gt;%</span> </span>
-<span id="cb386-4"><a href="bayes-rule.html#cb386-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">marginal_likelihood =</span> <span class="fu">sum</span>(prior <span class="sc">*</span> likelihood)) <span class="sc">%&gt;%</span> </span>
-<span id="cb386-5"><a href="bayes-rule.html#cb386-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">posterior =</span> (prior <span class="sc">*</span> likelihood) <span class="sc">/</span> marginal_likelihood)</span>
-<span id="cb386-6"><a href="bayes-rule.html#cb386-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb386-7"><a href="bayes-rule.html#cb386-7" aria-hidden="true" tabindex="-1"></a><span class="co"># plot</span></span>
-<span id="cb386-8"><a href="bayes-rule.html#cb386-8" aria-hidden="true" tabindex="-1"></a>d <span class="sc">%&gt;%</span></span>
-<span id="cb386-9"><a href="bayes-rule.html#cb386-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> theta, <span class="at">y =</span> posterior)) <span class="sc">+</span></span>
-<span id="cb386-10"><a href="bayes-rule.html#cb386-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_col</span>(<span class="at">width =</span> .<span class="dv">025</span>, <span class="at">color =</span> <span class="st">&quot;grey50&quot;</span>, <span class="at">fill =</span> <span class="st">&quot;grey50&quot;</span>) <span class="sc">+</span></span>
-<span id="cb386-11"><a href="bayes-rule.html#cb386-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_continuous</span>(<span class="fu">expression</span>(theta), <span class="at">breaks =</span> <span class="fu">seq</span>(<span class="at">from =</span> <span class="dv">0</span>, <span class="at">to =</span> <span class="dv">1</span>, <span class="at">by =</span> .<span class="dv">2</span>)) <span class="sc">+</span></span>
-<span id="cb386-12"><a href="bayes-rule.html#cb386-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">&quot;Posterior&quot;</span>,</span>
-<span id="cb386-13"><a href="bayes-rule.html#cb386-13" aria-hidden="true" tabindex="-1"></a>       <span class="at">y =</span> <span class="fu">expression</span>(<span class="fu">p</span>(theta<span class="sc">*</span><span class="st">&#39;|&#39;</span><span class="sc">*</span>D))) <span class="sc">+</span></span>
-<span id="cb386-14"><a href="bayes-rule.html#cb386-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">panel.grid =</span> <span class="fu">element_blank</span>())</span></code></pre></div>
+<div class="sourceCode" id="cb387"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb387-1"><a href="bayes-rule.html#cb387-1" aria-hidden="true" tabindex="-1"></a><span class="co"># compute</span></span>
+<span id="cb387-2"><a href="bayes-rule.html#cb387-2" aria-hidden="true" tabindex="-1"></a>d <span class="ot">&lt;-</span></span>
+<span id="cb387-3"><a href="bayes-rule.html#cb387-3" aria-hidden="true" tabindex="-1"></a>  d <span class="sc">%&gt;%</span> </span>
+<span id="cb387-4"><a href="bayes-rule.html#cb387-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">marginal_likelihood =</span> <span class="fu">sum</span>(prior <span class="sc">*</span> likelihood)) <span class="sc">%&gt;%</span> </span>
+<span id="cb387-5"><a href="bayes-rule.html#cb387-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">posterior =</span> (prior <span class="sc">*</span> likelihood) <span class="sc">/</span> marginal_likelihood)</span>
+<span id="cb387-6"><a href="bayes-rule.html#cb387-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb387-7"><a href="bayes-rule.html#cb387-7" aria-hidden="true" tabindex="-1"></a><span class="co"># plot</span></span>
+<span id="cb387-8"><a href="bayes-rule.html#cb387-8" aria-hidden="true" tabindex="-1"></a>d <span class="sc">%&gt;%</span></span>
+<span id="cb387-9"><a href="bayes-rule.html#cb387-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> theta, <span class="at">y =</span> posterior)) <span class="sc">+</span></span>
+<span id="cb387-10"><a href="bayes-rule.html#cb387-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_col</span>(<span class="at">width =</span> .<span class="dv">025</span>, <span class="at">color =</span> <span class="st">&quot;grey50&quot;</span>, <span class="at">fill =</span> <span class="st">&quot;grey50&quot;</span>) <span class="sc">+</span></span>
+<span id="cb387-11"><a href="bayes-rule.html#cb387-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_continuous</span>(<span class="fu">expression</span>(theta), <span class="at">breaks =</span> <span class="fu">seq</span>(<span class="at">from =</span> <span class="dv">0</span>, <span class="at">to =</span> <span class="dv">1</span>, <span class="at">by =</span> .<span class="dv">2</span>)) <span class="sc">+</span></span>
+<span id="cb387-12"><a href="bayes-rule.html#cb387-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">&quot;Posterior&quot;</span>,</span>
+<span id="cb387-13"><a href="bayes-rule.html#cb387-13" aria-hidden="true" tabindex="-1"></a>       <span class="at">y =</span> <span class="fu">expression</span>(<span class="fu">p</span>(theta<span class="sc">*</span><span class="st">&#39;|&#39;</span><span class="sc">*</span>D))) <span class="sc">+</span></span>
+<span id="cb387-14"><a href="bayes-rule.html#cb387-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">panel.grid =</span> <span class="fu">element_blank</span>())</span></code></pre></div>
 <p><img src="05_files/figure-html/unnamed-chunk-8-1.png" width="384" style="display: block; margin: auto;" /></p>
 <blockquote>
 <p>The posterior is a compromise between the prior distribution and the likelihood function. Sometimes this is loosely stated as a compromise between the prior and the data. The compromise favors the prior to the extent that the prior distribution is sharply peaked and the data are few. The compromise favors the likelihood function (i.e., the data) to the extent that the prior distribution is flat and the data are many. (p. 112)</p>
@@ -889,84 +890,84 @@ p(\theta|D) &amp; = \frac{p(D|\theta) \; p(\theta)}{\sum\limits_{\theta^*}p(D|\t
 <div id="influence-of-sample-size-on-the-posterior." class="section level3 hasAnchor" number="5.3.1">
 <h3><span class="header-section-number">5.3.1</span> Influence of sample size on the posterior.<a href="bayes-rule.html#influence-of-sample-size-on-the-posterior." class="anchor-section" aria-label="Anchor link to header"></a></h3>
 <p>Our warmup in the last section was limited in that we computed the posterior based on a single data point <code>y = 1</code>. In order to follow along with this section, we’re going to have to update our Bernoulli likelihood function so it can accommodate more than a single trial. In anticipation of <a href="inferring-a-binomial-probability-via-exact-mathematical-analysis.html#inferring-a-binomial-probability-via-exact-mathematical-analysis">Chapter 6</a>, we’ll call our more general function the <code>bernoulli_likelihood()</code>.</p>
-<div class="sourceCode" id="cb387"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb387-1"><a href="bayes-rule.html#cb387-1" aria-hidden="true" tabindex="-1"></a>bernoulli_likelihood <span class="ot">&lt;-</span> <span class="cf">function</span>(theta, data) {</span>
-<span id="cb387-2"><a href="bayes-rule.html#cb387-2" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb387-3"><a href="bayes-rule.html#cb387-3" aria-hidden="true" tabindex="-1"></a>  <span class="co"># `theta` = success probability parameter ranging from 0 to 1</span></span>
-<span id="cb387-4"><a href="bayes-rule.html#cb387-4" aria-hidden="true" tabindex="-1"></a>  <span class="co"># `data` = the vector of data (i.e., a series of 0s and 1s)</span></span>
-<span id="cb387-5"><a href="bayes-rule.html#cb387-5" aria-hidden="true" tabindex="-1"></a>  n   <span class="ot">&lt;-</span> <span class="fu">length</span>(data)</span>
-<span id="cb387-6"><a href="bayes-rule.html#cb387-6" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb387-7"><a href="bayes-rule.html#cb387-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(theta<span class="sc">^</span><span class="fu">sum</span>(data) <span class="sc">*</span> (<span class="dv">1</span> <span class="sc">-</span> theta)<span class="sc">^</span>(n <span class="sc">-</span> <span class="fu">sum</span>(data)))</span>
-<span id="cb387-8"><a href="bayes-rule.html#cb387-8" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb387-9"><a href="bayes-rule.html#cb387-9" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<div class="sourceCode" id="cb388"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb388-1"><a href="bayes-rule.html#cb388-1" aria-hidden="true" tabindex="-1"></a>bernoulli_likelihood <span class="ot">&lt;-</span> <span class="cf">function</span>(theta, data) {</span>
+<span id="cb388-2"><a href="bayes-rule.html#cb388-2" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb388-3"><a href="bayes-rule.html#cb388-3" aria-hidden="true" tabindex="-1"></a>  <span class="co"># `theta` = success probability parameter ranging from 0 to 1</span></span>
+<span id="cb388-4"><a href="bayes-rule.html#cb388-4" aria-hidden="true" tabindex="-1"></a>  <span class="co"># `data` = the vector of data (i.e., a series of 0s and 1s)</span></span>
+<span id="cb388-5"><a href="bayes-rule.html#cb388-5" aria-hidden="true" tabindex="-1"></a>  n   <span class="ot">&lt;-</span> <span class="fu">length</span>(data)</span>
+<span id="cb388-6"><a href="bayes-rule.html#cb388-6" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb388-7"><a href="bayes-rule.html#cb388-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(theta<span class="sc">^</span><span class="fu">sum</span>(data) <span class="sc">*</span> (<span class="dv">1</span> <span class="sc">-</span> theta)<span class="sc">^</span>(n <span class="sc">-</span> <span class="fu">sum</span>(data)))</span>
+<span id="cb388-8"><a href="bayes-rule.html#cb388-8" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb388-9"><a href="bayes-rule.html#cb388-9" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
 <p>Now we can compute the likelihood for a range of theta values given a vector of coin-flip data. To practice, we’ll make a vector of <span class="math inline">\(N = 4\)</span> coin flips (three tails and one head) called <code>small_data</code>, and compute the likelihood for those data given our <code>theta_sequence</code> from above.</p>
-<div class="sourceCode" id="cb388"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb388-1"><a href="bayes-rule.html#cb388-1" aria-hidden="true" tabindex="-1"></a><span class="co"># define the data</span></span>
-<span id="cb388-2"><a href="bayes-rule.html#cb388-2" aria-hidden="true" tabindex="-1"></a>small_data <span class="ot">&lt;-</span> <span class="fu">rep</span>(<span class="dv">0</span><span class="sc">:</span><span class="dv">1</span>, <span class="at">times =</span> <span class="fu">c</span>(<span class="dv">3</span>, <span class="dv">1</span>))</span>
-<span id="cb388-3"><a href="bayes-rule.html#cb388-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb388-4"><a href="bayes-rule.html#cb388-4" aria-hidden="true" tabindex="-1"></a><span class="co"># compute the likelihood over a range of theta values</span></span>
-<span id="cb388-5"><a href="bayes-rule.html#cb388-5" aria-hidden="true" tabindex="-1"></a><span class="fu">bernoulli_likelihood</span>(<span class="at">theta =</span> theta_sequence, <span class="at">data =</span> small_data)</span></code></pre></div>
+<div class="sourceCode" id="cb389"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb389-1"><a href="bayes-rule.html#cb389-1" aria-hidden="true" tabindex="-1"></a><span class="co"># define the data</span></span>
+<span id="cb389-2"><a href="bayes-rule.html#cb389-2" aria-hidden="true" tabindex="-1"></a>small_data <span class="ot">&lt;-</span> <span class="fu">rep</span>(<span class="dv">0</span><span class="sc">:</span><span class="dv">1</span>, <span class="at">times =</span> <span class="fu">c</span>(<span class="dv">3</span>, <span class="dv">1</span>))</span>
+<span id="cb389-3"><a href="bayes-rule.html#cb389-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb389-4"><a href="bayes-rule.html#cb389-4" aria-hidden="true" tabindex="-1"></a><span class="co"># compute the likelihood over a range of theta values</span></span>
+<span id="cb389-5"><a href="bayes-rule.html#cb389-5" aria-hidden="true" tabindex="-1"></a><span class="fu">bernoulli_likelihood</span>(<span class="at">theta =</span> theta_sequence, <span class="at">data =</span> small_data)</span></code></pre></div>
 <pre><code>##  [1] 0.0000 0.0729 0.1024 0.1029 0.0864 0.0625 0.0384 0.0189 0.0064 0.0009
 ## [11] 0.0000</code></pre>
 <p>To make Figure 5.2, we’ll move away from the coarse 11-point <code>theta_sequence</code> to a denser 1,001-point sequence of <span class="math inline">\(\theta\)</span> values. Here’s the work required to make our version of the left portion of Figure 5.2.</p>
-<div class="sourceCode" id="cb390"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb390-1"><a href="bayes-rule.html#cb390-1" aria-hidden="true" tabindex="-1"></a><span class="co"># make the primary data set</span></span>
-<span id="cb390-2"><a href="bayes-rule.html#cb390-2" aria-hidden="true" tabindex="-1"></a>d <span class="ot">&lt;-</span></span>
-<span id="cb390-3"><a href="bayes-rule.html#cb390-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tibble</span>(<span class="at">theta =</span>   <span class="fu">seq</span>(<span class="at">from =</span> <span class="dv">0</span>,     <span class="at">to =</span> <span class="dv">1</span>, <span class="at">by =</span> .<span class="dv">001</span>),</span>
-<span id="cb390-4"><a href="bayes-rule.html#cb390-4" aria-hidden="true" tabindex="-1"></a>         <span class="at">Prior =</span> <span class="fu">c</span>(<span class="fu">seq</span>(<span class="at">from =</span> <span class="dv">0</span>,     <span class="at">to =</span> <span class="dv">1</span>, <span class="at">length.out =</span> <span class="dv">501</span>),</span>
-<span id="cb390-5"><a href="bayes-rule.html#cb390-5" aria-hidden="true" tabindex="-1"></a>                   <span class="fu">seq</span>(<span class="at">from =</span> <span class="fl">0.998</span>, <span class="at">to =</span> <span class="dv">0</span>, <span class="at">length.out =</span> <span class="dv">500</span>))) <span class="sc">%&gt;%</span> </span>
-<span id="cb390-6"><a href="bayes-rule.html#cb390-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">Prior      =</span> Prior <span class="sc">/</span> <span class="fu">sum</span>(Prior),</span>
-<span id="cb390-7"><a href="bayes-rule.html#cb390-7" aria-hidden="true" tabindex="-1"></a>         <span class="at">Likelihood =</span> <span class="fu">bernoulli_likelihood</span>(<span class="at">theta =</span> theta, <span class="at">data =</span> small_data)) <span class="sc">%&gt;%</span> </span>
-<span id="cb390-8"><a href="bayes-rule.html#cb390-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">marginal_likelihood =</span> <span class="fu">sum</span>(Prior <span class="sc">*</span> Likelihood)) <span class="sc">%&gt;%</span> </span>
-<span id="cb390-9"><a href="bayes-rule.html#cb390-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">Posterior =</span> (Prior <span class="sc">*</span> Likelihood) <span class="sc">/</span> marginal_likelihood)</span>
-<span id="cb390-10"><a href="bayes-rule.html#cb390-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb390-11"><a href="bayes-rule.html#cb390-11" aria-hidden="true" tabindex="-1"></a><span class="co"># wrangle</span></span>
-<span id="cb390-12"><a href="bayes-rule.html#cb390-12" aria-hidden="true" tabindex="-1"></a>d <span class="sc">%&gt;%</span> </span>
-<span id="cb390-13"><a href="bayes-rule.html#cb390-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(theta, Prior, Likelihood, Posterior) <span class="sc">%&gt;%</span> </span>
-<span id="cb390-14"><a href="bayes-rule.html#cb390-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_longer</span>(<span class="sc">-</span>theta) <span class="sc">%&gt;%</span> </span>
-<span id="cb390-15"><a href="bayes-rule.html#cb390-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">name =</span> <span class="fu">factor</span>(name, <span class="at">levels =</span> <span class="fu">c</span>(<span class="st">&quot;Prior&quot;</span>, <span class="st">&quot;Likelihood&quot;</span>, <span class="st">&quot;Posterior&quot;</span>))) <span class="sc">%&gt;%</span> </span>
-<span id="cb390-16"><a href="bayes-rule.html#cb390-16" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb390-17"><a href="bayes-rule.html#cb390-17" aria-hidden="true" tabindex="-1"></a>  <span class="co"># plot</span></span>
-<span id="cb390-18"><a href="bayes-rule.html#cb390-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> theta, <span class="at">y =</span> value)) <span class="sc">+</span></span>
-<span id="cb390-19"><a href="bayes-rule.html#cb390-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_area</span>(<span class="at">fill =</span> <span class="st">&quot;grey67&quot;</span>) <span class="sc">+</span></span>
-<span id="cb390-20"><a href="bayes-rule.html#cb390-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_continuous</span>(<span class="fu">expression</span>(theta), <span class="at">breaks =</span> <span class="fu">seq</span>(<span class="at">from =</span> <span class="dv">0</span>, <span class="at">to =</span> <span class="dv">1</span>, <span class="at">by =</span> .<span class="dv">2</span>)) <span class="sc">+</span></span>
-<span id="cb390-21"><a href="bayes-rule.html#cb390-21" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ylab</span>(<span class="st">&quot;probability density&quot;</span>) <span class="sc">+</span></span>
-<span id="cb390-22"><a href="bayes-rule.html#cb390-22" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">panel.grid =</span> <span class="fu">element_blank</span>()) <span class="sc">+</span></span>
-<span id="cb390-23"><a href="bayes-rule.html#cb390-23" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span> name, <span class="at">scales =</span> <span class="st">&quot;free_y&quot;</span>, <span class="at">ncol =</span> <span class="dv">1</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb391"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb391-1"><a href="bayes-rule.html#cb391-1" aria-hidden="true" tabindex="-1"></a><span class="co"># make the primary data set</span></span>
+<span id="cb391-2"><a href="bayes-rule.html#cb391-2" aria-hidden="true" tabindex="-1"></a>d <span class="ot">&lt;-</span></span>
+<span id="cb391-3"><a href="bayes-rule.html#cb391-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tibble</span>(<span class="at">theta =</span>   <span class="fu">seq</span>(<span class="at">from =</span> <span class="dv">0</span>,     <span class="at">to =</span> <span class="dv">1</span>, <span class="at">by =</span> .<span class="dv">001</span>),</span>
+<span id="cb391-4"><a href="bayes-rule.html#cb391-4" aria-hidden="true" tabindex="-1"></a>         <span class="at">Prior =</span> <span class="fu">c</span>(<span class="fu">seq</span>(<span class="at">from =</span> <span class="dv">0</span>,     <span class="at">to =</span> <span class="dv">1</span>, <span class="at">length.out =</span> <span class="dv">501</span>),</span>
+<span id="cb391-5"><a href="bayes-rule.html#cb391-5" aria-hidden="true" tabindex="-1"></a>                   <span class="fu">seq</span>(<span class="at">from =</span> <span class="fl">0.998</span>, <span class="at">to =</span> <span class="dv">0</span>, <span class="at">length.out =</span> <span class="dv">500</span>))) <span class="sc">%&gt;%</span> </span>
+<span id="cb391-6"><a href="bayes-rule.html#cb391-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">Prior      =</span> Prior <span class="sc">/</span> <span class="fu">sum</span>(Prior),</span>
+<span id="cb391-7"><a href="bayes-rule.html#cb391-7" aria-hidden="true" tabindex="-1"></a>         <span class="at">Likelihood =</span> <span class="fu">bernoulli_likelihood</span>(<span class="at">theta =</span> theta, <span class="at">data =</span> small_data)) <span class="sc">%&gt;%</span> </span>
+<span id="cb391-8"><a href="bayes-rule.html#cb391-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">marginal_likelihood =</span> <span class="fu">sum</span>(Prior <span class="sc">*</span> Likelihood)) <span class="sc">%&gt;%</span> </span>
+<span id="cb391-9"><a href="bayes-rule.html#cb391-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">Posterior =</span> (Prior <span class="sc">*</span> Likelihood) <span class="sc">/</span> marginal_likelihood)</span>
+<span id="cb391-10"><a href="bayes-rule.html#cb391-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb391-11"><a href="bayes-rule.html#cb391-11" aria-hidden="true" tabindex="-1"></a><span class="co"># wrangle</span></span>
+<span id="cb391-12"><a href="bayes-rule.html#cb391-12" aria-hidden="true" tabindex="-1"></a>d <span class="sc">%&gt;%</span> </span>
+<span id="cb391-13"><a href="bayes-rule.html#cb391-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(theta, Prior, Likelihood, Posterior) <span class="sc">%&gt;%</span> </span>
+<span id="cb391-14"><a href="bayes-rule.html#cb391-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_longer</span>(<span class="sc">-</span>theta) <span class="sc">%&gt;%</span> </span>
+<span id="cb391-15"><a href="bayes-rule.html#cb391-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">name =</span> <span class="fu">factor</span>(name, <span class="at">levels =</span> <span class="fu">c</span>(<span class="st">&quot;Prior&quot;</span>, <span class="st">&quot;Likelihood&quot;</span>, <span class="st">&quot;Posterior&quot;</span>))) <span class="sc">%&gt;%</span> </span>
+<span id="cb391-16"><a href="bayes-rule.html#cb391-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb391-17"><a href="bayes-rule.html#cb391-17" aria-hidden="true" tabindex="-1"></a>  <span class="co"># plot</span></span>
+<span id="cb391-18"><a href="bayes-rule.html#cb391-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> theta, <span class="at">y =</span> value)) <span class="sc">+</span></span>
+<span id="cb391-19"><a href="bayes-rule.html#cb391-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_area</span>(<span class="at">fill =</span> <span class="st">&quot;grey67&quot;</span>) <span class="sc">+</span></span>
+<span id="cb391-20"><a href="bayes-rule.html#cb391-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_continuous</span>(<span class="fu">expression</span>(theta), <span class="at">breaks =</span> <span class="fu">seq</span>(<span class="at">from =</span> <span class="dv">0</span>, <span class="at">to =</span> <span class="dv">1</span>, <span class="at">by =</span> .<span class="dv">2</span>)) <span class="sc">+</span></span>
+<span id="cb391-21"><a href="bayes-rule.html#cb391-21" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ylab</span>(<span class="st">&quot;probability density&quot;</span>) <span class="sc">+</span></span>
+<span id="cb391-22"><a href="bayes-rule.html#cb391-22" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">panel.grid =</span> <span class="fu">element_blank</span>()) <span class="sc">+</span></span>
+<span id="cb391-23"><a href="bayes-rule.html#cb391-23" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span> name, <span class="at">scales =</span> <span class="st">&quot;free_y&quot;</span>, <span class="at">ncol =</span> <span class="dv">1</span>)</span></code></pre></div>
 <p><img src="05_files/figure-html/unnamed-chunk-11-1.png" width="384" style="display: block; margin: auto;" /></p>
 <p>As Kruschke remarked on page 112, the mode of the posterior is at <span class="math inline">\(\theta = .4\)</span>.</p>
-<div class="sourceCode" id="cb391"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb391-1"><a href="bayes-rule.html#cb391-1" aria-hidden="true" tabindex="-1"></a>d <span class="sc">%&gt;%</span> </span>
-<span id="cb391-2"><a href="bayes-rule.html#cb391-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(Posterior <span class="sc">==</span> <span class="fu">max</span>(Posterior)) <span class="sc">%&gt;%</span> </span>
-<span id="cb391-3"><a href="bayes-rule.html#cb391-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(theta, Posterior)</span></code></pre></div>
+<div class="sourceCode" id="cb392"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb392-1"><a href="bayes-rule.html#cb392-1" aria-hidden="true" tabindex="-1"></a>d <span class="sc">%&gt;%</span> </span>
+<span id="cb392-2"><a href="bayes-rule.html#cb392-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(Posterior <span class="sc">==</span> <span class="fu">max</span>(Posterior)) <span class="sc">%&gt;%</span> </span>
+<span id="cb392-3"><a href="bayes-rule.html#cb392-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(theta, Posterior)</span></code></pre></div>
 <pre><code>## # A tibble: 1 × 2
 ##   theta Posterior
 ##   &lt;dbl&gt;     &lt;dbl&gt;
 ## 1   0.4   0.00237</code></pre>
 <p>We just follow the same overall procedure to make the right portion of Figure 5.2. The only difference is how we switch from <code>small_data</code> to the <span class="math inline">\(N = 40\)</span> <code>large_data</code>.</p>
-<div class="sourceCode" id="cb393"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb393-1"><a href="bayes-rule.html#cb393-1" aria-hidden="true" tabindex="-1"></a>large_data <span class="ot">&lt;-</span> <span class="fu">rep</span>(<span class="dv">0</span><span class="sc">:</span><span class="dv">1</span>, <span class="at">times =</span> <span class="fu">c</span>(<span class="dv">30</span>, <span class="dv">10</span>))</span>
-<span id="cb393-2"><a href="bayes-rule.html#cb393-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb393-3"><a href="bayes-rule.html#cb393-3" aria-hidden="true" tabindex="-1"></a><span class="co"># compute</span></span>
-<span id="cb393-4"><a href="bayes-rule.html#cb393-4" aria-hidden="true" tabindex="-1"></a>d <span class="ot">&lt;-</span> </span>
-<span id="cb393-5"><a href="bayes-rule.html#cb393-5" aria-hidden="true" tabindex="-1"></a>  d <span class="sc">%&gt;%</span> </span>
-<span id="cb393-6"><a href="bayes-rule.html#cb393-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">Likelihood =</span> <span class="fu">bernoulli_likelihood</span>(<span class="at">theta =</span> theta, <span class="at">data =</span> large_data)) <span class="sc">%&gt;%</span> </span>
-<span id="cb393-7"><a href="bayes-rule.html#cb393-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">marginal_likelihood =</span> <span class="fu">sum</span>(Prior <span class="sc">*</span> Likelihood)) <span class="sc">%&gt;%</span> </span>
-<span id="cb393-8"><a href="bayes-rule.html#cb393-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">Posterior =</span> (Prior <span class="sc">*</span> Likelihood) <span class="sc">/</span> marginal_likelihood)</span>
-<span id="cb393-9"><a href="bayes-rule.html#cb393-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb393-10"><a href="bayes-rule.html#cb393-10" aria-hidden="true" tabindex="-1"></a><span class="co"># wrangle</span></span>
-<span id="cb393-11"><a href="bayes-rule.html#cb393-11" aria-hidden="true" tabindex="-1"></a>d <span class="sc">%&gt;%</span> </span>
-<span id="cb393-12"><a href="bayes-rule.html#cb393-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(theta, Prior, Likelihood, Posterior) <span class="sc">%&gt;%</span> </span>
-<span id="cb393-13"><a href="bayes-rule.html#cb393-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_longer</span>(<span class="sc">-</span>theta) <span class="sc">%&gt;%</span> </span>
-<span id="cb393-14"><a href="bayes-rule.html#cb393-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">name =</span> <span class="fu">factor</span>(name, <span class="at">levels =</span> <span class="fu">c</span>(<span class="st">&quot;Prior&quot;</span>, <span class="st">&quot;Likelihood&quot;</span>, <span class="st">&quot;Posterior&quot;</span>))) <span class="sc">%&gt;%</span> </span>
-<span id="cb393-15"><a href="bayes-rule.html#cb393-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb393-16"><a href="bayes-rule.html#cb393-16" aria-hidden="true" tabindex="-1"></a><span class="co"># plot</span></span>
-<span id="cb393-17"><a href="bayes-rule.html#cb393-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> theta, <span class="at">y =</span> value)) <span class="sc">+</span></span>
-<span id="cb393-18"><a href="bayes-rule.html#cb393-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_area</span>(<span class="at">fill =</span> <span class="st">&quot;grey67&quot;</span>) <span class="sc">+</span></span>
-<span id="cb393-19"><a href="bayes-rule.html#cb393-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_continuous</span>(<span class="fu">expression</span>(theta), <span class="at">breaks =</span> <span class="fu">seq</span>(<span class="at">from =</span> <span class="dv">0</span>, <span class="at">to =</span> <span class="dv">1</span>, <span class="at">by =</span> .<span class="dv">2</span>)) <span class="sc">+</span></span>
-<span id="cb393-20"><a href="bayes-rule.html#cb393-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ylab</span>(<span class="st">&quot;probability density&quot;</span>) <span class="sc">+</span></span>
-<span id="cb393-21"><a href="bayes-rule.html#cb393-21" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">panel.grid =</span> <span class="fu">element_blank</span>()) <span class="sc">+</span></span>
-<span id="cb393-22"><a href="bayes-rule.html#cb393-22" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span> name, <span class="at">scales =</span> <span class="st">&quot;free_y&quot;</span>, <span class="at">ncol =</span> <span class="dv">1</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb394"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb394-1"><a href="bayes-rule.html#cb394-1" aria-hidden="true" tabindex="-1"></a>large_data <span class="ot">&lt;-</span> <span class="fu">rep</span>(<span class="dv">0</span><span class="sc">:</span><span class="dv">1</span>, <span class="at">times =</span> <span class="fu">c</span>(<span class="dv">30</span>, <span class="dv">10</span>))</span>
+<span id="cb394-2"><a href="bayes-rule.html#cb394-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb394-3"><a href="bayes-rule.html#cb394-3" aria-hidden="true" tabindex="-1"></a><span class="co"># compute</span></span>
+<span id="cb394-4"><a href="bayes-rule.html#cb394-4" aria-hidden="true" tabindex="-1"></a>d <span class="ot">&lt;-</span> </span>
+<span id="cb394-5"><a href="bayes-rule.html#cb394-5" aria-hidden="true" tabindex="-1"></a>  d <span class="sc">%&gt;%</span> </span>
+<span id="cb394-6"><a href="bayes-rule.html#cb394-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">Likelihood =</span> <span class="fu">bernoulli_likelihood</span>(<span class="at">theta =</span> theta, <span class="at">data =</span> large_data)) <span class="sc">%&gt;%</span> </span>
+<span id="cb394-7"><a href="bayes-rule.html#cb394-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">marginal_likelihood =</span> <span class="fu">sum</span>(Prior <span class="sc">*</span> Likelihood)) <span class="sc">%&gt;%</span> </span>
+<span id="cb394-8"><a href="bayes-rule.html#cb394-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">Posterior =</span> (Prior <span class="sc">*</span> Likelihood) <span class="sc">/</span> marginal_likelihood)</span>
+<span id="cb394-9"><a href="bayes-rule.html#cb394-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb394-10"><a href="bayes-rule.html#cb394-10" aria-hidden="true" tabindex="-1"></a><span class="co"># wrangle</span></span>
+<span id="cb394-11"><a href="bayes-rule.html#cb394-11" aria-hidden="true" tabindex="-1"></a>d <span class="sc">%&gt;%</span> </span>
+<span id="cb394-12"><a href="bayes-rule.html#cb394-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(theta, Prior, Likelihood, Posterior) <span class="sc">%&gt;%</span> </span>
+<span id="cb394-13"><a href="bayes-rule.html#cb394-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_longer</span>(<span class="sc">-</span>theta) <span class="sc">%&gt;%</span> </span>
+<span id="cb394-14"><a href="bayes-rule.html#cb394-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">name =</span> <span class="fu">factor</span>(name, <span class="at">levels =</span> <span class="fu">c</span>(<span class="st">&quot;Prior&quot;</span>, <span class="st">&quot;Likelihood&quot;</span>, <span class="st">&quot;Posterior&quot;</span>))) <span class="sc">%&gt;%</span> </span>
+<span id="cb394-15"><a href="bayes-rule.html#cb394-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb394-16"><a href="bayes-rule.html#cb394-16" aria-hidden="true" tabindex="-1"></a><span class="co"># plot</span></span>
+<span id="cb394-17"><a href="bayes-rule.html#cb394-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> theta, <span class="at">y =</span> value)) <span class="sc">+</span></span>
+<span id="cb394-18"><a href="bayes-rule.html#cb394-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_area</span>(<span class="at">fill =</span> <span class="st">&quot;grey67&quot;</span>) <span class="sc">+</span></span>
+<span id="cb394-19"><a href="bayes-rule.html#cb394-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_continuous</span>(<span class="fu">expression</span>(theta), <span class="at">breaks =</span> <span class="fu">seq</span>(<span class="at">from =</span> <span class="dv">0</span>, <span class="at">to =</span> <span class="dv">1</span>, <span class="at">by =</span> .<span class="dv">2</span>)) <span class="sc">+</span></span>
+<span id="cb394-20"><a href="bayes-rule.html#cb394-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ylab</span>(<span class="st">&quot;probability density&quot;</span>) <span class="sc">+</span></span>
+<span id="cb394-21"><a href="bayes-rule.html#cb394-21" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">panel.grid =</span> <span class="fu">element_blank</span>()) <span class="sc">+</span></span>
+<span id="cb394-22"><a href="bayes-rule.html#cb394-22" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span> name, <span class="at">scales =</span> <span class="st">&quot;free_y&quot;</span>, <span class="at">ncol =</span> <span class="dv">1</span>)</span></code></pre></div>
 <p><img src="05_files/figure-html/unnamed-chunk-13-1.png" width="384" style="display: block; margin: auto;" /></p>
 <p>Now the mode of the posterior is lower at <span class="math inline">\(\theta = .268\)</span>.</p>
-<div class="sourceCode" id="cb394"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb394-1"><a href="bayes-rule.html#cb394-1" aria-hidden="true" tabindex="-1"></a>d <span class="sc">%&gt;%</span> </span>
-<span id="cb394-2"><a href="bayes-rule.html#cb394-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(Posterior <span class="sc">==</span> <span class="fu">max</span>(Posterior)) <span class="sc">%&gt;%</span> </span>
-<span id="cb394-3"><a href="bayes-rule.html#cb394-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(theta, Posterior)</span></code></pre></div>
+<div class="sourceCode" id="cb395"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb395-1"><a href="bayes-rule.html#cb395-1" aria-hidden="true" tabindex="-1"></a>d <span class="sc">%&gt;%</span> </span>
+<span id="cb395-2"><a href="bayes-rule.html#cb395-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(Posterior <span class="sc">==</span> <span class="fu">max</span>(Posterior)) <span class="sc">%&gt;%</span> </span>
+<span id="cb395-3"><a href="bayes-rule.html#cb395-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(theta, Posterior)</span></code></pre></div>
 <pre><code>## # A tibble: 1 × 2
 ##   theta Posterior
 ##   &lt;dbl&gt;     &lt;dbl&gt;
@@ -976,48 +977,48 @@ p(\theta|D) &amp; = \frac{p(D|\theta) \; p(\theta)}{\sum\limits_{\theta^*}p(D|\t
 <div id="influence-of-prior-on-the-posterior." class="section level3 hasAnchor" number="5.3.2">
 <h3><span class="header-section-number">5.3.2</span> Influence of prior on the posterior.<a href="bayes-rule.html#influence-of-prior-on-the-posterior." class="anchor-section" aria-label="Anchor link to header"></a></h3>
 <p>It’s not immediately obvious how Kruschke made his prior distributions for Figure 5.3. However, hidden away in his <code>BernGridExample.R</code> file he indicated that to get the distribution for the left side of Figure 5.3, you simply raise the prior from the left of Figure 5.2 to the 0.1 power.</p>
-<div class="sourceCode" id="cb396"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb396-1"><a href="bayes-rule.html#cb396-1" aria-hidden="true" tabindex="-1"></a>small_data <span class="ot">&lt;-</span> <span class="fu">rep</span>(<span class="dv">0</span><span class="sc">:</span><span class="dv">1</span>, <span class="at">times =</span> <span class="fu">c</span>(<span class="dv">3</span>, <span class="dv">1</span>))</span>
-<span id="cb396-2"><a href="bayes-rule.html#cb396-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb396-3"><a href="bayes-rule.html#cb396-3" aria-hidden="true" tabindex="-1"></a><span class="fu">tibble</span>(<span class="at">theta =</span> <span class="fu">seq</span>(<span class="at">from =</span> <span class="dv">0</span>, <span class="at">to =</span> <span class="dv">1</span>, <span class="at">by =</span> .<span class="dv">001</span>),</span>
-<span id="cb396-4"><a href="bayes-rule.html#cb396-4" aria-hidden="true" tabindex="-1"></a>       <span class="at">Prior =</span> <span class="fu">c</span>(<span class="fu">seq</span>(<span class="at">from =</span> <span class="dv">0</span>, <span class="at">to =</span> <span class="dv">1</span>, <span class="at">length.out =</span> <span class="dv">501</span>),</span>
-<span id="cb396-5"><a href="bayes-rule.html#cb396-5" aria-hidden="true" tabindex="-1"></a>                 <span class="fu">seq</span>(<span class="at">from =</span> <span class="fl">0.998</span>, <span class="at">to =</span> <span class="dv">0</span>, <span class="at">length.out =</span> <span class="dv">500</span>))) <span class="sc">%&gt;%</span> </span>
-<span id="cb396-6"><a href="bayes-rule.html#cb396-6" aria-hidden="true" tabindex="-1"></a>  <span class="co"># here&#39;s the important line of code</span></span>
-<span id="cb396-7"><a href="bayes-rule.html#cb396-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">Prior      =</span> Prior<span class="sc">^</span><span class="fl">0.1</span> <span class="sc">/</span> <span class="fu">sum</span>(Prior<span class="sc">^</span><span class="fl">0.1</span>),</span>
-<span id="cb396-8"><a href="bayes-rule.html#cb396-8" aria-hidden="true" tabindex="-1"></a>         <span class="at">Likelihood =</span> <span class="fu">bernoulli_likelihood</span>(<span class="at">theta =</span> theta, <span class="at">data =</span> small_data)) <span class="sc">%&gt;%</span> </span>
-<span id="cb396-9"><a href="bayes-rule.html#cb396-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">marginal_likelihood =</span> <span class="fu">sum</span>(Prior <span class="sc">*</span> Likelihood)) <span class="sc">%&gt;%</span> </span>
-<span id="cb396-10"><a href="bayes-rule.html#cb396-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">Posterior =</span> (Prior <span class="sc">*</span> Likelihood) <span class="sc">/</span> marginal_likelihood) <span class="sc">%&gt;%</span> </span>
-<span id="cb396-11"><a href="bayes-rule.html#cb396-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(theta, Prior, Likelihood, Posterior) <span class="sc">%&gt;%</span> </span>
-<span id="cb396-12"><a href="bayes-rule.html#cb396-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_longer</span>(<span class="sc">-</span>theta) <span class="sc">%&gt;%</span> </span>
-<span id="cb396-13"><a href="bayes-rule.html#cb396-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">name =</span> <span class="fu">factor</span>(name, <span class="at">levels =</span> <span class="fu">c</span>(<span class="st">&quot;Prior&quot;</span>, <span class="st">&quot;Likelihood&quot;</span>, <span class="st">&quot;Posterior&quot;</span>))) <span class="sc">%&gt;%</span> </span>
-<span id="cb396-14"><a href="bayes-rule.html#cb396-14" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb396-15"><a href="bayes-rule.html#cb396-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> theta, <span class="at">y =</span> value)) <span class="sc">+</span></span>
-<span id="cb396-16"><a href="bayes-rule.html#cb396-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_area</span>(<span class="at">fill =</span> <span class="st">&quot;grey67&quot;</span>) <span class="sc">+</span></span>
-<span id="cb396-17"><a href="bayes-rule.html#cb396-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_continuous</span>(<span class="fu">expression</span>(theta), <span class="at">breaks =</span> <span class="fu">seq</span>(<span class="at">from =</span> <span class="dv">0</span>, <span class="at">to =</span> <span class="dv">1</span>, <span class="at">by =</span> .<span class="dv">2</span>)) <span class="sc">+</span></span>
-<span id="cb396-18"><a href="bayes-rule.html#cb396-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ylab</span>(<span class="st">&quot;probability density&quot;</span>) <span class="sc">+</span></span>
-<span id="cb396-19"><a href="bayes-rule.html#cb396-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">panel.grid =</span> <span class="fu">element_blank</span>()) <span class="sc">+</span></span>
-<span id="cb396-20"><a href="bayes-rule.html#cb396-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span> name, <span class="at">scales =</span> <span class="st">&quot;free_y&quot;</span>, <span class="at">ncol =</span> <span class="dv">1</span>)</span></code></pre></div>
-<p><img src="05_files/figure-html/unnamed-chunk-15-1.png" width="384" style="display: block; margin: auto;" /></p>
-<p>With a vague flat prior and a small data set, the posterior well tend to look a lot like the likelihood. With the right side of Figure 5.3, we consider a larger data set and a stronger prior. Also, note our tricky <code>Prior</code> code.</p>
-<div class="sourceCode" id="cb397"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb397-1"><a href="bayes-rule.html#cb397-1" aria-hidden="true" tabindex="-1"></a>large_data <span class="ot">&lt;-</span> <span class="fu">rep</span>(<span class="dv">0</span><span class="sc">:</span><span class="dv">1</span>, <span class="at">times =</span> <span class="fu">c</span>(<span class="dv">30</span>, <span class="dv">10</span>))</span>
+<div class="sourceCode" id="cb397"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb397-1"><a href="bayes-rule.html#cb397-1" aria-hidden="true" tabindex="-1"></a>small_data <span class="ot">&lt;-</span> <span class="fu">rep</span>(<span class="dv">0</span><span class="sc">:</span><span class="dv">1</span>, <span class="at">times =</span> <span class="fu">c</span>(<span class="dv">3</span>, <span class="dv">1</span>))</span>
 <span id="cb397-2"><a href="bayes-rule.html#cb397-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb397-3"><a href="bayes-rule.html#cb397-3" aria-hidden="true" tabindex="-1"></a><span class="fu">tibble</span>(<span class="at">theta =</span> <span class="fu">seq</span>(<span class="at">from =</span> <span class="dv">0</span>, <span class="at">to =</span> <span class="dv">1</span>, <span class="at">by =</span> .<span class="dv">001</span>),</span>
 <span id="cb397-4"><a href="bayes-rule.html#cb397-4" aria-hidden="true" tabindex="-1"></a>       <span class="at">Prior =</span> <span class="fu">c</span>(<span class="fu">seq</span>(<span class="at">from =</span> <span class="dv">0</span>, <span class="at">to =</span> <span class="dv">1</span>, <span class="at">length.out =</span> <span class="dv">501</span>),</span>
 <span id="cb397-5"><a href="bayes-rule.html#cb397-5" aria-hidden="true" tabindex="-1"></a>                 <span class="fu">seq</span>(<span class="at">from =</span> <span class="fl">0.998</span>, <span class="at">to =</span> <span class="dv">0</span>, <span class="at">length.out =</span> <span class="dv">500</span>))) <span class="sc">%&gt;%</span> </span>
 <span id="cb397-6"><a href="bayes-rule.html#cb397-6" aria-hidden="true" tabindex="-1"></a>  <span class="co"># here&#39;s the important line of code</span></span>
-<span id="cb397-7"><a href="bayes-rule.html#cb397-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">Prior      =</span> (Prior <span class="sc">/</span> <span class="fu">sum</span>(Prior))<span class="sc">^</span><span class="dv">10</span>,</span>
-<span id="cb397-8"><a href="bayes-rule.html#cb397-8" aria-hidden="true" tabindex="-1"></a>         <span class="at">Likelihood =</span> <span class="fu">bernoulli_likelihood</span>(<span class="at">theta =</span> theta, <span class="at">data =</span> large_data)) <span class="sc">%&gt;%</span> </span>
+<span id="cb397-7"><a href="bayes-rule.html#cb397-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">Prior      =</span> Prior<span class="sc">^</span><span class="fl">0.1</span> <span class="sc">/</span> <span class="fu">sum</span>(Prior<span class="sc">^</span><span class="fl">0.1</span>),</span>
+<span id="cb397-8"><a href="bayes-rule.html#cb397-8" aria-hidden="true" tabindex="-1"></a>         <span class="at">Likelihood =</span> <span class="fu">bernoulli_likelihood</span>(<span class="at">theta =</span> theta, <span class="at">data =</span> small_data)) <span class="sc">%&gt;%</span> </span>
 <span id="cb397-9"><a href="bayes-rule.html#cb397-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">marginal_likelihood =</span> <span class="fu">sum</span>(Prior <span class="sc">*</span> Likelihood)) <span class="sc">%&gt;%</span> </span>
 <span id="cb397-10"><a href="bayes-rule.html#cb397-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">Posterior =</span> (Prior <span class="sc">*</span> Likelihood) <span class="sc">/</span> marginal_likelihood) <span class="sc">%&gt;%</span> </span>
 <span id="cb397-11"><a href="bayes-rule.html#cb397-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(theta, Prior, Likelihood, Posterior) <span class="sc">%&gt;%</span> </span>
 <span id="cb397-12"><a href="bayes-rule.html#cb397-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_longer</span>(<span class="sc">-</span>theta) <span class="sc">%&gt;%</span> </span>
 <span id="cb397-13"><a href="bayes-rule.html#cb397-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">name =</span> <span class="fu">factor</span>(name, <span class="at">levels =</span> <span class="fu">c</span>(<span class="st">&quot;Prior&quot;</span>, <span class="st">&quot;Likelihood&quot;</span>, <span class="st">&quot;Posterior&quot;</span>))) <span class="sc">%&gt;%</span> </span>
-<span id="cb397-14"><a href="bayes-rule.html#cb397-14" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb397-14"><a href="bayes-rule.html#cb397-14" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb397-15"><a href="bayes-rule.html#cb397-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> theta, <span class="at">y =</span> value)) <span class="sc">+</span></span>
 <span id="cb397-16"><a href="bayes-rule.html#cb397-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_area</span>(<span class="at">fill =</span> <span class="st">&quot;grey67&quot;</span>) <span class="sc">+</span></span>
 <span id="cb397-17"><a href="bayes-rule.html#cb397-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_continuous</span>(<span class="fu">expression</span>(theta), <span class="at">breaks =</span> <span class="fu">seq</span>(<span class="at">from =</span> <span class="dv">0</span>, <span class="at">to =</span> <span class="dv">1</span>, <span class="at">by =</span> .<span class="dv">2</span>)) <span class="sc">+</span></span>
 <span id="cb397-18"><a href="bayes-rule.html#cb397-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ylab</span>(<span class="st">&quot;probability density&quot;</span>) <span class="sc">+</span></span>
 <span id="cb397-19"><a href="bayes-rule.html#cb397-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">panel.grid =</span> <span class="fu">element_blank</span>()) <span class="sc">+</span></span>
 <span id="cb397-20"><a href="bayes-rule.html#cb397-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span> name, <span class="at">scales =</span> <span class="st">&quot;free_y&quot;</span>, <span class="at">ncol =</span> <span class="dv">1</span>)</span></code></pre></div>
+<p><img src="05_files/figure-html/unnamed-chunk-15-1.png" width="384" style="display: block; margin: auto;" /></p>
+<p>With a vague flat prior and a small data set, the posterior well tend to look a lot like the likelihood. With the right side of Figure 5.3, we consider a larger data set and a stronger prior. Also, note our tricky <code>Prior</code> code.</p>
+<div class="sourceCode" id="cb398"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb398-1"><a href="bayes-rule.html#cb398-1" aria-hidden="true" tabindex="-1"></a>large_data <span class="ot">&lt;-</span> <span class="fu">rep</span>(<span class="dv">0</span><span class="sc">:</span><span class="dv">1</span>, <span class="at">times =</span> <span class="fu">c</span>(<span class="dv">30</span>, <span class="dv">10</span>))</span>
+<span id="cb398-2"><a href="bayes-rule.html#cb398-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb398-3"><a href="bayes-rule.html#cb398-3" aria-hidden="true" tabindex="-1"></a><span class="fu">tibble</span>(<span class="at">theta =</span> <span class="fu">seq</span>(<span class="at">from =</span> <span class="dv">0</span>, <span class="at">to =</span> <span class="dv">1</span>, <span class="at">by =</span> .<span class="dv">001</span>),</span>
+<span id="cb398-4"><a href="bayes-rule.html#cb398-4" aria-hidden="true" tabindex="-1"></a>       <span class="at">Prior =</span> <span class="fu">c</span>(<span class="fu">seq</span>(<span class="at">from =</span> <span class="dv">0</span>, <span class="at">to =</span> <span class="dv">1</span>, <span class="at">length.out =</span> <span class="dv">501</span>),</span>
+<span id="cb398-5"><a href="bayes-rule.html#cb398-5" aria-hidden="true" tabindex="-1"></a>                 <span class="fu">seq</span>(<span class="at">from =</span> <span class="fl">0.998</span>, <span class="at">to =</span> <span class="dv">0</span>, <span class="at">length.out =</span> <span class="dv">500</span>))) <span class="sc">%&gt;%</span> </span>
+<span id="cb398-6"><a href="bayes-rule.html#cb398-6" aria-hidden="true" tabindex="-1"></a>  <span class="co"># here&#39;s the important line of code</span></span>
+<span id="cb398-7"><a href="bayes-rule.html#cb398-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">Prior      =</span> (Prior <span class="sc">/</span> <span class="fu">sum</span>(Prior))<span class="sc">^</span><span class="dv">10</span>,</span>
+<span id="cb398-8"><a href="bayes-rule.html#cb398-8" aria-hidden="true" tabindex="-1"></a>         <span class="at">Likelihood =</span> <span class="fu">bernoulli_likelihood</span>(<span class="at">theta =</span> theta, <span class="at">data =</span> large_data)) <span class="sc">%&gt;%</span> </span>
+<span id="cb398-9"><a href="bayes-rule.html#cb398-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">marginal_likelihood =</span> <span class="fu">sum</span>(Prior <span class="sc">*</span> Likelihood)) <span class="sc">%&gt;%</span> </span>
+<span id="cb398-10"><a href="bayes-rule.html#cb398-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">Posterior =</span> (Prior <span class="sc">*</span> Likelihood) <span class="sc">/</span> marginal_likelihood) <span class="sc">%&gt;%</span> </span>
+<span id="cb398-11"><a href="bayes-rule.html#cb398-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(theta, Prior, Likelihood, Posterior) <span class="sc">%&gt;%</span> </span>
+<span id="cb398-12"><a href="bayes-rule.html#cb398-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_longer</span>(<span class="sc">-</span>theta) <span class="sc">%&gt;%</span> </span>
+<span id="cb398-13"><a href="bayes-rule.html#cb398-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">name =</span> <span class="fu">factor</span>(name, <span class="at">levels =</span> <span class="fu">c</span>(<span class="st">&quot;Prior&quot;</span>, <span class="st">&quot;Likelihood&quot;</span>, <span class="st">&quot;Posterior&quot;</span>))) <span class="sc">%&gt;%</span> </span>
+<span id="cb398-14"><a href="bayes-rule.html#cb398-14" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb398-15"><a href="bayes-rule.html#cb398-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> theta, <span class="at">y =</span> value)) <span class="sc">+</span></span>
+<span id="cb398-16"><a href="bayes-rule.html#cb398-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_area</span>(<span class="at">fill =</span> <span class="st">&quot;grey67&quot;</span>) <span class="sc">+</span></span>
+<span id="cb398-17"><a href="bayes-rule.html#cb398-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_continuous</span>(<span class="fu">expression</span>(theta), <span class="at">breaks =</span> <span class="fu">seq</span>(<span class="at">from =</span> <span class="dv">0</span>, <span class="at">to =</span> <span class="dv">1</span>, <span class="at">by =</span> .<span class="dv">2</span>)) <span class="sc">+</span></span>
+<span id="cb398-18"><a href="bayes-rule.html#cb398-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ylab</span>(<span class="st">&quot;probability density&quot;</span>) <span class="sc">+</span></span>
+<span id="cb398-19"><a href="bayes-rule.html#cb398-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">panel.grid =</span> <span class="fu">element_blank</span>()) <span class="sc">+</span></span>
+<span id="cb398-20"><a href="bayes-rule.html#cb398-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span> name, <span class="at">scales =</span> <span class="st">&quot;free_y&quot;</span>, <span class="at">ncol =</span> <span class="dv">1</span>)</span></code></pre></div>
 <p><img src="05_files/figure-html/unnamed-chunk-16-1.png" width="432" style="display: block; margin: auto;" /></p>
 <blockquote>
 <p>Bayesian inference is intuitively rational: With a strongly informed prior that uses a lot of previous data to put high credibility over a narrow range of parameter values, it takes a lot of novel contrary data to budge beliefs away from the prior. But with a weakly informed prior that spreads credibility over a wide range of parameter values, it takes relatively little data to shift the peak of the posterior distribution toward the data (although the posterior will be relatively wide and uncertain). (p. 114)</p>
@@ -1036,14 +1037,14 @@ p(\theta|D) &amp; = \frac{p(D|\theta) \; p(\theta)}{\sum\limits_{\theta^*}p(D|\t
 </div>
 <div id="session-info-4" class="section level2 unnumbered hasAnchor">
 <h2>Session info<a href="bayes-rule.html#session-info-4" class="anchor-section" aria-label="Anchor link to header"></a></h2>
-<div class="sourceCode" id="cb398"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb398-1"><a href="bayes-rule.html#cb398-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sessionInfo</span>()</span></code></pre></div>
-<pre><code>## R version 4.1.2 (2021-11-01)
+<div class="sourceCode" id="cb399"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb399-1"><a href="bayes-rule.html#cb399-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sessionInfo</span>()</span></code></pre></div>
+<pre><code>## R version 4.2.0 (2022-04-22)
 ## Platform: x86_64-apple-darwin17.0 (64-bit)
-## Running under: macOS Catalina 10.15.7
+## Running under: macOS Big Sur/Monterey 10.16
 ## 
 ## Matrix products: default
-## BLAS:   /Library/Frameworks/R.framework/Versions/4.1/Resources/lib/libRblas.0.dylib
-## LAPACK: /Library/Frameworks/R.framework/Versions/4.1/Resources/lib/libRlapack.dylib
+## BLAS:   /Library/Frameworks/R.framework/Versions/4.2/Resources/lib/libRblas.0.dylib
+## LAPACK: /Library/Frameworks/R.framework/Versions/4.2/Resources/lib/libRlapack.dylib
 ## 
 ## locale:
 ## [1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
@@ -1052,26 +1053,32 @@ p(\theta|D) &amp; = \frac{p(D|\theta) \; p(\theta)}{\sum\limits_{\theta^*}p(D|\t
 ## [1] stats     graphics  grDevices utils     datasets  methods   base     
 ## 
 ## other attached packages:
-## [1] forcats_0.5.1   stringr_1.4.0   dplyr_1.0.8     purrr_0.3.4    
-## [5] readr_2.0.1     tidyr_1.2.0     tibble_3.1.6    ggplot2_3.3.5  
-## [9] tidyverse_1.3.1
+## [1] forcats_0.5.1   stringr_1.4.1   dplyr_1.0.10    purrr_0.3.4    
+## [5] readr_2.1.2     tidyr_1.2.1     tibble_3.1.8    ggplot2_3.4.0  
+## [9] tidyverse_1.3.2
 ## 
 ## loaded via a namespace (and not attached):
-##  [1] tidyselect_1.1.2 xfun_0.30        bslib_0.3.1      haven_2.4.3     
-##  [5] colorspace_2.0-3 vctrs_0.4.0      generics_0.1.2   htmltools_0.5.2 
-##  [9] utf8_1.2.2       rlang_1.0.2      jquerylib_0.1.4  pillar_1.7.0    
-## [13] withr_2.5.0      glue_1.6.2       DBI_1.1.1        dbplyr_2.1.1    
-## [17] readxl_1.3.1     modelr_0.1.8     lifecycle_1.0.1  cellranger_1.1.0
-## [21] munsell_0.5.0    gtable_0.3.0     rvest_1.0.1      evaluate_0.15   
-## [25] labeling_0.4.2   knitr_1.38       tzdb_0.1.2       fastmap_1.1.0   
-## [29] fansi_1.0.3      highr_0.9        broom_0.7.12     Rcpp_1.0.8      
-## [33] backports_1.4.1  scales_1.1.1     jsonlite_1.8.0   farver_2.1.0    
-## [37] fs_1.5.2         hms_1.1.0        digest_0.6.29    stringi_1.7.6   
-## [41] bookdown_0.26    grid_4.1.2       cli_3.2.0        tools_4.1.2     
-## [45] magrittr_2.0.3   sass_0.4.1       crayon_1.5.1     pkgconfig_2.0.3 
-## [49] ellipsis_0.3.2   xml2_1.3.2       reprex_2.0.1     lubridate_1.7.10
-## [53] assertthat_0.2.1 rmarkdown_2.13   httr_1.4.2       rstudioapi_0.13 
-## [57] R6_2.5.1         compiler_4.1.2</code></pre>
+##  [1] lubridate_1.8.0     assertthat_0.2.1    digest_0.6.30      
+##  [4] utf8_1.2.2          R6_2.5.1            cellranger_1.1.0   
+##  [7] backports_1.4.1     reprex_2.0.2        evaluate_0.18      
+## [10] httr_1.4.4          highr_0.9           pillar_1.8.1       
+## [13] rlang_1.0.6         googlesheets4_1.0.1 readxl_1.4.1       
+## [16] rstudioapi_0.13     jquerylib_0.1.4     rmarkdown_2.16     
+## [19] labeling_0.4.2      googledrive_2.0.0   munsell_0.5.0      
+## [22] broom_1.0.1         compiler_4.2.0      modelr_0.1.8       
+## [25] xfun_0.35           pkgconfig_2.0.3     htmltools_0.5.3    
+## [28] tidyselect_1.1.2    bookdown_0.28       fansi_1.0.3        
+## [31] crayon_1.5.2        tzdb_0.3.0          dbplyr_2.2.1       
+## [34] withr_2.5.0         grid_4.2.0          jsonlite_1.8.3     
+## [37] gtable_0.3.1        lifecycle_1.0.3     DBI_1.1.3          
+## [40] magrittr_2.0.3      scales_1.2.1        cli_3.5.0          
+## [43] stringi_1.7.8       cachem_1.0.6        farver_2.1.1       
+## [46] fs_1.5.2            xml2_1.3.3          bslib_0.4.0        
+## [49] ellipsis_0.3.2      generics_0.1.3      vctrs_0.5.1        
+## [52] tools_4.2.0         glue_1.6.2          hms_1.1.1          
+## [55] fastmap_1.1.0       colorspace_2.0-3    gargle_1.2.0       
+## [58] rvest_1.0.2         knitr_1.40          haven_2.5.1        
+## [61] sass_0.4.2</code></pre>
 
 </div>
 </div>
@@ -1156,7 +1163,7 @@ gitbook.start({
     var script = document.createElement("script");
     script.type = "text/javascript";
     var src = "true";
-    if (src === "" || src === "true") src = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML";
+    if (src === "" || src === "true") src = "https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.9/latest.js?config=TeX-MML-AM_CHTML";
     if (location.protocol !== "file:")
       if (/^https?:/.test(src))
         src = src.replace(/^https?:/, '');
