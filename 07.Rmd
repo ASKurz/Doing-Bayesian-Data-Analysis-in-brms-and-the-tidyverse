@@ -643,13 +643,10 @@ Remember how we talked about suppressing the unsightly white space between the b
 ```{r, fig.height = 3}
 theta_sequence <- seq(from = 0, to = 1, by = .01)
 
-tibble(theta_1 = theta_sequence,
-       theta_2 = theta_sequence) %>%
-  
+crossing(theta_1 = theta_sequence,
+         theta_2 = theta_sequence) %>%
   mutate(prior_1 = dbeta(x = theta_1, shape1 = 2, shape2 = 2),
-         prior_2 = dbeta(x = theta_2, shape1 = 2, shape2 = 2)) %>% 
-    
-  expand(nesting(theta_1, prior_1), nesting(theta_2, prior_2)) %>%
+         prior_2 = dbeta(x = theta_2, shape1 = 2, shape2 = 2)) %>%
   
   ggplot(aes(x = theta_1, y = theta_2, fill = prior_1 * prior_2)) +
   geom_tile() +
@@ -699,13 +696,12 @@ theta_2_data
 Note how these data sequences are of different sample sizes $(N_1 = 8; N_2 = 7 )$. Though it doesn't matter much for the formal analysis approach, this will become very important when we fit the model with **brms**. But for right now, we're finally ready to make a version of the middle right panel of Figure 7.5.
 
 ```{r, fig.width = 5.5, fig.height = 3}
-tibble(theta_1 = theta_sequence,
-       theta_2 = theta_sequence) %>%
-  mutate(likelihood_1 = bernoulli_likelihood(theta = theta_sequence,
-                                             data  = theta_1_data),
-         likelihood_2 = bernoulli_likelihood(theta = theta_sequence,
-                                             data  = theta_2_data)) %>% 
-  expand(nesting(theta_1, likelihood_1), nesting(theta_2, likelihood_2)) %>%
+crossing(theta_1 = theta_sequence,
+         theta_2 = theta_sequence) %>%
+  mutate(likelihood_1 = bernoulli_likelihood(theta = theta_1,
+                                             data = theta_1_data),
+         likelihood_2 = bernoulli_likelihood(theta = theta_2,
+                                             data = theta_2_data)) %>%
   
   ggplot(aes(x = theta_1, y = theta_2, fill = likelihood_1 * likelihood_2)) +
   geom_tile() +
@@ -721,21 +717,19 @@ Here's how to make the two-dimensional posterior in the lower right panel of Fig
 ```{r, fig.width = 4.5, fig.height = 3}
 # this is a redo from two plots up, but saved as `d_prior`
 d_prior <-
-  tibble(theta_1 = theta_sequence,
-         theta_2 = theta_sequence) %>%
+  crossing(theta_1 = theta_sequence,
+           theta_2 = theta_sequence) %>%
   mutate(prior_1 = dbeta(x = theta_1, shape1 = 2, shape2 = 2),
-         prior_2 = dbeta(x = theta_2, shape1 = 2, shape2 = 2)) %>% 
-  expand(nesting(theta_1, prior_1), nesting(theta_2, prior_2))
+         prior_2 = dbeta(x = theta_2, shape1 = 2, shape2 = 2))
 
 # this is a redo from one plot up, but saved as `d_likelihood`
 d_likelihood <-
-  tibble(theta_1 = theta_sequence,
-         theta_2 = theta_sequence) %>%
-  mutate(likelihood_1 = bernoulli_likelihood(theta = theta_sequence,
-                                             data  = theta_1_data),
-         likelihood_2 = bernoulli_likelihood(theta = theta_sequence,
-                                             data  = theta_2_data)) %>% 
-  expand(nesting(theta_1, likelihood_1), nesting(theta_2, likelihood_2))
+  crossing(theta_1 = theta_sequence,
+           theta_2 = theta_sequence) %>%
+  mutate(likelihood_1 = bernoulli_likelihood(theta = theta_1,
+                                             data = theta_1_data),
+         likelihood_2 = bernoulli_likelihood(theta = theta_2,
+                                             data = theta_2_data))
 
 # here we combine `d_prior` and `d_likelihood`
 d_prior %>% 

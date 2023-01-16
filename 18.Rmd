@@ -43,8 +43,7 @@ theme_set(
 d1 <-
   tibble(index = 1:21,
          x_1   = seq(from = 0, to = 10, length.out = 21)) %>% 
-  expand(nesting(index, x_1),
-         x_2 = c(0, 10)) %>% 
+  expand_grid(x_2 = c(0, 10)) %>% 
   mutate(y = 10 + 1 * x_1 + 2 * x_2)
 
 d1 %>% 
@@ -59,8 +58,7 @@ You may have noticed our `theme_set()` lines at the top. Though we'll be using a
 d2 <-
   tibble(index = 1:21 + 21,
          x_2   = seq(from = 0, to = 10, length.out = 21)) %>% 
-  expand(nesting(index, x_2),
-         x_1 = c(0, 10)) %>% 
+  expand_grid(x_1 = c(0, 10)) %>% 
   mutate(y = 10 + 1 * x_1 + 2 * x_2)
 
 d2 %>% 
@@ -239,14 +237,12 @@ Before we get all excited and try to plot those data as in Figure 18.3, we'll ne
 d1 <-
   tibble(index = 1:21,
          Spend = seq(from = 3.4, to = 10.1, length.out = 21)) %>% 
-  expand(nesting(index, Spend),
-         PrcntTake = c(0, 85))
+  expand_grid(PrcntTake = c(0, 85))
 
 d2 <-
   tibble(index     = 1:21 + 21,
          PrcntTake = seq(from = 0, to = 85, length.out = 21)) %>% 
-  expand(nesting(index, PrcntTake),
-         Spend = c(3.4, 10.1))
+  expand_grid(Spend = c(3.4, 10.1))
 
 grid <-
   bind_rows(d1, d2) %>% 
@@ -1315,17 +1311,16 @@ draws %>%
   facet_wrap(~ name, scales = "free", ncol = 3)
 ```
 
-"To properly understand the credible slopes on the two predictors, we must consider the credible slopes on each predictor as a function of the value of the other predictor" (p. 528). This is our motivation for the middle panel of Figure 18.9. To make it, we'll need to `expand()` our `post`, wrangle a bit, and plot with `geom_pointrange()`.
+"To properly understand the credible slopes on the two predictors, we must consider the credible slopes on each predictor as a function of the value of the other predictor" (p. 528). This is our motivation for the middle panel of Figure 18.9. To make it, we'll need to expand our `post` with `expand_grid()`, wrangle a bit, and plot with `geom_pointrange()`.
 
 ```{r}
-# this will come in handy in `expand()`
+# this will come in handy in `expand_grid()`
 bounds <- range(my_data$PrcntTake)
 
 p1 <-
   # wrangle
   draws %>% 
-  expand(nesting(Spend, `Spend : Percent Take`),
-         PrcntTake = seq(from = bounds[1], to = bounds[2], length.out = 20)) %>% 
+  expand_grid(PrcntTake = seq(from = bounds[1], to = bounds[2], length.out = 20)) %>% 
   mutate(slope = Spend + `Spend : Percent Take` * PrcntTake) %>% 
   group_by(PrcntTake) %>% 
   median_hdi(slope) %>% 
@@ -1344,14 +1339,14 @@ p1 <-
 We'll follow the same basic order of operations for the final panel and then bind them together with **patchwork**.
 
 ```{r, fig.width = 6, fig.height = 5, warning = F, message = F}
-# this will come in handy in `expand()`
+# this will come in handy in `expand_grid()`
 bounds <- range(my_data$Spend)
 
 p2 <-
   # wrangle
   draws %>% 
-  expand(nesting(`Percent Take`, `Spend : Percent Take`),
-         Spend = seq(from = bounds[1], to = bounds[2], length.out = 20)) %>% 
+  select(`Percent Take`, `Spend : Percent Take`) %>% 
+  expand_grid(Spend = seq(from = bounds[1], to = bounds[2], length.out = 20)) %>% 
   mutate(slope = `Percent Take` + `Spend : Percent Take` * Spend) %>% 
   group_by(Spend) %>% 
   median_hdi(slope) %>% 

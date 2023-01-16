@@ -484,26 +484,26 @@ Before I show that plotting code, it might make sense to slow down on the prepar
 n_lines <- 63
 ```
 
-Now we've got our `n_lines` value, we'll use it to subset the rows in `draws` with the `slice()` function. We'll then use `expand()` to include a sequence of `Score` values to correspond to the formula implied in each of the remaining rows of `draws`. Notice how we also kept the `.draw` index in the game. That will help us with the plot in a bit. But the main event is how we used `Score`, `b_Intercept`, and `sigma` as the input for the arguments in the `dnorm()`. The output is a column of the corresponding density values.
+Now we've got our `n_lines` value, we'll use it to subset the rows in `draws` with the `slice()` function. We'll then subset the columns and use `expand_grid()` to include a sequence of `Score` values to correspond to the formula implied in each of the remaining rows of `draws`. Notice how we also kept the `.draw` index in the game. That will help us with the plot in a bit. But the main event is how we used `Score`, `b_Intercept`, and `sigma` as the input for the arguments in the `dnorm()`. The output is a column of the corresponding density values.
 
-```{r}
+```{r, warning = F}
 draws <-
   draws %>% 
   slice(1:n_lines) %>% 
-  expand(nesting(.draw, b_Intercept, sigma),
-         Score = seq(from = 40, to = 250, by = 1)) %>% 
+  select(.draw, b_Intercept, sigma) %>% 
+  expand_grid(Score = seq(from = 40, to = 250, by = 1)) %>% 
   mutate(density = dnorm(x = Score, mean = b_Intercept, sd = sigma))
 
 str(draws)
 ```
 
-Note that after using `expand()`, we have a rather long data frame. Anyway, we're ready to plot.
+Note that after using `expand_grid()`, we have a rather long data frame. Anyway, we're ready to plot.
 
 ```{r, fig.width = 3, fig.height = 2.25, warning = F, message = F}
 draws %>% 
   ggplot(aes(x = Score)) + 
   geom_histogram(data = my_data, 
-                 aes(y = stat(density)),
+                 aes(y = after_stat(density)),
                  fill = bp[2],
                  size = .2, binwidth = 5, boundary = 0) +
   geom_line(aes(y = density, group = .draw),
@@ -513,7 +513,7 @@ draws %>%
   ggtitle("Data with Post. Pred.")
 ```
 
-Note the `stat(density)` argument in the `geom_histogram()` function. That's what rescaled the histogram to the density metric. If you leave that part out, all the density lines will drop to the bottom of the plot. Also, did you see how we used `.draw` to group the density lines within the `geom_line()` function? That's why we kept that information. Without that `group = .draw` argument, the resulting lines are a mess.
+Note the `after_stat(density)` argument in the `geom_histogram()` function. That's what rescaled the histogram to the density metric. If you leave that part out, all the density lines will drop to the bottom of the plot. Also, did you see how we used `.draw` to group the density lines within the `geom_line()` function? That's why we kept that information. Without that `group = .draw` argument, the resulting lines are a mess.
 
 Kruschke pointed out this last plot
 
@@ -594,7 +594,7 @@ d <- tibble(y = metRology::rt.scaled(n = 177, df = 2.63, mean = 1.11, sd = 0.15)
 tibble(y = seq(from = -3, to = 12, length.out = 1e3)) %>% 
   ggplot(aes(y)) +
   geom_histogram(data = d,
-                 aes(y = stat(density)),
+                 aes(y = after_stat(density)),
                  fill = bp[3],
                  size = .2, binwidth = .1) +
   geom_line(aes(y = dnorm(y, mean = 1.16, sd = 0.63)),
@@ -676,8 +676,7 @@ d <-
   tibble(nu   = c(Inf, 5, 2, 1),
          ymin = c(-1, -1.11, -1.32, -1.84)) %>%
   mutate(ymax = -ymin) %>% 
-  expand(nesting(nu, ymin, ymax),
-         y = seq(from = -8, to = 8, length.out = 1e3)) %>%
+  expand_grid(y = seq(from = -8, to = 8, length.out = 1e3)) %>%
   mutate(label = factor(str_c("nu==", nu), 
                         levels = str_c("nu==", c(Inf, 5, 2, 1))))
 
@@ -688,7 +687,7 @@ p2 <-
   geom_area(aes(y = dt(y, df = nu)),
             fill = bp[2]) +
   geom_area(data = . %>% 
-              # notice our `filter()` argument has changed
+              # notice our `filter()` code has changed
               filter(y >= ymin & y <= ymax),
             aes(y = dt(y, df = nu)),
             fill = bp[1]) +
@@ -888,16 +887,14 @@ set.seed(16)
 
 # wrangle
 draws %>% 
-  tibble() %>% 
   slice_sample(n = n_lines) %>% 
-  expand(nesting(.draw, b_Intercept, sigma, nu),
-         Score = seq(from = 40, to = 250, by = 1)) %>% 
+  expand_grid(Score = seq(from = 40, to = 250, by = 1)) %>% 
   mutate(density = metRology::dt.scaled(x = Score, df = nu, mean = b_Intercept, sd = sigma)) %>% 
   
   # plot
   ggplot(aes(x = Score)) + 
   geom_histogram(data = my_data, 
-                 aes(y = stat(density)),
+                 aes(y = after_stat(density)),
                  fill = bp[2],
                  size = .2, binwidth = 5, boundary = 0) +
   geom_line(aes(y = density, group = .draw),
@@ -1306,11 +1303,8 @@ set.seed(16)
 
 # wrangle
 draws %>% 
-  tibble() %>% 
   slice_sample(n = n_lines) %>% 
-  expand(nesting(.draw, `Placebo Mean`, `Smart Drug Mean`, `Placebo Scale`, `Smart Drug Scale`, Normality),
-         Score = seq(from = 40, to = 250, by = 1)) %>% 
-  
+  expand_grid(Score = seq(from = 40, to = 250, by = 1)) %>% 
   mutate(Placebo      = metRology::dt.scaled(x = Score, df = 10^Normality, mean = `Placebo Mean`,    sd = `Placebo Scale`),
          `Smart Drug` = metRology::dt.scaled(x = Score, df = 10^Normality, mean = `Smart Drug Mean`, sd = `Smart Drug Scale`)) %>% 
   select(.draw, Score:`Smart Drug`) %>% 
@@ -1321,7 +1315,7 @@ draws %>%
   ggplot(aes(x = Score)) + 
   
   geom_histogram(data = my_data, 
-                 aes(y = stat(density)),
+                 aes(y = after_stat(density)),
                  fill = bp[2],
                  size = .2, binwidth = 5, boundary = 0) +
   geom_line(aes(y = density, group = .draw),

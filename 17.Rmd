@@ -1414,8 +1414,7 @@ n_lines <- 250
 nd <- 
   tibble(x_z = c(-5, 5)) %>% 
   mutate(X = x_z * sd(my_data$X) + mean(my_data$X)) %>% 
-  expand(nesting(x_z, X),
-         Subj = distinct(my_data, Subj) %>% pull()) %>% 
+  expand_grid(Subj = distinct(my_data, Subj) %>% pull()) %>% 
   mutate(name = str_c("V", 1:n()))
 
 f <-
@@ -1587,8 +1586,7 @@ draws <-
   draws %>% 
   slice_sample(n = n_lines) %>% 
   rownames_to_column(var = "draw") %>% 
-  expand(nesting(.draw, b_0, b_1, b_2),
-         FamilySize = seq(from = 1, to = 9, length.out = 50)) %>% 
+  expand_grid(FamilySize = seq(from = 1, to = 9, length.out = 50)) %>% 
   mutate(MedianIncome = b_0 + b_1 * FamilySize + b_2 * FamilySize^2)
 
 head(draws)
@@ -1649,7 +1647,7 @@ c <-
 str(c)
 ```
 
-Now we'll subset by `n_lines`, `expand()` by `FamilySize`, and use the model formula to compute the expected `MedianIncome` values.
+Now we'll subset by `n_lines`, `expand_grid()` by `FamilySize`, and use the model formula to compute the expected `MedianIncome` values.
 
 ```{r}
 # how many posterior lines would you like?
@@ -1661,8 +1659,8 @@ c <-
   group_by(State) %>%
   slice_sample(n = n_lines) %>%
   ungroup() %>% 
-  expand(nesting(draw, State, b_0, b_1, b_2),
-         FamilySize = seq(from = 1, to = 9, length.out = 50)) %>% 
+  select(draw, State, b_0, b_1, b_2) %>% 
+  expand_grid(FamilySize = seq(from = 1, to = 9, length.out = 50)) %>% 
   mutate(MedianIncome = b_0 + b_1 * FamilySize + b_2 * FamilySize^2)
 
 head(c)

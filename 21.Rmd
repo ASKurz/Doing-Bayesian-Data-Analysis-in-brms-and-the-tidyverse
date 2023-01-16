@@ -338,13 +338,13 @@ Now we wrangle a bit to make the top panel of Figure 21.3.
 length <- 200
 n_draw <- 20
 
+set.seed(21)
+
 draws %>% 
-  tibble() %>% 
   # take 20 random samples of the posterior draws
   slice_sample(n = n_draw) %>% 
   # add in a sequence of weight_z
-  expand(nesting(.draw, b_Intercept, b_weight_z),
-         weight_z = seq(from = -2, to = 3.5, length.out = length)) %>% 
+  expand_grid(weight_z = seq(from = -2, to = 3.5, length.out = length)) %>% 
   # compute the estimates of interest
   mutate(male   = inv_logit_scaled(b_Intercept + b_weight_z * weight_z),
          weight = weight_z * sd(my_data$weight) + mean(my_data$weight),
@@ -463,8 +463,7 @@ set.seed(21)  # we need this for the `slice_sample()` function
 
 draws %>% 
   slice_sample(n = 20) %>% 
-  expand(nesting(.draw, Intercept, b_weight, b_height),
-         weight = c(80, 280)) %>% 
+  expand_grid(weight = c(80, 280)) %>% 
   # this follows the Equation near the top of p. 629
   mutate(height = (-Intercept / b_height) + (-b_weight / b_height) * weight) %>% 
   
@@ -685,8 +684,7 @@ draws %>%
   # take 20 random samples of the posterior draws
   slice_sample(n = n_draw) %>% 
   # add in a sequence of x
-  expand(nesting(.draw, b_Intercept, b_x),
-         x = seq(from = -3.5, to = 3.5, length.out = length)) %>% 
+  expand_grid(x = seq(from = -3.5, to = 3.5, length.out = length)) %>% 
   # compute the estimates of interest
   mutate(y      = inv_logit_scaled(b_Intercept + b_x * x),
          thresh = -b_Intercept / b_x) %>% 
@@ -766,8 +764,7 @@ set.seed(21)
 p1 <-
   draws %>% 
   slice_sample(n = n_draw) %>% 
-  expand(nesting(.draw, b_Intercept, b_x),
-         x = seq(from = -3.5, to = 3.5, length.out = length)) %>% 
+  expand_grid(x = seq(from = -3.5, to = 3.5, length.out = length)) %>% 
   mutate(y      = inv_logit_scaled(b_Intercept + b_x * x),
          thresh = -b_Intercept / b_x) %>% 
   
@@ -897,8 +894,7 @@ Them are some sloppy estimates! But we digress. Here's our version of Figure 21.
 set.seed(21)
 as_draws_df(fit21.5) %>% 
   slice_sample(n = 20) %>% 
-  expand(nesting(.draw, b_Intercept, b_x1, b_x2),
-         x1 = c(-4, 4)) %>% 
+  expand_grid(x1 = c(-4, 4)) %>% 
   # this follows the equation near the top of p. 629
   mutate(x2 = (-b_Intercept / b_x2) + (-b_x1 / b_x2) * x1) %>% 
 
@@ -926,8 +922,7 @@ different_seed <- function(i) {
   
   as_draws_df(fit21.5) %>% 
   slice_sample(n = 20) %>% 
-  expand(nesting(.draw, b_Intercept, b_x1, b_x2),
-         x1 = c(-4, 4)) %>% 
+  expand_grid(x1 = c(-4, 4)) %>% 
   mutate(x2 = (-b_Intercept / b_x2) + (-b_x1 / b_x2) * x1)
   
 }
@@ -1153,11 +1148,12 @@ The way we prep for our version of Figure 21.8 is a minor extension what we did 
 ```{r, fig.width = 4.5, fig.height = 3.75}
 draws <- as_draws_df(fit21.7)
 
+set.seed(21)
+
 p1 <- 
   draws %>% 
   slice_sample(n = n_draw) %>% 
-  expand(nesting(.draw, b_a_Intercept, b_b0_Intercept, b_b1_Intercept),
-         weight_z = seq(from = -2, to = 3.5, length.out = length)) %>% 
+  expand_grid(weight_z = seq(from = -2, to = 3.5, length.out = length)) %>% 
   # compare this to Kruschke's mu[i] code at the top of page 636
   mutate(male   = 0.5 * b_a_Intercept + (1 - b_a_Intercept) * inv_logit_scaled(b_b0_Intercept + b_b1_Intercept * weight_z),
          weight = weight_z * sd(my_data$weight) + mean(my_data$weight),

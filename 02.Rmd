@@ -25,17 +25,16 @@ d <-
   crossing(iteration = 1:3,
            stage     = factor(c("Prior", "Posterior"),
                               levels = c("Prior", "Posterior"))) %>% 
-  expand(nesting(iteration, stage),
-         Possibilities = LETTERS[1:4]) %>% 
-  mutate(Credibility   = c(rep(.25, times = 4),
-                           0, rep(1/3, times = 3),
-                           0, rep(1/3, times = 3),
-                           rep(c(0, .5), each = 2),
-                           rep(c(0, .5), each = 2),
-                           rep(0, times = 3), 1))
+  expand_grid(Possibilities = LETTERS[1:4]) %>% 
+  mutate(Credibility = c(rep(.25, times = 4),
+                         0, rep(1/3, times = 3),
+                         0, rep(1/3, times = 3),
+                         rep(c(0, .5), each = 2),
+                         rep(c(0, .5), each = 2),
+                         rep(0, times = 3), 1))
 ```
 
-When making data with many repetitions in the rows, it's good to have the `tidyr::expand()` function up your sleeve. Go [here](https://tidyr.tidyverse.org/reference/expand.html) to learn more.
+When making data with many repetitions in the rows, it's good to have the `tidyr::expand_grid()` function up your sleeve. Go [here](https://tidyr.tidyverse.org/reference/expand_grid.html) to learn more.
 
 We can take a look at the top few rows of the data with the `head()` function.
 
@@ -56,8 +55,7 @@ text <-
 arrow <-
   tibble(Possibilities = LETTERS[1:3],
          iteration     = 1:3) %>% 
-  expand(nesting(Possibilities, iteration),
-         Credibility = c(0.6, 0.01)) %>% 
+  expand_grid(Credibility = c(0.01, 0.6)) %>% 
   mutate(stage = factor("Posterior", levels = c("Prior", "Posterior")))
 ```
 
@@ -123,8 +121,7 @@ Now on to Figure 2.3. I'm pretty sure the curves in the plot are Gaussian, which
 # data
 tibble(mu = 1:4,
        p  = .25) %>% 
-  expand(nesting(mu, p), 
-         x = seq(from = -2, to = 6, by = .1)) %>% 
+  expand_grid(x = seq(from = -2, to = 6, by = .1)) %>% 
   mutate(density = dnorm(x, mean = mu, sd = 1.2)) %>% 
   mutate(d_max = max(density)) %>% 
   mutate(rescale = p / d_max) %>% 
@@ -152,8 +149,7 @@ We can use the same basic method to make the bottom panel of Figure 2.3. Kruschk
 ```{r, fig.width = 2.25, fig.height = 2.5}
 tibble(mu = 1:4,
        p  = c(.11, .56, .31, .02)) %>% 
-  expand(nesting(mu, p), 
-         x = seq(from = -2, to = 6, by = .1)) %>% 
+  expand_grid(x = seq(from = -2, to = 6, by = .1)) %>% 
   mutate(density = dnorm(x, mean = mu, sd = 1.2)) %>% 
   mutate(d_max = max(density)) %>% 
   mutate(rescale = p / d_max) %>% 
