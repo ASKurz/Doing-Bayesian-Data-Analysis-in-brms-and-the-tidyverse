@@ -1,8 +1,8 @@
 --- 
 title: "*Doing Bayesian Data Analysis* in brms and the tidyverse"
-subtitle: "version 1.0.1"
+subtitle: "version 1.1.0"
 author: "A Solomon Kurz"
-date: "2023-01-06"
+date: "2023-01-25"
 site: bookdown::bookdown_site
 output: 
   bookdown::gitbook
@@ -73,7 +73,7 @@ I released the 0.1.0 version of this project in February 17, 2020. It was the fi
 The 0.2.0 update came in May 19, 2020. Noteworthy changes included:
 
 * reproducing the simulation necessary for Figure 7.3 (see [GitHub issue #14](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues/14)) with help from Cardy Moten III ([\@cmoten](https://github.com/cmoten));
-* with guidance from Bjørn Peare Bartholdy ([\@bbartholdy](https://github.com/bbartholdy)), Mladen Jovanović ([\@mladenjovanovic](https://github.com/mladenjovanovic)), Cory Whitney ([\@CWWhitney](https://github.com/CWWhitney)), and Brenton M. Wiernik ([\@bwiernik](https://github.com/bwiernik)), we improved in-text citations and reference sections using [BibTex](http://www.bibtex.org/) [@BibTeX2020], [Better BibTeX](https://github.com/retorquere/zotero-better-bibtex) [@heynsBetterBibTeXZotero2020], and [zotero](https://www.zotero.org/) [@ZoteroYourPersonal2020];
+* with guidance from Bjørn Peare Bartholdy ([\@bbartholdy](https://github.com/bbartholdy)), Mladen Jovanović ([\@mladenjovanovic](https://github.com/mladenjovanovic)), Cory Whitney ([\@CWWhitney](https://github.com/CWWhitney)), and Brenton M. Wiernik ([\@bwiernik](https://github.com/bwiernik)), we improved in-text citations and reference sections using [BibTex](http://www.bibtex.org/) [@BibTeX2020], [Better BibTeX](https://github.com/retorquere/zotero-better-bibtex) [@BetterBibTeXZotero2020], and [zotero](https://www.zotero.org/) [@ZoteroYourPersonal2020];
 * the plot resolution increased with `fig.retina = 2.5`; and
 * small code, hyperlink, and typo corrections.
 
@@ -113,9 +113,13 @@ The big 1.0.0 update came in May 4, 2022. This was the first full draft in the s
 * updating all model fits with **brms** version 2.17.0; and
 * various minor code, hyperlink, and typo corrections.
 
-### Version 1.0.1. {-}
+### Version 1.1.0. {-}
 
-Welcome to version 1.0.1! In this minor update, I have fixed the broken links to my professional website, https://solomonkurz.netlify.app/, and corrected a couple typos.
+Welcome to version 1.1.0! Noteworthy changes include:
+
+* replacing my incorrect use of `tidyr::expand()` with a more appropriate `tidyr::expand_grid()` workflow, thanks to insights from [Desislava Petkova](https://github.com/dipetkov);
+* adopting the new `linewidth` argument for several **ggplot2** geoms (see [here](https://www.tidyverse.org/blog/2022/08/ggplot2-3-4-0-size-to-linewidth/)); and
+* minor prose and code edits throughout.
 
 ### Some minor issues remain. {-}
 
@@ -136,7 +140,7 @@ Before we enter the primary text, I'd like to thank the following for their help
 * David Baumeister ([\@xdavebx](https://github.com/xdavebx)),
 * Mattan Ben-Shachar ([\@mattansb](https://github.com/mattansb/)),
 * Paul-Christian Bürkner ([\@paul-buerkner](https://github.com/paul-buerkner)),
-* flachboard ([\@flachboard](https://github.com/flachboard)),
+* Christopher Flach ([\@flachboard](https://github.com/flachboard)),
 * Andrew Gelman ([\@andrewgelman](https://github.com/andrewgelman)),
 * Omid Ghasemi ([\@OmidGhasemi21](https://github.com/OmidGhasemi21)),
 * Mladen Jovanović ([\@mladenjovanovic](https://github.com/mladenjovanovic)),
@@ -145,6 +149,7 @@ Before we enter the primary text, I'd like to thank the following for their help
 * Cardy Moten III ([\@cmoten](https://github.com/cmoten)),
 * Lukas Neugebauer ([\@LukasNeugebauer](https://github.com/LukasNeugebauer)),
 * Demetri Pananos ([\@Dpananos](https://github.com/dpananos)),
+* Desislava Petkova ([\@dipetkov](https://github.com/dipetkov)),
 * Peter Ralph ([\@petrelharp](https://github.com/petrelharp)),
 * Henrik Singmann ([\@singmann](https://github.com/singmann)),
 * Aki Vehtari ([\@avehtari](https://github.com/avehtari)),
@@ -158,12 +163,12 @@ This book is licensed under the Creative Commons Zero v1.0 Universal license. Yo
 
 
 ```r
-@book{kurzDoingBayesianDataAnalysis2022,
+@book{kurzDoingBayesianDataAnalysis2023,
   title = {Doing {{Bayesian}} data analysis in brms and the tidyverse},
   author = {Kurz, A. Solomon},
   year = {2023},
   month = {1},
-  edition = {Version 1.0.1},
+  edition = {Version 1.1.0},
   url = {https://bookdown.org/content/3686/}
 }
 ```
