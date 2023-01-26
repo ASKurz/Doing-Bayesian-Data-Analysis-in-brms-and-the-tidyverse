@@ -1,6 +1,6 @@
 # *Doing Bayesian data analysis* in brms and the tidyverse
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.7512004.svg)](https://doi.org/10.5281/zenodo.7512004)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.7571195.svg)](https://doi.org/10.5281/zenodo.7571195)
 
 Kruschke began the second edition of his text like this: "This book explains how to actually do Bayesian data analysis, by real people (like you), for realistic data (like yours)" (2015, p. 1). In the same way, this ebook is designed to help those real people do Bayesian data analysis. My contribution is converting Kruschke's JAGS code for use in Bürkner's [**brms** package](https://github.com/paul-buerkner/brms) for fitting Bayesian regression models in **R** using Hamiltonian Monte Carlo. I also prefer plotting and data wrangling with the packages from the [**tidyverse**](https://www.tidyverse.org/). So we'll be using those methods, too.
 
