@@ -1,0 +1,794 @@
+
+```{r, echo = F}
+knitr::opts_chunk$set(fig.retina = 2.5)
+knitr::opts_chunk$set(fig.align = "center")
+```
+
+# What is This Stuff Called Probability?
+
+> Inferential statistical techniques assign precise measures to our uncertainty about possibilities. Uncertainty is measured in terms of *probability*, and therefore we must establish the properties of probability before we can make inferences about it. This chapter introduces the basic ideas of probability. [@kruschkeDoingBayesianData2015, p. 71, *emphasis* in the original]
+
+## The set of all possible events
+
+This snip from page 72 is important (*emphasis* in the original):
+
+> Whenever we ask about how likely an outcome is, we always ask with a set of possible outcomes in mind. This set exhausts all possible outcomes, and the outcomes are all mutually exclusive. This set is called the *sample space*.
+
+## Probability: Outside or inside the head
+
+It's worthwhile to quote this section in full.
+
+> Sometimes we talk about probabilities of outcomes that are "out there" in the world. The face of a flipped coin is such an outcome: We can observe the flip, and the probability of coming up heads can be estimated by observing several flips.
+>
+> But sometimes we talk about probabilities of things that are not so clearly "out there," and instead are just possible beliefs "inside the head." Our belief about the fairness of a coin is an example of something inside the head. The coin may have an intrinsic physical bias, but now I am referring to our *belief* about the bias. Our beliefs refer to a space of mutually exclusive and exhaustive possibilities. It might be strange to say that we randomly sample from our beliefs, like we randomly sample from a sack of coins. Nevertheless, the mathematical properties of probabilities outside the head and beliefs inside the head are the same in their essentials, as we will see. (pp. 73--74, *emphasis* in the original)
+
+### Outside the head: Long-run relative frequency.
+
+> For events outside the head, it's intuitive to think of probability as being the long-run relative frequency of each possible outcome...
+>
+> We can determine the long-run relative frequency by two different ways. One way is to approximate it by actually sampling from the space many times and tallying the number of times each event happens. A second way is by deriving it mathematically. These two methods are now explored in turn. (p. 74)
+
+#### Simulating a long-run relative frequency.
+
+Before we try coding the simulation, we'll first load the **tidyverse**.
+
+```{r p_unload, echo = F, warning = F, message = F}
+# solves difficulties while publishing
+pacman::p_unload(pacman::p_loaded(), character.only = TRUE)
+```
+
+```{r, message = F, warning = F}
+library(tidyverse)
+```
+
+Now run the simulation.
+
+```{r end_prop, message = F, warning = F}
+n       <- 500  # specify the total number of flips
+p_heads <- 0.5  # specify underlying probability of heads
+
+# Kruschke reported this was the seed he used at the top of page 94
+set.seed(47405)
+
+# here we use that seed to flip a coin n times and compute the running proportion of heads at each flip. 
+# we generate a random sample of n flips (heads = 1, tails = 0)
+d <-
+  tibble(flip_sequence = sample(x = c(0, 1), 
+                                prob = c(1 - p_heads, p_heads), 
+                                size = n, 
+                                replace = T)) %>% 
+  mutate(n = 1:n,
+         r = cumsum(flip_sequence)) %>% 
+  mutate(run_prop = r / n)
+
+# save the final proportion as an external value
+end_prop <-
+  d %>% 
+  slice_max(n) %>% 
+  pull(run_prop) %>% 
+  round(digits = 3) 
+```
+
+Now we're ready to make Figure 4.1.
+
+```{r, message = F, warning = F, fig.width = 4.5, fig.height = 4}
+d %>%
+  filter(n < 1000) %>%  # this step cuts down on the time it takes to make the plot
+  ggplot(aes(x = n, y = run_prop)) +
+  geom_hline(yintercept = .5, color = "white") +
+  geom_line(color = "grey50") +
+  geom_point(color = "grey50", alpha = 1/4) +
+  scale_x_log10(breaks = c(1, 2, 5, 10, 20, 50, 200, 500)) +
+  coord_cartesian(xlim = c(1, 500),
+                  ylim = c(0, 1)) +
+  labs(title = "Running proportion of heads",
+       subtitle = paste("Our end proportion =", end_prop),
+       x = "Flip number", 
+       y = "Proportion of heads") +
+  theme(panel.grid = element_blank())
+```
+
+#### Deriving a long-run relative frequency.
+
+> Sometimes, when the situation is simple enough mathematically, we can derive the exact long-run relative frequency. The case of the fair coin is one such simple situation. The sample space of the coin consists of two possible outcomes, head and tail. By the assumption of fairness, we know that each outcome is equally likely. Therefore, the long-run relative frequency of heads should be exactly one out of two, i.e., $1/2$, and the long-run relative frequency of tails should also be exactly $1/2$. (p. 76)
+
+### Inside the head: Subjective belief.
+
+> To specify our subjective beliefs, we have to specify how likely we think each possible outcome is. It can be hard to pin down mushy intuitive beliefs. In the next section, we explore one way to "calibrate" subjective beliefs, and in the subsequent section we discuss ways to mathematically describe degrees of belief. (p. 76)
+
+### Probabilities assign numbers to possibilities.
+
+> In general, a probability, whether it's outside the head or inside the head, is just a way of assigning numbers to a set of mutually exclusive possibilities. The numbers, called "probabilities," merely need to satisfy three properties [@kolmogorovFoundationsTheoryProbability1956]:
+>
+> 1. A probability value must be nonnegative (i.e., zero or positive).
+> 2. The sum of the probabilities across all events in the entire sample space must be $1.0$ (i.e., one of the events in the space must happen, otherwise the space does not exhaust all possibilities).
+> 3. For any two mutually exclusive events, the probability that one *or* the other occurs is the *sum* of their individual probabilities. For example, the probability that a fair six-sided die comes up $3$-dots *or* $4$-dots is $1/6 + 1/6 = 2/6$.
+>
+> Any assignment of numbers to events that respects those three properties will also have all the properties of probabilities that we will discuss below. (pp. 77--78, *emphasis* in the original)
+
+## Probability distributions
+
+"A probability *distribution* is simply a list of all possible outcomes and their corresponding probabilities" (p. 78, *emphasis* in the original)
+
+### Discrete distributions: Probability mass.
+
+> When the sample space consists of discrete outcomes, then we can talk about the probability of each distinct outcome. For example, the sample space of a flipped coin has two discrete outcomes, and we talk about the probability of head or tail...
+>
+> For continuous outcome spaces, we can *discretize* the space into a finite set of mutually exclusive and exhaustive "bins." (p. 78, *emphasis* in the original)
+
+In order to recreate Figure 4.2, we need to generate the heights data with Kruschke's `HtWtDataGenerator()` function. You can find the original code in Kruschke's `HtWtDataGenerator.R` script, and we first used this function in [Section 2.3][The steps of Bayesian data analysis]. Once again, here's how to make the function.
+
+```{r}
+HtWtDataGenerator <- function(n_subj, rndsd = NULL, male_prob = 0.50) {
+  
+  # Random height, weight generator for males and females. Uses parameters from
+  # Brainard, J. & Burmaster, D. E. (1992). Bivariate distributions for height and
+  # weight of men and women in the United States. Risk Analysis, 12(2), 267-275.
+  # Kruschke, J. K. (2011). Doing Bayesian data analysis:
+  # A Tutorial with R and BUGS. Academic Press / Elsevier.
+  # Kruschke, J. K. (2014). Doing Bayesian data analysis, 2nd Edition:
+  # A Tutorial with R, JAGS and Stan. Academic Press / Elsevier.
+  
+  # require(MASS)
+  
+  # Specify parameters of multivariate normal (MVN) distributions.
+  # Men:
+  HtMmu   <- 69.18
+  HtMsd   <- 2.87
+  lnWtMmu <- 5.14
+  lnWtMsd <- 0.17
+  Mrho    <- 0.42
+  Mmean   <- c(HtMmu, lnWtMmu)
+  Msigma  <- matrix(c(HtMsd^2, Mrho * HtMsd * lnWtMsd,
+                      Mrho * HtMsd * lnWtMsd, lnWtMsd^2), nrow = 2)
+  # Women cluster 1:
+  HtFmu1   <- 63.11
+  HtFsd1   <- 2.76
+  lnWtFmu1 <- 5.06
+  lnWtFsd1 <- 0.24
+  Frho1    <- 0.41
+  prop1    <- 0.46
+  Fmean1   <- c(HtFmu1, lnWtFmu1)
+  Fsigma1  <- matrix(c(HtFsd1^2, Frho1 * HtFsd1 * lnWtFsd1,
+                       Frho1 * HtFsd1 * lnWtFsd1, lnWtFsd1^2), nrow = 2)
+  # Women cluster 2:
+  HtFmu2   <- 64.36
+  HtFsd2   <- 2.49
+  lnWtFmu2 <- 4.86
+  lnWtFsd2 <- 0.14
+  Frho2    <- 0.44
+  prop2    <- 1 - prop1
+  Fmean2   <- c(HtFmu2, lnWtFmu2)
+  Fsigma2  <- matrix(c(HtFsd2^2, Frho2 * HtFsd2 * lnWtFsd2,
+                       Frho2 * HtFsd2 * lnWtFsd2, lnWtFsd2^2), nrow = 2)
+  
+  # Randomly generate data values from those MVN distributions.
+  if (!is.null(rndsd)) {set.seed(rndsd)}
+  data_matrix <- matrix(0, nrow = n_subj, ncol = 3)
+  colnames(data_matrix) <- c("male", "height", "weight")
+  maleval <- 1; femaleval <- 0 # arbitrary coding values
+  for (i in 1:n_subj) {
+    # Flip coin to decide sex
+    sex = sample(c(maleval, femaleval), size = 1, replace = TRUE,
+                 prob = c(male_prob, 1 - male_prob))
+    if (sex == maleval) {datum <- MASS::mvrnorm(n = 1, mu = Mmean, Sigma = Msigma)}
+    if (sex == femaleval) {
+      Fclust = sample(c(1, 2), size = 1, replace = TRUE, prob = c(prop1, prop2))
+      if (Fclust == 1) {datum <- MASS::mvrnorm(n = 1, mu = Fmean1, Sigma = Fsigma1)}
+      if (Fclust == 2) {datum <- MASS::mvrnorm(n = 1, mu = Fmean2, Sigma = Fsigma2)}
+    }
+    data_matrix[i, ] = c(sex, round(c(datum[1], exp(datum[2])), 1))
+  }
+  
+  return(data_matrix)
+  
+} # end function
+```
+
+Now we have the `HtWtDataGenerator()` function, all we need to do is determine how many values are generated and how probable we want the values to be based on those from men. These are controlled by the `n_subj` and `male_prob` parameters.
+
+```{r, message = F, warning = F}
+set.seed(4)
+d <-
+  HtWtDataGenerator(n_subj = 10000, male_prob = .5) %>%
+  data.frame() %>%
+  mutate(person = 1:n())
+
+d %>%
+  head()
+```
+
+For Figure 4.2, we'll discretize the continuous `height` values into bins with the `case_when()` function, which you can learn more about from [hrbrmstr](https://twitter.com/hrbrmstr)'s blog post, [*Making a case for case_when*](https://rud.is/b/2017/03/10/making-a-case-for-case_when/).
+
+```{r, fig.height = 2, fig.width = 7, message = F}
+d_bin <-
+  d %>%
+  mutate(bin = case_when(
+    height < 51 ~ 51,
+    height < 53 ~ 53,
+    height < 55 ~ 55,
+    height < 57 ~ 57,
+    height < 59 ~ 59,
+    height < 61 ~ 61,
+    height < 63 ~ 63,
+    height < 65 ~ 65,
+    height < 67 ~ 67,
+    height < 69 ~ 69,
+    height < 71 ~ 71,
+    height < 73 ~ 73,
+    height < 75 ~ 75,
+    height < 77 ~ 77,
+    height < 79 ~ 79,
+    height < 81 ~ 71,
+    height < 83 ~ 83,
+    height > 83 ~ 85)
+    ) %>%
+  group_by(bin) %>%
+  summarise(n = n()) %>%
+  mutate(height = bin - 1)
+
+d %>%
+  ggplot(aes(x = height, y = person)) +
+  geom_point(aes(color = between(height, 63, 65)),
+             size = 3/4, alpha = 1/2) +
+  geom_vline(xintercept = seq(from = 51, to = 83, by = 2),
+             linetype = 3, color = "grey33") +
+  geom_text(data = d_bin, 
+            aes(y = 5000, label = n),
+            size = 3.25) +
+  scale_y_continuous(breaks = c(0, 5000, 10000)) +
+  scale_color_manual(values = c("gray67", "gray50"), breaks = NULL) +
+  labs(title = "Total N = 10,000",
+       x = "Height (inches)",
+       y = "Person #") +
+  theme(panel.grid = element_blank())
+```
+
+Because we're simulating and we don't know what seed number Kruschke used for his plot, ours will differ a little from his. But the overall pattern is the same.
+
+One way to make a version of the histogram in Kruschke's Figure 4.2.b would be to input the `d` data directly into `ggplot()` and set `x = height` and `y = stat(density)` within the `aes()`. Then you could set `binwidth = 2` within `geom_histogram()` to make the bins within the histogram perform like the bins in the plot above. However, since we have already discretized the `height` values into bins in our `d_bin` data, it might make more sense to plot those bins with `geom_col()`. The only other step we need is to manually compute the density values using the formula Kruschke showed in Figure 4.2.b. Here' how:
+
+```{r, fig.height = 1.75, fig.width = 7}
+d_bin %>% 
+  # density is the probability mass divided by the bin width
+  mutate(density = (n / sum(n)) / 2) %>% 
+  
+  ggplot(aes(x = height, y = density, fill = bin == 65)) +
+  geom_col() +
+  scale_fill_manual(values = c("gray67", "gray50"), breaks = NULL) +
+  scale_y_continuous("Probability density", breaks = c(0, 0.04, 0.08)) +
+  xlab("Height (inches)") +
+  coord_cartesian(xlim = c(51, 83)) +
+  theme(panel.grid = element_blank())
+```
+
+In the text, Kruschke singled out the bin for the values between 63 and 65 with an arrow. In our two plots, we highlighted that bin with shading, instead. Here's how we computed the exact density value for that bin.
+
+```{r}
+d_bin %>% 
+  mutate(density = (n / sum(n)) / 2) %>% 
+  filter(bin == 65) %>% 
+  select(n, density)
+```
+
+Due to sampling variation, our density value is a little different from the one in the text.
+
+Our data binning approach for Figure 4.2.c will be a little different than what we did, above. Here we'll make our bins with the `round()` function.
+
+cut()` function. 
+
+```{r}
+# Save the breaks as a vector
+height_breaks <- 50:85
+
+d <- 
+  d %>%  
+  mutate(bin_factor = cut(height, breaks = height_breaks))
+
+# what?
+head(d)
+```
+
+The `cut()` function named the bins by their ranges. The parenthesis on the left and bracket on the right is meant to indicate the lower limit is closed (i.e., includes the lower limit) and the upper limit is open (i.e., does not include the upper limit). For the annotation in the plot, the next step is to compute the half-way points. One way to use `str_extract()` to extract the first number from `bin_factor`. As that will return the numbers in a character format, we can then convert them to numbers with `as.double()`. Finally, we can make those values half-way points by adding `0.5`. We'll save the result as `bin_number`.
+
+```{r}
+d <- 
+  d %>% 
+  mutate(bin_number = str_extract(bin_factor, "\\d+") %>% 
+           as.double() + 
+           0.5)
+
+# what?
+head(d)
+```
+
+Now we make Figure 4.2.c.
+
+```{r, fig.height = 2, fig.width = 7, message = F}
+d_bin <-
+  d %>% 
+  count(bin_factor, bin_number) %>% 
+  rename(height = bin_number)
+
+d %>%
+  ggplot(aes(x = height, y = person)) +
+  geom_point(aes(color = between(height, 63, 64)),
+             size = 3/4, alpha = 1/2) +
+  geom_vline(xintercept = 51:83,
+             linetype = 3, color = "grey33") +
+  geom_text(data = d_bin, 
+            aes(y = 5000, label = n, angle = 90),
+            size = 3.25) +
+  scale_y_continuous(breaks = c(0, 5000, 10000)) +
+  scale_color_manual(values = c("gray67", "gray50"), breaks = NULL) +
+  labs(title = "Total N = 10,000",
+       x = "Height (inches)",
+       y = "Person #") +
+  theme(panel.grid = element_blank())
+```
+
+However, our method for Figure 4.2.d will be like what we did, before.
+
+```{r, fig.height = 1.75, fig.width = 7}
+d_bin %>% 
+  # density is the probability mass divided by the bin width
+  mutate(density = (n / sum(n)) / 1) %>% 
+  
+  ggplot(aes(x = height, y = density, fill = bin_factor == "(63,64]")) +
+  geom_col() +
+  scale_y_continuous("Probability density", breaks = c(0, 0.04, 0.08)) +
+  scale_fill_manual(values = c("gray67", "gray50"), breaks = NULL) +
+  xlab("Height (inches)") +
+  coord_cartesian(xlim = c(51, 83)) +
+  theme(panel.grid = element_blank())
+```
+
+Here's the hand-computed density value for the focal bin.
+
+```{r}
+d_bin %>% 
+  mutate(density = (n / sum(n)) / 1) %>% 
+  filter(bin_factor == "(63,64]") %>% 
+  select(n, density)
+```
+
+> The probability of a discrete outcome, such as the probability of falling into an interval on a continuous scale, is referred to as a probability *mass.* Loosely speaking, the term "mass" refers the amount of stuff in an object. When the stuff is probability and the object is an interval of a scale, then the mass is the proportion of the outcomes in the interval. (p. 80, *emphasis* in the original)
+
+### Continuous distributions: Rendezvous with density.
+
+> If you think carefully about a continuous outcome space, you realize that it becomes problematic to talk about the probability of a specific value on the continuum, as opposed to an interval on the continuum... Therefore, what we will do is make the intervals infinitesimally narrow, and instead of talking about the infinitesimal probability mass of each infinitesimal interval, we will talk about the ratio of the probability mass to the interval width. That ratio is called the probability *density*.
+>
+> Loosely speaking, density is the amount of stuff per unit of space it takes up. Because we are measuring amount of stuff by its mass, then density is the mass divided by the amount space it occupies. (p. 80, *emphasis* in the original)
+
+To make Figure 4.3, we'll need new data.
+
+```{r, message = F, warning = F}
+set.seed(4)
+d <-
+  tibble(door = 1:1e4) %>%
+  mutate(height = rnorm(n(), mean = 84, sd = 0.1))
+
+d %>%
+  head()
+```
+
+To make the bins for our version of Figure 4.3.a, we could use the `case_when()` approach from above. However, that would require some tedious code. Happily, we have an alternative in the [**santoku** package](https://github.com/hughjonesd/santoku) [@R-santoku], which I learned about with help from the great [Mara Averick](https://twitter.com/dataandme), [Tyson Barrett](https://twitter.com/healthandstats), and [Omar Wasow](https://twitter.com/owasow). We can use the `santoku::chop()` function to discretize our `height` values. Here we'll walk through the first part.
+
+```{r, eval = F}
+library(santoku)
+
+d_bin <-
+  d %>% 
+  mutate(bin = chop(height, 
+                    breaks = seq(from = 83.6, to = 84.4, length.out = 32),
+                    # label the boundaries with 3 decimal places, separated by a dash
+                    labels = lbl_dash(fmt = "%.3f"))
+
+head(d_bin)
+```
+
+```{r, warning = F, message = F, echo = F}
+d_bin <-
+  d %>% 
+  mutate(bin = santoku::chop(height, 
+                    breaks = seq(from = 83.6, to = 84.4, length.out = 32),
+                    # label the boundaries with 3 decimal places, separated by a dash
+                    labels = santoku::lbl_dash(fmt = "%.3f")))
+
+head(d_bin)
+```
+
+With this format, the lower-limit for each level of `bin` is the left side of the dash and the upper-limit is on the right. Though the cut points are precise to many decimal places, the `lbl_dash(fmt = "%.3f")` part of the code rounded the numbers to three decimal places in the `bin` labels. The width of each bin is just a bit over 0.0258.
+
+```{r}
+(84.4 - 83.6) / (32 - 1)
+```
+
+Now to make use of the `d_bin` data in a plot, we'll have to summarize and separate the values from the `bin` names to compute the midway points. Here's one way how.
+
+```{r}
+d_bin <- d_bin %>% 
+  count(bin) %>%
+  separate(bin, c("min", "max"), sep = "—", remove = F, convert = T) %>% 
+  mutate(height = (min + max) / 2)
+
+head(d_bin)
+```
+
+Now we plot.
+
+```{r, fig.height = 2, fig.width = 7}
+d %>%
+  ggplot(aes(x = height, y = door)) +
+  geom_point(aes(color = between(height, 83.910, 83.935)),
+             size = 3/4, alpha = 1/2) +
+  geom_vline(xintercept = seq(from = 83.6, to = 84.4, length.out = 32),
+             linetype = 3, color = "grey33") +
+  geom_text(data = d_bin,
+            aes(y = 5000, label = n, angle = 90),
+            size = 3.25) +
+  scale_y_continuous(breaks = c(0, 5000, 10000)) +
+  scale_color_manual(values = c("gray67", "gray50"), breaks = NULL) +
+  labs(title = "Total N = 10,000",
+       x = "Height (inches)",
+       y = "Door #") +
+  theme(panel.grid = element_blank())
+```
+
+The only tricky thing about Figure 4.3.b is getting the denominator in the density equation correct.
+
+```{r, fig.height = 1.75, fig.width = 7}
+d_bin %>% 
+  # density is the probability mass divided by the bin width
+  mutate(density = (n / sum(n)) / ((84.4 - 83.6) / (32 - 1))) %>% 
+  
+  ggplot(aes(x = height, y = density, fill = bin == "83.910—83.935")) +
+  geom_col() +
+  scale_fill_manual(values = c("gray67", "gray50"), breaks = NULL) +
+  scale_y_continuous("Probability density", breaks = 0:4) +
+  xlab("Height (inches)") +
+  coord_cartesian(xlim = c(83.6, 84.4)) +
+  theme(panel.grid = element_blank())
+```
+
+Here's the density value for that focal bin.
+
+```{r}
+d_bin %>% 
+  # density is the probability mass divided by the bin width
+  mutate(density = (n / sum(n)) / ((84.4 - 83.6) / (32 - 1))) %>% 
+  filter(bin == "83.910—83.935") %>% 
+  select(bin, n, density)
+```
+
+As Kruschke remarked: "There is nothing mysterious about probability densities larger than 1.0; it means merely that there is a high concentration of probability mass relative to the scale" (p. 82).
+
+#### Properties of probability density functions.
+
+> In general, for any continuous value that is split up into intervals, the sum of the probability masses of the intervals must be $1$, because, by definition of making a measurement, some value of the measurement scale must occur. (p. 82)
+
+#### The normal probability density function.
+
+"Perhaps the most famous probability density function is the normal distribution, also known as the Gaussian distribution" (p. 83). We'll use `dnorm()` again to make our version of Figure 4.4.
+
+```{r, fig.width = 4.5, fig.height = 3}
+tibble(x = seq(from = -0.8, to = 0.8, by = 0.02)) %>% 
+  mutate(p = dnorm(x, mean = 0, sd = 0.2)) %>% 
+  
+  ggplot(aes(x = x)) +
+  geom_line(aes(y = p),
+            color = "grey50", linewidth = 1.25) +
+  geom_linerange(aes(ymin = 0, ymax = p),
+                 linewidth = 1/3) +
+  labs(title = "Normal probability density",
+       subtitle = expression(paste(mu, " = 0 and ", sigma, " = 0.2")),
+       y = "p(x)") +
+  coord_cartesian(xlim = c(-0.61, 0.61)) +
+  theme(panel.grid = element_blank())
+```
+
+The equation for the normal probability density follows the form
+
+$$
+p(x) = \frac{1}{\sigma \sqrt{2 \pi}} \exp \left ( - \frac{1}{2} \left [ \frac{x - \mu}{\sigma}^2 \right ] \right ),
+$$
+
+where $\mu$ governs the mean and $\sigma$ governs the standard deviation.
+
+### Mean and variance of a distribution.
+
+The mean of a probability distribution is also called the *expected value*, which follows the form
+
+$$E[x] = \sum_x p(x) x$$
+
+when $x$ is discrete. For continuous $x$ values, the formula is
+
+$$E[x] = \int \text d x \; p(x) x.$$
+
+The variance is defined as the mean squared deviation from the mean,
+
+$$\text{var}_x = \int \text d x \; p(x) (x - E[x])^2.$$
+
+If you take the square root of the variance, you get the standard deviation.
+
+### Highest density interval (HDI).
+
+> The HDI indicates which points of a distribution are most credible, and which cover most of the distribution. Thus, the HDI summarizes the distribution by specifying an interval that spans most of the distribution, say $95\%$ of it, such that every point inside the interval has higher credibility than any point outside the interval. (p. 87)
+
+At this point in the text, Kruschke has not yet introduced how exactly to compute density intervals, such as HDIs. In the next chapter he introduced grid approximation, and he introduced analytic solutions in the chapter after that. To set up the sequence, we will use a grid approach to make the figures in this chapter, too.
+
+```{r}
+# Gaussian population values
+mu <- 0
+sigma <- 1
+
+# set a large number of grid values
+seq_length <- 2001
+
+d <- data.frame(
+  example = "normal",
+  x = seq(from = mu - pi * sigma, to = mu + pi * sigma, length.out = seq_length)) %>%  
+  mutate(density = dnorm(x = x, mean = mu, sd = sigma))
+
+head(d)
+```
+
+If you have a data grid with `x` and `probability` values, you can compute the HDI region with Kruschke's `HDIofGrid()` function, the original code for which you can find in Kruschke's `HtWtDataGenerator.R` script. Here we'll use a variant of that function called `in_hdi_grid()`.
+
+```{r}
+in_hdi_grid <- function(p_vec, prob = 0.95) {
+  
+  sorted_prob_mass <- sort(p_vec, decreasing = TRUE)
+  hdi_height_idx <- min(which(cumsum(sorted_prob_mass) >= prob))
+  hdi_height <- sorted_prob_mass[hdi_height_idx]
+  
+  return(p_vec >= hdi_height)
+  
+}
+```
+
+Compared to Kruschke's `HDIofGrid()`, `in_hdi_grid()` is designed to work within data frames. It returns a columns of `TRUE` and `FALSE` values for whether a given row of `p_vec` is within the HDI region. The `p_vec` input is a vector of probability values, which means that the rows in that vector must sum to 1 (see this [earlier section][Properties of probability density functions.] for details). Thus, our strategy is to convert the `density` values to a probability metric first, and then feed those values into `in_hdi_grid()`.
+
+```{r}
+d <-
+  d %>% 
+  mutate(probability = density / sum(density)) %>% 
+  mutate(in_hdi = in_hdi_grid(p_vec = probability))
+
+head(d)
+```
+
+We might check to make sure the values in the `probability` vector do indeed sum to one.
+
+```{r}
+d %>% 
+  summarise(total_probability_mass = sum(probability))
+```
+
+Success! Now here's how we can use the `in_hdi` vector to make our version of Figure 4.5.a.
+
+```{r, fig.width = 4.5, fig.height = 2}
+# supplemental tibble for the arrow
+d_arrow <- d %>% 
+  filter(in_hdi == TRUE) %>% 
+  slice(c(1, n())) %>% 
+  mutate(density = mean(density))
+
+# supplemental tibble for the HDI text
+d_text <- 
+  d_arrow %>% 
+  mutate(x = mean(x)) %>% 
+  slice(1) %>% 
+  mutate(label = "95% HDI")
+
+# plot
+d %>% 
+  ggplot(aes(x = x, y = density)) +
+  geom_area(aes(fill = in_hdi),
+            stat = "identity") +
+  geom_line(data = d_arrow,
+            arrow = arrow(length = unit(0.2, "cm"), 
+                          ends = "both", 
+                          type = "closed"),
+            color = "grey92") +
+  geom_text(data = d_text,
+            aes(label = label),
+            color = "grey92", nudge_y = 0.03) +
+  scale_fill_manual(breaks = NULL, values = c("grey75", "grey50")) +
+  coord_cartesian(xlim = c(-3.1, 3.1)) +
+  ylab("p(x)") +
+  theme(panel.grid = element_blank())
+```
+
+Do note that because we are using a grid-based framework, the HDI region we have computed with `in_hdi_grid()` is only approximate. In this example, we have overestimated that region by just a bit.
+
+```{r}
+d %>% 
+  group_by(in_hdi) %>% 
+  summarise(probability_mass = sum(probability))
+```
+
+If you require greater precision, use a data grid with more rows.
+
+As far as I could tell, Figure 4.5.b is of a beta distribution, which Kruschke covered in greater detail starting in [Chapter 6][Inferring a Binomial Probability via Exact Mathematical Analysis]. I got the `shape1` and `shape2` values from playing around. Here's the new data grid.
+
+```{r}
+d <- 
+  tibble(x = seq(from = 0, to = 1, length.out = seq_length)) %>% 
+  mutate(density = dbeta(x, shape1 = 15, shape2 = 4)) %>% 
+  mutate(probability = density / sum(density)) %>% 
+  mutate(in_hdi = in_hdi_grid(p_vec = probability))
+
+head(d)
+```
+
+Now put those values to work in the plot.
+
+```{r, fig.width = 4.5, fig.height = 2}
+# supplemental tibble for the arrow
+d_arrow <- d %>% 
+  filter(in_hdi == TRUE) %>% 
+  slice(c(1, n())) %>% 
+  mutate(density = mean(density))
+
+# supplemental tibble for the HDI text
+d_text <- 
+  d_arrow %>% 
+  mutate(x = mean(x)) %>% 
+  slice(1) %>% 
+  mutate(label = "95% HDI")
+
+# plot
+d %>% 
+  ggplot(aes(x = x, y = density)) +
+  geom_area(aes(fill = in_hdi),
+            stat = "identity") +
+  geom_line(data = d_arrow,
+            arrow = arrow(length = unit(0.2, "cm"), 
+                          ends = "both", 
+                          type = "closed"),
+            color = "grey92") +
+  geom_text(data = d_text,
+            aes(label = label),
+            color = "grey92", nudge_y = 0.4) +
+  scale_fill_manual(breaks = NULL, values = c("grey75", "grey50")) +
+  ylab("p(x)") +
+  theme(panel.grid = element_blank())
+```
+
+Unlike in the text, here we have plotted the beta distribution across its full range of zero to one.
+
+The bimodal distribution Kruschke displayed in Figure 4.5.c came from a custom non-linear function.
+
+```{r}
+# set the width of the bimodal interval
+# "dx" is defined on page 82 in the text
+dx <- 2 * pi / 2000
+
+d <- 
+  tibble(x = seq(from = 0, to = 2 * pi, length.out = seq_length)) %>% 
+  mutate(y = sin(x)^4 * (1 - 0.07 * x)) %>% 
+  # rescale to a proper density metric
+  mutate(density = (y / sum(y)) / dx) %>% 
+  mutate(probability = density / sum(density)) %>% 
+  mutate(in_hdi = in_hdi_grid(p_vec = probability)) %>% 
+  mutate(sequence_break = ifelse(in_hdi == lag(in_hdi, default = first(in_hdi)), 0, 1)) %>%  
+  mutate(group = cumsum(sequence_break))
+
+head(d)
+```
+
+We have added new columns `sequence_break` and `group` to help with the shading and annotation in the figure. As a consequence, the code block below contains a few small adjustments from the code for the previous two figures. Here's the plot.
+
+```{r, fig.width = 4.5, fig.height = 2}
+# supplemental tibble for the arrow
+d_arrow <- d %>% 
+  filter(in_hdi == TRUE) %>% 
+  # this is new
+  group_by(group) %>% 
+  slice(c(1, n())) %>% 
+  mutate(density = mean(density))
+
+# supplemental tibble for the HDI text
+d_text <- 
+  d_arrow %>% 
+  mutate(x = mean(x)) %>% 
+  slice(1) %>% 
+  mutate(label = "95% HDI")
+
+# plot
+d %>% 
+  ggplot(aes(x = x, y = density)) +
+  # this is new
+  geom_area(aes(fill = in_hdi, group = group),
+            stat = "identity") +
+  geom_line(data = d_arrow,
+            # this is new
+  aes(group = group),
+            arrow = arrow(length = unit(0.2, "cm"), 
+                          ends = "both", 
+                          type = "closed"),
+            color = "grey92") +
+  geom_text(data = d_text,
+            aes(label = label),
+            color = "grey92", nudge_y = 0.05) +
+  scale_fill_manual(breaks = NULL, values = c("grey75", "grey50")) +
+  ylab("p(x)") +
+  theme(panel.grid = element_blank())
+```
+
+> When the distribution refers to credibility of values, then the width of the HDI is another way of measuring uncertainty of beliefs. If the HDI is wide, then beliefs are uncertain. If the HDI is narrow, then beliefs are relatively certain. (p. 89)
+
+## Two-way distributions
+
+In the note below Table 4.1, Kruschke indicated the data came from @sneeGraphicalDisplayTwoway1974, [*Graphical display of two-way contingency tables*](https://www.researchgate.net/publication/243769696_Graphical_Display_of_Two-Way_Contingency_Tables). Kruschke has those data saved as the `HairEyeColor.csv` file.
+
+```{r, warning = F, message = F}
+d <- read_csv("data.R/HairEyeColor.csv")
+
+glimpse(d)
+```
+
+We'll need to transform `Hair` and `Eye` a bit to ensure our output matches the order in Table 4.1.
+
+```{r}
+d <- 
+  d %>% 
+  mutate(Hair = if_else(Hair == "Brown", "Brunette", Hair) %>% 
+           factor(., levels = c("Black", "Brunette", "Red", "Blond")),
+         Eye  = factor(Eye, levels = c("Brown", "Blue", "Hazel", "Green")))
+```
+
+Here we'll use the `tabyl()` and `adorn_totals()` functions from the [**janitor** package](https://CRAN.R-project.org/package=janitor) [@R-janitor] to help make the table of proportions by `Eye` and `Hair`.
+
+```{r, warning = F, message = F}
+library(janitor)
+
+d <-
+  d %>%
+  uncount(weights = Count, .remove = F) %>% 
+  tabyl(Eye, Hair) %>% 
+  adorn_totals(c("row", "col")) %>% 
+  data.frame() %>% 
+  mutate_if(is.double, ~ . / 592)
+
+d %>% 
+  mutate_if(is.double, round, digits = 2)
+```
+
+### Conditional probability.
+
+> We often want to know the probability of one outcome, given that we know another outcome is true. For example, suppose I sample a person at random from the population referred to in Table 4.1. Suppose I tell you that this person has blue eyes. Conditional on that information, what is the probability that the person has blond hair (or any other particular hair color)? It is intuitively clear how to compute the answer: We see from the blue-eye row of Table 4.1 that the total (i.e., marginal) amount of blue-eyed people is $0.36$, and that $0.16$ of the population has blue eyes and blond hair. (p. 91)
+
+Kruschke then showed how to compute such conditional probabilities by hand in Table 4.2. Here's a slightly reformatted version of that information.
+
+```{r}
+d %>% 
+  filter(Eye == "Blue") %>% 
+  pivot_longer(Black:Blond,
+               names_to = "Hair",
+               values_to = "proportion") %>% 
+  rename(`p(Eyes = "Blue")` = Total) %>% 
+  mutate(`conditional probability` = proportion / `p(Eyes = "Blue")`) %>% 
+  select(Eye, Hair, `p(Eyes = "Blue")`, proportion, `conditional probability`)
+```
+
+The only reason our values differ from those in Table 4.2 is because Kruschke rounded.
+
+## Session info {-}
+
+```{r}
+sessionInfo()
+```
+
+```{r, eval = F, echo = F}
+# remove our objects
+rm(n, p_heads, d, end_prop, HtWtDataGenerator, d_bin, in_hdi_grid)
+```
+
+```{r, echo = F, message = F, warning = F, results = "hide"}
+ggplot2::theme_set(ggplot2::theme_grey())
+bayesplot::color_scheme_set("blue")
+pacman::p_unload(pacman::p_loaded(), character.only = TRUE)
+```
+
