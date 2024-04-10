@@ -1,0 +1,921 @@
+
+```{r, echo = F}
+knitr::opts_chunk$set(fig.retina = 2.5)
+knitr::opts_chunk$set(fig.align = "center")
+```
+
+# Stan
+
+> Stan is the name of a software package that creates representative samples of parameter values from a posterior distribution for complex hierarchical models, analogous to JAGS...
+> 
+> According to the Stan reference manual, Stan is named after [Stanislaw Ulam](https://en.wikipedia.org/wiki/Stanislaw_Ulam) (1909–1984), who was a pioneer of Monte Carlo methods. (Stan is not named after the slang term referring to an overenthusiastic or psychotic fanatic, formed by a combination of the words "stalker" and "fan.") The name of the software package has also been unpacked as the acronym, Sampling Through Adaptive Neighborhoods [@gelman2013bayesian, p. 307], but it is usually written as Stan not STAN.
+>
+> Stan uses a different method than JAGS for generating Monte Carlo steps. The method is called *Hamiltonian Monte Carlo* (HMC). HMC can be more effective than the various samplers in JAGS and BUGS, especially for large complex models. Moreover, Stan operates with compiled C++ and allows greater programming flexibility, which again is especially useful for unusual or complex models. For large data sets or complex models, Stan can provide solutions when JAGS (or BUGS) takes too long or fails. (pp. 399--400, *emphasis* in the original)
+
+To learn more about Stan from the Stan team themselves, check out the main website: [https://mc-stan.org/](https://mc-stan.org/). If you like to dive deep, bookmark the [*Stan user's guide*](https://mc-stan.org/docs/2_29/stan-users-guide/index.html) [@standevelopmentteamStanUserGuide2022] and the [*Stan reference manual*](https://mc-stan.org/docs/2_29/reference-manual/) [@standevelopmentteamStanReferenceManual2022].
+
+We won't typically use Stan directly in this ebook. I prefer working with it indirectly through the interface of Bürkner's **brms** package instead. If you haven't already, bookmark the **brms** [GitHub repository](https://github.com/paul-buerkner/brms), [CRAN page](https://CRAN.R-project.org/package=brms), and [reference manual](https://CRAN.R-project.org/package=brms/brms.pdf) [@brms2022RM]. You can also view Bürkner's talk from the useR! International R User 2017 Conference, [*brms: Bayesian multilevel models using Stan*](https://www.youtube.com/watch?v=40o0_0XTB6E). Here's how Bürkner described **brms** in its GitHub repo:
+
+> The **brms** package provides an interface to fit Bayesian generalized (non-)linear multivariate multilevel models using Stan, which is a C++ package for performing full Bayesian inference (see [http://mc-stan.org/](http://mc-stan.org/)). The formula syntax is very similar to that of the package lme4 to provide a familiar and simple interface for performing regression analyses. A wide range of response distributions are supported, allowing users to fit – among others – linear, robust linear, count data, survival, response times, ordinal, zero-inflated, and even self-defined mixture models all in a multilevel context. Further modeling options include non-linear and smooth terms, auto-correlation structures, censored data, missing value imputation, and quite a few more. In addition, all parameters of the response distribution can be predicted in order to perform distributional regression. Multivariate models (i.e., models with multiple response variables) can be fit, as well. Prior specifications are flexible and explicitly encourage users to apply prior distributions that actually reflect their beliefs. Model fit can easily be assessed and compared with posterior predictive checks, cross-validation, and Bayes factors. (**emphasis** in the original)
+
+## HMC sampling
+
+"Stan generates random representative samples from a posterior distribution by using a variation of the Metropolis algorithm called HMC" (p. 400).
+
+The code required to remake our versions of Figures 14.1 through 14.3 is somewhat intense. So unlike in the text, I am going to break this up into subsections, one for each of the figures. The code for Figure 14.1 will set the foundation, so we'll spend more time in that section than in the other two.
+
+### Figures 14.1.
+
+At the top of page 401, we read:
+
+> HMC instead uses a proposal distribution that changes depending on the current position. HMC figures out the direction in which the posterior distribution increases, called its gradient, and warps the proposal distribution toward the gradient.
+
+Say we're in the special case where we have a single parameter $\theta$, the posterior distribution for which is Gaussian. We can depict the current position of our HMC chain with a simple data frame with values for the parameter space `theta` and their corresponding density values computed with `dnorm()`.
+
+```{r, warning = F, message = F}
+library(tidyverse)
+library(patchwork)
+
+d <- 
+  tibble(theta = seq(from = -3.3, to = 3.3, by = 0.05)) %>% 
+  # the example in Figure 14.1 is a standard normal distribution
+  mutate(density = dnorm(theta, mean = 0, sd = 1)) 
+
+glimpse(d)
+```
+
+Now we make a density plot with `geom_area()`, much we have many times before, and we'll mark off the current position of our HMC chain with an annotated dot.
+
+```{r, fig.width = 3, fig.height = 1.5}
+# update the default theme() settings
+theme_set(
+  theme_grey() +
+    theme(panel.grid = element_blank())
+)
+
+# mark the current position
+cur_pos <- -0.5
+
+# save the plot
+p1 <- d %>% 
+  ggplot(aes(x = theta, y = density)) +
+  geom_area(fill = "grey67") +
+  annotate(geom = "point",
+           x = cur_pos, y = 0,
+           size = 3.5) +
+  annotate(geom = "text",
+           x = cur_pos, y = 0,
+           label = "current posotion",
+           size = 2.75, vjust = -1.5) +
+  scale_x_continuous(NULL, breaks = NULL) +
+  coord_cartesian(xlim = c(-3, 3)) +
+  facet_wrap(~ "Posterior")
+
+# display the plot
+p1
+```
+
+For the plots in this chapter, we'll keep things simple and rely on the **ggplot2** defaults with one exception: we omitted those unnecessary white gridlines with the `theme_set()` argument at the top of that block. You can undo that by executing `theme_set(ggplot2::theme_grey())`.
+
+Further down on page 401, we read:
+
+> HMC generates a proposal by analogy to rolling a marble on the posterior distribution turned upside down. The second row of Figure 14.1 illustrates the upside-down posterior distribution. Mathematically, the upside-down posterior is the negative logarithm of the posterior density, and it is called the "potential" function.
+
+Here we'll practice computing the negative logarithm of our posterior density two ways. First, we'll use the `-` and `log()` operators to transform the `density` values in our `d` data frame, which works perfectly fine. However, if your goal was to compute a Gaussian density on the log scale, you could also just set `log = TRUE` within the `dnorm()` function, and then take the negative of those values.
+
+```{r}
+d <-
+  d %>% 
+  mutate(neg_log_density = -log(density),
+         neg_log_density2 = -dnorm(theta, mean = 0, sd = 1, log = TRUE))
+
+# confirm they are the same
+all.equal(
+  d$neg_log_density, 
+  d$neg_log_density2)
+```
+
+To make the horizontal line with the arrows in the plot, we'll want to add a `p_sd` vector with a constant value of `1`.
+
+```{r}
+d <-
+  d %>% 
+  mutate(p_sd = 1)
+```
+
+Here's how we might make the second panel of the left columns in Figure 14.1.
+
+```{r, fig.width = 3, fig.height = 1.5}
+ p2 <- d %>% 
+  ggplot(aes(x = theta, y = neg_log_density)) +
+  geom_area(fill = "grey67") +
+  geom_point(data = . %>% 
+               filter(near(theta, cur_pos)),
+             size = 3.5) +
+  geom_line(data = . %>%
+              filter(near(theta, cur_pos)) %>%
+              expand_grid(row = 1:2) %>%
+              mutate(theta = theta + c(-1, 1) * 0.65 * p_sd),
+            arrow = arrow(length = unit(0.075, "inches"), ends = "both"),
+            linewidth = 0.5) +
+  geom_text(data = . %>% 
+              filter(near(theta, cur_pos)),
+            label = "random\ninitial\nmomentum",
+            size = 2.75, vjust = -0.3) +
+  scale_x_continuous(NULL, breaks = NULL) +
+  ylab("-log(density)") +
+  coord_cartesian(xlim = c(-3, 3)) +
+  facet_wrap(~ "Potential")
+
+p2
+```
+
+Note how we've continued to use `geom_area()` to fill in the negative log of the density, which gives an appearance of a valley or a skateboard halfpipe. Further down the same paragraph on p. 401:
+
+> The large dot, that represents the current position, is resting on the potential function like a marble waiting to roll downhill. The proposed next position is generated by flicking the marble in a random direction and letting it roll around for a certain duration.
+
+Hopefully this helps clarify why HMC is often described as a physics simulation.
+
+The panels in the bottom two rows of Figure 14.1 require a custom function we'll call `propose_hmc()` 
+
+```{r}
+propose_hmc <- function(seed = 14,
+                        epsilon = 0.1, 
+                        l = 1,
+                        cur_pos = -0.5,
+                        p_sd = 1) {
+  
+  # epsilon: step size
+  # l: the number of leapfrog steps
+  # cur_pos: the initial value (i.e., current position) for the posterior of theta
+  # p_sd: the standard deviation of the momentum distribution
+  
+  # gradient of energy for a univariate Gaussian posterior
+  gradient <- function(x, mean = 0, sd = 1) {
+    (x - mean) / sd
+  }
+  
+  # random flick (p is momentum)
+  set.seed(seed)
+  p <- rnorm(n = 1, mean = 0, sd = p_sd)  
+
+  # define and initialize the proposal vector
+  proposal_vector <- rep(NA, times = l + 1)
+  proposal_vector[1] <- cur_pos
+  
+  # alternate steps for position and momentum
+  for (i in 1:l) {
+    # half step in p
+    p <- p - epsilon * gradient(cur_pos) / 2
+    # half step in theta based in the half step in p
+    cur_pos <- cur_pos + epsilon * p  # Full step for the position
+    proposal_vector[i + 1] <- cur_pos
+    # another half step in p
+    p <- p - epsilon * gradient(cur_pos) / 2
+  }
+  
+  # save the primary output in a tibble
+  d <- 
+    tibble(step     = 0:l,
+           proposal = proposal_vector)
+  
+  return(d)
+  
+}
+```
+
+Here's the default output for our `propose_hmc()`.
+
+```{r}
+propose_hmc()
+```
+
+It's important to understand that `propose_hmc()` is not a fully-functional home-made HMC sampler. Rather, `propose_hmc()` is designed to showcase the proposal stage in HMC, as Kruschke depicted in Figures 14.1 through 14.3.
+
+The first argument in `propose_hmc()` is for the seed value placed into `set.seed()` right before the random *flick* is selected from `rnorm()`. That initial flick "imparts a random initial *momentum* to the ball" (p. 401). In the notation of HMC, that random momentum is often denoted $\rho$ [@standevelopmentteamStanReferenceManual2022], and in the code of the `propose_hmc()` function we've just simplified that as `p`. Note that since we're sampling `p` from `rnorm()`, the value can be positive or negative, which means the magnitude of that momentum can be directed to the left (lower) or right (higher) of the initial value $\theta_\text{current}$. Following that initial flick, the algorithm takes a number of discrete steps, each over some small *time* interval. That time interval per step is often denoted $\epsilon$, which is what we mean by our second `propose_hmc()` argument `epsilon`. The number of steps (called "leapfrog steps") is often called $L$, which is the same as our third argument `l`. Thus be default, `propose_hmc()` takes one leapfrog step (`l = 1`) for a duration of 0.1 (`epsilon = 0.1`). The fourth argument `cur_pos` marks the current position in the HMC chain, $\theta_\text{current}$, and we have set the default to `-0.5` to match with the value in the left column of Kruschke's Figure 14.1. Our fifth and final argument `p_sd` is the standard deviation of the zero-centered normal distribution from which we randomly generate the initial momentum flick $\rho$. Though it might not be obvious in the text, that value is set to `1` for Figure 14.1.
+
+Efficient HMC sampling depends on the values one chooses for parameters like our `epsilon`, `l` and `p_sd`, and determining which values are best for a given combination of data and model is no trivial task. This is the essence of what Kruschke tried to introduce in this section of the text. Before we're ready to use `propose_hmc()` to make the next parts of Figure 14.1, let's first experiment with different values for `epsilon` and `l`. In the text, Kruschke referred to each unique combination of `epsilon` and `l` depicted in Figure 14.1 as an *impulse*. Here we'll make a data frame called `d_proposal` with 10 impulses, each with values of `epsilon` and `l` randomly selected from two independent lines of `runif()`.
+
+```{r}
+n_impulse <- 10
+
+set.seed(1)
+
+d_proposal <- tibble(
+  seed = 1:n_impulse,
+  epsilon = runif(n = n_impulse, min = 0.005, max = 0.195)) %>% 
+  mutate(l = runif(n = n_impulse, min = 5, max = 15) %>% ceiling())
+
+glimpse(d_proposal)
+```
+
+Note how we've named impulse index `seed` so the values can play double duty in the code block, below. The `epsilon` values are randomly chosen from the uniform distribution of $[0.005, 0.195]$, which is the same as used in the text. For this initial example, we have also randomly selected the `l` values from an independent uniform distribution ranging from 5 to 15. As `runif()` is not restricted to integer values, we used the `celing()` function to round them up. Next, we feed those `seed`, `epsilon`, and `l` values into our `propose_hmc()` with help from the `pmap()` function.
+
+```{r}
+d_proposal <- 
+  d_proposal %>% 
+  mutate(hmc = pmap(list(seed, epsilon, l), propose_hmc))
+
+print(d_proposal)
+```
+
+This returned a nested tibble. Each cell within the `hmc` column contains the output from `propose_hmc()`, which is a tibble of `l + 1` rows and two columns (`step` and `proposal`). To get direct access to those values, we `unnest()`.
+
+```{r}
+d_proposal <- 
+  d_proposal %>% 
+  unnest(hmc)
+
+head(d_proposal, n = 10)
+```
+
+Now we're ready to plot these initial `d_proposal` in a variant of the plot in the third row of Kruschke's Figure 14.1.
+
+```{r, fig.width = 3.5, fig.height = 1.75}
+d_proposal %>% 
+  ggplot(aes(x = proposal, y = step * epsilon, group = seed)) +
+  geom_path(color = "grey50", linewidth = 1/2) +
+  geom_text(data = . %>% 
+              group_by(seed) %>% 
+              slice_max(step),
+            aes(label = seed),
+            size = 3, nudge_y = 0.07) +
+  annotate(geom = "point",
+           x = cur_pos, y = 0,
+           size = 3.5) +
+  coord_cartesian(xlim = c(-3, 3))
+```
+
+Note that the y axis is defined by the product of the `step` and `epsilon` columns, grouped by each impulse as indexed by the `seed` column. We'll have more to say about the meaning of that axis in a bit. For now, notice the wide differences among our 10 impulse trajectories on the y axis. The shortest trajectory was number 10, which had `r filter(d_proposal, seed == 10)[1, "l"] %>% pull()` steps (`l`) but a very small `epsilon` value of `r filter(d_proposal, seed == 10)[1, "epsilon"] %>% pull() %>% round(digits = 3)`. Although trajectory number 4 had a fewer leapfrog steps (`r filter(d_proposal, seed == 4)[1, "l"] %>% pull()`), its much larger `epsilon` value of `r filter(d_proposal, seed == 4)[1, "epsilon"] %>% pull() %>% round(digits = 3)` compensated to give it a mush longer trajectory. Thus when sampling by HMC, $L$ and $\epsilon$ values can counterbalance one another, and it might be wise to account for this when choosing them. When Kruschke made his simulations in the text, he actually sampled his $L$ values as a non-linear function of $\epsilon$. In the next code block, we'll use Kruschke's non-linear function in a new version of `d_proposal`. This time we'll increase the number of random impulses to 1000.
+
+```{r, fig.width = 3.5, fig.height = 2}
+# increase the number of impulses
+n_impulse <- 1000
+
+# simulate
+set.seed(2)
+
+d_proposal <- tibble(
+  seed = 1:n_impulse,
+  epsilon = runif(n = n_impulse, min = 0.005, max = 0.195)) %>% 
+  mutate(l = runif(n = n_impulse, min = 1 / epsilon, max = pi / (2 * epsilon)) |> ceiling())
+
+# plot
+d_proposal %>% 
+  ggplot(aes(x = epsilon, y = l)) +
+  geom_point(size = 1/4)
+```
+
+After updating our base `d_proposal` tibble, we used a scatter plot to show the dependency of the `l` values on `epsilon`. Now update `d_proposal` with the `propose_hmc()` function, via `pmap()`.
+
+```{r}
+d_proposal <- 
+  d_proposal %>% 
+  mutate(hmc = pmap(list(seed, epsilon, l), propose_hmc)) %>% 
+  unnest(hmc)
+
+glimpse(d_proposal)
+```
+
+Finally, we'll plot the first 100 iterations to make our version of the third panel of the left column for Figure 14.1.
+
+```{r, fig.width = 3, fig.height = 1.5}
+p3 <- d_proposal %>% 
+  filter(seed <= 100) %>% 
+  
+  ggplot(aes(x = proposal, y = step * epsilon, group = seed)) +
+  geom_path(alpha = 1/2, color = "grey50", linewidth = 1/4) +
+  geom_point(data = . %>% 
+               group_by(seed) %>% 
+               slice_max(step),
+             size = 3/4) +
+  annotate(geom = "point",
+           x = cur_pos, y = 0,
+           size = 3.5) +
+  scale_x_continuous(NULL, breaks = NULL) +
+  coord_cartesian(xlim = c(-3, 3)) +
+  facet_wrap(~ "Hamiltonian Dynamics")
+
+p3
+```
+
+Notice that when you make the number of your leapfrog steps (`l`) depend on the step size (`epsilon`), the two balance each other out such that each trajectory has a similar length on the `step * epsilon` axis. Anyway, our y axis, which we've simply called `step * epsilon` is the same as what Kruschke called "Steps*Eps." Toward the bottom of page 403, we read:
+
+> If the discrete steps of the trajectory are very small, then the approximation to the true continuous trajectory will be relatively good. But it will take many steps to go very far from the original position. Conversely, larger individual steps will make a poorer approximation to the continuous mathematics, but will take fewer steps to move far from the original position. Therefore, the proposal distribution can be "tuned" by adjusting the step size, called epsilon or "eps" for short, and by adjusting the number of steps. We think of the step size as the time it takes to make the step, therefore the total duration of the trajectory is the number of steps multiplied by the step size, or "Steps∗Eps" as displayed on the $y$-axis of the trajectories in Figure 14.1.
+
+Rather than having to tinker with these settings ourselves, the algorithms in Stan tune the $L$ and $\epsilon$ values automatically during the warmup phase. But for the sake of pedagogy, we'll continue using our hand computed $L$ and $\epsilon$ values for the remainder of this section.
+
+You may have noticed that we only plotted the first 100 impulses in that last plot. We could have plotted more, that then we would have run into an overplotting issue. For this last plot for the left column of Figure 14.1, we'll summarize the full distribution of all 1000 impulses.
+
+```{r, fig.width = 3, fig.height = 1.5}
+p4 <- d_proposal %>% 
+  group_by(seed) %>% 
+  slice_max(step) %>%
+  
+  ggplot(aes(x = proposal, y = after_stat(density))) +
+  geom_histogram(binwidth = 1/3, boundary = 0, fill = "gray67") +
+  xlab(expression(theta)) +
+  coord_cartesian(xlim = c(-3, 3)) +
+  facet_wrap(~ "HMC Proposals")
+
+p4
+```
+
+As we have been saving each of the four panels as separate objects, we can now combine them with **patchwork** syntax to make the full left column of Figure 14.1.
+
+```{r, fig.width = 3, fig.height = 6}
+p1 / p2 / p3 / p4
+```
+
+Now keep in mind that that plot in the bottom row is not of the posterior distribution. It's a histogram of our 1000 proposals for our initial point in the HMC chain $\theta_\text{current}$. We'll talk more about that in a moment. For now, let's make our version of the right column of Figure 14.1. This time, we'll do all the steps in bulk. Notice that the only real difference is that rather than using $\theta_\text{current} = -0.5$, we are switching to $\theta_\text{current} = 2$.
+
+```{r, fig.width = 3, fig.height = 6}
+# these data remain as before
+d <- d
+
+# update to the new current position (theta[current])
+cur_pos <- 2
+
+# simulate the HMC proposals
+set.seed(2)
+
+d_proposal <- tibble(
+  seed = 1:n_impulse,
+  epsilon = runif(n = n_impulse, min = 0.005, max = 0.195)) %>% 
+  mutate(l = runif(n = n_impulse, min = 1 / epsilon, max = pi / (2 * epsilon)) |> ceiling()) %>% 
+  mutate(hmc = pmap(list(seed, epsilon, l), 
+                    propose_hmc,
+                    # change the default setting for cur_pos
+                    cur_pos = 2)) %>% 
+  unnest(hmc)
+
+# first row
+p1 <- 
+  d %>% 
+  ggplot(aes(x = theta, y = density)) +
+  geom_area(fill = "grey67") +
+  annotate(geom = "point",
+           x = cur_pos, y = 0,
+           size = 3.5) +
+  annotate(geom = "text",
+           x = cur_pos, y = 0,
+           label = "current posotion",
+           size = 2.75, vjust = -1.5) +
+  scale_x_continuous(NULL, breaks = NULL) +
+  coord_cartesian(xlim = c(-3, 3)) +
+  facet_wrap(~ "Posterior")
+
+# second row
+p2 <- 
+  d %>% 
+  ggplot(aes(x = theta, y = neg_log_density)) +
+  geom_area(fill = "grey67") +
+  geom_point(data = . %>% 
+               filter(near(theta, cur_pos)),
+             size = 3.5) +
+  geom_line(data = . %>%
+              filter(near(theta, cur_pos)) %>%
+              expand_grid(row = 1:2) %>%
+              mutate(theta = theta + c(-1, 1) * 0.65 * p_sd),
+            arrow = arrow(length = unit(0.075, "inches"), ends = "both"),
+            linewidth = 0.5) +
+  geom_text(data = . %>% 
+              filter(near(theta, cur_pos)),
+            label = "random\ninitial\nmomentum",
+            size = 2.75, vjust = -0.3) +
+  scale_x_continuous(NULL, breaks = NULL) +
+  ylab("-log(density)") +
+  coord_cartesian(xlim = c(-3, 3)) +
+  facet_wrap(~ "Potential")
+ 
+# third row
+p3 <- 
+  d_proposal %>% 
+  filter(seed <= 100) %>% 
+  
+  ggplot(aes(x = proposal, y = step * epsilon, group = seed)) +
+  geom_path(alpha = 1/2, color = "grey50", linewidth = 1/4) +
+  geom_point(data = . %>% 
+               group_by(seed) %>% 
+               slice_max(step),
+             size = 3/4) +
+  annotate(geom = "point",
+           x = cur_pos, y = 0,
+           size = 3.5) +
+  scale_x_continuous(NULL, breaks = NULL) +
+  coord_cartesian(xlim = c(-3, 3)) +
+  facet_wrap(~ "Hamiltonian Dynamics")
+
+# fourth row
+p4 <- 
+  d_proposal %>% 
+  group_by(seed) %>% 
+  slice_max(step) %>%
+  
+  ggplot(aes(x = proposal, y = after_stat(density))) +
+  geom_histogram(binwidth = 1/3, boundary = 0, fill = "gray67") +
+  xlab(expression(theta)) +
+  coord_cartesian(xlim = c(-3, 3)) +
+  facet_wrap(~ "HMC Proposals")
+
+# combine and print
+p1 / p2 / p3 / p4
+```
+
+Keeping the results for these two columns in mind:
+
+> Notice that the proposal distributions are quite different for the different current positions. In both cases, however, the proposals are shifted toward the mode of the posterior distribution. You can imagine that *for high-dimensional posterior distributions that have narrow diagonal valleys and even curved valleys, the dynamics of HMC will find proposed positions that are much more promising than a vanilla symmetric proposal distribution, and more promising than Gibbs sampling which can get stuck at diagonal walls*. (p. 403, *emphasis* in the original)
+
+### Figure 14.2.
+
+The two columns in Figure 14.1 highlighted the difference the current position in the HMC chain $\theta_\text{current}$ can make for the proposal distribution, all relative to the posterior distribution for $\theta$. The simulations in each column held the range of randomly chosen $\epsilon$ values constant, and also kept the non-linear function for the $L$ values, relative to $\epsilon$, constant too. You might think of the parameter settings of that non-linear function as as allowing for a *narrow* range of $L$ values, relative to $\epsilon$. In Figure 14.2, Kruschke showed what can happen of you alter the non-linear function to allow for a *wide* range $L$ values, relative to $\epsilon$. The current-position values for the two columns are the same as before: $-0.5$ and $2$. The uniform distribution from which we'll draw the $\epsilon$ values will be the same, too.
+
+As a new little challenge, this time we'll make the two columns in Figure 14.2 at the same time. To start, we might make the new version of the initial `d` data for the first two rows like so.
+
+```{r}
+d <- 
+  tibble(theta = seq(from = -3.3, to = 3.3, by = 0.05)) %>% 
+  mutate(density         =  dnorm(theta, mean = 0, sd = 1),
+         neg_log_density = -dnorm(theta, mean = 0, sd = 1, log = TRUE)) %>% 
+  expand_grid(cur_pos = c(-0.5, 2)) %>% 
+  mutate(cur_pos_parse = str_c("theta[current]==", cur_pos),
+         p_sd = 1)
+
+glimpse(d)
+```
+
+The first three columns followed the same basic strategy we used before. In the `expand_grid()` line, we doubled the length of the data frame such that each of the original rows took on one of the two values for `cur_pos`, which will define the columns. The next line within `mutate()` defined a version of that `cur_pos` column, but with formatting that will parse nicely within `facet_grid()`. In the final line within `mutate()`, we added the constant value for `p_sd` to help with the double arrow in the plots in the second row.
+
+Here's how to use this version of the `d` data frame to make the two panels of the first row for Figure 14.2.
+
+```{r, fig.width = 6, fig.height = 1.5}
+p1 <- 
+  d %>% 
+  ggplot(aes(x = theta, y = density)) +
+  geom_area(fill = "grey67") +
+  geom_point(data = . %>% 
+               filter(near(theta, cur_pos)),
+             y = 0, size = 3.5) +
+  scale_x_continuous(NULL, breaks = NULL) +
+  coord_cartesian(xlim = c(-3, 3)) +
+  facet_grid("Posterior" ~ cur_pos_parse, 
+             labeller = labeller(.cols = label_parsed))
+
+p1
+```
+
+Here's the second row.
+
+```{r, fig.width = 6, fig.height = 1.5}
+p2 <- 
+  d %>% 
+  ggplot(aes(x = theta, y = neg_log_density)) +
+  geom_area(fill = "grey67") +
+  geom_point(data = . %>% 
+               filter(near(theta, cur_pos)),
+             size = 3.5) +
+  geom_line(data = d %>%
+              filter(near(theta, cur_pos)) %>%
+              expand_grid(row = 1:2) %>%
+              mutate(theta = theta + c(-1, 1) * 0.65 * p_sd),
+            arrow = arrow(length = unit(0.075, "inches"), ends = "both"),
+            linewidth = 0.5) +
+    scale_x_continuous(NULL, breaks = NULL) +
+  ylab("-log(density)") +
+  coord_cartesian(xlim = c(-3, 3)) +
+  facet_grid("Potential" ~ cur_pos) +
+  theme(strip.text.x = element_blank())
+
+p2
+```
+
+For the next two rows, we need a new version of `d_proposal`. Read through the annotation in the code to follow the new steps.
+
+```{r}
+d_proposal <- 
+  tibble(seed = 1:n_impulse,
+         epsilon = runif(n = n_impulse, min = 0.005, max = 0.195)) %>% 
+  # the function in this line has changed
+  mutate(l = runif(n = n_impulse, min = 1, max = 2 * pi / epsilon) |> ceiling()) %>% 
+  # this step allows us to make both columns at once
+  expand_grid(cur_pos = c(-0.5, 2)) %>% 
+  # notice we are now including cur_pos within the propose_hmc() function
+  mutate(hmc = pmap(list(seed, epsilon, l, cur_pos), propose_hmc)) %>% 
+  unnest(hmc)
+
+glimpse(d_proposal)
+```
+
+Now we can make the third row.
+
+```{r, fig.width = 6, fig.height = 1.5}
+p3 <-
+  d_proposal %>% 
+  filter(seed <= 100) %>% 
+  
+  ggplot(aes(x = proposal, y = step * epsilon, group = seed)) +
+  geom_path(alpha = 1/2, color = "grey50", linewidth = 1/4) +
+  geom_point(data = . %>% 
+               group_by(cur_pos, seed) %>% 
+               slice_max(step),
+             size = 3/4) +
+  geom_point(data = . %>% 
+               group_by(cur_pos) %>% 
+               slice(1),
+             size = 3.5) +
+  scale_x_continuous(NULL, breaks = NULL) +
+  coord_cartesian(xlim = c(-3, 3)) +
+  facet_grid("Hamiltonian Dyn." ~ cur_pos) +
+  theme(strip.text.x = element_blank())
+
+p3
+```
+
+Here's the bottom row.
+
+```{r, fig.width = 6, fig.height = 1.5}
+p4 <-
+  d_proposal %>% 
+  group_by(cur_pos, seed) %>% 
+  slice_max(step) %>%
+  
+  ggplot(aes(x = proposal, y = after_stat(density))) +
+  geom_histogram(binwidth = 1/3, boundary = 0, fill = "gray67") +
+  xlab(expression(theta)) +
+  coord_cartesian(xlim = c(-3, 3)) +
+  facet_grid("HMC Proposals" ~ cur_pos) +
+  theme(strip.text.x = element_blank())
+
+p4
+```
+
+Now we combine the four plot objects with **patchwork** syntax to make the full version of Figure 14.2.
+
+```{r, fig.width = 6, fig.height = 6}
+p1 / p2 / p3 / p4
+```
+
+At the top of page 404, we read:
+
+> The step size controls the smoothness or jaggedness of the trajectory. The overall duration, Steps∗Eps, controls how far the proposal ventures from the current position. This duration is important to tune, because we want the proposal to be closer to a mode, without overshooting, and without rolling all the way back to the starting point. Figure 14.2 shows a wide range of trajectories for the same starting positions as Figure 14.1. Notice that the long trajectories overshoot the mode and return to the current position. To prevent inefficiencies that would arise from letting the trajectories make a U-turn, Stan incorporates an algorithm that generalizes the notion of U-turn to high-dimensional parameter spaces and estimates when to stop the trajectories before they make a U-turn back toward the starting position.
+
+When we changed our non-linear function to allow for a wider range of `l` values, conditional on the `epsilon` values, that results in proposal distributions composed of some impulses that were too brief to optimally venture to the posterior mode (i.e., those near the bottom of the `step * epsilon` axis), and others that were too long and ended up U-turning (i.e., those near the top of the `step * epsilon` axis). It's probably best if we leave these decisions up to Stan, rather than fiddling with them ourselves.
+
+### Figure 14.3.
+
+In the next paragraph of page 404, we read:
+
+> Other than step size and number of steps, there is a third tuning knob on the proposal distribution, namely, the standard deviation of the distribution from which the initial momentum is selected.
+
+Kruschke designed Figure 14.3 to highlight that knob. So far within our `d` data frame, we have been setting `p_sd` to a constant value of `1`. This time we'll set that to two values: `0.5` and `2`. To compensate, we will hold the `cur_pos` column constant at `2`. Here's the new `d` data frame and the first row of the figure.
+
+```{r}
+d <- 
+  # these three lines are the same as before
+  tibble(theta = seq(from = -3.3, to = 3.3, by = 0.05)) %>% 
+  mutate(density         =  dnorm(theta, mean = 0, sd = 1),
+         neg_log_density = -dnorm(theta, mean = 0, sd = 1, log = TRUE)) %>% 
+  # these three lines are new
+  expand_grid(p_sd = c(0.5, 2)) %>% 
+  mutate(p_sd_parse = str_c("Proposal~italic(SD)==", p_sd),
+         cur_pos = 2)
+
+glimpse(d)
+```
+
+Now we make the top row.
+
+```{r, fig.width = 6, fig.height = 1.5}
+p1 <- 
+  d %>% 
+  ggplot(aes(x = theta, y = density)) +
+  geom_area(fill = "grey67") +
+  geom_point(data = . %>% 
+               filter(near(theta, cur_pos)),
+             y = 0, size = 3.5) +
+  scale_x_continuous(NULL, breaks = NULL) +
+  coord_cartesian(xlim = c(-3, 3)) +
+  facet_grid("Posterior" ~ p_sd_parse, 
+             labeller = labeller(.cols = label_parsed))
+
+p1
+```
+
+This is the first time the panels in the top row are the same in the two columns. We start to see the changes in the second row.
+
+```{r, fig.width = 6, fig.height = 1.5}
+p2 <- 
+  d %>% 
+  ggplot(aes(x = theta, y = neg_log_density)) +
+  geom_area(fill = "grey67") +
+  geom_point(data = . %>% 
+               filter(near(theta, cur_pos)),
+             size = 3.5) +
+  geom_line(data = d %>%
+              filter(near(theta, cur_pos)) %>%
+              expand_grid(row = 1:2) %>%
+              mutate(theta = theta + c(-1, 1) * 0.65 * p_sd),
+            arrow = arrow(length = unit(0.075, "inches"), ends = "both"),
+            linewidth = 0.5) +
+    scale_x_continuous(NULL, breaks = NULL) +
+  ylab("-log(density)") +
+  coord_cartesian(xlim = c(-3, 3)) +
+  facet_grid("Potential" ~ p_sd) +
+  theme(strip.text.x = element_blank())
+
+p2
+```
+
+Even though the values on the x and y axes are the same by column, the widths of the horizontal arrows are different. Though both dots will be given synthetic flicks drawn from `rnorm()`, the settings in the left column will be `rnorm(n = 1, mean = 0, sd = 0.5)`, and those in the right column will be `norm(n = 1, mean = 0, sd = 2)`. Now we realize those settings with our updated version of the `d_proposal` data frame.
+
+```{r}
+d_proposal <- 
+  tibble(seed = 1:n_impulse,
+         epsilon = runif(n = n_impulse, min = 0.005, max = 0.195)) %>% 
+  # this line is back to the original settings 
+  mutate(l = runif(n = n_impulse, min = 1 / epsilon, max = pi / (2 * epsilon)) |> ceiling(),
+         # cur_pos is now a constant
+         cur_pos = 2) %>% 
+  # now differentiate by p_sd
+  expand_grid(p_sd = c(0.5, 2)) %>% 
+  # feed all 5 columns into propose_hmc()
+  mutate(hmc = pmap(list(seed, epsilon, l, cur_pos, p_sd), propose_hmc)) %>% 
+  unnest(hmc)
+```
+
+Here is the third row.
+
+```{r, fig.width = 6, fig.height = 1.5}
+p3 <-
+  d_proposal %>% 
+  filter(seed <= 100) %>% 
+  
+  ggplot(aes(x = proposal, y = step * epsilon, group = seed)) +
+  geom_path(alpha = 1/2, color = "grey50", linewidth = 1/4) +
+  geom_point(data = . %>% 
+               group_by(cur_pos, seed) %>% 
+               slice_max(step),
+             size = 3/4) +
+  geom_point(data = . %>% 
+               group_by(p_sd) %>% 
+               slice(1),
+             size = 3.5) +
+  scale_x_continuous(NULL, breaks = NULL) +
+  coord_cartesian(xlim = c(-3, 3)) +
+  facet_grid("Hamiltonian Dyn." ~ p_sd) +
+  theme(strip.text.x = element_blank())
+
+p3
+```
+
+Now make the final fourth row.
+
+```{r, fig.width = 6, fig.height = 1.5}
+p4 <-
+  d_proposal %>% 
+  group_by(cur_pos, seed) %>% 
+  slice_max(step) %>%
+  
+  ggplot(aes(x = proposal, y = after_stat(density))) +
+  geom_histogram(binwidth = 1/3, boundary = 0, fill = "gray67") +
+  xlab(expression(theta)) +
+  coord_cartesian(xlim = c(-3, 3)) +
+  facet_grid("HMC Proposals" ~ p_sd) +
+  theme(strip.text.x = element_blank())
+
+p4
+```
+
+Combine the four plot objects to display the full version of our Figure 14.3.
+
+```{r, fig.width = 6, fig.height = 6}
+p1 / p2 / p3 / p4
+```
+
+> You can see that when the standard deviation of the momentum distribution is wider, the proposal distribution is wider. As you can see by comparing Figures 14.1 and 14.3, the most efficient standard deviation is not too wide and not too narrow. The standard deviation of the momentum distribution is typically set by adaptive algorithms in Stan to match the standard deviation of the posterior. (p. 404)
+
+### Figure triathalon wrap-up.
+
+It bears repeating that the `propose_hmc()` function we used in the last three subsections is not a complete HMC sampler. It's just designed to showcase some of the details of the proposal stage. Kruschke gave some of the other details in HMC sampling on page 403:
+
+> Once the proposed jump is established, then the proposal is accepted or rejected according to the Metropolis decision rule as in Equation 7.1, p. 151, except that the terms involve not only the relative posterior density, but also the momentum at the current and proposed positions. The initial momentum applied at the current position is drawn randomly from a simple probability distribution such as a normal (Gaussian). Denote the momentum as $\phi$. Then the Metropolis acceptance probability for HMC becomes
+>
+> $$
+> p_\text{accept} = \min \left( \frac{
+>   p(\theta_\text{proposed} \mid D) \; p(\phi_\text{proposed})
+> }{
+>   p(\theta_\text{current} \mid D) \; p(\phi_\text{current})
+> }, 1 \right)
+> $$
+
+We've completely skipped that $p_\text{accept}$ stage in this section. But don't worry. Since we'll be using Stan (mainly via **brms**) for our HMC models in this ebook, those details are all handled for us.
+
+If you'd like to learn more about the details of HMC sampling, you might check out McElreath's [lecture on HMC from January, 2019](https://www.youtube.com/watch?v=v-j0UmWf3Us) or one of these lectures ([here](https://www.youtube.com/watch?v=jUSZboSq1zg), [here](https://www.youtube.com/watch?v=_fnDz2Bz3h8), or [here](https://www.youtube.com/watch?v=pHsuIaPbNbY)) by Michael Betancourt. Also, McElreath showed how to make a fully-functional (though special case) HMC sample in Chapter 9 of his [-@mcelreathStatisticalRethinkingBayesian2020] textbook.
+
+## Installing Stan
+
+You can learn about installing Stan at [https://mc-stan.org/users/interfaces/](https://mc-stan.org/users/interfaces/). We, of course, have already been working with Stan via **brms**. Bürkner has some nice information on how to install **brms** in the FAQ section of the [**brms** GitHub repository](https://github.com/paul-buerkner/brms).
+
+To install the latest official release from CRAN, execute `install.packages("brms")`. If you'd like to install the current developmental version, you can execute the following.
+
+```{r, eval = F}
+if (!requireNamespace("remotes")) {
+  install.packages("remotes")
+}
+remotes::install_github("paul-buerkner/brms")
+```
+
+As Kruschke advised, it's a good idea to "be sure that your versions of R and RStudio are up to date" (p. 407) when installing **brms** and/or Stan.
+
+People sometimes have difficulties installing Stan or **brms** after a they perform a software update. If you find yourself in that position, browse through some of the threads on the Stan forums at [https://discourse.mc-stan.org/](https://discourse.mc-stan.org/). 
+
+## A Complete example
+
+If you'd like to learn how to fit models in Stan itself, you might consult the updated versions of the *Stan user's guide* and *Stan reference manual*, which you can find at [https://mc-stan.org/users/documentation/](https://mc-stan.org/users/documentation/). You might also check out the Stan [Case studies](https://mc-stan.org/users/documentation/case-studies.html) and other [tutorials](https://mc-stan.org/users/documentation/tutorials.html) listed by the Stan team.
+
+We will continue using Stan via **brms**.
+
+The model Kruschke walked through in this section followed the form
+
+\begin{align*}
+y_i & \sim \operatorname{Bernoulli} (\theta) \\
+\theta & \sim \operatorname{Beta} (1, 1),
+\end{align*}
+
+where $\theta$ is the probability $y = 1$. Kruschke showed how to simulate the data at the top of page 409. Here's our **tidyverse** version.
+
+```{r}
+n <- 50
+z <- 10
+
+my_data <- tibble(y = rep(1:0, times = c(z, n - z)))
+
+glimpse(my_data)
+```
+
+Time to fire up **brms**.
+
+```{r, warning = F, message = F}
+library(brms)
+```
+
+In the absence of predictors, you might think of this as an intercept-only model. You can fit the simple intercept-only Bernoulli model with `brms::brm()` like this.
+
+```{r fit14.1}
+fit14.1 <-
+  brm(data = my_data, 
+      family = bernoulli(link = identity),
+      y ~ 1,
+      prior(beta(1, 1), class = Intercept, lb = 0, ub = 1),
+      iter = 1000, warmup = 200, chains = 3, cores = 3,
+      seed = 14,
+      file = "fits/fit14.01")
+```
+
+As Kruschke wrote,
+
+> `iter` is the total number of steps per chain, including `warmup` steps in each chain. Thinning merely marks some steps as not to be used; thinning does not increase the number of steps taken. Thus, the total number of steps that Stan takes is `chains`·`iter`. Of those steps, the ones actually used as representative have a total count of `chains`·(`iter`−`warmup`)/`thin`. Therefore, if you know the desired total steps you want to keep, and you know the warm-up, chains, and thinning, then you can compute that the necessary `iter` equals the desired total multiplied by `thin`/`chains`+`warmup`.
+>
+> We did not specify the initial values of the chains in the example above, instead letting Stan randomly initialize the chains by default. The chains can be initialized by the user with the argument `init`, analogous to JAGS. (p. 409)
+
+Unlike what Kruschke showed on page 409, we did not use the `thin` argument, above, and will generally avoid thinning in this ebook. You just don't tend to need to thin your chains when using Stan. I do, however, like to use the `seed` argument. Because computers use [pseudorandom number generators](https://en.wikibooks.org/wiki/R_Programming/Random_Number_Generation) to take random draws, I prefer to make my random draws reproducible by setting my seed. Others have argued against this. You do you.
+
+Kruschke mentioned trace plots and model summaries. Here's our trace plot, which comes with a marginal density plot by **brms** default.
+
+```{r, fig.width = 8, fig.height = 1.5}
+plot(fit14.1, widths = c(2, 3))
+```
+
+Here's the summary.
+
+```{r}
+print(fit14.1)
+```
+
+### Reusing the compiled model.
+
+"Because model compilation can take a while in Stan, it is convenient to store the DSO of a successfully compiled model and use it repeatedly for different data sets" (p. 410). This true for our **brms** paradigm, too. To reuse a compiled `brm()` model, we typically use the `update()` function. To demonstrate, we'll first want some new data. Here we'll increase our `z` value to 20.
+
+```{r}
+z <- 20
+
+my_data <- tibble(y = rep(1:0, times = c(z, n - z)))
+
+glimpse(my_data)
+```
+
+For the first and most important argument, you need to tell `update()` what fit you're reusing. We'll use `fit14.1`. You also need to tell `update()` about your new data with the `newdata` argument. Because the model `formula` and `prior`s are the same as before, we don't need to use those arguments, here.
+
+```{r fit14.2, message = F}
+fit14.2 <-
+  update(fit14.1,
+         newdata = my_data,
+         iter = 1000, warmup = 200, chains = 3, cores = 3,
+         seed = 14,
+         file = "fits/fit14.02")
+```
+
+Here's the summary using the `fixef()` function.
+
+```{r}
+fixef(fit14.2)
+```
+
+### General structure of Stan model specification.
+
+"The general structure of model specifications in Stan consist of six blocks" (p. 410). We don't need to worry about this when using **brms**. Just use the `brm()` and `update()` functions. But if you're curious about what the underlying Stan code is for your **brms** models, index the model fit with `$model`.
+
+```{r}
+fit14.2$model
+```
+
+### Think log probability to think like Stan.
+
+The material in this subsection is outside of the scope of this ebook.
+
+### Sampling the prior in Stan.
+
+"There are several reasons why we might want to examine a sample from the prior distribution of a model" (p. 413). Happily, we can do this with **brms** with the `sample_prior` argument in the `brm()` function. By default, it is set to `"no"` and does not take prior samples. If you instead set `sample_prior = "yes"` or `sample_prior = TRUE`, samples are drawn solely from the prior.
+
+Here's how to do that with an updated version of the model from `fit14.2`.
+
+```{r fit14.3}
+fit14.3 <-
+  brm(data = my_data, 
+      family = bernoulli(link = identity),
+      y ~ 1,
+      prior(beta(1, 1), class = Intercept, lb = 0, ub = 1),
+      iter = 1000, warmup = 200, chains = 3, cores = 3,
+      sample_prior = "yes",
+      seed = 14,
+      file = "fits/fit14.03")
+```
+
+Now we can gather the prior draws with the `prior_draws()` function.
+
+```{r}
+prior_draws(fit14.3) %>% 
+  head()
+```
+
+Here's a look at the prior distribution.
+
+```{r, fig.width = 3.5, fig.height = 2.5}
+prior_draws(fit14.3) %>% 
+  ggplot(aes(x = Intercept)) +
+  geom_histogram(binwidth = 0.1, boundary = 0) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  labs(title = expression("Beta"*(1*", "*1)),
+       x = expression(italic(p)(theta)))
+```
+
+### Simplified scripts for frequently used analyses.
+
+This is not our approach when using **brms**. Throughout the chapters of this ebook, we will learn to make skillful use of the `brms::brm()` function to fit all our models. Once in a while we'll take a shortcut and reuse a precompiled fit with `update()`.
+
+## Specify models top-down in Stan
+
+> For humans, descriptive models begin, conceptually, with the data that are to be described. We first know the measurement scale of the data and their structure. Then we conceive of a likelihood function for the data. The likelihood function has meaningful parameters, which we might want to re-express in terms of other data (called covariates, predictors, or regressors). Then we build a meaningful hierarchical prior on the parameters. Finally, at the top level, we specify constants that express our prior knowledge, which might be vague or noncommittal. (p. 414)
+
+If you look at how I typically organize the arguments within `brms::brm()`, you'll see this is generally the case there, too. Take another look at the code for `fit14.1`:
+
+```{r, eval = F}
+fit14.1 <-
+  brm(data = my_data, 
+      family = bernoulli(link = identity),
+      y ~ 1,
+      prior(beta(1, 1), class = Intercept, lb = 0, ub = 1),
+      iter = 1000, warmup = 200, chains = 3, cores = 3,
+      seed = 14,
+      file = "fits/fit14.01")
+```
+
+The first line within `brm()` defined the data. The second line defined the likelihood function and its link function. We haven't talked much about link functions, yet, but that will start in [Chapter 15][Overview of the Generalized Linear Model]. Likelihoods contain parameters and our third line within `brm()` defined the equation we wanted to use to predict/describe our parameter of interest, $\theta$. We defined our sole prior in the fourth line. The remaining arguments contain the unsexy technical specifications, such as how many MCMC chains we'd like to use and into what folder we'd like to save our fit as an external file.
+
+You do not need to arrange `brm()` arguments this way. For other arrangements, take a look at the examples in the [**brms** reference manual](https://CRAN.R-project.org/package=brms/brms.pdf) or in some of Bürkner's vignettes, such as his [*Estimating multivariate models with brms*](https://CRAN.R-project.org/package=brms/vignettes/brms_multivariate.html) [-@Bürkner2022Multivariate]. However you go about fitting your models with `brm()`, I mainly recommend you find a general style and stick with it. Standardizing your approach will make your code more readable for others and yourself.
+
+## Limitations and extras
+
+> At the time of this writing, one of the main limitations of Stan is that it does not allow discrete (i.e., categorical) parameters. The reason for this limitation is that Stan has HMC as its foundational sampling method, and HMC requires computing the gradient (i.e., derivative) of the posterior distribution with respect to the parameters. Of course, gradients are undefined for discrete parameters. (p. 415)
+
+To my knowledge this is still the case, which means **brms** has this limitation, too. As wildly powerful as it is, **brms** it not as flexible as working directly with Stan. However, [Bürkner and others](https://github.com/paul-buerkner/brms/graphs/contributors) are constantly expanding its capabilities. Probably the best places keep track of the new and evolving features of **brms** are the [issues](https://github.com/paul-buerkner/brms/issues) and [news](https://github.com/paul-buerkner/brms/blob/master/NEWS.md) sections in its GitHub repo, [https://github.com/paul-buerkner/brms](https://github.com/paul-buerkner/brms).
+
+## Session info {-}
+
+```{r}
+sessionInfo()
+```
+
+```{r, echo = F}
+# remove our objects
+rm(d, position, text, p1, p2, n, z, my_data, fit14.1, fit14.2, fit14.3)
+```
+
+```{r, echo = F, message = F, warning = F, results = "hide"}
+ggplot2::theme_set(ggplot2::theme_grey())
+bayesplot::color_scheme_set("blue")
+pacman::p_unload(pacman::p_loaded(), character.only = TRUE)
+```
+
+## Footnote {-}
+
