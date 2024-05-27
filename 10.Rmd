@@ -18,18 +18,36 @@ So far we have spoken of
 
 * the data, denoted by $D$ or $y$;
 * the model parameters, generically denoted $\theta$;
-* the likelihood function, denoted $p(D | \theta)$; and
+* the likelihood function, denoted $p(D \mid \theta)$; and
 * the prior distribution, denoted $p(\theta)$.
 
-Now we add $m$, which is a model index where $m = 1$ stands for the first model, $m = 2$ stands for the second model, and so on. So when we have more than one model in play, we might refer to the likelihood as $p_m(y | \theta_m, m)$ and the prior as $p_m(\theta_m | m)$. It's also the case, then, that *each model* can be given a prior probability $p(m)$.
+We also have some terms that are products of those elements, such as
 
-"The Bayes factor (BF) is the ratio of the probabilities of the data in models 1 and 2" (p. 268).
+* the numerator in Bayes' theorem $p(D \mid \theta)\ p(\theta)$;
+* the denominator in Bayes' theorem, $p(D)$, which is a shorthand for $\sum\limits_{\theta^*}p(D\mid\theta^*)\ p(\theta^*)$, and we often call the marginal likelihood or the evidence; and
+* the posterior distribution, denoted $p(\theta \mid D)$, which comes from dividing the numerator by the denominator.
 
-This can be expressed simply as
+Now we add $m$, which is a model index where $m = 1$ stands for the first model, $m = 2$ stands for the second model, and so on. So when we have more than one model in play, we might refer to the likelihood as $p_m(y \mid \theta_m, m)$ and the prior as $p_m(\theta_m \mid m)$. It's also the case, then, that *each model* can be given a prior probability $p(m)$.
 
-$$\text{BF} = \frac{p(D | m = 1)}{p(D | m = 2)}.$$
+We should also clarify what we mean by a "model." In Bayesian statistics, the *model* is the numerator of Bayes' theorem, $p(D \mid \theta)\ p(\theta)$. But in this context, we're not focusing on the realization of $p(D \mid \theta)\ p(\theta)$ as computed using a real data set. Rather, $p(D \mid \theta)\ p(\theta)$ is a model in the sense that it may be used as a data-generating function. IMO, Kruschke didn't sufficiently clarify this point in the text, though he tried to in prose on page 268. After some personal communications with Kruschke, I'm confident this is what he meant.
 
-Kruschke further explained that
+As you'll see later, we won't be using **brms** to fit a hierarchical model of multiple sub models $(m = 1, \dots, M;\ \text{where}\ M > 1)$. Therefore we won't be going to the trouble of recreating Kruschke's Figure 10.1. However, we still might consider some new insights, such as how our new model indicator $m$ can allow us to compute
+
+$$
+p(m \mid D) = \frac{p(D \mid m)\ p(m)}{\sum_m p(D \mid m)\ p(m)},
+$$
+
+where $p(D \mid m)$ is the marginal likelihood (i.e., evidence) for model $m$, and $p(m \mid D)$ is the posterior probability of a model, given a particular model set. If we have two models, $m = 1$ and $m = 2$, we can rewrite that equation as
+
+$$
+\frac{p(m = 1 \mid D)}{p(m = 2 \mid D)} = \underbrace{\frac{p(D \mid  m = 1)}{p(D \mid  m = 2)}}_\text{BF} \frac{p(m = 1)}{p(m = 2)} \underbrace{\frac{/ \sum_m p(D \mid m)\ p(m)}{/ \sum_m p(D \mid m)\ p(m)}}_{=1}.
+$$
+
+The last term in the equation is the same in the numerator and the denominator, which means they get canceled out, as indicated by the underbraced $=1$. The middle term on the right, $\frac{p(m = 1)}{p(m = 2)}$, is something we often don't have because many researchers are gutless and unwilling to place prior probabilities on their models. The first term on the right is a ratio of marginal likelihoods, by model. Or in other words, the first term on the right is the ratio of the evidence of $m = 1$ over the evidence of $m = 2$. As Kruschke put it, "The Bayes factor (BF) is the ratio of the probabilities of the data in models 1 and 2" (p. 268). To bring it into focus,
+
+$$\text{BF} = \frac{p(D \mid  m = 1)}{p(D \mid  m = 2)}.$$
+
+As ratios, BF's have a range of $(0, \infty)$, and a $\text{BF} = 1$ when the evidence (i.e., marginal likelihood) for the two models under comparison are the same. As for interpretations, Kruschke further explained that
 
 > one convention for converting the magnitude of the BF to a discrete decision about the models is that there is "substantial" evidence for model $m = 1$ when the BF exceeds $3.0$ and, equivalently, "substantial" evidence for model $m = 2$ when the BF is less than $1/3$ [@jeffreysTheoryProbability1961; @kassBayesFactors1995; @wetzelsStatisticalEvidenceExperimental2011]. (p. 268)
 
@@ -44,7 +62,7 @@ library(tidyverse)
 
 d <-
   tibble(factory = 1:2,
-         omega   = c(.25, .75),
+         omega   = c(0.25, 0.75),
          kappa   = 12) %>% 
   mutate(alpha =      omega  * (kappa - 2) + 1,
          beta  = (1 - omega) * (kappa - 2) + 1)
@@ -53,7 +71,7 @@ d %>%
   knitr::kable()
 ```
 
-Thus given $\omega_1 = .25$, $\omega_2 = .75$ and $\kappa = 12$, we can describe the bias of the two coin factories as $\operatorname{Beta}(\theta_{[m = 1]} | 3.5, 8.5)$ and $\operatorname{Beta}(\theta_{[m = 2]} | 8.5, 3.5)$. With a little wrangling, we can use our `d` tibble to make the densities of Figure 10.2. But before we do, we should discuss plotting.
+Thus given $\omega_1 = .25$, $\omega_2 = .75$ and $\kappa = 12$, we can describe the bias of the two coin factories as $\operatorname{Beta}(\theta_{[m = 1]} \mid 3.5, 8.5)$ and $\operatorname{Beta}(\theta_{[m = 2]} \mid 8.5, 3.5)$. With a little wrangling, we can use our `d` tibble to make the densities of Figure 10.2. But before we do, we should discuss plotting.
 
 In the past few chapters, we have explored different plotting conventions using themes from Wilke's [**cowplot** package](https://wilkelab.org/cowplot), such as `theme_cowplot()` and `theme_minimal_grid()`. We also modified some of our plots using principles from Wilke's [-@wilkeFundamentalsDataVisualization2019] text, [*Fundamentals of data visualization*](https://clauswilke.com/dataviz/), and his [-@Wilke2020Themes] [*Themes*](https://wilkelab.org/cowplot/articles/themes.html) vignette. To further build on those principles, each chapter from here onward will have its own color scheme. The scheme in this chapter is based on [Katsushika Hokusai](https://www.katsushikahokusai.org/)'s [-@HokusaiGreatWaveOffKanagawa1820] woodblock print, [*The great wave off Kanagawa*](https://artsandculture.google.com/asset/the-great-wave-off-kanagawa/MgHm0BHMRIT73g). We can get a prearranged color palette based on *The great wave off Kanagawa* from  [Tyler Littlefield](https://twitter.com/tyluRp)'s [**lisa** package](https://github.com/tyluRp/lisa) [@R-lisa].
 
@@ -81,12 +99,12 @@ theme_set(
           axis.ticks = element_line(color = lisa_palette("KatsushikaHokusai")[1]),
           legend.background = element_blank(),
           legend.box.background = element_blank(),
-          legend.key = element_rect(fill = lisa_palette("KatsushikaHokusai")[5]),
-          panel.background = element_rect(fill = lisa_palette("KatsushikaHokusai")[5],
-                                          color = lisa_palette("KatsushikaHokusai")[1]),
+          legend.key = element_blank(),
+          panel.background = element_rect(color = lisa_palette("KatsushikaHokusai")[1],
+                                          fill = lisa_palette("KatsushikaHokusai")[5]),
           panel.grid = element_blank(),
-          plot.background = element_rect(fill = lisa_palette("KatsushikaHokusai")[5],
-                                          color = lisa_palette("KatsushikaHokusai")[5]),
+          plot.background = element_rect(color = lisa_palette("KatsushikaHokusai")[5],
+                                         fill = lisa_palette("KatsushikaHokusai")[5]),
           strip.background = element_rect(fill = lisa_palette("KatsushikaHokusai")[4]),
           strip.text = element_text(color = lisa_palette("KatsushikaHokusai")[1]))
 )
@@ -125,15 +143,18 @@ tibble(Model = c("1", "2"), y = 1) %>%
   scale_y_continuous(expand = expansion(mult = c(0, 0.05)))
 ```
 
-Consider the Bernoulli bar plots in the bottom panels of Figure 10.2. The heights of the bars are arbitrary and just intended to give a sense of the Bernoulli distribution. If we wanted the heights to correspond to the Beta distributions above them, we might do so like this.
+Consider the Bernoulli bar plots in the bottom panels of Figure 10.2. Often times, the heights of the bars in Kruschke's model diagrams are arbitrary and just intended to give a sense of the Bernoulli distribution. This time, however, we might the values $z = 6, N = 9$ Kruschke provided for the example at the top of page 270.
 
 ```{r, fig.width = 5, fig.height = 2}
-crossing(factory = str_c("factory ", 1:2),
-         flip    = factor(c("tails", "heads"), levels = c("tails", "heads"))) %>% 
-  mutate(prob = c(.75, .25, .25, .75)) %>% 
+n <- 9
+z <- 6
+
+tibble(flip = factor(c("tails", "heads"), levels = c("tails", "heads")),
+       prob = c((n - z) / n, z / n)) %>% 
+  expand_grid(factory = str_c("factory ", 1:2)) %>% 
   
   ggplot(aes(x = flip, y = prob)) +
-  geom_col(width = .75, fill = kh[4]) +
+  geom_col(width = 0.75, fill = kh[4]) +
   scale_y_continuous(NULL, breaks = NULL,
                      expand = expansion(mult = c(0, 0.05))) +
   xlab(NULL) +
@@ -142,9 +163,9 @@ crossing(factory = str_c("factory ", 1:2),
   facet_wrap(~ factory)
 ```
 
-But now
+We read:
 
-> suppose we flip the coin nine times and get six heads. Given those data, what are the posterior probabilities of the coin coming from the head-biased or tail-biased factories? We will pursue the answer three ways: via formal analysis, grid approximation, and MCMC. (p. 270)
+> Suppose we flip the coin nine times and get six heads. Given those data, what are the posterior probabilities of the coin coming from the head-biased or tail-biased factories? We will pursue the answer three ways: via formal analysis, grid approximation, and MCMC. (p. 270)
 
 Before we move on to a formal analysis, here's a more faithful version of Kruschke's Figure 10.2 based on the method from my blog post, [*Make model diagrams, Kruschke style*](https://solomonkurz.netlify.app/blog/2020-03-09-make-model-diagrams-kruschke-style/).
 
@@ -154,18 +175,18 @@ library(ggforce)
 
 p1 <-
   tibble(x = 1:2,
-         d = c(.75, .75)) %>% 
+         d = 0.75) %>% 
   ggplot(aes(x = x, y = d)) +
-  geom_col(fill = alpha(kh[5], .9), width = .45) +
+  geom_col(fill = alpha(kh[5], 0.9), width = 0.45) +
   annotate(geom = "text",
-           x = 1.5, y = .2,
+           x = 1.5, y = 0.2,
            label = "categorical",
            size = 5, color = kh[1]) +
   annotate(geom = "text",
-           x = 1.5, y = .85,
+           x = 1.5, y = 0.85,
            label = "italic(P[m])",
            size = 5, color = kh[1], family = "Times", parse = TRUE) +
-  coord_cartesian(xlim = c(-.5, 3.5),
+  coord_cartesian(xlim = c(-0.5, 3.5),
                   ylim = 0:1) +
   theme_void() +
   theme(axis.line.x = element_line(linewidth = 0.5, color = kh[1]))
@@ -174,129 +195,137 @@ p1 <-
 # save our custom arrow settings
 my_arrow <- arrow(angle = 20, length = unit(0.35, "cm"), type = "closed")
 p2 <-
-  tibble(x    = .5,
+  tibble(x    = 0.5,
          y    = 1,
-         xend = .5,
+         xend = 0.5,
          yend = 0) %>%
   
   ggplot(aes(x = x, xend = xend,
              y = y, yend = yend)) +
   geom_segment(arrow = my_arrow, color = kh[1]) +
   annotate(geom = "text",
-           x = .375, y = 1/3,
+           x = 0.375, y = 1/3,
            label = "'~'",
            size = 10, color = kh[1], family = "Times", parse = T) +
-  xlim(0, 1) +
+  xlim(0:1) +
+  ylim(0:1) +
   theme_void()
 
 p3 <-
-  tibble(x = seq(from = .01, to = .99, by = .01),
+  tibble(x = seq(from = 0.01, to = 0.99, by = 0.01),
          d = (dbeta(x, 5, 10) / max(dbeta(x, 5, 10)))) %>% 
   ggplot(aes(x = x, y = d)) +
-  geom_area(fill = alpha(kh[4], .85)) +
+  geom_area(fill = alpha(kh[4], 0.85)) +
   annotate(geom = "text",
-           x = .5, y = .2,
+           x = 0.5, y = 0.2,
            label = "beta",
            size = 5, color = kh[1]) +
   annotate(geom = "text",
-           x = .5, y = .6,
+           x = 0.5, y = 0.6,
            label = "list(italic(A)[1], italic(B)[1])",
            size = 5, color = kh[1], family = "Times", parse = TRUE) +
   scale_x_continuous(expand = c(0, 0)) +
+  ylim(0:1) +
   theme_void() +
   theme(axis.line.x = element_line(linewidth = 0.5, color = kh[1]))
 
 p4 <-
-  tibble(x = seq(from = .01, to = .99, by = .01),
+  tibble(x = seq(from = 0.01, to = 0.99, by = 0.01),
          d = (dbeta(x, 10, 5) / max(dbeta(x, 10, 5)))) %>% 
   ggplot(aes(x = x, y = d)) +
   geom_area(fill = kh[6]) +
   annotate(geom = "text",
-           x = .5, y = .2,
+           x = 0.5, y = 0.2,
            label = "beta",
            size = 5, color = kh[1]) +
   annotate(geom = "text",
-           x = .5, y = .6,
+           x = 0.5, y = 0.6,
            label = "list(italic(A)[2], italic(B)[2])",
            size = 5, color = kh[1], family = "Times", parse = TRUE) +
   scale_x_continuous(expand = c(0, 0)) +
+  ylim(0:1) +
   theme_void() +
   theme(axis.line.x = element_line(linewidth = 0.5, color = kh[1]))
 
 # bar plot of Bernoulli data
-p5 <-
-  tibble(x = 0:1,
-         d = (dbinom(x, size = 1, prob = 1/3)) / max(dbinom(x, size = 1, prob = 1/3))) %>% 
-  
-  ggplot(aes(x = x, y = d)) +
-  geom_col(fill = alpha(kh[4], .85), width = .4) +
+p5 <- 
+  tibble(flip = factor(c("tails", "heads"), levels = c("tails", "heads")),
+         prob = c((n - z) / n, z / n)) %>% 
+  ggplot(aes(x = flip, y = prob)) +
+  geom_col(width = 0.4, fill = alpha(kh[4], 0.85)) +
   annotate(geom = "text",
-           x = .5, y = .2,
+           x = 1.5, y = 0.15,
            label = "Bernoulli",
            size = 7, color = kh[1]) +
   annotate(geom = "text",
-           x = .5, y = .94,
+           x = 1.5, y = 2/3,
            label = "theta", 
            size = 7, color = kh[1], family = "Times", parse = T) +
-  xlim(-.75, 1.75) +
+  scale_x_discrete(expand = expansion(mult = 0.85)) +
+  scale_y_continuous(NULL, breaks = NULL,
+                     expand = expansion(mult = c(0, 0.15))) +
   theme_void() +
   theme(axis.line.x = element_line(linewidth = 0.5, color = kh[1]))
 
 # another bar plot of Bernoulli data
-p6 <-
-  tibble(x = 0:1,
-         d = (dbinom(x, size = 1, prob = 2/3)) / max(dbinom(x, size = 1, prob = 2/3))) %>% 
-  
-  ggplot(aes(x = x, y = d)) +
-  geom_col(fill = kh[6], width = .4) +
+p6 <- 
+  tibble(flip = factor(c("tails", "heads"), levels = c("tails", "heads")),
+         prob = c((n - z) / n, z / n)) %>% 
+  ggplot(aes(x = flip, y = prob)) +
+  geom_col(width = 0.4, fill = kh[6]) +
   annotate(geom = "text",
-           x = .5, y = .2,
+           x = 1.5, y = 0.15,
            label = "Bernoulli",
            size = 7, color = kh[1]) +
   annotate(geom = "text",
-           x = .5, y = .94,
+           x = 1.5, y = 2/3,
            label = "theta", 
            size = 7, color = kh[1], family = "Times", parse = T) +
-  xlim(-.75, 1.75) +
+  scale_x_discrete(expand = expansion(mult = 0.85)) +
+  scale_y_continuous(NULL, breaks = NULL,
+                     expand = expansion(mult = c(0, 0.15))) +
   theme_void() +
   theme(axis.line.x = element_line(linewidth = 0.5, color = kh[1]))
 
 # another annotated arrow
 p7 <-
-  tibble(x     = c(.375, .625),
-         y     = c(1/3, 1/3),
+  tibble(x     = c(0.375, 0.625),
+         y     = 1/3,
          label = c("'~'", "italic(i)")) %>% 
   
   ggplot(aes(x = x, y = y, label = label)) +
   geom_text(size = c(10, 7), parse = T, family = "Times") +
-  geom_segment(x = .5, xend = .5,
+  geom_segment(x = 0.5, xend = 0.5,
                y = 1, yend = 0,
                arrow = my_arrow, color = kh[1]) +
-  xlim(0, 1) +
+  xlim(0:1) +
+  ylim(0:1) +
   theme_void()
 
 # some text
 p8 <-
   tibble(x     = 1,
-         y     = .5,
+         y     = 0.5,
          label = "italic(y[i])") %>% 
   
   ggplot(aes(x = x, y = y, label = label)) +
   geom_text(size = 7, color = kh[1], parse = T, family = "Times") +
   xlim(0, 2) +
+  ylim(0:1) +
   theme_void()
 
 # dashed borders
 p9 <-
   tibble(x = c(0, 0.999, 0.999, 0, 1.001, 2, 2, 1.001),
-         y = c(0, 0, 1, 1, 0, 0, 1, 1),
+         y = rep(0:1, each = 2) %>% rep(times = 2),
          z = rep(letters[1:2], each = 4)) %>% 
   
   ggplot(aes(x = x, y = y, group = z)) +
   geom_shape(fill = "transparent", color = kh[1], linetype = 2,
-             radius = unit(1, 'cm')) +
-  scale_x_continuous(NULL, breaks = NULL, expand=c(0,0)) +
-  scale_y_continuous(NULL, breaks = NULL, expand=c(0,0)) +
+             radius = unit(1, "cm")) +
+  scale_x_continuous(NULL, breaks = NULL, expand = c(0, 0)) +
+  scale_y_continuous(NULL, breaks = NULL, expand = c(0, 0)) +
+  ylim(0:1) +
   theme_void()
 
 # define the layout
@@ -325,17 +354,19 @@ layout <- c(
 # combine and plot!
 (p1 + p2 + p3 + p4 + p2 + p2 + p5 + p6 + p7 + p8 + p9) + 
   plot_layout(design = layout) &
-  ylim(0, 1) &
   theme(plot.margin = margin(0, 5.5, 0, 5.5))
 ```
 
 Note how we used the `geom_shape()` function from the [**ggforce** package](https://CRAN.R-project.org/package=ggforce) [@R-ggforce] to make the two dashed borders with the rounded edges. You can learn more from Pedersen's [-@pedersenDrawPolygonsExpansion] vignette, [*Draw polygons with expansion/contraction and/or rounded corners — geom_shape*](https://ggforce.data-imaginist.com/reference/geom_shape.html).
 
+One thing we might rehearse before moving on is that that figure depicts two models, and each of of the models is represented within one of the dashed areas. By *model*, we mean $p_m(D \mid \theta_m, m)\ p_m(\theta_m \mid m)$, conceptualized as a data-generating function.
+
 ### Solution by formal analysis.
 
-Here we rehearse if we have a $\operatorname{Beta}(\theta, a, b)$ prior for $\theta$ of the Bernoulli likelihood function, then the analytic solution for the posterior is $\operatorname{Beta}(\theta | z + a, N – z + b)$. Within this paradigm, if you would like to compute $p(D | m)$, don't use the following function. If suffers from [underflow](https://en.wikipedia.org/wiki/Arithmetic_underflow) with large values.
+Here we rehearse if we have a $\operatorname{Beta}(\theta, a, b)$ prior for $\theta$ of the Bernoulli likelihood function, then the analytic solution for the posterior is $\operatorname{Beta}(\theta \mid z + a, N – z + b)$. Within this paradigm, if you would like to compute $p(D \mid m)$, don't use the following function. If suffers from [underflow](https://en.wikipedia.org/wiki/Arithmetic_underflow) with large values.
 
 ```{r, eval = F}
+# naive, don't use
 p_d <- function(z, n, a, b) { 
   beta(z + a, n - z + b) / beta(a, b) 
 }
@@ -344,18 +375,19 @@ p_d <- function(z, n, a, b) {
 This version is more robust.
 
 ```{r p_d}
+# robust, do use
 p_d <- function(z, n, a, b) { 
   exp(lbeta(z + a, n - z + b) - lbeta(a, b)) 
 }
 ```
 
-You'd use it like this to compute $p(D|m_1)$.
+You'd use our `p_d()` function like this to compute $p(D \mid m_1)$.
 
 ```{r}
 p_d(z = 6, n = 9, a = 3.5, b = 8.5)
 ```
 
-So to compute our BF, $\frac{p(D|m_1)}{p(D|m_2)}$, you might use the `p_d()` function like this.
+So to compute our BF, $\frac{p(D \mid m_1)}{p(D \mid m_2)}$, you might use the `p_d()` function like this.
 
 ```{r}
 p_d_1 <- p_d(z = 6, n = 9, a = 3.5, b = 8.5)
@@ -364,271 +396,542 @@ p_d_2 <- p_d(z = 6, n = 9, a = 8.5, b = 3.5)
 p_d_1 / p_d_2
 ```
 
-And if we computed the BF the other way, it'd look like this.
+If we computed the BF the other way, it'd look like this.
 
 ```{r}
 p_d_2 / p_d_1
 ```
 
-Since the BF itself is only $\text{BF} = \frac{p(D | m = 1)}{p(D | m = 2)}$, we'd need to bring in the priors for the models themselves to get the posterior probabilities, which follows the form
+Since the BF itself is only $\text{BF} = \frac{p(D \mid m = 1)}{p(D \mid m = 2)}$, we'd need to bring in the priors for the models themselves to get the posterior probabilities, which follows the form
 
-$$\frac{p(m = 1 | D)}{p(m = 2 | D)} = \left (\frac{p(D | m = 1)}{p(D | m = 2)} \right ) \left ( \frac{p(m = 1)}{p(m = 2)} \right).$$
+$$\frac{p(m = 1 \mid D)}{p(m = 2 \mid D)} = \left [\frac{p(D \mid m = 1)}{p(D \mid m = 2)} \right ] \left [ \frac{p(m = 1)}{p(m = 2)} \right].$$
 
-If for both our models $p(m) = .5$, then the BF is the same it was, before.
+If for both our models $p(m) = .5$, then we can compute $\frac{p(m = 1 \mid D)}{p(m = 2 \mid D)}$ like so.
 
 ```{r}
-(p_d_1 * .5) / (p_d_2 * .5)
+(p_d_1 * 0.5) / (p_d_2 * 0.5)
 ```
 
-As Kruschke pointed out, because we're working in the probability metric, the sum of $p(m = 1 | D )$ and $p(m = 2 | D )$ must be 1. By simple algebra then,
+As Kruschke pointed out, because we're working in the probability metric, the sum of $p(m = 1 \mid D)$ and $p(m = 2 \mid D)$ must be 1. By simple algebra then,
 
-$$p(m = 2 | D ) = 1 - p(m = 1 | D ).$$
+$$p(m = 2 \mid D) = 1 - p(m = 1 \mid D).$$
 
 Therefore, it's also the case that
 
-$$\frac{p(m = 1 | D)}{1 - p(m = 1 | D)} = 0.2135266.$$
+$$\frac{p(m = 1 \mid D)}{1 - p(m = 1 \mid D)} = 0.2135266.$$
 
-Thus, 0.2135266 is in an odds metric. If you want to convert odds to a probability, you follow the formula
+Thus, our value for $\frac{p(m = 1 \mid D)}{p(m = 2 \mid D)}$, which is 0.2135266, is in an odds metric. If you want to convert odds to a probability, you follow the formula
 
-$$\text{odds} = \frac{\text{probability}}{1 - \text{probability}}.$$
-
-And with more algebraic manipulation, you can solve for the probability.
-
-\begin{align*}
-\text{odds} & =  \frac{\text{probability}}{1 - \text{probability}} \\
-\text{odds} - \text{odds} \cdot \text{probability} & =  \text{probability} \\
-\text{odds} & =  \text{probability} + \text{odds} \cdot \text{probability} \\
-\text{odds} & =  \text{probability} (1 + \text{odds}) \\
-\frac{\text{odds}}{1 + \text{odds}} & =  \text{probability}
-\end{align*}
+$$\text{probability} = \frac{\text{odds}}{1 + \text{odds}}.$$
 
 Thus, the posterior probability for $m = 1$ is
 
-$$p(m = 1 | D) = \frac{0.2135266}{1 + 0.2135266}.$$
+$$p(m = 1 \mid D) = \frac{0.2135266}{1 + 0.2135266} = 0.1759554.$$
 
 We can express that in code like so.
 
 ```{r}
-odds <- (p_d_1 * .5) / (p_d_2 * .5)
+odds <- (p_d_1 * 0.5) / (p_d_2 * 0.5)
 
 odds / (1 + odds)
 ```
 
-Relative to $m = 2$, our posterior probability for $m = 1$ is about .18. Therefore the posterior probability of $m = 2$ is 1 minus that.
+Relative to $m = 2$, our posterior probability for $m = 1$ is about .18. Therefore the posterior probability of $m = 2$ is 1 minus that value.
 
 ```{r}
 1 - (odds / (1 + odds))
 ```
 
-Given the data, the two models and the prior assumption they were equally credible, we conclude $m = 2$ is .82 probable.
+Given the data, the two models and the prior assumption both models were equally credible, we conclude $m = 2$ is about .82 probable.
 
 ### Solution by grid approximation.
 
-As in earlier chapters, we won't be able to make the wireframe plots on the left of Figure 10.3. But we can do some of the others. Here's the upper right panel.
+Before we jump to making Figure 10.3, we should take note of how Kruschke adjusted the notation in this section from the notation he used in the last section. At the bottom of page 271, we read:
 
-```{r, fig.width = 3.5, fig.height = 3, warning = F, message = F}
-p13 <-
-  tibble(omega = seq(from = 0, to = 1, length.out = length)) %>% 
-  mutate(m_p = ifelse(omega %in% c(.25, .75), 15, 0)) %>% 
-  
-  ggplot(aes(xmin = 0, xmax = m_p, y = omega)) +
-  geom_ribbon(fill = kh[4], color = kh[4]) +
-  scale_x_continuous(expand = expansion(mult = c(0.002, 0.05)), limits = c(0, 25)) +
-  scale_y_continuous(expand = expansion(mult = c(0, 0))) +
-  labs(x = expression(Marginal~p(omega)),
-       y = expression(omega))
+> In our current scenario, the model index, $m$, determines the value of the factory mode, $\omega_m$. Therefore, instead of thinking of a discrete indexical parameter $m$, we can think of the continuous mode parameter $\omega$ being allowed only two discrete values by the prior.
 
-p13 + labs(subtitle = "Remember, the scale on the x is arbitrary.")
+To show what this means in practice, here we make the initial version of the primary data frame `d`. The `omega` column provides an index for a sequence of models $(m)$, each defined by its mode $(\omega)$. The `kappa` column has a constant value `12`, and we use some familiar algebra to define the values in the `a` and `b` columns, based on those `omega` and `kappa` values. In the `prior_omega` column we define the prior probability of each model with an `ifelse()` statement. Then within `expand_grid()` we apply a dense comb of `theta` values to each level of `omega`.
+
+```{r}
+d <- tibble(omega = seq(from = 0.005, to = 0.995, by = 0.005),
+            kappa = 12) %>% 
+  mutate(a = omega * (kappa - 2) + 1,
+         b = (1 - omega) * (kappa - 2) + 1,
+         prior_omega = ifelse(omega %in% c(0.25, 0.75), 0.5, 0)) %>% 
+  expand_grid(theta = seq(from = 0, to = 1, length.out = length))
+
+# what?
+glimpse(d)
 ```
 
-Building on that, here's the upper middle panel of the "two [prior] dorsal fins" (p. 271).
+Next, we define the prior values for $\theta$, what we have traditionally called $p(\theta)$ in mathematical notation. Within our model-comparison framework where we're using $\omega$ as an index for a sequence of models defined by their prior modes, we might more fully call that prior $p_\omega(\theta_\omega \mid \omega)$. Regardless of our new naming complexities, we still define the prior in code using the `dbeta()` function.
 
-```{r, fig.height = 3, fig.width = 3.25}
-d <-
-  crossing(omega = seq(from = 0, to = 1, length.out = length),
-           theta = seq(from = 0, to = 1, length.out = length)) %>% 
-  mutate(prior = ifelse(omega == .25, dbeta(theta, 3.5, 8.5),
-                          ifelse(omega == .75, dbeta(theta, 8.5, 3.5),
-                                 0)))
-p12 <-
+```{r}
+d <- 
   d %>% 
-  ggplot(aes(x = theta, y = omega, fill = prior)) +
+  mutate(prior_theta_d = dbeta(x = theta, shape1 = a, shape2 = b))
+```
+
+We have saved the results as `prior_theta_d`. The first two parts of the name `prior_theta_d` are meant to help differentiate this as the prior for $\theta$, rather than the prior for the model, which we have already saved in the `prior_omega` column. We do have another complication, however. As we will see shortly, some of the panels in Kruschke's Figure 10.3 are based on $p_\omega(\theta_\omega \mid \omega)$ as expressed in the metric of the beta density, such as we have computed with the `dbeta()` function. We started using these sensibilities back in Chapter 6, where we learned about analytic solutions, and introduced the beta distribution for probability parameters, such as $\theta$. Yet other panels in Figure 10.3 are displayed in metrics that indicate Kruschke was using the prior in a probability metric that sums to one, such as we practiced in Chapter 5 with grid approximation. For those panels, we need another column in the `d` data frame.
+
+```{r}
+d <-
+  d %>% 
+  group_by(omega) %>% 
+  # normalize `prior_theta` to a proper probability scale
+  mutate(prior_theta_p = prior_theta_d / sum(prior_theta_d)) %>% 
+  ungroup()
+
+# what?
+glimpse(d)
+```
+
+Thus we have two columns for the prior of $\theta$, what we've called $p_\omega(\theta_\omega \mid \omega)$ in mathematical notation. The first column, `prior_theta_d`, is in the beta-density metric, such as we introduced in Chapter 6. The `_d` suffix stands for "density." The second column, `prior_theta_p`, is in a probability metric that sums to one, such as we practiced in Chapter 5. The `_p` suffix stands for "probability."
+
+I'm sorry this has to be so technical, but this is what it takes to complete our task. Onward!
+
+As in earlier chapters, we won't be able to make the wireframe plots on the left of Figure 10.3. We will start, instead, by making the plot in the second column of the first row. We'll save the object as `p12`, where the numbers indicate the row and column, respectively. Here is the code and its results.
+
+```{r, fig.height = 3, fig.width = 4.3}
+p12 <- 
+  d %>%
+  ggplot(aes(x = theta, y = omega, fill = prior_theta_d * prior_omega)) +
   geom_raster(interpolate = T) +
-  scale_fill_gradient(low = kh[1], high = kh[9], breaks = NULL) +
+  scale_fill_gradient(expression(p(theta[omega])), low = kh[1], high = kh[9]) +
   scale_x_continuous(expression(theta), breaks = 0:5 / 5, expand = c(0, 0)) +
-  scale_y_continuous(expression(omega), breaks = 0:5 / 5, expand = c(0, 0))
+  scale_y_continuous(expression(omega), breaks = 0:5 / 5, expand = c(0, 0), limits = 0:1)
 
 p12
 ```
 
-This time we'll separate $p_{m = 1}(\theta)$ and $p_{m = 2}(\theta)$ into the two short plots on the right of the next row down.
+In the body of Figure 10.3, as well as in the surrounding prose, Kruschke referred to the third dimension of this figure as the "prior." I find that language a little vague however, given how we now have prior probabilities for parameters, as well as prior probabilities for the models in which we have embedded these parameters. To be more verbose with our notation, what we have plotted is $p(\theta_\omega)$, which we can define as
 
-```{r, fig.width = 3.5, fig.height = 3, warning = F, message = F}
-p23 <-
-  d %>%
-  filter(omega %in% c(.25, .75)) %>%
-  mutate(omega = factor(str_c("omega == ", omega),
-                        levels = str_c("omega == ", c(.75, .25)))) %>%
+$$
+p(\theta_\omega) = p_\omega(\theta_\omega \mid \omega)\ p(\omega).
+$$
+
+In words, we have multiplied the each model's prior for $\theta$ by the probability of that model, itself. In this figure, we are using the prior for $\theta$ as expressed in the metric of the beta density, which is why we used `prior_theta_d` in the computation code within the `aes()` function. At the moment it might not be obvious why we have preferred `prior_theta_d` in this panel, but my hope is it will become more apparent when we make the panels in the second row. For now, notice that when we set `fill = prior_theta * prior_omega` within the `aes()` function, that is where we defined the `fill` gradient as $p(\theta_\omega)$, what Kruschke called the "prior." Do further note that the highest values for the `fill` dimension in the plot topped out at about 1.5.
+
+Next we move to the third panel in the first row, what we will save as `p13`. Notice that the x-axis in the text ranges up to about 25, and the "Marginal $p(\omega)$" values Kruschke displayed along that axis took on the values of zero and 15 (or thereabouts). Near the top of page 273, Kruschke wrote: "The absolute scale on $p(\omega)$ is irrelevant because it is the probability density for an arbitrary choice of grid approximation." Based on personal communications with Kruschke, it looks like the scale of the x-axis in this panel is a mistake. It's unclear how the mistake made it's way into the published text, but I'm now confident Kruschke meant this scale to range from zero to one, and that the values that appear around 15 should actually be 0.5. 
+
+In the initial code chunk for the `d` data, we defined the prior probabilities for each level of $\omega$ as `prior_omega = ifelse(omega %in% c(0.25, 0.75), 0.5, 0)`. Those are our "$p(\omega)$" values. By the language of "Marginal $p(\omega)$," Kruschke is indicating he was summing over other dimensions. For each level of the `theta` sequence in our data, Kruschke multiplied $p(\omega)$ by $p_\omega(\theta_\omega \mid \omega)$ for that respective `theta` point, and them summed up the products. In more formal notation, I believe we could describe that as
+
+$$
+\sum_{\theta_\omega} p_\omega(\theta_\omega \mid \omega)\ p(\omega),
+$$
+
+But since we just learned above that that product term over which we're summing is also called $p(\theta_\omega)$, we can re-write that equation as
+
+$$
+\sum_{\theta_\omega} p(\theta_\omega),
+$$
+
+where we are summing the $p(\theta_\omega)$ values across the parameter space $\theta$, separately for each level of the model space $\omega$.
+
+From a computational standpoint, the question is: *Do we use the* $p_\omega(\theta_\omega \mid \omega)$ *term in the beta-density metric* (`prior_theta_d`) *or in the probability metric* (`prior_theta_p`)*?* For this panel in Figure 10.3, the answer is `prior_theta_p`. To help show why, here's a plot that's not in the text.
+
+```{r, fig.height = 3, fig.width = 6.72}
+d %>% 
+  filter(omega %in% c(0.20, 0.25)) %>% 
+  group_by(omega) %>% 
+  mutate(product = prior_theta_p * prior_omega) %>% 
+  pivot_longer(prior_theta_p:product) %>% 
+  mutate(key = ifelse(name == "prior_theta_p",
+                      "p(theta)",
+                      "p(theta)*p(omega)"),
+         facet = str_c("{omega==", omega, "}*'; '*p(omega)==", prior_omega)) %>% 
   
-  ggplot(aes(x = theta, y = prior)) +
-  geom_area(fill = kh[4]) +
-  scale_x_continuous(expression(theta), breaks = 0:5 / 5,
-                     expand = expansion(mult = c(0, 0))) +
-  scale_y_continuous(expression(Marginal~p(theta*"|"*omega)),
-                     expand = expansion(mult = c(0, 0.05)), limits = c(0, NA)) +
-  facet_wrap(~ omega, ncol = 1, scales = "free", labeller = label_parsed)
-
-p23
+  ggplot(aes(x = theta, y = value, color = key, shape = key)) +
+  geom_point(size = 2) +
+  scale_x_continuous(expression(theta), breaks = 0:5 / 5, expand = c(0, 0),
+                     labels = c(0, 1:4 / 5, 1)) +
+  scale_y_continuous(NULL, expand = expansion(mult = c(0, 0.1))) +
+  scale_color_manual(NULL, values = kh[c(6, 4)], labels = scales::parse_format()) +
+  scale_shape_manual(NULL, values = c(20, 18), labels = scales::parse_format()) +
+  guides(colour = guide_legend(position = "inside"),
+         shape  = guide_legend(position = "inside")) +
+  facet_wrap(~ facet, labeller = label_parsed) +
+  theme(legend.position.inside = c(0.90, 0.85),
+        panel.spacing.x = unit(0.75, "lines"))
 ```
 
-We can continue to build on those sensibilities for the middle panel of the same row. Here we're literally adding $p_{m = 1}(\theta)$ to $p_{m = 2}(\theta)$ and taking their average.
+In this plot, we're just highlighting two of our models, $\omega = 0.2$ and $\omega = 0.25$, which you can see indicated in the facet strip labels on the top of the panels. The x-axis is the $\theta$ sequence. On the y-axis, we are showing the corresponding `prior_theta_p` values in two ways. With the beige circular dots, we have shown those values as the are in the `d` data frame. Those values are in the probability metric, and thus they will sum to one within each level of $\omega$ (i.e., within each facet of the plot). With the dark-blue diamond dots, we have depicted those same values as multiplied by `prior_omega`, $p(\omega)$. As $p(\omega) = 0$ for the panel on the left, the product of $p(\theta)$ and $p(\omega)$ is zero in all cases. But as $p(\omega) = 0.5$ for the panel on the right, which shows one of our focal models for this section of the the text, the heights for the $p(\theta)p(\omega)$ dots are always half of their corresponding $p(\theta)$ values. And thus just as when you sum `prior_theta_p` to one in the right facet, you sum `prior_theta_p * prior_omega` to 0.5. This is what we want for the correct version of Figure 10.3, row 1, column 3. Here's the plot.
+
+```{r, fig.height = 3, fig.width = 3.5}
+p13 <-
+  d %>% 
+  group_by(omega) %>% 
+  summarise(marginal_prior_omega = sum(prior_omega * prior_theta_p)) %>% 
+  
+  ggplot(aes(xmin = 0, xmax = marginal_prior_omega, y = omega)) +
+  geom_linerange(color = kh[4]) +
+  scale_x_continuous(expression(Marginal~p(omega)), expand = c(0, 0), limits = 0:1) +
+  scale_y_continuous(expression(omega), expand = c(0, 0), limits = 0:1)
+
+p13 + labs(subtitle = "Our x-axis differs from the text.")
+```
+
+What Kruschke called "Marginal $p(\omega)$" is
+
+$$
+\sum_{\theta_\omega} p_\omega(\theta_\omega \mid \omega)\ p(\omega),
+$$
+
+which we have realized in code as:
+
+```{r}
+d %>% 
+  group_by(omega) %>% 
+  summarise(marginal_prior_omega = sum(prior_theta_p * prior_omega)) %>% 
+  glimpse()
+```
+
+And you'll note that the sum of those marginal values is indeed one.
+
+```{r}
+d %>% 
+  group_by(omega) %>% 
+  summarise(marginal_prior_omega = sum(prior_theta_p * prior_omega)) %>% 
+  summarise(sum_of_marginal_prior_omega = sum(marginal_prior_omega))
+```
+
+Building on those sensibilities, next we turn to the panel in the second column of the second row. On page 273 in the text, Kruschke described this as
+
+> the marginal prior distribution on $\theta$ when averaging across models. Specifically, the middle panel of the second row shows $p(\theta)$, where you can see it is a bimodal distribution. This illustrates that the overall model structure, as a whole, asserts that biases are probability near 0.25 or 0.75.
+
+In that panel we're literally depicting what we might describe as
+
+$$
+\sum_{\omega_\theta} p_\omega(\theta_\omega \mid \omega)\ p(\omega),
+$$
+
+which is summing over the prior probability of the parameter given the model, $p_\omega(\theta_\omega \mid \omega)$, multiplied by the prior probability for the model itself, $p(\omega)$, separately for each level of $\theta$. This summation operation is similar to the one we just did above, but with the positioning of the $\omega$ and $\theta$ terms inverted below the summation symbol $\sum$. And recall that since we learned the product term over which we are summing is also called $p(\theta_\omega)$, we can re-write that equation as
+
+$$
+\sum_{\omega_\theta} p(\theta_\omega).
+$$
+
+Perhaps frustratingly, this time we are using the `prior_theta_d` version of $p_\omega(\theta_\omega \mid \omega)$, not `prior_theta_p` as in the last panel. If you focus closely to the metric of the y-axis, you'll get a clue as to why.
 
 ```{r, fig.width = 3.5, fig.height = 3}
 p22 <-
-  tibble(theta = seq(from = 0, to = 1, length.out = length)) %>% 
-  mutate(d_75 = dbeta(x = theta, shape1 = 8.5, shape2 = 3.5),
-         d_25 = dbeta(x = theta, shape1 = 3.5, shape2 = 8.5)) %>% 
-  mutate(mean_prior = (d_75 + d_25) / 2) %>% 
+  d %>% 
+  group_by(theta) %>% 
+  summarise(marginal_prior = sum(prior_theta_d * prior_omega)) %>% 
 
-  ggplot(aes(x = theta, y = mean_prior)) +
+  ggplot(aes(x = theta, y = marginal_prior)) +
   geom_area(fill = kh[4]) +
-  scale_x_continuous(expression(theta), breaks = 0:5 / 5, 
-                     expand = expansion(mult = c(0, 0))) +
-  scale_y_continuous(expression(Marginal~p(theta)), 
-                     expand = expansion(mult = c(0, 0.05)), limits = c(0, 3))
+  scale_x_continuous(expression(theta), breaks = 0:5 / 5, expand = c(0, 0)) +
+  scale_y_continuous(expression(Marginal~p(theta)),
+                     expand = expansion(mult = c(0, 0.05)), limits = c(0, 3.33))
 
 p22
 ```
 
-We need the Bernoulli likelihood function for the next step.
+The maximum value on the y-axis is a little above 1.5 for both modes. Compare that to the highest values in the `fill` gradient back in the plot for our first panel, `p12`. To further demystify what we're depicting, it might help if we made a variation of that plot where we use a stacked area plot, with the `fill` grouped by `omega`.
 
-```{r}
-bernoulli_likelihood <- function(theta, data) {
+```{r, fig.width = 4.35, fig.height = 3}
+d %>%
+  filter(omega %in% c(0.25, 0.75)) %>%
+  group_by(theta) %>%
+  mutate(prior_theta_omega = prior_theta_d * prior_omega,
+         omega = factor(omega, levels = c(0.75, 0.25))) %>% 
   
-  n <- length(data)
-  z <- sum(data)
-  
-  return(theta^z * (1 - theta)^(n - sum(data)))
-}
+  ggplot(aes(x = theta, y = prior_theta_omega, 
+             group = omega, fill = omega)) +
+  geom_area() +
+  scale_x_continuous(expression(theta), breaks = 0:5 / 5, expand = c(0, 0)) +
+  scale_y_continuous(expression(Marginal~p(theta)), 
+                     expand = expansion(mult = c(0, 0.05)), limits = c(0, 3.33)) +
+  scale_fill_manual(expression(omega), values = kh[5:6])
 ```
 
-Time to feed our data and the parameter space into `bernoulli_likelihood()`, which will allow us to make the 2-dimensional density plot at the heart of Figure 10.3.
+By summing over the values of $p(\theta_\omega)$, we are metaphorically stacking the density values one atop the other.
 
-```{r, fig.height = 3, fig.width = 3.25}
-n <- 9
+Now we turn our attention to the panel in the third column of the second row. For this, we'll show the $\theta$ priors for the two focal models, $\omega \in \{.25, .75\}$, in a faceted plot. And just as in the last panel, we use the `prior_theta_d` version of $p_\omega(\theta_\omega \mid \omega)$ to return the values in the metric of the beta densities.
+
+```{r, fig.width = 3.5, fig.height = 3}
+omega_levels <- str_c("omega == ", c(0.75, 0.25))
+
+p23 <-
+  d %>%
+  filter(omega %in% c(0.25, 0.75)) %>%
+  mutate(omega = factor(str_c("omega == ", omega), levels = omega_levels)) %>%
+  
+  ggplot(aes(x = theta, y = prior_theta_d)) +
+  geom_area(fill = kh[4]) +
+  scale_x_continuous(expression(theta), breaks = 0:5 / 5, expand = c(0, 0)) +
+  scale_y_continuous(expression(Marginal~p(theta*"|"*omega)),
+                     expand = expansion(mult = c(0, 0.05)), limits = c(0, 4)) +
+  facet_wrap(~ omega, ncol = 1, labeller = label_parsed) +
+  theme(strip.text = element_text(margin = margin(b = 1, t = 1)))
+
+p23
+```
+
+Both facets show the priors for the two focal models in the metric of their respective beta densities. Both beta densities have maximum values at about 3. Thus when we multiplied those beta-density values by their 0.5 $p(\omega)$ values for the `fill` gradient in `p12`, their maximum values reduced to about 1.5.
+
+Next we turn to the likelihood. Since the likelihood can in principle differ by each model, we might refer to each model's likelihood as $p_\omega(D \mid \theta_\omega, \omega)$. In code, we simply need to feed the data-summary values ($z$ and $N$) and the grid of $\theta$ values into the old `dbern()` function. The row structure of the `d` data frame is already set up to compute these likelihood values separately by each model, $\omega$. Thus, we might just save the results as `likelihood`. Then we can make the 2-dimensional density plot of the likelihood at the heart of Figure 10.3.
+
+```{r, fig.height = 3, fig.width = 4.6}
+# define the `dbern()` function
+dbern <- function(x, z = NULL, n = NULL) {
+  return(x^z * (1 - x)^(n - z))
+}
+
+# define the data
 z <- 6
+n <- 9
 
-trial_data <- rep(0:1, times = c(n - z, z))
-
+# compute the likelihood
 d <-
   d %>% 
-  mutate(likelihood = bernoulli_likelihood(theta = theta, data = trial_data))
+  mutate(likelihood = dbern(x = theta, z = z, n = n))
 
+# plot
 p32 <-
   d %>%
   ggplot(aes(x = theta, y = omega, fill = likelihood)) +
   geom_raster(interpolate = T) +
-  scale_fill_gradient(low = kh[1], high = kh[9], breaks = NULL) +
+  scale_fill_gradient(expression(p[omega]('D|'*theta[omega]*', '*omega)), 
+                      low = kh[1], high = kh[9]) +
   scale_x_continuous(expression(theta), breaks = 0:5 / 5, expand = c(0, 0)) +
-  scale_y_continuous(expression(omega), breaks = 0:5 / 5, expand = c(0, 0))
+  scale_y_continuous(expression(omega), breaks = 0:5 / 5, expand = c(0, 0), limits = 0:1)
 
 p32
 ```
 
-Now we just need the marginal likelihood, $p(D)$, to compute the posterior. Our first depiction will be the middle panel of the second row from the bottom--the panel with the uneven dolphin fins.
+Though each model differs by the prior, $p_\omega(\theta_\omega \mid \omega)$, they all share the same structure for the likelihood. Thus in this case we can reduce our verbose likelihood notation $p_\omega(D \mid \theta_\omega, \omega)$ to the simpler conventional notation $p(D \mid \theta)$, which Kruschke also discussed in his caption for Figure 10.1 (p. 267).
 
-```{r, fig.height = 3, fig.width = 3.25}
+At this point in the text (the middle of page 273), Kruschke wrote:
+
+> The posterior distribution is shown in the lower two rows of Figure 10.3. The posterior distribution was computed at each point of the $\langle \theta, \omega \rangle$ grid by multiplying prior times likelihood, and then normalizing (exactly as done for previous grid approximations such as in Figure 9.2, p. 227).
+
+I think we need a little more detail to pull this off in code. For the next step, we'll want to compute the marginal likelihood for each model. In the context of our $\omega$ paradigm, this is
+
+$$
+p(D \mid \omega) = \sum_{\theta_\omega} p_\omega(D \mid \theta_\omega, \omega)\ p_\omega(\theta_\omega \mid \omega),
+$$
+
+which just means we're summing the product of likelihood and prior for $\theta$ separately within each level of the model $\omega$. We'll save the results as `marginal_likelihood_omega`. Here's the computation.
+
+```{r}
 d <-
   d %>% 
-  mutate(marginal_likelihood = sum(prior * likelihood)) %>% 
-  mutate(posterior = (prior * likelihood) / marginal_likelihood) 
+  group_by(omega) %>% 
+  mutate(marginal_likelihood_omega = sum(likelihood * prior_theta_d)) %>% 
+  ungroup()
+```
 
+Again, $p(D \mid \omega)$ means we have a unique marginal likelihood value for each model. Though it wasn't done in the text, it might be worth showcasing those values in a plot.
+
+```{r, fig.height = 3, fig.width = 3.5}
+d %>% 
+  distinct(omega, marginal_likelihood_omega) %>% 
+  ggplot(aes(x = omega, y = marginal_likelihood_omega)) +
+  geom_point(color = kh[4], size = 2/3) +
+  geom_segment(data = . %>% 
+                 filter(omega %in% c(0.75, 0.25)),
+               aes(y = 0, yend = marginal_likelihood_omega - 0.004),
+               arrow = arrow(length = unit(0.06, "inches")),
+               color = kh[5], linewidth = 1/3) +
+  scale_x_continuous(expand = c(0, 0), limits = 0:1) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.05))) +
+  labs(subtitle = "This plot is not in the text.",
+       x = expression(omega), 
+       y = expression(p(D*'|'*omega)))
+```
+
+I added the vertical arrows to help mark off the marginal likelihood values for our two focal models, $\omega = .25$ and $\omega = .75$. Just to rehearse, we compute Bayes factors by taking ratios of any two values in that plot. For example, here's one way we might compute $\textit{BF}_{\omega_{0.75} / \omega_{0.25}}$.
+
+```{r}
+d %>% 
+  distinct(omega, marginal_likelihood_omega) %>% 
+  summarise(bf = marginal_likelihood_omega[omega == 0.75] / 
+              marginal_likelihood_omega[omega == 0.25])
+```
+
+Just as you would hope, that value matches nicely with the Bayes factor value Kruschke reported in the middle of page 273.
+
+Anyway, now we have the marginal likelihood each model, $p(D \mid \omega)$, we can compute the posterior probabilities for the models, $p(\omega \mid D)$, which we can define as
+
+$$
+p(\omega \mid D) = \frac{p(D \mid \omega)\ p(\omega)}{\sum_\omega p(D \mid \omega)\ p(\omega)}.
+$$
+
+Computationally, it might make sense to save these values as a separate data frame called `d_posterior_omega`.
+
+```{r}
+d_posterior_omega <-
+  d %>% 
+  distinct(omega, prior_omega, marginal_likelihood_omega) %>% 
+  mutate(posterior_omega = (marginal_likelihood_omega * prior_omega) /
+           sum(marginal_likelihood_omega * prior_omega)) 
+
+# what?
+d_posterior_omega %>% 
+  arrange(desc(posterior_omega), omega) %>% 
+  head()
+```
+
+```{r, echo = F, eval = F}
+# Yes, they sum to 1
+d_posterior_omega %>% 
+  summarise(p = sum(posterior_omega))
+```
+
+The values in the `posterior_omega` column are the posterior probabilities for each model, as indexed by $\omega$, *in a true probability metric*. Thus, the `posterior_omega` columns will sum to one. Note that in the second half of the code chunk we have sorted the data in descending order by `posterior_omega`. Due largely to the values in the `prior_omega` column, $p(\omega \mid D) = 0$ for all models except our focal models $\omega \in \{.25, .75\}$. Further, the ratio of the two non-zero $p(\omega \mid D)$ values gives the odds of one model over the other. Here we compute that ratio both ways.
+
+```{r}
+d_posterior_omega %>% 
+  summarise(posterior_odds_0.75_over_0.25 = posterior_omega[omega == 0.75] / posterior_omega[omega == 0.25],
+            posterior_odds_0.25_over_0.75 = posterior_omega[omega == 0.25] / posterior_omega[omega == 0.75])
+```
+
+Because both models had the same prior probability, 0.5, their posterior odds are the same as $\textit{BF}_{\omega_{0.75} / \omega_{0.25}}$ and $\textit{BF}_{\omega_{0.25} / \omega_{0.75}}$, respectively.
+
+Within our grid approach, we can still just use the old formula $\operatorname{beta}(\theta \mid z + a, N - z + b)$ from back in Section 6.3 to compute the posterior probability for $\theta$, within each model $\omega$. In mathematical notation, we might call these values $p_\omega(\theta_\omega \mid D, \omega)$. In the `d` data frame, we'll save them as `posterior_theta_d`. But just as with the priors for $\theta$, it will also come in handy to have a version of those values in a probability metric, rather than in a beta-density metric. We'll save those results in a column called `posterior_theta_p`. Then we'll add the posterior model probabilities `posterior_omega` to the data frame by way of a `left_join()` call.
+
+```{r}
+d <-
+  d %>% 
+  mutate(posterior_theta_d = dbeta(x = theta, shape1 = z + a, shape2 = n - z + b)) %>% 
+  group_by(omega) %>% 
+  # normalize `posterior_theta` to a proper probability scale
+  mutate(posterior_theta_p = posterior_theta_d / sum(posterior_theta_d)) %>% 
+  ungroup() %>% 
+  left_join(d_posterior_omega,
+            by = join_by(omega, prior_omega, marginal_likelihood_omega))
+```
+
+We can now plot what Kruschke called the marginal $p(\omega \mid D)$ values in our version of the panel in the fourth row and third column.
+
+```{r, fig.height = 3, fig.width = 3.5}
+p43 <-
+  d %>% 
+  group_by(omega) %>% 
+  summarise(marginal_posterior_omega = sum(posterior_omega * posterior_theta_p)) %>% 
+  
+  ggplot(aes(xmin = 0, xmax = marginal_posterior_omega, y = omega)) +
+  geom_linerange(color = kh[4]) +
+  scale_x_continuous(expand = c(0, 0), limits = 0:1) +
+  scale_y_continuous(expand = c(0, 0), limits = 0:1) +
+  labs(x = expression(Marginal~p(omega*'|'*D)),
+       y = expression(omega))
+
+p43 + labs(subtitle = "Our x-axis differs from the text.")
+```
+
+In more verbose notation, I believe we could describe those values as
+
+$$
+\sum_{\theta_\omega} p_\omega(\theta_\omega \mid D, \omega)\ p(\omega \mid D),
+$$
+
+In words, we multiplied each model's posterior for $\theta$, what we're calling $p_\omega(\theta_\omega \mid D, \omega)$, by the posterior probability of that model itself, $p(\omega \mid D)$. By $\sum_{\theta_\omega}$, we are indicating we computed those values for each level of `theta` within our `d` data grid, and then summed them up separately (i.e., marginalize them) within each level of the model index $\omega$.
+
+In a similar move to what we did with the priors, we might consider simplifying the product term to $p(\theta_\omega \mid D)$. That would leave us with the thriftier version of the equation
+
+$$
+\sum_{\theta_\omega} p(\theta_\omega \mid D).
+$$
+
+But anyways, as Kruschke wrote in the text: "Visual inspection suggests that the ratio of the heights is about 5 to 1, which matches the Bayes factor of 4.68" (p. 273). We proactively confirmed that ratio and its relation to the Bayes factor in a code chunk a little above the one for our `p43` plot.
+
+Now we might turn our attention to the panel the second column of the fourth row. As an analogue to its sister panel, `p12`, this time we will use the `fill` gradient to depict $p(\theta_\omega \mid D)$, which we just discussed in mathematical notation, above.
+
+```{r, fig.height = 3, fig.width = 4.33}
 p42 <-
   d %>% 
-  ggplot(aes(x = theta, y = omega, fill = posterior)) +
+  ggplot(aes(x = theta, y = omega, fill = posterior_theta_d * posterior_omega)) +
   geom_raster(interpolate = T) +
-  scale_fill_gradient(low = kh[1], high = kh[9], breaks = NULL) +
+  scale_fill_gradient(expression(p(theta[omega]*'|'*D)), low = kh[1], high = kh[9]) +
   scale_x_continuous(expression(theta), breaks = 0:5 / 5, expand = c(0, 0)) +
-  scale_y_continuous(expression(omega), breaks = 0:5 / 5, expand = c(0, 0))
+  scale_y_continuous(expression(omega), breaks = 0:5 / 5, expand = c(0, 0), limits = 0:1)
 
 p42
 ```
 
-Here, then, is a way to get the panel in on the right of the second row from the bottom.
-  
+Notice how the maximum value in the `fill` gradient is about two times as high in this panel as it was for its analogue of the priors, `p12`. You might also compare these results of these two panels to related wireframe plots in Kruschke's original version of Figure 10.3 in the text.
+
+Building on those sensibilities, next we turn to the panel in the second column of the fifth row. In that panel we're literally depicting
+
+$$
+\sum_{\omega_\theta} p_\omega(\theta_\omega \mid D, \omega)\ p(\omega \mid D),
+$$
+
+which is summing over the posterior probability of the parameter given the model, $p_\omega(\theta_\omega \mid D, \omega)$, multiplied by the posterior probability for the model itself $p(\omega \mid D)$, separately for each level of $\theta$. As has become our custom by this point, we can re-write that equation with the thriftier notation
+
+$$
+\sum_{\omega_\theta} p(\theta_\omega \mid D).
+$$
+
+In his title for the y-axis, though, Kruschke further simplified the notation to $p(\theta \mid D)$ by dropping the $\omega$ subscript.
+
 ```{r, fig.width = 3.5, fig.height = 3}
-p43 <-
-  d %>% 
-  mutate(marginal = (posterior / max(posterior)) * 25) %>% 
-
-  ggplot(aes(xmin = 0, xmax = marginal, y = omega)) +
-  geom_ribbon(fill = kh[6], color = kh[6]) +
-  scale_x_continuous(expression(omega), 
-                     expand = expansion(mult = c(0.002, 0.05)), limits = c(0, 25)) +
-  scale_y_continuous(expression(Marginal~p(omega*"|"*D)),
-                     expand = expansion(mult = c(0, 0)))
-
-p43
-```
-
-To make the middle bottom panel of Figure 10.3, we have to average the posterior values of $\theta$ over the grid of $\omega$ values. That is, we have to marginalize.
-
-```{r, fig.width = 3.5, fig.height = 3, message = F}
- p52 <-
+p52 <-
   d %>%
   group_by(theta) %>% 
-  summarise(marginal_theta = mean(posterior)) %>% 
+  summarise(marginal_posterior_theta = sum(posterior_theta_d * posterior_omega)) %>% 
   
-  ggplot(aes(x = theta, y = marginal_theta)) +
-  geom_area(fill = kh[6]) +
-  scale_x_continuous(expression(theta), breaks = 0:5 / 5, 
-                     expand = expansion(mult = c(0, 0))) +
+  ggplot(aes(x = theta, y = marginal_posterior_theta)) +
+  geom_area(fill = kh[4]) +
+  scale_x_continuous(expression(theta), breaks = 0:5 / 5, expand = c(0, 0)) +
   scale_y_continuous(expression(Marginal~p(theta*"|"*D)), 
-                     expand = expansion(mult = c(0, 0.05)), limits = c(0, NA))
+                     expand = expansion(mult = c(0, 0.05)), limits = c(0, 3.33))
 
 p52
 ```
 
-For the lower right panel of Figure 10.3, we'll `filter()` to our two focal values of $\omega$ and then facet by them.
+As we did with the prior analogue for this plot, here we'll show this in a different way where we take a stacked area plot approach, with the fill color grouped by `omega`.
+
+```{r, fig.width = 4.35, fig.height = 3}
+d %>%
+  filter(omega %in% c(0.25, 0.75)) %>%
+  mutate(posterior_theta_omega = posterior_theta_d * posterior_omega,
+         omega = factor(omega, levels = c(0.75, 0.25))) %>% 
+  
+  ggplot(aes(x = theta, y = posterior_theta_omega, 
+             group = omega, fill = omega)) +
+  geom_area() +
+  scale_x_continuous(expression(theta), breaks = 0:5 / 5, expand = c(0, 0)) +
+  scale_y_continuous(expression(Marginal~p(theta*"|"*D)), 
+                     expand = expansion(mult = c(0, 0.05)), limits = c(0, 3.33)) +
+  scale_fill_manual(expression(omega), values = kh[5:6])
+```
+
+Buy summing over the values of $p(\theta_\omega \mid D)$, we are metaphorically stacking the density values one atop the other.
+
+Compare the height of the density of the official version of this plot, `p52`, to its analogue for the prior, `p22`. In the text, Kruschke described this panel as follows:
+
+> Given the data, the head-biased factory (with $\omega = 0.75$) is about five times more credible than the tail-biased factory (with $\omega = 0.25$), and the bias of the coin is near $\theta = 0.7$ with uncertainty shown by the oddly-skewed distribution. (p. 273)
+
+Now we make our version of the final panel, row five, column three. Here we depict the posterior distributions for $\theta$ for the focal models, $\omega \in \{.25, .75\}$, in a faceted plot.
+
+```{r, eval = F, echo = F}
+d %>%
+  filter(omega %in% c(0.25, 0.75)) %>% 
+  summarise(max = max(posterior_theta_d))
+```
 
 ```{r, fig.width = 3.5, fig.height = 3}
 p53 <-
-  d %>% 
-  filter(omega %in% c(.25, .75)) %>% 
-  mutate(omega = factor(str_c("omega == ", omega),
-                        levels = str_c("omega == ", c(.75, .25)))) %>%
+  d %>%
+  filter(omega %in% c(0.25, 0.75)) %>%
+  mutate(omega = factor(str_c("omega == ", omega), levels = omega_levels)) %>%
   
-
-  ggplot(aes(x = theta, y = posterior)) +
-  geom_area(fill = kh[6]) +
-  scale_x_continuous(expression(theta), breaks = 0:5 / 5, 
-                     expand = expansion(mult = c(0, 0))) +
-  scale_y_continuous(expression(Marginal~p(theta*"|"*omega*", "*D)), 
-                     expand = expansion(mult = c(0, 0.05)), limits = c(0, NA)) + 
-  facet_wrap(~ omega, ncol = 1, scales = "free", labeller = label_parsed)
+  ggplot(aes(x = theta, y = posterior_theta_d)) +
+  geom_area(fill = kh[4]) +
+  scale_x_continuous(expression(theta), breaks = 0:5 / 5, expand = c(0, 0)) +
+  scale_y_continuous(expression(Marginal~p(theta*"|"*omega*","*D)),
+                     expand = expansion(mult = c(0, 0.05)), limits = c(0, 4)) +
+  facet_wrap(~ omega, ncol = 1, labeller = label_parsed) +
+  theme(strip.text = element_text(margin = margin(b = 1, t = 1)))
 
 p53
 ```
 
-Do note the different scales on the $y$. Here's what they'd look like on the same scale.
-
-```{r, fig.width = 3.5, fig.height = 3}
-d %>% 
-  filter(omega %in% c(.25, .75)) %>% 
-  mutate(omega = str_c("omega == ", omega)) %>%
-
-  ggplot(aes(x = theta, y = posterior)) +
-  geom_area(fill = kh[6]) + 
-  scale_x_continuous(expression(theta), breaks = 0:5 / 5, 
-                     expand = expansion(mult = c(0, 0))) +
-  scale_y_continuous(expression(Marginal~p(theta*"|"*omega)), 
-                     expand = expansion(mult = c(0, 0.05)), limits = c(0, NA)) + 
-  facet_wrap(~ omega, ncol = 1, labeller = label_parsed)
-```
-
-Hopefully that helps build the intuition of what Kruschke meant when he wrote "*visual inspection suggests that the ratio of the heights is about 5 to 1, which matches the Bayes factor of 4.68 that we computed exactly in the previous section*" (p. 273, *emphasis* in the original).
-
-Before we move on to the BF, let's save a few more ggplots and combine them with the previous bunch to make the full version of Figure 10.3.
+Finally, save a few more ggplots and combine them with the previous bunch to make the full version of Figure 10.3.
 
 ```{r, fig.width = 6.5, fig.height = 9, warning = F, message = F}
 p21 <-
@@ -637,9 +940,8 @@ p21 <-
          label = c("Prior", "K==12"),
          size = c(2, 1)) %>% 
   
-  ggplot(aes(x = x, y = y, label = label)) +
-  geom_text(aes(size = size), 
-            color = kh[1], parse = T, hjust = 0, show.legend = F) +
+  ggplot(aes(x = x, y = y, label = label, size = size)) +
+  geom_text(color = kh[1], hjust = 0, parse = T, show.legend = F) +
   scale_size_continuous(range = c(3.5, 5.5)) +
   coord_cartesian(xlim = c(1, 2),
                   ylim = c(4, 11)) +
@@ -654,9 +956,8 @@ p33 <-
          label = c("Likelihood", "D = 6 heads, 3 tails"),
          size = c(2, 1)) %>% 
   
-  ggplot(aes(x = x, y = y, label = label)) +
-  geom_text(aes(size = size), 
-            hjust = 0, show.legend = F, color = kh[1]) +
+  ggplot(aes(x = x, y = y, label = label, size = size)) +
+  geom_text(color = kh[1], hjust = 0, show.legend = F) +
   scale_size_continuous(range = c(3.5, 5.5)) +
   coord_cartesian(xlim = c(1, 2),
                   ylim = c(4, 11)) +
@@ -667,8 +968,9 @@ p33 <-
 
 p51 <-
   ggplot() +
-  annotate(geom = "text", x = 1, y = 8, 
-           label = "Posterior", size = 6, hjust = 0, color = kh[1]) +
+  annotate(geom = "text", 
+           x = 1, y = 8, label = "Posterior", 
+           color = kh[1], size = 6, hjust = 0) +
   coord_cartesian(xlim = c(1, 2),
                   ylim = c(3, 11)) +
   theme(axis.text = element_text(color = kh[9]),
@@ -678,49 +980,19 @@ p51 <-
 
 p11 <- plot_spacer()
 
+p12 <- p12 + theme(legend.position = "none")
+p32 <- p32 + theme(legend.position = "none")
+p42 <- p42 + theme(legend.position = "none")
+
 # combine and plot!
-(p11 / p21 / p11 / p11 / p51) | (p12 / p22 / p32 / p42 / p52) | (p13 / p23 / p33 / p43 / p53)
+(p11 | p12 | p13) / (p21 | p22 | p23) / (p11 | p32 | p33) / (p11 | p42 | p43) / (p51 | p52 | p53)
 ```
 
-Oh mamma! Using the grid, you might compute that BF like this.
-
-```{r, message = F}
-d %>% 
-  filter(omega %in% c(.25, .75)) %>% 
-  group_by(omega) %>% 
-  summarise(sum_posterior = sum(posterior)) %>% 
-  mutate(model = c("model_1", "model_2")) %>% 
-  pivot_wider(-omega, 
-              names_from = model,
-              values_from = sum_posterior) %>%
-  mutate(BF = model_2 / model_1)
-```
-
-Please note[^4] how, in the previous section, Kruschke computed the BF as
-
-$$\frac{p(m = 1 | D)}{p(m = 2 | D)} = .213,$$
-
-which we achieved with this code:
-
-```{r}
-p_d_1 / p_d_2
-```
-
-Here, we're flipping the ratio to 
-
-$$\frac{p(m = 2 | D)}{p(m = 1 | D)},$$
-
-which is why we now have a BF near 5.
-
-```{r}
-p_d_2 / p_d_1
-```
-
-But anyway, both the posterior distributions in the figure and the BF indicate $\omega = .75$ is a better representation of the data than $\omega = .25$.
+Oh mamma!
 
 ## Solution by MCMC
 
-Kruschke started with: "For large, complex models, we cannot derive $p(D | m)$ analytically or with grid approximation, and therefore we will approximate the posterior probabilities using MCMC methods" (p. 274). He's not kidding. Welcome to modern Bayes.
+Kruschke started with: "For large, complex models, we cannot derive $p(D \mid m)$ analytically or with grid approximation, and therefore we will approximate the posterior probabilities using MCMC methods" (p. 274). He's not kidding. Welcome to modern Bayes.
 
 ### Nonhierarchical MCMC computation of each model's marginal likelihood.
 
@@ -734,17 +1006,17 @@ Load **brms**.
 library(brms)
 ```
 
-Let's save the `trial_data` as a tibble.
+Let's save the data as a tibble.
 
 ```{r}
 trial_data <- 
-  tibble(y = trial_data)
+  tibble(y = rep(0:1, times = c(n - z, z)))
 ```
 
-Time to learn a new **brms** skill. When you want to enter variables into the parameters defining priors in `brms::brm()`, you need to specify them using the `stanvar()` function. Since we want to do this for two variables, we’ll use `stanvar()` twice and save the results as an object, conveniently named `stanvars`.
+Time to learn a new **brms** skill. When you want to enter variables into the parameters defining priors in `brms::brm()`, you need to specify them using the `stanvar()` function. Since we want to do this for two variables, we'll use `stanvar()` twice and save the results as an object, conveniently named `stanvars`.
 
 ```{r}
-omega <- .75
+omega <- 0.75
 kappa <- 12
 
 stanvars <-
@@ -781,62 +1053,65 @@ They look great. Now we glance at the model summary.
 print(fit10.1)
 ```
 
-Next we'll follow Kruschke and extract the posterior draws, saving them as `theta`.
+Next we'll follow Kruschke and extract the posterior draws, saving them as a data frame called `draws`.
 
 ```{r}
-theta <- as_draws_df(fit10.1)
+draws <- as_draws_df(fit10.1)
 
-head(theta)
+head(draws)
 ```
 
-The `fixef()` function will return the posterior summaries for the model intercept (i.e., $\theta$). We can then index and save the desired summaries.
+The `fixef()` function will return the posterior summaries for the model intercept (i.e., $\theta$). 
 
 ```{r}
 fixef(fit10.1)
-
-(mean_theta <- fixef(fit10.1)[1])
-(sd_theta <- fixef(fit10.1)[2])
 ```
 
-Now we'll convert them to the $\alpha$ and $\beta$ parameters, `a_post` and `b_post`, respectively.
+We can then index and save the desired summaries like so. Note how we're adding a `_1` suffix to the objects, which will help us differentiate between models a little later.
 
 ```{r}
-a_post <-      mean_theta  * ( mean_theta * (1 - mean_theta) / sd_theta^2 - 1)
-b_post <- (1 - mean_theta) * ( mean_theta * (1 - mean_theta) / sd_theta^2 - 1)
+mean_theta_1 <- fixef(fit10.1)[1]
+sd_theta_1   <- fixef(fit10.1)[2]
+```
+
+Now we'll convert the mean and standard-deviation summaries to the $\alpha$ and $\beta$ parameters, `a_post_1` and `b_post_1`, respectively.
+
+```{r}
+a_post_1 <-      mean_theta_1  * (mean_theta_1 * (1 - mean_theta_1) / sd_theta_1^2 - 1)
+b_post_1 <- (1 - mean_theta_1) * (mean_theta_1 * (1 - mean_theta_1) / sd_theta_1^2 - 1)
 ```
 
 Recall we've already defined several values.
 
 ```{r}
-n     <- 9
-z     <- 6
-omega <- .75
+n <- 9
+z <- 6
+omega <- 0.75
 kappa <- 12
 ```
 
-The reason we're saving all these values is we're aiming to compute $p(D)$, the probability of the data (i.e., the marginal likelihood), given the model. But our intermediary step will be computing its reciprocal, $\frac{1}{p(D)}$. Here we'll express Kruschke's `oneOverPD` as a function, `one_over_pd()`.
-
-```{r}
-one_over_pd <- function(theta) {
-  
-  mean(dbeta(theta, a_post, b_post ) / 
-         (theta^z * (1 - theta)^(n - z) * 
-            dbeta(theta, omega * (kappa - 2) + 1, (1 - omega) * (kappa - 2) + 1 )))
-  
-}
+The reason we're saving all these values is we're aiming to compute $p(D)$, the probability of the data (i.e., the marginal likelihood), given the model. But our intermediary step will be computing its reciprocal, $\frac{1}{p(D)}$. Here we'll convert Kruschke's code from the bottom of page 278 to a data-frame based workflow.
+         
+```{r, warning = F}
+draws %>% 
+  transmute(theta = b_Intercept) %>% 
+  mutate(h_theta    = dbeta(x = theta, 
+                            shape1 = a_post_1, 
+                            shape2 = b_post_1),
+         likelihood = dbern(x = theta, z = z, n = n),
+         prior      = dbeta(x = theta, 
+                            shape1 =      omega  * (kappa - 2) + 1, 
+                            shape2 = (1 - omega) * (kappa - 2) + 1)) %>% 
+  summarise(one_over_pd = mean(h_theta / (likelihood * prior)),
+            p_d = 1 / one_over_pd)
 ```
 
-We're ready to use `one_over_pd()` to help compute $p(D)$.
+Note how our definition for `one_over_pd` within `summarise()` is based on Equation 10.8 from the text (p. 275). We did not cover that equation or the surrounding material in this ebook because, well, we will not be using this method again, and I generally don't care for Bayes factors. But anyway, our value for `p_d` matches up nicely with the value Kruschke reported at the top of page 278. Success!
+
+Let's rinse, wash, and repeat for $\omega = .25$. First, we'll need to redefine `omega` and our `stanvars`.
 
 ```{r}
-theta %>% 
-  summarise(pd = 1 / one_over_pd(theta = b_Intercept))
-```
-
-That matches up nicely with Kruschke's value at the top of page 278! Let's rinse, wash, and repeat for $\omega = .25$. First, we'll need to redefine `omega` and our `stanvars`.
-
-```{r}
-omega <- .25
+omega <- 0.25
 
 stanvars <-
   stanvar(     omega  * (kappa - 2) + 1, name = "my_alpha") +
@@ -857,28 +1132,57 @@ fit10.2 <-
       file = "fits/fit10.02")
 ```
 
-We'll do the rest in bulk.
+This time we'll compute `p_d` for both models, and save the summary results as `p_d_omegas`.
 
-```{r}
-theta <- as_draws_df(fit10.2)
+```{r, warning = F}
+# extract new summary values
+mean_theta_2 <- fixef(fit10.2)[1]
+sd_theta_2   <- fixef(fit10.2)[2]
 
-mean_theta <- fixef(fit10.2)[1]
-sd_theta   <- fixef(fit10.2)[2]
+a_post_2 <-      mean_theta_2  * (mean_theta_2 * (1 - mean_theta_2) / sd_theta_2^2 - 1)
+b_post_2 <- (1 - mean_theta_2) * (mean_theta_2 * (1 - mean_theta_2) / sd_theta_2^2 - 1)
 
-a_post <-      mean_theta  * (mean_theta * (1 - mean_theta) / sd_theta^2 - 1)
-b_post <- (1 - mean_theta) * (mean_theta * (1 - mean_theta) / sd_theta^2 - 1)
+# compute the results for both models at once
+p_d_omegas <-
+  bind_rows(as_draws_df(fit10.1), as_draws_df(fit10.2)) %>% 
+  transmute(omega = rep(c(0.75, 0.25), each = n() / 2),
+            theta = b_Intercept) %>% 
+  mutate(a_post = ifelse(omega == 0.75, a_post_1, a_post_2),
+         b_post = ifelse(omega == 0.75, b_post_1, b_post_2)) %>% 
+  mutate(h_theta    = dbeta(x = theta, 
+                            shape1 = a_post, 
+                            shape2 = b_post),
+         likelihood = dbern(x = theta, z = z, n = n),
+         prior      = dbeta(x = theta, 
+                            shape1 =      omega  * (kappa - 2) + 1, 
+                            shape2 = (1 - omega) * (kappa - 2) + 1)) %>% 
+  group_by(omega) %>% 
+  summarise(p_d = 1 / mean(h_theta / (likelihood * prior)))
 
-theta %>% 
-  summarise(pd = 1 / one_over_pd(theta = b_Intercept))
+p_d_omegas
 ```
 
-Boom!
+With our `p_d_omegas` object, we can use the `p_d` values to compute Bayes factors. Here's $\textit{BF}_{\omega_{0.75} / \omega_{0.25}}$.
+
+```{r}
+p_d_omegas %>% 
+  summarise(bf = p_d[omega == 0.75] / p_d[omega == 0.25])
+```
+
+Here's $\textit{BF}_{\omega_{0.25} / \omega_{0.75}}$.
+
+```{r}
+p_d_omegas %>% 
+  summarise(bf = p_d[omega == 0.25] / p_d[omega == 0.75])
+```
+
+Happily, these BF values are very similar to the ones we computed in earlier sections.
 
 ### Hierarchical MCMC computation ~~of relative model probability~~ is not available in brms: We'll cover information criteria instead.
 
 I'm not aware of a way to specify a model "in which the top-level parameter is the index across models" in **brms** (p. 278). If you know of a way, [share your code](https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/issues).
 
-However, we do have options. We can compare and weight models using information criteria, about which you can learn more [here](https://youtu.be/t0pRuy1_190?t=978) or [here](https://www.youtube.com/watch?v=gjrsYDJbRh0&list=PLDcUM9US4XdNM4Edgs7weiyIguLSToZRI&index=8). The LOO and WAIC are two primary information criteria available for **brms**. You can compute them for a given model with the `loo()` and `waic()` functions, respectively. Here's a quick example of how to use the `waic()` function.
+However, we do have options. We can compare and weight models using information criteria, about which you can learn more [here](https://youtu.be/t0pRuy1_190?t=978) or [here](https://youtu.be/gjrsYDJbRh0?si=gg5QcGEIi9c3XBK3). The LOO and WAIC are two primary information criteria available for **brms**. You can compute them for a given model with the `loo()` and `waic()` functions, respectively. Here's a quick example of how to use the `waic()` function.
 
 ```{r}
 waic(fit10.1)
@@ -969,7 +1273,7 @@ In case you were curious, here is the default.
 color_scheme_view(scheme = "blue")
 ```
 
-Anyway, as you might imagine from the moderate autocorrelations, the $N_{eff}/N$ ratio for `b_Intercept` wasn't great.
+Anyway, as you might imagine from the moderate autocorrelations, the $N_\textit{eff}/N$ ratio for `b_Intercept` wasn't great.
 
 ```{r, fig.width = 6, fig.height = 1.25}
 neff_ratio(fit10.1)[1] %>% 
@@ -980,7 +1284,7 @@ neff_ratio(fit10.1)[1] %>%
 But we specified a lot of post-warmup draws, so we're still in good shape. Plus, the $\widehat R$ was fine.
 
 ```{r}
-rhat(fit10.1)[1]
+brms::rhat(fit10.1)[1]
 ```
 
 ### Models with different "noise" distributions in ~~JAGS~~ brms.
@@ -1103,7 +1407,7 @@ Remember what that $p(\nu)$ looked like? Here's our posterior distribution for $
 as_draws_df(fit10.4) %>% 
   ggplot(aes(x = nu)) +
   geom_histogram(color = kh[9], fill = kh[3],
-                 linewidth = 0.1, bins = 30) +
+                 bins = 30, linewidth = 0.1) +
   scale_x_continuous(expression(italic(p)(nu*"|"*italic(D))), 
                      expand = c(0, 0)) +
   scale_y_continuous(NULL, breaks = NULL,
@@ -1129,24 +1433,24 @@ The default `pp_check()` setting allows us to compare the density of the data $y
 
 ## Prediction: Model averaging
 
-> In many applications of model comparison, the analyst wants to identify the best model and then base predictions of future data on that single best model, denoted with index $b$. In this case, predictions of future $\hat y$ are based exclusively on the likelihood function $p_b(\hat y | \theta_b, m = b)$ and the posterior distribution $p_b(\theta_b | D, m = b)$ of the winning model:
+> In many applications of model comparison, the analyst wants to identify the best model and then base predictions of future data on that single best model, denoted with index $b$. In this case, predictions of future $\hat y$ are based exclusively on the likelihood function $p_b(\hat y \mid \theta_b, m = b)$ and the posterior distribution $p_b(\theta_b \mid D, m = b)$ of the winning model:
 >
-> $$p(\hat y | D, m = b) = \int \text d \theta_b \; p_b (\hat y | \theta_b, m = b) p_b(\theta_b | D, m = b)$$
+> $$p(\hat y \mid D, m = b) = \int \text d \theta_b \; p_b (\hat y \mid \theta_b, m = b) p_b(\theta_b \mid D, m = b)$$
 >
 > But the full model of the data is actually the complete hierarchical structure that spans all the models being compared, as indicated in Figure 10.1 (p. 267). Therefore, if the hierarchical structure really expresses our prior beliefs, then the most complete prediction of future data takes into account all the models, weighted by their posterior credibilities. In other words, we take a weighted average across the models, with the weights being the posterior probabilities of the models. Instead of conditionalizing on the winning model, we have
 >
 > \begin{align*}
-> p (\hat y | D) & = \sum_m p (\hat y | D, m) p (m | D) \\
-> & = \sum_m \int \text d \theta_m \; p_m (\hat y | \theta_m, m) p_m(\theta_m | D, m) p (m | D)
+> p (\hat y \mid D) & = \sum_m p(\hat y \mid D, m)\ p(m \mid D) \\
+> & = \sum_m \int \text d \theta_m \; p_m(\hat y \mid \theta_m, m)\ p_m(\theta_m \mid D, m)\ p(m \mid D)
 > \end{align*}
 >
 > This is called model averaging. (p. 289)
 
 Okay, while the concept of model averaging is of great interest, we aren't going to be able to follow this approach to it within the Stan/**brms** paradigm. This, recall, is because our paradigm doesn't allow for a hierarchical organization of models in the same way JAGS does. However, we can still play the model averaging game with extensions of our model weighting paradigm, above. Before we get into the details,
 
-> recall that there were two models of mints that created the coin, with one mint being tail-biased with mode $\omega = 0.25$ and one mint being head-biased with mode $\omega = 0.75$ The two subpanels in the lower-right [of Figure 10.3] illustrate the posterior distributions on $\omega$ within each model, $p(\theta | D, \omega = 0.25)$ and $p(\theta | D, \omega = 0.75)$ The winning model was $\omega = 0.75$, and therefore the predicted value of future data, based on the winning model alone, would use $p(\theta | D, \omega = 0.75)$. (p. 289)
+> recall that there were two models of mints that created the coin, with one mint being tail-biased with mode $\omega = 0.25$ and one mint being head-biased with mode $\omega = 0.75$ The two subpanels in the lower-right [of Figure 10.3] illustrate the posterior distributions on $\omega$ within each model, $p(\theta \mid D, \omega = 0.25)$ and $p(\theta \mid D, \omega = 0.75)$ The winning model was $\omega = 0.75$, and therefore the predicted value of future data, based on the winning model alone, would use $p(\theta \mid D, \omega = 0.75)$. (p. 289)
 
-Here's the histogram for $p(\theta | D, \omega = 0.75)$, which we generate from our `fit10.1`.
+Here's the histogram for $p(\theta \mid D, \omega = 0.75)$, which we generate from our `fit10.1`.
 
 ```{r, fig.width = 3.5, fig.height = 3, warning = F, message = F}
 library(tidybayes)
@@ -1154,17 +1458,16 @@ library(tidybayes)
 as_draws_df(fit10.1) %>% 
   ggplot(aes(x = b_Intercept, y = 0)) +
   stat_histinterval(point_interval = mode_hdi, .width = c(.95, .5),
-                    fill = kh[6], slab_color = kh[5], color = kh[2],
+                    fill = kh[6], color = kh[2], slab_color = kh[5],
                     breaks = 40, slab_size = .25, outline_bars = T) +
   scale_x_continuous(expression(italic(p)(theta*"|"*italic(D)*", "*omega==.75)), 
-                     expand = expansion(mult = c(0, 0)), 
-                     breaks = 0:5 / 5, limits = c(0, 1)) +
+                     breaks = 0:5 / 5, expand = c(0, 0), limits = 0:1) +
   scale_y_continuous(NULL, breaks = NULL,
                      expand = expansion(mult = c(0.02, 0.05))) +
   labs(subtitle = "The posterior for the probability, given fit10.1") 
 ```
 
-> But the overall model included $\omega = 0.75$, and if we use the overall model, then the predicted value of future data should be based on the complete posterior summed across values of $\omega$. The complete posterior distribution [is] $p(\theta | D)$ (p. 289).
+> But the overall model included $\omega = 0.75$, and if we use the overall model, then the predicted value of future data should be based on the complete posterior summed across values of $\omega$. The complete posterior distribution [is] $p(\theta \mid D)$ (p. 289).
 
 The cool thing about the model weighting stuff we learned about earlier is that you can use those model weights to average across models. Again, we're not weighting the models by posterior probabilities the way Kruschke discussed in text, but the spirit is similar. We can use the `brms::pp_average()` function to make posterior predictive prediction with mixtures of the models, weighted by our chosen weighting scheme. Here, we’ll go with the default stacking weights.
 
@@ -1192,17 +1495,16 @@ We can plot our model-averaged $\theta$ with a little help from good old `tidyba
 pp_a %>% 
   ggplot(aes(x = theta, y = 0)) +
   stat_histinterval(point_interval = mode_hdi, .width = c(.95, .5),
-                    fill = kh[6], slab_color = kh[5], color = kh[2],
+                    fill = kh[6], color = kh[2], slab_color = kh[5],
                     breaks = 40, slab_size = .25, outline_bars = T) +
   scale_x_continuous(expression(italic(p)(theta*"|"*italic(D))), 
-                     expand = expansion(mult = c(0, 0)), 
-                     breaks = 0:5 / 5, limits = c(0, 1)) +
+                     breaks = 0:5 / 5, expand = c(0, 0), limits = 0:1) +
   scale_y_continuous(NULL, breaks = NULL,
                      expand = expansion(mult = c(0.02, 0.05))) +
   labs(subtitle = "The posterior for the probability, given the\nweighted combination of fit10.1 and fit10.2")
 ```
 
-As Kruschke concluded, "you can see the contribution of $p(\theta | D, \omega = 0.25)$ as the extended leftward tail" (p. 289). Interestingly enough, that looks a lot like the marginal density of $p (\theta | D)$ across values of $\omega$ we made with grid approximation in Figure 10.3, doesn't it?
+As Kruschke concluded, "you can see the contribution of $p(\theta \mid D, \omega = 0.25)$ as the extended leftward tail" (p. 289). Interestingly enough, that looks a lot like the marginal density of $p (\theta \mid D)$ across values of $\omega$ we made with grid approximation in Figure 10.3, doesn't it?
 
 ## Model complexity naturally accounted for
 
@@ -1212,8 +1514,8 @@ As Kruschke concluded, "you can see the contribution of $p(\theta | D, \omega = 
 
 Now our two models are:
 
-* the "must-be-fair" model $p(\theta | D, \kappa = 1{,}000)$, and
-* the "anything's-possible" model $p(\theta | D, \kappa = 2)$.
+* the "must-be-fair" model $p(\theta \mid D, \kappa = 1{,}000)$, and
+* the "anything's-possible" model $p(\theta \mid D, \kappa = 2)$.
 
 They look like this.
 
@@ -1233,9 +1535,8 @@ tibble(omega = .5,
   # plot
   ggplot(aes(x = theta, y = density)) +
   geom_area(fill = kh[5]) + 
-  scale_x_continuous(expression(theta), expand = expansion(mult = c(0, 0)), 
-                     breaks = 0:5 / 5, labels = c("0", ".2", ".4", ".6", ".8", "1"),
-                     limits = c(0, 1)) +
+  scale_x_continuous(expression(theta), breaks = 0:5 / 5, expand = c(0, 0), 
+                     labels = c(0, 1:4 / 5, 1), limits = 0:1) +
   scale_y_continuous(NULL, breaks = NULL,
                      expand = expansion(mult = c(0, 0.05))) +
   labs(subtitle = "Note that in this case, their y-axes are on the same scale.") +
@@ -1259,7 +1560,7 @@ With those in hand, we can use our `p_d()` function to compute the Bayes factor 
 z <- 15
 n <- 20
 
-p_d(z, n, a = 500, b = 500) / p_d(z, n, a = 1, b = 1)
+p_d(z = z, n = n, a = 500, b = 500) / p_d(z = z, n = n, a = 1, b = 1)
 ```
 
 Let's try again, this time supposing we observe $z = 15$ heads out of $N = 20$ coin flips.
@@ -1267,7 +1568,7 @@ Let's try again, this time supposing we observe $z = 15$ heads out of $N = 20$ c
 ```{r}
 z <- 11
 
-p_d(z, n, a = 500, b = 500) / p_d(z, n, a = 1, b = 1)
+p_d(z = z, n = n, a = 500, b = 500) / p_d(z = z, n = n, a = 1, b = 1)
 ```
 
 > The anything's-possible model loses because it pays the price of having a small prior probability on the values of $\theta$ near the data proportion, while the must-be-fair model has large prior probability on $\theta$ values sufficiently near the data proportion to be credible. Thus, in Bayesian model comparison, a simpler model can win if the data are consistent with it, even if the complex model fits just as well. The complex model pays the price of having small prior probability on parameter values that describe simple data. (p. 291)
@@ -1302,7 +1603,7 @@ fit9.2 <-
 Next we'll consider a restricted version of `fit9.2` "in which all infielders (first base, second base, etc.) are grouped together versus all outfielders (right field, center field, and left field). In this restricted model, we are forcing the modal batting abilities of all the outfielders to be the same, that is, $\omega_\text{left field} = \omega_\text{center field} = \omega_\text{right field}$" (p. 291). To fit that model, we'll need to make a new variable `PriPos_small` which is identical to its parent variable `PriPos` except that it collapses those three positions into our new category `Outfield`.
 
 ```{r}
- my_data <-
+my_data <-
   my_data %>% 
   mutate(PriPos_small = if_else(PriPos %in% c("Center Field", "Left Field", "Right Field"),
                                 "Outfield", PriPos))
@@ -1350,15 +1651,15 @@ In the two BFs to follow, we compare the must-be-fair model and the anything's-p
 z <- 65
 n <- 100 
 
-p_d(z, n, a = 500, b = 500) / p_d(z, n, a = 1, b = 1)
+p_d(z = z, n = n, a = 500, b = 500) / p_d(z = z, n = n, a = 1, b = 1)
 ```
 
-The resulting `r round(p_d(z, n, a = 500, b = 500) / p_d(z, n, a = 1, b = 1), 2)` favored the anything's-possible model.
+The resulting `r round(p_d(z = z, n = n, a = 500, b = 500) / p_d(z = z, n = n, a = 1, b = 1), 2)` favored the anything's-possible model.
 
 Another way to express the anything's-possible model is with the Haldane prior, which sets the two parameters within the beta distribution to be a) equivalent and b) quite small (i.e., 0.01 in this case).
 
 ```{r}
-p_d(z, n, a = 500, b = 500) / p_d(z, n, a = .01, b = .01)
+p_d(z = z, n = n, a = 500, b = 500) / p_d(z = z, n = n, a = 0.01, b = 0.01)
 ```
 
 Now we flipped to favoring the must-be-fair model. You might be asking, *Wait, kind of distribution did that Haldane prior produce?* Here we compare it to the $\operatorname{Beta}(1, 1)$.
@@ -1371,8 +1672,8 @@ text <- c("Uninformative prior, Beta(1, 1)", "Haldane prior, Beta(0.01, 0.01)")
 length <- 1e3
 
 # simulate the data
-tibble(alpha = c(1, .01),
-       beta  = c(1, .01),
+tibble(alpha = c(1, 0.01),
+       beta  = c(1, 0.01),
        model = factor(text, levels = text)) %>%
   expand_grid(theta = seq(from = 0, to = 1, length.out = length)) %>% 
   mutate(density = dbeta(theta, shape1 = alpha, shape2 = beta)) %>% 
@@ -1380,9 +1681,8 @@ tibble(alpha = c(1, .01),
   # plot
   ggplot(aes(x = theta, y = density)) +
   geom_area(fill = kh[3]) + 
-  scale_x_continuous(expression(theta), expand = expansion(mult = c(0, 0)), 
-                     breaks = 0:5 / 5, labels = c("0", ".2", ".4", ".6", ".8", "1"),
-                     limits = c(0, 1)) +
+  scale_x_continuous(expression(theta), breaks = 0:5 / 5, expand = c(0, 0), 
+                     labels = c(0, 1:4 / 5, 1), limits = 0:1) +
   scale_y_continuous(NULL, breaks = NULL,
                      expand = expansion(mult = c(0, 0.05))) +
   labs(title = "We have two anything’s-possible models!",
@@ -1425,13 +1725,13 @@ hdi_of_qbeta <- function(shape1, shape2) {
 }
 ```
 
-Recall that when we combine a $\operatorname{Beta}(\theta | \alpha, \beta)$ prior with the results of a Bernoulli likelihood, we get a posterior defined by $\operatorname{Beta}(\theta | z + \alpha, N - z + \beta)$.
+Recall that when we combine a $\operatorname{Beta}(\theta \mid \alpha, \beta)$ prior with the results of a Bernoulli likelihood, we get a posterior defined by $\operatorname{Beta}(\theta \mid z + \alpha, N - z + \beta)$.
 
 ```{r}
 d <-
   tibble(model   = c("Uniform", "Haldane"),
-         prior_a = c(1, .01),
-         prior_b = c(1, .01)) %>% 
+         prior_a = c(1, 0.01),
+         prior_b = c(1, 0.01)) %>% 
   mutate(posterior_a = z + prior_a,
          posterior_b = n - z + prior_b)
 
@@ -1441,12 +1741,12 @@ d
 Now we'll use our custom `hdi_of_qbeta()` to compute the HDIs.
 
 ```{r}
-(
-  d <- 
+d <- 
   d %>% 
   mutate(levels = map2(posterior_a, posterior_b, hdi_of_qbeta)) %>% 
   unnest(levels)
- )
+
+d
 ```
 
 Let's compare those HDIs in a plot.
@@ -1455,10 +1755,9 @@ Let's compare those HDIs in a plot.
 d %>% 
   ggplot(aes(x = ll, xend = ul,
              y = model, yend = model)) +
-  geom_segment(linewidth = 1, color = kh[2]) +
-  scale_x_continuous(expression(theta), expand = expansion(mult = c(0, 0)), 
-                     breaks = 0:5 / 5, labels = c("0", ".2", ".4", ".6", ".8", "1"),
-                     limits = c(0, 1)) +
+  geom_segment(color = kh[2], linewidth = 1) +
+  scale_x_continuous(expression(theta), breaks = 0:5 / 5, expand = c(0, 0), 
+                     labels = c(0, 1:4 / 5, 1), limits = 0:1) +
   labs(subtitle = "Those two sets of HDIs are quite similar.\nIt almost seems silly their respective BFs\nare so different.",
        y = NULL) +
   theme(axis.text.y = element_text(hjust = 0),
@@ -1478,10 +1777,10 @@ z <- 65 - 6
 n <- 100 - 10
 
 # Peaked vs Uniform
-p_d(z, n, a = 500 + 6, b = 500 + 10 - 6) / p_d(z, n, a =   1 + 6, b =   1 + 10 - 6)
+p_d(z = z, n = n, a = 500 + 6, b = 500 + 10 - 6) / p_d(z = z, n = n, a = 1 + 6, b = 1 + 10 - 6)
 
 # Peaked vs Haldane
-p_d(z, n, a = 500 + 6, b = 500 + 10 - 6) / p_d(z, n, a = .01 + 6, b = .01 + 10 - 6)
+p_d(z = z, n = n, a = 500 + 6, b = 500 + 10 - 6) / p_d(z = z, n = n, a = 0.01 + 6, b = 0.01 + 10 - 6)
 ```
 
 Now the two Bayes Factors are nearly the same.
@@ -1570,9 +1869,8 @@ pp_average(fit10.6, fit10.7, fit10.8,
   stat_histinterval(point_interval = mode_hdi, .width = c(.95, .5),
                     fill = kh[6], slab_color = kh[5], color = kh[2],
                     breaks = 40, slab_size = .25, outline_bars = T) +
-  scale_x_continuous(expression(italic(p)(theta*"|"*italic(D))), expand = c(0, 0), 
-                     breaks = 0:5 / 5, labels = c("0", ".2", ".4", ".6", ".8", "1"),
-                     limits = c(0, 1)) +
+  scale_x_continuous(expression(italic(p)(theta*"|"*italic(D))), breaks = 0:5 / 5, 
+                     expand = c(0, 0), labels = c(0, 1:4 / 5, 1), limits = 0:1) +
   scale_y_continuous(NULL, breaks = NULL,
                      expand = expansion(mult = c(0.01, 0.05))) +
   labs(subtitle = "The posterior for the probability, given the weighted\ncombination of fit10.6, fit10.7, and fit10.8")
@@ -1620,7 +1918,7 @@ sessionInfo()
 
 ```{r, echo = F}
 # remove our objects
-rm(d, kh, length, p1, p2, my_arrow, p3, p4, p5, p6, p7, p8, p9, layout, p_d, p_d_1, p_d_2, odds, bernoulli_likelihood, n, z, trial_data, p11, p21, p51, p12, p22, p32, p42, p52, p13, p23, p33, p43, p53, omega, kappa, stanvars, fit10.1, theta, mean_theta, sd_theta, a_post, b_post, one_over_pd, fit10.2, mw, nd, pp_a, fit10.3, fit10.4, my_data, fit9.2, fit10.5, fit10.6, text, hdi_of_icdf, hdi_of_qbeta, fit10.7, fit10.8)
+rm(d, kh, length, p1, p2, my_arrow, p3, p4, p5, p6, p7, p8, p9, layout, p_d, p_d_1, p_d_2, odds, dbern, n, z, trial_data, p11, p21, p51, p12, p22, p32, p42, p52, p13, omega_levels, p23, p33, d_posterior_omega, p43, p53, omega, kappa, stanvars, fit10.1, draws, mean_theta_1, sd_theta_1, a_post_1, b_post_1, fit10.2, mean_theta_2, sd_theta_2, a_post_2, b_post_2, p_d_omegas, mw, nd, pp_a, fit10.3, fit10.4, my_data, fit9.2, fit10.5, fit10.6, text, hdi_of_icdf, hdi_of_qbeta, fit10.7, fit10.8)
 ```
 
 ```{r, echo = F, message = F, warning = F, results = "hide"}
