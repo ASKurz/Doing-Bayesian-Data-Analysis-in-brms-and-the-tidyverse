@@ -1,0 +1,2013 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.5.57">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>25&nbsp; Tools in the Trunk – *Doing Bayesian Data Analysis* in brms and the tidyverse</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { display: inline-block; text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+  margin-bottom: 0em;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
+
+
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<link href="./references.html" rel="next">
+<link href="./24.html" rel="prev">
+<script src="site_libs/quarto-html/quarto.js"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "sidebar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "start",
+  "type": "textbox",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN") {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="nav-sidebar floating">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+  <nav class="quarto-secondary-nav">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./part_03.html">Part III</a></li><li class="breadcrumb-item"><a href="./25.html"><span class="chapter-number">25</span>&nbsp; <span class="chapter-title">Tools in the Trunk</span></a></li></ol></nav>
+        <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+      <button type="button" class="btn quarto-search-button" aria-label="Search" onclick="window.quartoOpenSearch();">
+        <i class="bi bi-search"></i>
+      </button>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto">
+    <div class="pt-lg-2 mt-2 text-left sidebar-header">
+    <div class="sidebar-title mb-0 py-0">
+      <a href="./"><em>Doing Bayesian Data Analysis</em> in brms and the tidyverse</a> 
+    </div>
+      </div>
+        <div class="mt-2 flex-shrink-0 align-items-center">
+        <div class="sidebar-search">
+        <div id="quarto-search" class="" title="Search"></div>
+        </div>
+        </div>
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">What and why</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./01.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">1</span>&nbsp; <span class="chapter-title">What’s in This Book (Read This First!)</span></span></a>
+  </div>
+</li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a href="./part_01.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Part I</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-1" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./02.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">2</span>&nbsp; <span class="chapter-title">Introduction: Credibility, Models, and Parameters</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./03.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">The R Programming Language</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./04.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">4</span>&nbsp; <span class="chapter-title">What is This Stuff Called Probability?</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./05.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">Bayes’ Rule</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a href="./part_02.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Part II</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-2" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./06.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">6</span>&nbsp; <span class="chapter-title">Inferring a Binomial Probability via Exact Mathematical Analysis</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./07.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">7</span>&nbsp; <span class="chapter-title">Markov Chain Monte Carlo</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./08.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">8</span>&nbsp; <span class="chapter-title"><del>JAGS</del> brms</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./09.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">9</span>&nbsp; <span class="chapter-title">Hierarchical Models</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./10.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">10</span>&nbsp; <span class="chapter-title">Model Comparison and Hierarchical Modeling</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./11.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">11</span>&nbsp; <span class="chapter-title">Null Hypothesis Significance Testing</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./12.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">12</span>&nbsp; <span class="chapter-title">Bayesian Approaches to Testing a Point (“Null”) Hypothesis</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./13.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">13</span>&nbsp; <span class="chapter-title">Goals, Power, and Sample Size</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./14.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">14</span>&nbsp; <span class="chapter-title">Stan</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a href="./part_03.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Part III</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-3" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./15.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">15</span>&nbsp; <span class="chapter-title">Overview of the Generalized Linear Model</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./16.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">16</span>&nbsp; <span class="chapter-title">Metric-Predicted Variable on One or Two Groups</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./17.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">17</span>&nbsp; <span class="chapter-title">Metric Predicted Variable with One Metric Predictor</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./18.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">18</span>&nbsp; <span class="chapter-title">Metric Predicted Variable with Multiple Metric Predictors</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./19.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">19</span>&nbsp; <span class="chapter-title">Metric Predicted Variable with One Nominal Predictor</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./20.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">20</span>&nbsp; <span class="chapter-title">Metric Predicted Variable with Multiple Nominal Predictors</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./21.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">21</span>&nbsp; <span class="chapter-title">Dichotomous Predicted Variable</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./22.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">22</span>&nbsp; <span class="chapter-title">Nominal Predicted Variable</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./23.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">23</span>&nbsp; <span class="chapter-title">Ordinal Predicted Variable</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./24.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">24</span>&nbsp; <span class="chapter-title">Count Predicted Variable</span></span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./25.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text"><span class="chapter-number">25</span>&nbsp; <span class="chapter-title">Tools in the Trunk</span></span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./references.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">References</span></a>
+  </div>
+</li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul>
+  <li><a href="#reporting-a-bayesian-analysis" id="toc-reporting-a-bayesian-analysis" class="nav-link active" data-scroll-target="#reporting-a-bayesian-analysis"><span class="header-section-number">25.1</span> Reporting a Bayesian analysis</a>
+  <ul>
+  <li><a href="#essential-points." id="toc-essential-points." class="nav-link" data-scroll-target="#essential-points."><span class="header-section-number">25.1.1</span> Essential points.</a></li>
+  <li><a href="#optional-points." id="toc-optional-points." class="nav-link" data-scroll-target="#optional-points."><span class="header-section-number">25.1.2</span> Optional points.</a></li>
+  <li><a href="#helpful-points." id="toc-helpful-points." class="nav-link" data-scroll-target="#helpful-points."><span class="header-section-number">25.1.3</span> Helpful points.</a></li>
+  </ul></li>
+  <li><a href="#functions-for-computing-highest-density-intervals" id="toc-functions-for-computing-highest-density-intervals" class="nav-link" data-scroll-target="#functions-for-computing-highest-density-intervals"><span class="header-section-number">25.2</span> Functions for computing highest density intervals</a>
+  <ul>
+  <li><a href="#r-code-for-computing-hdi-of-a-grid-approximation." id="toc-r-code-for-computing-hdi-of-a-grid-approximation." class="nav-link" data-scroll-target="#r-code-for-computing-hdi-of-a-grid-approximation."><span class="header-section-number">25.2.1</span> R code for computing HDI of a grid approximation.</a></li>
+  <li><a href="#hdi-of-unimodal-distribution-is-shortest-interval." id="toc-hdi-of-unimodal-distribution-is-shortest-interval." class="nav-link" data-scroll-target="#hdi-of-unimodal-distribution-is-shortest-interval."><span class="header-section-number">25.2.2</span> HDI of unimodal distribution is shortest interval.</a></li>
+  <li><a href="#r-code-for-computing-hdi-of-a-mcmc-sample." id="toc-r-code-for-computing-hdi-of-a-mcmc-sample." class="nav-link" data-scroll-target="#r-code-for-computing-hdi-of-a-mcmc-sample."><span class="header-section-number">25.2.3</span> R code for computing HDI of a MCMC sample.</a></li>
+  <li><a href="#r-code-for-computing-hdi-of-a-function." id="toc-r-code-for-computing-hdi-of-a-function." class="nav-link" data-scroll-target="#r-code-for-computing-hdi-of-a-function."><span class="header-section-number">25.2.4</span> R code for computing HDI of a function.</a></li>
+  </ul></li>
+  <li><a href="#reparameterization" id="toc-reparameterization" class="nav-link" data-scroll-target="#reparameterization"><span class="header-section-number">25.3</span> Reparameterization</a></li>
+  <li><a href="#sec-Censored-Data-in-brms" id="toc-sec-Censored-Data-in-brms" class="nav-link" data-scroll-target="#sec-Censored-Data-in-brms"><span class="header-section-number">25.4</span> Censored data in <del>JAGS</del> brms</a>
+  <ul>
+  <li><a href="#right-censoring-when-youre-uncertain-beyond-a-single-threshold." id="toc-right-censoring-when-youre-uncertain-beyond-a-single-threshold." class="nav-link" data-scroll-target="#right-censoring-when-youre-uncertain-beyond-a-single-threshold."><span class="header-section-number">25.4.1</span> Right censoring: When you’re uncertain beyond a single threshold.</a></li>
+  <li><a href="#interval-censoring-when-your-values-are-somewhere-in-the-middle." id="toc-interval-censoring-when-your-values-are-somewhere-in-the-middle." class="nav-link" data-scroll-target="#interval-censoring-when-your-values-are-somewhere-in-the-middle."><span class="header-section-number">25.4.2</span> Interval censoring: When your values are somewhere in the middle.</a></li>
+  <li><a href="#complex-censoring-when-the-going-gets-tough" id="toc-complex-censoring-when-the-going-gets-tough" class="nav-link" data-scroll-target="#complex-censoring-when-the-going-gets-tough"><span class="header-section-number">25.4.3</span> Complex censoring: When the going gets tough…</a></li>
+  <li><a href="#sec-Bonus-Truncation" id="toc-sec-Bonus-Truncation" class="nav-link" data-scroll-target="#sec-Bonus-Truncation"><span class="header-section-number">25.4.4</span> Bonus: Truncation.</a></li>
+  </ul></li>
+  <li><a href="#what-next" id="toc-what-next" class="nav-link" data-scroll-target="#what-next"><span class="header-section-number">25.5</span> What Next?</a></li>
+  <li><a href="#session-info" id="toc-session-info" class="nav-link" data-scroll-target="#session-info">Session info</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./part_03.html">Part III</a></li><li class="breadcrumb-item"><a href="./25.html"><span class="chapter-number">25</span>&nbsp; <span class="chapter-title">Tools in the Trunk</span></a></li></ol></nav>
+<div class="quarto-title">
+<h1 class="title"><span class="chapter-number">25</span>&nbsp; <span class="chapter-title">Tools in the Trunk</span></h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<p>“This chapter includes some important topics that apply to many different models throughout the book… The sections can be read independently of each other and at any time” <span class="citation" data-cites="kruschkeDoingBayesianData2015">(<a href="references.html#ref-kruschkeDoingBayesianData2015" role="doc-biblioref">Kruschke, 2015, p. 721</a>)</span>.</p>
+<p>Let’s load the primary packages for this last chapter.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse)</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(brms)</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggthemes)</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidybayes)</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(patchwork)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<section id="reporting-a-bayesian-analysis" class="level2" data-number="25.1">
+<h2 data-number="25.1" class="anchored" data-anchor-id="reporting-a-bayesian-analysis"><span class="header-section-number">25.1</span> Reporting a Bayesian analysis</h2>
+<blockquote class="blockquote">
+<p>Bayesian data analyses are not yet standard procedure in many fields of research, and no conventional format for reporting them has been established. Therefore, the researcher who reports a Bayesian analysis must be sensitive to the background knowledge of his or her specific audience, and must frame the description accordingly. (p.&nbsp;721)</p>
+</blockquote>
+<p>At the time of this writing (mid 2022), this is still generally the case. See <span class="citation" data-cites="aczelDiscussionPointsBayesian2020">Aczel et al. (<a href="references.html#ref-aczelDiscussionPointsBayesian2020" role="doc-biblioref">2020</a>)</span>, <a href="https://www.researchgate.net/publication/338849264_Discussion_points_for_Bayesian_inference"><em>Discussion points for Bayesian inference</em></a>, for a recent discussion from several Bayesian scholars. For a take from a familiar voice, see Kruschke’s <span class="citation" data-cites="kruschke2021BayesianAnalysisReporting">(<a href="references.html#ref-kruschke2021BayesianAnalysisReporting" role="doc-biblioref">2021</a>)</span> <a href="https://doi.org/10.1038/s41562-021-01177-7"><em>Bayesian analysis reporting guidelines</em></a>.</p>
+<section id="essential-points." class="level3" data-number="25.1.1">
+<h3 data-number="25.1.1" class="anchored" data-anchor-id="essential-points."><span class="header-section-number">25.1.1</span> Essential points.</h3>
+<blockquote class="blockquote">
+<p>Recall the basic steps of a Bayesian analysis from <a href="02.html#sec-The-steps-of-Bayesian-data-analysis" class="quarto-xref"><span>Section 2.3</span></a> (p.&nbsp;25): Identify the data, define a descriptive model, specify a prior, compute the posterior distribution, interpret the posterior distribution, and, check that the model is a reasonable description of the data. Those steps are in logical order, with each step building on the previous step. That logical order should be preserved in the report of the analysis. (p.&nbsp;722)</p>
+</blockquote>
+<p>Kruschke then gave recommendations for motivating Bayesian inference. His <span class="citation" data-cites="kruschkeBayesianNewStatistics2018">(<a href="references.html#ref-kruschkeBayesianNewStatistics2018" role="doc-biblioref">2018</a>)</span> paper with Liddell, <a href="https://link.springer.com/content/pdf/10.3758/s13423-016-1221-4.pdf"><em>The Bayesian New Statistics: Hypothesis testing, estimation, meta-analysis, and power analysis from a Bayesian perspective</em></a>, might be helpful in this regard. Many of the other points Kruschke made in this section (e.g., adequately reporting the data structure, the priors, evidence for convergence) can be handled by adopting open science practices.</p>
+<p>If your data and research questions are simple and straightforward, you might find it easy to detail these and other concerns in the primary manuscript. The harsh reality is many journals place tight constraints on word and/or page limits. If your projects are not of the simple and straightforward type, supplemental materials are your friend. Regardless of a journal’s policy on hosting supplemental materials on the official journal website, you can detail your data, priors, MCMC diagnostics, and all the other fine-grained details of your analysis in supplemental documents hosted in publicly-accessible repositories like the <a href="https://osf.io/">Open Science Framework (OSF)</a> or <a href="https://github.com/">GutHub</a>. If possible, do consider making your data openly available. Regardless of the status of your data, please consider making all your <strong>R</strong> scripts available as supplementary material. To reiterate from Chapter 3, I strongly recommend checking out <a href="https://bookdown.org/yihui/rmarkdown/notebook.html">R Notebooks</a> for that purpose. They are a type of R Markdown document with augmentations that make them more useful for working scientists. You can learn more about them <a href="https://rstudio-pubs-static.s3.amazonaws.com/256225_63ebef4029dd40ef8e3679f6cf200a5a.html">here</a> and <a href="https://www.r-bloggers.com/why-i-love-r-notebooks-2/">here</a>. And for a more comprehensive overview, check out Xie, Allaire, and Grolemund’s <span class="citation" data-cites="xieMarkdownDefinitiveGuide2022">(<a href="references.html#ref-xieMarkdownDefinitiveGuide2022" role="doc-biblioref">2022</a>)</span> <a href="https://bookdown.org/yihui/rmarkdown/"><em>R markdown: The definitive guide</em></a>.</p>
+</section>
+<section id="optional-points." class="level3" data-number="25.1.2">
+<h3 data-number="25.1.2" class="anchored" data-anchor-id="optional-points."><span class="header-section-number">25.1.2</span> Optional points.</h3>
+<p>For more thoughts on robustness checks, check out a couple Gelman’s blog posts, <a href="https://statmodeling.stat.columbia.edu/2017/11/29/whats-point-robustness-check/"><em>What’s the point of a robustness check?</em></a> and <a href="https://statmodeling.stat.columbia.edu/2018/11/14/robustness-checks-joke/"><em>Robustness checks are a joke</em></a>, along with the action in the comments section.</p>
+<p>In addition to posterior predictive checks, which are great <span class="citation" data-cites="kruschkePosteriorPredictiveChecks2013">(see <a href="references.html#ref-kruschkePosteriorPredictiveChecks2013" role="doc-biblioref">Kruschke, 2013</a>)</span>, consider prior predictive checks, too. For a great introduction to the topic, check out Gabry, Simpson, Vehtari, Betancourt, and Gelman’s <span class="citation" data-cites="gabry2019visualization">(<a href="references.html#ref-gabry2019visualization" role="doc-biblioref">2019</a>)</span> <a href="https://rss.onlinelibrary.wiley.com/doi/pdf/10.1111/rssa.12378"><em>Visualization in Bayesian workflow</em></a>.</p>
+</section>
+<section id="helpful-points." class="level3" data-number="25.1.3">
+<h3 data-number="25.1.3" class="anchored" data-anchor-id="helpful-points."><span class="header-section-number">25.1.3</span> Helpful points.</h3>
+<p>For more ideas on open data, check out Rouder’s <span class="citation" data-cites="rouderWhatWhyHow2016">(<a href="references.html#ref-rouderWhatWhyHow2016" role="doc-biblioref">2016</a>)</span> <a href="https://link.springer.com/article/10.3758/s13428-015-0630-z"><em>The what, why, and how of born-open data</em></a>. You might also check out Klein and colleagues’ <span class="citation" data-cites="kleinPracticalGuideTransparency2018">(<a href="references.html#ref-kleinPracticalGuideTransparency2018" role="doc-biblioref">2018</a>)</span> <a href="https://lirias.kuleuven.be/1999530?limo=0"><em>A practical guide for transparency in psychological science</em></a> and Martone, Garcia-Castro, and VandenBos’s <span class="citation" data-cites="martoneDataSharingPsychology2018">(<a href="references.html#ref-martoneDataSharingPsychology2018" role="doc-biblioref">2018</a>)</span> <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5920518/pdf/nihms935471.pdf"><em>Data sharing in psychology</em></a>.</p>
+<p>As to posting your model fits, this could be done in any number of ways, including as official supplemental materials hosted by the journal, on GitHub, or on the OSF. At a base level, this means saving your fits as external files. We’ve already been modeling this with our <code>brm()</code> code throughout this book. With the <code>save</code> argument, we saved the model fits within the <a href="https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/tree/master/fits"><code>fits</code> folder on GitHub</a>. You might adopt a similar approach. But do be warned: <strong>brms</strong> fit objects contain a copy of the data used to create them. For example, here’s how we might reload <code>fit24.1</code> from last chapter.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>fit24<span class="fl">.1</span> <span class="ot">&lt;-</span> <span class="fu">readRDS</span>(<span class="st">"fits/fit24.01.rds"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>By indexing the fit object with <code>$data</code>, you can see the data.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>fit24<span class="fl">.1</span><span class="sc">$</span>data <span class="sc">|&gt;</span> </span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">glimpse</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Rows: 16
+Columns: 4
+$ Count      &lt;dbl&gt; 20, 68, 5, 15, 94, 7, 16, 10, 84, 119, 29, 54, 17, 26, 14, …
+$ Hair       &lt;fct&gt; Black, Black, Black, Black, Blond, Blond, Blond, Blond, Bru…
+$ Eye        &lt;chr&gt; "Blue", "Brown", "Green", "Hazel", "Blue", "Brown", "Green"…
+$ `Hair:Eye` &lt;chr&gt; "Black_Blue", "Black_Brown", "Black_Green", "Black_Hazel", …</code></pre>
+</div>
+</div>
+<p>Here’s a quick way to remove the data from the fit object.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>fit24<span class="fl">.1</span><span class="sc">$</span>data <span class="ot">&lt;-</span> <span class="cn">NULL</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Confirm it worked.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>fit24<span class="fl">.1</span><span class="sc">$</span>data</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>NULL</code></pre>
+</div>
+</div>
+<p>Happily, the rest of the information is still there for you. E.g., here’s the summary.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(fit24<span class="fl">.1</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code> Family: poisson 
+  Links: mu = log 
+Formula: Count ~ 1 + (1 | Hair) + (1 | Eye) + (1 | Hair:Eye) 
+   Data: NULL (Number of observations: ) 
+  Draws: 4 chains, each with iter = 3000; warmup = 1000; thin = 1;
+         total post-warmup draws = 8000
+
+Multilevel Hyperparameters:
+~Eye (Number of levels: 4) 
+              Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
+sd(Intercept)     1.81      1.55     0.31     6.08 1.00     3497     5119
+
+~Hair (Number of levels: 4) 
+              Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
+sd(Intercept)     1.93      1.57     0.35     6.35 1.00     3362     5188
+
+~Hair:Eye (Number of levels: 16) 
+              Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
+sd(Intercept)     0.95      0.29     0.55     1.67 1.00     3158     5366
+
+Regression Coefficients:
+          Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
+Intercept     3.22      1.56    -0.04     6.52 1.00     5305     4406
+
+Draws were sampled using sampling(NUTS). For each parameter, Bulk_ESS
+and Tail_ESS are effective sample size measures, and Rhat is the potential
+scale reduction factor on split chains (at convergence, Rhat = 1).</code></pre>
+</div>
+</div>
+</section>
+</section>
+<section id="functions-for-computing-highest-density-intervals" class="level2" data-number="25.2">
+<h2 data-number="25.2" class="anchored" data-anchor-id="functions-for-computing-highest-density-intervals"><span class="header-section-number">25.2</span> Functions for computing highest density intervals</h2>
+<p>You can find a copy of Kruschke’s scripts, including <code>DBDA2E-utilities.R</code>, at <a href="https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/tree/master/data.R">https://github.com/ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse/tree/master/data.R</a>.</p>
+<section id="r-code-for-computing-hdi-of-a-grid-approximation." class="level3" data-number="25.2.1">
+<h3 data-number="25.2.1" class="anchored" data-anchor-id="r-code-for-computing-hdi-of-a-grid-approximation."><span class="header-section-number">25.2.1</span> R code for computing HDI of a grid approximation.</h3>
+<blockquote class="blockquote">
+<p>We can imagine the grid approximation of a distribution as a landscape of poles sticking up from each point on the parameter grid, with the height of each pole indicating the probability mass at that discrete point. We can imagine the highest density region by visualizing a rising tide: We gradually flood the landscape, monitoring the total mass of the poles that protrude above water, stopping the flood when 95% (say) of the mass remains protruding. The waterline at that moment defines the highest density region <span class="citation" data-cites="hyndmanComputingGraphingHighest1996">(e.g., <a href="references.html#ref-hyndmanComputingGraphingHighest1996" role="doc-biblioref">Hyndman, 1996</a>)</span>. (p.&nbsp;725)</p>
+</blockquote>
+<p>We can use Kruschke’s <code>HDIofGrid()</code> function for such a task.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>HDIofGrid <span class="ot">&lt;-</span> <span class="cf">function</span>(probMassVec, <span class="at">credMass =</span> <span class="fl">0.95</span>) {</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Arguments:</span></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>  <span class="co">#   probMassVec is a vector of probability masses at each grid point.</span></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>  <span class="co">#   credMass is the desired mass of the HDI region.</span></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Return value:</span></span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>  <span class="co">#   A list with components:</span></span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>  <span class="co">#   indices is a vector of indices that are in the HDI</span></span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>  <span class="co">#   mass is the total mass of the included indices</span></span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>    <span class="co">#   height is the smallest component probability mass in the HDI</span></span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Example of use: For determining HDI of a beta(30,12) distribution</span></span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>  <span class="co">#   approximated on a grid:</span></span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a>  <span class="co">#   &gt; probDensityVec = dbeta( seq(0,1,length=201) , 30 , 12 )</span></span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a>  <span class="co">#   &gt; probMassVec = probDensityVec / sum( probDensityVec )</span></span>
+<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a>  <span class="co">#   &gt; HDIinfo = HDIofGrid( probMassVec )</span></span>
+<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a>  <span class="co">#   &gt; show( HDIinfo )</span></span>
+<span id="cb10-17"><a href="#cb10-17" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb10-18"><a href="#cb10-18" aria-hidden="true" tabindex="-1"></a>  sortedProbMass <span class="ot">&lt;-</span> <span class="fu">sort</span>(probMassVec, <span class="at">decreasing =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb10-19"><a href="#cb10-19" aria-hidden="true" tabindex="-1"></a>  HDIheightIdx <span class="ot">&lt;-</span> <span class="fu">min</span>(<span class="fu">which</span>(<span class="fu">cumsum</span>(sortedProbMass) <span class="sc">&gt;=</span> credMass))</span>
+<span id="cb10-20"><a href="#cb10-20" aria-hidden="true" tabindex="-1"></a>  HDIheight <span class="ot">&lt;-</span> sortedProbMass[HDIheightIdx]</span>
+<span id="cb10-21"><a href="#cb10-21" aria-hidden="true" tabindex="-1"></a>  HDImass <span class="ot">&lt;-</span> <span class="fu">sum</span>(probMassVec[probMassVec <span class="sc">&gt;=</span> HDIheight])</span>
+<span id="cb10-22"><a href="#cb10-22" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb10-23"><a href="#cb10-23" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(<span class="at">indices =</span> <span class="fu">which</span>(probMassVec <span class="sc">&gt;=</span> HDIheight),</span>
+<span id="cb10-24"><a href="#cb10-24" aria-hidden="true" tabindex="-1"></a>       <span class="at">mass    =</span> HDImass, <span class="at">height =</span> HDIheight)</span>
+<span id="cb10-25"><a href="#cb10-25" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>I found Kruschke’s description of his <code>HDIofGrid()</code> a bit opaque. Happily, we can understand this function with a little help from an example posted at <a href="https://rdrr.io/github/kyusque/DBDA2E-utilities/man/HDIofGrid.html">https://rdrr.io/github/kyusque/DBDA2E-utilities/man/HDIofGrid.html</a>.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>prob_density_vec <span class="ot">&lt;-</span> <span class="fu">dbeta</span>(<span class="fu">seq</span>(<span class="dv">0</span>, <span class="dv">1</span>, <span class="at">length =</span> <span class="dv">201</span>), <span class="dv">30</span>, <span class="dv">12</span>)</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>prob_mass_vec    <span class="ot">&lt;-</span> prob_density_vec <span class="sc">/</span> <span class="fu">sum</span>(prob_density_vec)</span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>HDI_info         <span class="ot">&lt;-</span> <span class="fu">HDIofGrid</span>(prob_mass_vec)</span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a><span class="fu">show</span>(HDI_info)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>$indices
+ [1] 117 118 119 120 121 122 123 124 125 126 127 128 129 130 131 132 133 134 135
+[20] 136 137 138 139 140 141 142 143 144 145 146 147 148 149 150 151 152 153 154
+[39] 155 156 157 158 159 160 161 162 163 164 165 166 167 168 169 170
+
+$mass
+[1] 0.9528232
+
+$height
+[1] 0.004448336</code></pre>
+</div>
+</div>
+<p>To walk that through a bit, <code>prob_density_vec</code> is a vector of density values for <span class="math inline">\(\operatorname{Beta} (30, 12)\)</span> based on 201 evenly-spaced values spanning the parameter space for <span class="math inline">\(\theta\)</span> (i.e., from 0 to 1). In the second line, we converted those density values to the probability metric by dividing each by their sum, which we then saved as <code>prob_mass_vec</code>. In the third line we shoved those probability values into Kruschke’s <code>HDIofGrid()</code> and saved the results as <code>HDI_info</code>. The output of the fourth line, <code>show(HDI_info)</code>, showed us the results (i.e., the contents of <code>HDI_info</code>).</p>
+<p>As to those results, the values in saved as <code>$indices</code> are the row numbers for all cases in <code>prob_mass_vec</code> that were within the HDI. The value in <code>$mass</code> showed the actual width of the HDI. Because we’re only working with finite samples (i.e., <code>length = 201</code>), we won’t likely get a perfect 95% HDI. The value in <code>$height</code> is the density value for <em>the waterline that defines the highest density region</em>. A plot might make that less abstract.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="fu">theme_set</span>(</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_base</span>() <span class="sc">+</span></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">plot.background =</span> <span class="fu">element_rect</span>(<span class="at">color =</span> <span class="st">"transparent"</span>))</span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Wrangle</span></span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a><span class="fu">tibble</span>(<span class="at">row     =</span> <span class="dv">1</span><span class="sc">:</span><span class="fu">length</span>(prob_density_vec),</span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>       <span class="at">theta   =</span> <span class="fu">seq</span>(<span class="dv">0</span>, <span class="dv">1</span>, <span class="at">length =</span> <span class="fu">length</span>(prob_density_vec)),</span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>       <span class="at">density =</span> prob_mass_vec,</span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a>       <span class="at">cred    =</span> <span class="fu">if_else</span>(row <span class="sc">%in%</span> HDI_info<span class="sc">$</span>indices, <span class="dv">1</span>, <span class="dv">0</span>)) <span class="sc">|&gt;</span> </span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Plot</span></span>
+<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> theta, <span class="at">y =</span> density)) <span class="sc">+</span></span>
+<span id="cb13-14"><a href="#cb13-14" aria-hidden="true" tabindex="-1"></a>  <span class="co"># HDI</span></span>
+<span id="cb13-15"><a href="#cb13-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_area</span>(<span class="fu">aes</span>(<span class="at">fill =</span> cred <span class="sc">==</span> <span class="dv">1</span>)) <span class="sc">+</span></span>
+<span id="cb13-16"><a href="#cb13-16" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Density line</span></span>
+<span id="cb13-17"><a href="#cb13-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="at">color =</span> <span class="st">"skyblue"</span>, <span class="at">linewidth =</span> <span class="dv">1</span>) <span class="sc">+</span></span>
+<span id="cb13-18"><a href="#cb13-18" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Waterline</span></span>
+<span id="cb13-19"><a href="#cb13-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_hline</span>(<span class="at">yintercept =</span> HDI_info<span class="sc">$</span>height, <span class="at">linetype =</span> <span class="dv">3</span>, <span class="at">linewidth =</span> <span class="dv">1</span><span class="sc">/</span><span class="dv">4</span>) <span class="sc">+</span></span>
+<span id="cb13-20"><a href="#cb13-20" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Aesthetic fluff</span></span>
+<span id="cb13-21"><a href="#cb13-21" aria-hidden="true" tabindex="-1"></a>  <span class="fu">annotate</span>(<span class="at">geom =</span> <span class="st">"text"</span>, <span class="at">x =</span> <span class="fl">0.2</span>, <span class="at">y =</span> <span class="fl">0.0046</span>,</span>
+<span id="cb13-22"><a href="#cb13-22" aria-hidden="true" tabindex="-1"></a>           <span class="at">label =</span> <span class="st">'"waterline" that defines all points</span><span class="sc">\n</span><span class="st">inside the highest density region'</span>) <span class="sc">+</span></span>
+<span id="cb13-23"><a href="#cb13-23" aria-hidden="true" tabindex="-1"></a>  <span class="fu">annotate</span>(<span class="at">geom =</span> <span class="st">"text"</span>, <span class="at">x =</span> <span class="fl">0.715</span>, <span class="at">y =</span> <span class="fl">0.01</span>,</span>
+<span id="cb13-24"><a href="#cb13-24" aria-hidden="true" tabindex="-1"></a>           <span class="at">label =</span> <span class="st">"95.28% HDI"</span>, <span class="at">color =</span> <span class="st">"black"</span>, <span class="at">size =</span> <span class="dv">5</span>) <span class="sc">+</span></span>
+<span id="cb13-25"><a href="#cb13-25" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_manual</span>(<span class="at">values =</span> <span class="fu">c</span>(<span class="st">"transparent"</span>, <span class="st">"grey67"</span>)) <span class="sc">+</span></span>
+<span id="cb13-26"><a href="#cb13-26" aria-hidden="true" tabindex="-1"></a>  <span class="fu">xlab</span>(<span class="fu">expression</span>(theta))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="25_files/figure-html/unnamed-chunk-9-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>You might have noticed our <code>theme_set()</code> lines at the top of that code block. For the plots in this chapter, we’ll give a nod to the source material and make them with a similar aesthetic to Kruschke’s figures.</p>
+</section>
+<section id="hdi-of-unimodal-distribution-is-shortest-interval." class="level3" data-number="25.2.2">
+<h3 data-number="25.2.2" class="anchored" data-anchor-id="hdi-of-unimodal-distribution-is-shortest-interval."><span class="header-section-number">25.2.2</span> HDI of unimodal distribution is shortest interval.</h3>
+<blockquote class="blockquote">
+<p>The algorithms [in the next sections] find the HDI by searching among candidate intervals of mass <span class="math inline">\(M\)</span>. The shortest one found is declared to be the HDI. It is an approximation, of course. See <span class="citation" data-cites="chenMonteCarloEstimation1999">Chen &amp; Shao (<a href="references.html#ref-chenMonteCarloEstimation1999" role="doc-biblioref">1999</a>)</span> for more details, and Chen, He, Shao, and Xu <span class="citation" data-cites="chenMonteCarloGap2003">(<a href="references.html#ref-chenMonteCarloGap2003" role="doc-biblioref">2003</a>)</span> for dealing with the unusual situation of multimodal distributions. (p.&nbsp;727)</p>
+</blockquote>
+</section>
+<section id="r-code-for-computing-hdi-of-a-mcmc-sample." class="level3" data-number="25.2.3">
+<h3 data-number="25.2.3" class="anchored" data-anchor-id="r-code-for-computing-hdi-of-a-mcmc-sample."><span class="header-section-number">25.2.3</span> R code for computing HDI of a MCMC sample.</h3>
+<p>In this section, Kruschke provided the code for his <code>HDIofMCMC()</code> function. We recreate it, below, with a few mild formatting changes. The <code>ggthemes::theme_base()</code> theme gets us most of the way there.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>HDIofMCMC <span class="ot">&lt;-</span> <span class="cf">function</span>(sampleVec, <span class="at">credMass =</span> <span class="fl">0.95</span>) {</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Computes highest density interval from a sample of representative values,</span></span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>  <span class="co">#   estimated as shortest credible interval.</span></span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Arguments:</span></span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>  <span class="co">#   sampleVec</span></span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>  <span class="co">#     is a vector of representative values from a probability distribution.</span></span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>  <span class="co">#   credMass</span></span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a>  <span class="co">#     is a scalar between 0 and 1, indicating the mass within the credible</span></span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a>  <span class="co">#     interval that is to be estimated.</span></span>
+<span id="cb14-11"><a href="#cb14-11" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Value:</span></span>
+<span id="cb14-12"><a href="#cb14-12" aria-hidden="true" tabindex="-1"></a>  <span class="co">#   HDIlim is a vector containing the limits of the HDI</span></span>
+<span id="cb14-13"><a href="#cb14-13" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb14-14"><a href="#cb14-14" aria-hidden="true" tabindex="-1"></a>  sortedPts <span class="ot">&lt;-</span> <span class="fu">sort</span>(sampleVec)</span>
+<span id="cb14-15"><a href="#cb14-15" aria-hidden="true" tabindex="-1"></a>  ciIdxInc <span class="ot">&lt;-</span> <span class="fu">ceiling</span>(credMass <span class="sc">*</span> <span class="fu">length</span>(sortedPts))</span>
+<span id="cb14-16"><a href="#cb14-16" aria-hidden="true" tabindex="-1"></a>  nCIs <span class="ot">&lt;-</span> <span class="fu">length</span>(sortedPts) <span class="sc">-</span> ciIdxInc</span>
+<span id="cb14-17"><a href="#cb14-17" aria-hidden="true" tabindex="-1"></a>  ciWidth <span class="ot">&lt;-</span> <span class="fu">rep</span>(<span class="dv">0</span>, nCIs)</span>
+<span id="cb14-18"><a href="#cb14-18" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (i <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>nCIs) {</span>
+<span id="cb14-19"><a href="#cb14-19" aria-hidden="true" tabindex="-1"></a>    ciWidth[i] <span class="ot">&lt;-</span> sortedPts[i <span class="sc">+</span> ciIdxInc] <span class="sc">-</span> sortedPts[i]</span>
+<span id="cb14-20"><a href="#cb14-20" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb14-21"><a href="#cb14-21" aria-hidden="true" tabindex="-1"></a>  HDImin <span class="ot">&lt;-</span> sortedPts[<span class="fu">which.min</span>(ciWidth)]</span>
+<span id="cb14-22"><a href="#cb14-22" aria-hidden="true" tabindex="-1"></a>  HDImax <span class="ot">&lt;-</span> sortedPts[<span class="fu">which.min</span>(ciWidth) <span class="sc">+</span> ciIdxInc]</span>
+<span id="cb14-23"><a href="#cb14-23" aria-hidden="true" tabindex="-1"></a>  HDIlim <span class="ot">&lt;-</span> <span class="fu">c</span>(HDImin, HDImax)</span>
+<span id="cb14-24"><a href="#cb14-24" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb14-25"><a href="#cb14-25" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(HDIlim)</span>
+<span id="cb14-26"><a href="#cb14-26" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Let’s continue working with <code>fit24.1</code> to see how Kruschke’s <code>HDIofMCMC()</code> works. First we need to extract the posterior draws.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>draws <span class="ot">&lt;-</span> <span class="fu">as_draws_df</span>(fit24<span class="fl">.1</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Here’s how you might use the function to get the HDIs for the intercept parameter.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="fu">HDIofMCMC</span>(draws<span class="sc">$</span>b_Intercept)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.1603042 6.6567415</code></pre>
+</div>
+</div>
+<p>Kruschke’s <code>HDIofMCMC()</code> works very much the same as the summary functions from <strong>tidybayes</strong>. For example, here’s good old <code>tidybayes::mode_hdi()</code>.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="fu">mode_hdi</span>(draws<span class="sc">$</span>b_Intercept)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>         y       ymin     ymax .width .point .interval
+1 3.182903 -0.1509171 6.353916   0.95   mode       hdi</code></pre>
+</div>
+</div>
+<p>If you’d like to use <strong>tidybayes</strong> to just pull the HDIs without the extra information, just use the <code>hdi()</code> function.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="fu">hdi</span>(draws<span class="sc">$</span>b_Intercept)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>           [,1]     [,2]
+[1,] -0.1509171 6.353916</code></pre>
+</div>
+</div>
+</section>
+<section id="r-code-for-computing-hdi-of-a-function." class="level3" data-number="25.2.4">
+<h3 data-number="25.2.4" class="anchored" data-anchor-id="r-code-for-computing-hdi-of-a-function."><span class="header-section-number">25.2.4</span> R code for computing HDI of a function.</h3>
+<blockquote class="blockquote">
+<p>The function described in this section finds the HDI of a unimodal probability density function that is specified mathematically in R. For example, the function can find HDI’s of normal densities or of beta densities or of gamma densities, because those densities are specified as functions in R. (p.&nbsp;728)</p>
+</blockquote>
+<p>If you recall, we’ve been using this function off and on since Chapter 4. Here is it, again, with mildly reformatted code and parameter names.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>hdi_of_icdf <span class="ot">&lt;-</span> <span class="cf">function</span>(name, <span class="at">width =</span> <span class="fl">0.95</span>, <span class="at">tol =</span> <span class="fl">1e-8</span>, ... ) {</span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Arguments:</span></span>
+<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a>  <span class="co">#   `name` is R's name for the inverse cumulative density function</span></span>
+<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a>  <span class="co">#   of the distribution.</span></span>
+<span id="cb22-6"><a href="#cb22-6" aria-hidden="true" tabindex="-1"></a>  <span class="co">#   `width` is the desired mass of the HDI region.</span></span>
+<span id="cb22-7"><a href="#cb22-7" aria-hidden="true" tabindex="-1"></a>  <span class="co">#   `tol` is passed to R's optimize function.</span></span>
+<span id="cb22-8"><a href="#cb22-8" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Return value:</span></span>
+<span id="cb22-9"><a href="#cb22-9" aria-hidden="true" tabindex="-1"></a>  <span class="co">#   Highest density iterval (HDI) limits in a vector.</span></span>
+<span id="cb22-10"><a href="#cb22-10" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Example of use: For determining HDI of a beta(30, 12) distribution, type</span></span>
+<span id="cb22-11"><a href="#cb22-11" aria-hidden="true" tabindex="-1"></a>  <span class="co">#   `hdi_of_icdf(qbeta, shape1 = 30, shape2 = 12)`</span></span>
+<span id="cb22-12"><a href="#cb22-12" aria-hidden="true" tabindex="-1"></a>  <span class="co">#   Notice that the parameters of the `name` must be explicitly stated;</span></span>
+<span id="cb22-13"><a href="#cb22-13" aria-hidden="true" tabindex="-1"></a>  <span class="co">#   e.g., `hdi_of_icdf(qbeta, 30, 12)` does not work.</span></span>
+<span id="cb22-14"><a href="#cb22-14" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Adapted and corrected from Greg Snow's TeachingDemos package.</span></span>
+<span id="cb22-15"><a href="#cb22-15" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb22-16"><a href="#cb22-16" aria-hidden="true" tabindex="-1"></a>  incredible_mass <span class="ot">&lt;-</span>  <span class="fl">1.0</span> <span class="sc">-</span> width</span>
+<span id="cb22-17"><a href="#cb22-17" aria-hidden="true" tabindex="-1"></a>  interval_width <span class="ot">&lt;-</span> <span class="cf">function</span>(low_tail_prob, name, width, ...) {</span>
+<span id="cb22-18"><a href="#cb22-18" aria-hidden="true" tabindex="-1"></a>    <span class="fu">name</span>(width <span class="sc">+</span> low_tail_prob, ...) <span class="sc">-</span> <span class="fu">name</span>(low_tail_prob, ...)</span>
+<span id="cb22-19"><a href="#cb22-19" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb22-20"><a href="#cb22-20" aria-hidden="true" tabindex="-1"></a>  opt_info <span class="ot">&lt;-</span> <span class="fu">optimize</span>(interval_width, <span class="fu">c</span>(<span class="dv">0</span>, incredible_mass), </span>
+<span id="cb22-21"><a href="#cb22-21" aria-hidden="true" tabindex="-1"></a>                       <span class="at">name =</span> name, <span class="at">width =</span> width, </span>
+<span id="cb22-22"><a href="#cb22-22" aria-hidden="true" tabindex="-1"></a>                       <span class="at">tol =</span> tol, ...)</span>
+<span id="cb22-23"><a href="#cb22-23" aria-hidden="true" tabindex="-1"></a>  hdi_lower_tail_prob <span class="ot">&lt;-</span> opt_info<span class="sc">$</span>minimum</span>
+<span id="cb22-24"><a href="#cb22-24" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb22-25"><a href="#cb22-25" aria-hidden="true" tabindex="-1"></a>  <span class="fu">c</span>(<span class="fu">name</span>(hdi_lower_tail_prob, ...),</span>
+<span id="cb22-26"><a href="#cb22-26" aria-hidden="true" tabindex="-1"></a>    <span class="fu">name</span>(width <span class="sc">+</span> hdi_lower_tail_prob, ...))</span>
+<span id="cb22-27"><a href="#cb22-27" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Here’s how it works for the standard normal distribution.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="fu">hdi_of_icdf</span>(qnorm, <span class="at">mean =</span> <span class="dv">0</span>, <span class="at">sd =</span> <span class="dv">1</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] -1.959964  1.959964</code></pre>
+</div>
+</div>
+<p>By default, it returns 95% HDIs. Here’s how it’d work if you wanted the 80% intervals for <span class="math inline">\(\operatorname{Beta}(2, 2)\)</span>.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb25"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="fu">hdi_of_icdf</span>(qbeta, <span class="at">shape1 =</span> <span class="dv">2</span>, <span class="at">shape2 =</span> <span class="dv">2</span>, <span class="at">width =</span> <span class="fl">0.8</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.1958001 0.8041999</code></pre>
+</div>
+</div>
+</section>
+</section>
+<section id="reparameterization" class="level2" data-number="25.3">
+<h2 data-number="25.3" class="anchored" data-anchor-id="reparameterization"><span class="header-section-number">25.3</span> Reparameterization</h2>
+<blockquote class="blockquote">
+<p>There are situations in which one parameterization is intuitive to express a distribution, but a different parameterization is required for mathematical convenience. For example, we may think intuitively of the standard deviation of a normal distribution, but have to parameterize the distribution in terms of the precision (i.e., reciprocal of the variance). (p.&nbsp;729)</p>
+</blockquote>
+<p>The details in the rest of this section are beyond the scope of this project.</p>
+</section>
+<section id="sec-Censored-Data-in-brms" class="level2" data-number="25.4">
+<h2 data-number="25.4" class="anchored" data-anchor-id="sec-Censored-Data-in-brms"><span class="header-section-number">25.4</span> Censored data in <del>JAGS</del> brms</h2>
+<p>“In many situations some data are censored, which means that their values are known only within a certain range” (p.&nbsp;732) Happily, <strong>brms</strong> is capable of handling censored variables. The setup is a little different from how Kruschke described for JAGS. From the <code>brmsformula</code> section of the <a href="https://CRAN.R-project.org/package=brms/brms.pdf"><strong>brms</strong> reference manual</a> <span class="citation" data-cites="brms2022RM">(<a href="references.html#ref-brms2022RM" role="doc-biblioref">Bürkner, 2022</a>)</span>, we read:</p>
+<blockquote class="blockquote">
+<p>With the exception of categorical, ordinal, and mixture families, left, right, and interval censoring can be modeled through <code>y | cens(censored) ~ predictors</code>. The censoring variable (named <code>censored</code> in this example) should contain the values <code>'left'</code>, <code>'none'</code>, <code>'right'</code>, and <code>'interval'</code> (or equivalently <code>-1</code>, <code>0</code>, <code>1</code>, and <code>2</code>) to indicate that the corresponding observation is left censored, not censored, right censored, or interval censored. For interval censored data, a second variable (let’s call it <code>y2</code>) has to be passed to <code>cens</code>. In this case, the formula has the structure <code>y | cens(censored,y2) ~ predictors</code>. While the lower bounds are given in <code>y</code>, the upper bounds are given in <code>y2</code> for interval censored data. Intervals are assumed to be open on the left and closed on the right: <code>(y,y2]</code>.</p>
+</blockquote>
+<p>We’ll make sense of all this in just a moment. First, let’s see how Kruschke described the example in the text.</p>
+<blockquote class="blockquote">
+<p>To illustrate why it is important to include censored data in the analysis, consider a case in which <span class="math inline">\(N = 500\)</span> values are generated randomly from a normal distribution with <span class="math inline">\(\mu = 100\)</span> and <span class="math inline">\(\sigma = 15\)</span>. Suppose that values above <span class="math inline">\(106\)</span> are censored, as are values in the interval between <span class="math inline">\(94\)</span> and <span class="math inline">\(100\)</span>. For the censored values, all we know is the interval in which they occurred, but not their exact value. (p.&nbsp;732)</p>
+</blockquote>
+<p>I’m not aware that we have access to Kruschke’s censored data, so we’ll just make our own based on his description. We’ll start off by simulating the idealized uncensored data, <code>y</code>, based on <span class="math inline">\(\operatorname{Normal}(100, 15)\)</span>.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb27"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a>n <span class="ot">&lt;-</span> <span class="dv">500</span></span>
+<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">25</span>)</span>
+<span id="cb27-4"><a href="#cb27-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-5"><a href="#cb27-5" aria-hidden="true" tabindex="-1"></a>d <span class="ot">&lt;-</span> <span class="fu">tibble</span>(<span class="at">y =</span> <span class="fu">rnorm</span>(n, <span class="at">mean =</span> <span class="dv">100</span>, <span class="at">sd =</span> <span class="dv">15</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>To repeat, Kruschke described two kinds of censoring:</p>
+<ul>
+<li>“values above 106 are censored,”</li>
+<li>“as are values in the interval between 94 and 100.”</li>
+</ul>
+<p>⚠️ Rather than examine both kinds of censoring at once, as in the text, I’m going to slow down and break this section up. First, we’ll explore right censoring. Second, we’ll explore interval censoring. For our grand finale, we’ll combine the two, as in the text.</p>
+<section id="right-censoring-when-youre-uncertain-beyond-a-single-threshold." class="level3" data-number="25.4.1">
+<h3 data-number="25.4.1" class="anchored" data-anchor-id="right-censoring-when-youre-uncertain-beyond-a-single-threshold."><span class="header-section-number">25.4.1</span> Right censoring: When you’re uncertain beyond a single threshold.</h3>
+<p>In the case where the “values above 106 are censored,” we need to save a single threshold value. We’ll call it <code>t1</code>.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb28"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a>t1 <span class="ot">&lt;-</span> <span class="dv">106</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Now we can use our <code>t1</code> threshold value to make a right censored version of the <code>y</code> column called <code>y1</code>. We’ll also make a character value listing out a row’s censoring status in nominal terms.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb29"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a>d <span class="ot">&lt;-</span> d <span class="sc">|&gt;</span> </span>
+<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">y1   =</span> <span class="fu">if_else</span>(y <span class="sc">&gt;</span> t1, t1, y),</span>
+<span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a>         <span class="at">cen1 =</span> <span class="fu">if_else</span>(y <span class="sc">&gt;</span> t1, <span class="st">"right"</span>, <span class="st">"none"</span>))</span>
+<span id="cb29-4"><a href="#cb29-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb29-5"><a href="#cb29-5" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(d, <span class="at">n =</span> <span class="dv">10</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 10 × 3
+       y    y1 cen1 
+   &lt;dbl&gt; &lt;dbl&gt; &lt;chr&gt;
+ 1  96.8  96.8 none 
+ 2  84.4  84.4 none 
+ 3  82.7  82.7 none 
+ 4 105.  105.  none 
+ 5  77.5  77.5 none 
+ 6  93.3  93.3 none 
+ 7 126.  106   right
+ 8 108.  106   right
+ 9 101.  101.  none 
+10  99.1  99.1 none </code></pre>
+</div>
+</div>
+<p>When the values in <code>y1</code> are not censored, we see <code>cen1 == "none"</code>. For all cases where the original <code>y</code> value exceeded the <code>t1</code> threshold (i.e., 106), <code>y1 == 106</code> and <code>cen1 == "right"</code>. We are using the terms <code>"none"</code> and <code>"right"</code> because they are based on the block quote from the <strong>brms</strong> reference manual. For plotting purposes, we’ll make a new variable, <code>y_na</code>, that only has values for which <code>cen1 == "none"</code>.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb31"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a>d <span class="ot">&lt;-</span> d <span class="sc">|&gt;</span> </span>
+<span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">y_na =</span> <span class="fu">ifelse</span>(cen1 <span class="sc">==</span> <span class="st">"none"</span>, y, <span class="cn">NA</span>))</span>
+<span id="cb31-3"><a href="#cb31-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb31-4"><a href="#cb31-4" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(d, <span class="at">n =</span> <span class="dv">10</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 10 × 4
+       y    y1 cen1   y_na
+   &lt;dbl&gt; &lt;dbl&gt; &lt;chr&gt; &lt;dbl&gt;
+ 1  96.8  96.8 none   96.8
+ 2  84.4  84.4 none   84.4
+ 3  82.7  82.7 none   82.7
+ 4 105.  105.  none  105. 
+ 5  77.5  77.5 none   77.5
+ 6  93.3  93.3 none   93.3
+ 7 126.  106   right  NA  
+ 8 108.  106   right  NA  
+ 9 101.  101.  none  101. 
+10  99.1  99.1 none   99.1</code></pre>
+</div>
+</div>
+<p>Now let’s get a better sense of the data with a few histograms.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb33"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a>d <span class="sc">|&gt;</span> </span>
+<span id="cb33-2"><a href="#cb33-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_longer</span>(<span class="at">cols =</span> <span class="sc">-</span>cen1) <span class="sc">|&gt;</span> </span>
+<span id="cb33-3"><a href="#cb33-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">name =</span> <span class="fu">factor</span>(name, <span class="at">levels =</span> <span class="fu">c</span>(<span class="st">"y"</span>, <span class="st">"y1"</span>, <span class="st">"y_na"</span>))) <span class="sc">|&gt;</span> </span>
+<span id="cb33-4"><a href="#cb33-4" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb33-5"><a href="#cb33-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> value)) <span class="sc">+</span></span>
+<span id="cb33-6"><a href="#cb33-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_histogram</span>(<span class="at">binwidth =</span> <span class="dv">2</span>, <span class="at">boundary =</span> <span class="dv">106</span>, <span class="at">color =</span> <span class="st">"white"</span>, </span>
+<span id="cb33-7"><a href="#cb33-7" aria-hidden="true" tabindex="-1"></a>                 <span class="at">fill =</span> <span class="st">"skyblue4"</span>, <span class="at">linewidth =</span> <span class="fl">0.25</span>) <span class="sc">+</span></span>
+<span id="cb33-8"><a href="#cb33-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">xlab</span>(<span class="cn">NULL</span>) <span class="sc">+</span></span>
+<span id="cb33-9"><a href="#cb33-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_y_continuous</span>(<span class="cn">NULL</span>, <span class="at">breaks =</span> <span class="cn">NULL</span>) <span class="sc">+</span></span>
+<span id="cb33-10"><a href="#cb33-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span> name, <span class="at">ncol =</span> <span class="dv">3</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="25_files/figure-html/unnamed-chunk-22-1.png" class="img-fluid figure-img" width="576"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>The original un-censored data are in <code>y</code>. The censored data, for which all values above 106 were simply recoded 106, is <code>y1</code>. The <code>y_na</code> column shows what the distribution would look like if the censored values were omitted.</p>
+<p>Here’s how we might fit a model which only uses the uncensored values, those in <code>y_na</code>.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb34"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Define the stanvars</span></span>
+<span id="cb34-2"><a href="#cb34-2" aria-hidden="true" tabindex="-1"></a>mean_y <span class="ot">&lt;-</span> <span class="fu">mean</span>(d<span class="sc">$</span>y_na, <span class="at">na.rm =</span> T)</span>
+<span id="cb34-3"><a href="#cb34-3" aria-hidden="true" tabindex="-1"></a>sd_y   <span class="ot">&lt;-</span> <span class="fu">sd</span>(d<span class="sc">$</span>y_na, <span class="at">na.rm =</span> T)</span>
+<span id="cb34-4"><a href="#cb34-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb34-5"><a href="#cb34-5" aria-hidden="true" tabindex="-1"></a>stanvars <span class="ot">&lt;-</span> <span class="fu">stanvar</span>(mean_y, <span class="at">name =</span> <span class="st">"mean_y"</span>) <span class="sc">+</span> </span>
+<span id="cb34-6"><a href="#cb34-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">stanvar</span>(sd_y, <span class="at">name =</span> <span class="st">"sd_y"</span>)</span>
+<span id="cb34-7"><a href="#cb34-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb34-8"><a href="#cb34-8" aria-hidden="true" tabindex="-1"></a><span class="co"># Fit the model</span></span>
+<span id="cb34-9"><a href="#cb34-9" aria-hidden="true" tabindex="-1"></a>fit25<span class="fl">.1</span>a <span class="ot">&lt;-</span> <span class="fu">brm</span>(</span>
+<span id="cb34-10"><a href="#cb34-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">data =</span> d,</span>
+<span id="cb34-11"><a href="#cb34-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">family =</span> gaussian,</span>
+<span id="cb34-12"><a href="#cb34-12" aria-hidden="true" tabindex="-1"></a>  y_na <span class="sc">~</span> <span class="dv">1</span>,</span>
+<span id="cb34-13"><a href="#cb34-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">prior =</span> <span class="fu">c</span>(<span class="fu">prior</span>(<span class="fu">normal</span>(mean_y, sd_y <span class="sc">*</span> <span class="dv">100</span>), <span class="at">class =</span> Intercept),</span>
+<span id="cb34-14"><a href="#cb34-14" aria-hidden="true" tabindex="-1"></a>            <span class="fu">prior</span>(<span class="fu">normal</span>(<span class="dv">0</span>, sd_y), <span class="at">class =</span> sigma)),</span>
+<span id="cb34-15"><a href="#cb34-15" aria-hidden="true" tabindex="-1"></a>  <span class="at">chains =</span> <span class="dv">4</span>, <span class="at">cores =</span> <span class="dv">4</span>,</span>
+<span id="cb34-16"><a href="#cb34-16" aria-hidden="true" tabindex="-1"></a>  <span class="at">stanvars =</span> stanvars, </span>
+<span id="cb34-17"><a href="#cb34-17" aria-hidden="true" tabindex="-1"></a>  <span class="at">file =</span> <span class="st">"fits/fit25.01a"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Check the summary for the naïve model.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb35"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(fit25<span class="fl">.1</span>a)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code> Family: gaussian 
+  Links: mu = identity; sigma = identity 
+Formula: y_na ~ 1 
+   Data: d (Number of observations: 333) 
+  Draws: 4 chains, each with iter = 2000; warmup = 1000; thin = 1;
+         total post-warmup draws = 4000
+
+Regression Coefficients:
+          Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
+Intercept    91.43      0.51    90.40    92.45 1.00     3219     2434
+
+Further Distributional Parameters:
+      Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
+sigma     9.38      0.36     8.71    10.13 1.00     4107     2617
+
+Draws were sampled using sampling(NUTS). For each parameter, Bulk_ESS
+and Tail_ESS are effective sample size measures, and Rhat is the potential
+scale reduction factor on split chains (at convergence, Rhat = 1).</code></pre>
+</div>
+</div>
+<p>Relative to the true data-generating process for the original variable <code>y</code>, <span class="math inline">\(\operatorname{Normal}(100, 15)\)</span>, those parameters look pretty biased. Now let’s practice fitting our first censored model. Here we use the <code>y1 | cens(cen1)</code> syntax in the left side of the model <code>formula</code> to indicate that the criterion variable, <code>y1</code>, has been censored according to the process as defined in the <code>cens()</code> function. Within <code>cens()</code> we inserted our nominal variable, <code>cens1</code>, which indicates which cases are censored (<code>"right"</code>) or not (<code>"none"</code>).</p>
+<p>This model is one of the rare occasions where we’ll set our initial values for the model intercept. In my first few attempts, <code>brm()</code> had great difficulty initializing the chains using the default initial values. We’ll help it out by setting them at <code>mean_y</code>. Recall that when you set custom initial values in <strong>brms</strong>, you save them in a list with the number of lists equaling the number of HMC chains. Because we’re using the default <code>chains = 4</code>, well need four lists of intercept start values, <code>mean_y</code>. You can set them to different values, if you’d like.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb37"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a>inits <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="at">Intercept =</span> mean_y)</span>
+<span id="cb37-2"><a href="#cb37-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-3"><a href="#cb37-3" aria-hidden="true" tabindex="-1"></a>inits_list <span class="ot">&lt;-</span> <span class="fu">list</span>(inits, inits, inits, inits)</span>
+<span id="cb37-4"><a href="#cb37-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-5"><a href="#cb37-5" aria-hidden="true" tabindex="-1"></a>fit25<span class="fl">.2</span>a <span class="ot">&lt;-</span> <span class="fu">brm</span>(</span>
+<span id="cb37-6"><a href="#cb37-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">data =</span> d,</span>
+<span id="cb37-7"><a href="#cb37-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">family =</span> gaussian,</span>
+<span id="cb37-8"><a href="#cb37-8" aria-hidden="true" tabindex="-1"></a>  y1 <span class="sc">|</span> <span class="fu">cens</span>(cen1) <span class="sc">~</span> <span class="dv">1</span>,</span>
+<span id="cb37-9"><a href="#cb37-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">prior =</span> <span class="fu">c</span>(<span class="fu">prior</span>(<span class="fu">normal</span>(mean_y, sd_y <span class="sc">*</span> <span class="dv">100</span>), <span class="at">class =</span> Intercept),</span>
+<span id="cb37-10"><a href="#cb37-10" aria-hidden="true" tabindex="-1"></a>            <span class="fu">prior</span>(<span class="fu">normal</span>(<span class="dv">0</span>, sd_y), <span class="at">class =</span> sigma)),</span>
+<span id="cb37-11"><a href="#cb37-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">chains =</span> <span class="dv">4</span>, <span class="at">cores =</span> <span class="dv">4</span>,</span>
+<span id="cb37-12"><a href="#cb37-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">stanvars =</span> stanvars, </span>
+<span id="cb37-13"><a href="#cb37-13" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Here we insert our start values for the intercept</span></span>
+<span id="cb37-14"><a href="#cb37-14" aria-hidden="true" tabindex="-1"></a>  <span class="at">inits =</span> inits_list, </span>
+<span id="cb37-15"><a href="#cb37-15" aria-hidden="true" tabindex="-1"></a>  <span class="at">file =</span> <span class="st">"fits/fit25.02a"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Now check the summary for the model accounting for the censoring.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb38"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb38-1"><a href="#cb38-1" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(fit25<span class="fl">.2</span>a)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code> Family: gaussian 
+  Links: mu = identity; sigma = identity 
+Formula: y1 | cens(cen1) ~ 1 
+   Data: d (Number of observations: 500) 
+  Draws: 4 chains, each with iter = 2000; warmup = 1000; thin = 1;
+         total post-warmup draws = 4000
+
+Regression Coefficients:
+          Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
+Intercept    99.40      0.69    98.08   100.79 1.00     2653     2769
+
+Further Distributional Parameters:
+      Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
+sigma    14.30      0.60    13.18    15.55 1.00     2596     2355
+
+Draws were sampled using sampling(NUTS). For each parameter, Bulk_ESS
+and Tail_ESS are effective sample size measures, and Rhat is the potential
+scale reduction factor on split chains (at convergence, Rhat = 1).</code></pre>
+</div>
+</div>
+<p>To get a better sense of what these models are doing, we might do a posterior predictive check with <code>predict()</code>.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb40"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb40-1"><a href="#cb40-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Original</span></span>
+<span id="cb40-2"><a href="#cb40-2" aria-hidden="true" tabindex="-1"></a>p1 <span class="ot">&lt;-</span> d <span class="sc">|&gt;</span> </span>
+<span id="cb40-3"><a href="#cb40-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_longer</span>(<span class="at">cols =</span> <span class="fu">c</span>(y, y_na)) <span class="sc">|&gt;</span> </span>
+<span id="cb40-4"><a href="#cb40-4" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb40-5"><a href="#cb40-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> value)) <span class="sc">+</span></span>
+<span id="cb40-6"><a href="#cb40-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_histogram</span>(<span class="at">binwidth =</span> <span class="dv">2</span>, <span class="at">boundary =</span> <span class="dv">106</span>, <span class="at">color =</span> <span class="st">"white"</span>, </span>
+<span id="cb40-7"><a href="#cb40-7" aria-hidden="true" tabindex="-1"></a>                 <span class="at">fill =</span> <span class="st">"skyblue4"</span>, <span class="at">linewidth =</span> <span class="fl">0.25</span>) <span class="sc">+</span></span>
+<span id="cb40-8"><a href="#cb40-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_continuous</span>(<span class="at">breaks =</span> <span class="dv">3</span><span class="sc">:</span><span class="dv">5</span> <span class="sc">*</span> <span class="dv">25</span>) <span class="sc">+</span></span>
+<span id="cb40-9"><a href="#cb40-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_y_continuous</span>(<span class="cn">NULL</span>, <span class="at">breaks =</span> <span class="cn">NULL</span>) <span class="sc">+</span></span>
+<span id="cb40-10"><a href="#cb40-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="cn">NULL</span>,</span>
+<span id="cb40-11"><a href="#cb40-11" aria-hidden="true" tabindex="-1"></a>       <span class="at">subtitle =</span> <span class="st">"Data"</span>) <span class="sc">+</span></span>
+<span id="cb40-12"><a href="#cb40-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span> name, <span class="at">ncol =</span> <span class="dv">1</span>)</span>
+<span id="cb40-13"><a href="#cb40-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-14"><a href="#cb40-14" aria-hidden="true" tabindex="-1"></a><span class="co"># Posterior simulations</span></span>
+<span id="cb40-15"><a href="#cb40-15" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">25</span>)</span>
+<span id="cb40-16"><a href="#cb40-16" aria-hidden="true" tabindex="-1"></a>p2 <span class="ot">&lt;-</span> <span class="fu">predict</span>(fit25<span class="fl">.1</span>a,</span>
+<span id="cb40-17"><a href="#cb40-17" aria-hidden="true" tabindex="-1"></a>              <span class="at">summary =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb40-18"><a href="#cb40-18" aria-hidden="true" tabindex="-1"></a>              <span class="at">ndraws =</span> <span class="dv">4</span>) <span class="sc">|&gt;</span> </span>
+<span id="cb40-19"><a href="#cb40-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">data.frame</span>() <span class="sc">|&gt;</span> </span>
+<span id="cb40-20"><a href="#cb40-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">sim =</span> <span class="dv">1</span><span class="sc">:</span><span class="fu">n</span>()) <span class="sc">|&gt;</span> </span>
+<span id="cb40-21"><a href="#cb40-21" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_longer</span>(<span class="at">cols =</span> <span class="sc">-</span>sim) <span class="sc">|&gt;</span> </span>
+<span id="cb40-22"><a href="#cb40-22" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb40-23"><a href="#cb40-23" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> value)) <span class="sc">+</span></span>
+<span id="cb40-24"><a href="#cb40-24" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_histogram</span>(<span class="at">binwidth =</span> <span class="dv">2</span>, <span class="at">boundary =</span> <span class="dv">106</span>, <span class="at">color =</span> <span class="st">"white"</span>, </span>
+<span id="cb40-25"><a href="#cb40-25" aria-hidden="true" tabindex="-1"></a>                 <span class="at">fill =</span> <span class="st">"skyblue"</span>, <span class="at">linewidth =</span> <span class="fl">0.25</span>) <span class="sc">+</span></span>
+<span id="cb40-26"><a href="#cb40-26" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> t1, <span class="at">linetype =</span> <span class="dv">2</span>) <span class="sc">+</span></span>
+<span id="cb40-27"><a href="#cb40-27" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_continuous</span>(<span class="at">breaks =</span> <span class="dv">3</span><span class="sc">:</span><span class="dv">5</span> <span class="sc">*</span> <span class="dv">25</span>) <span class="sc">+</span></span>
+<span id="cb40-28"><a href="#cb40-28" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_y_continuous</span>(<span class="cn">NULL</span>, <span class="at">breaks =</span> <span class="cn">NULL</span>) <span class="sc">+</span></span>
+<span id="cb40-29"><a href="#cb40-29" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="cn">NULL</span>,</span>
+<span id="cb40-30"><a href="#cb40-30" aria-hidden="true" tabindex="-1"></a>       <span class="at">subtitle =</span> <span class="st">"Simulations"</span>) <span class="sc">+</span></span>
+<span id="cb40-31"><a href="#cb40-31" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_cartesian</span>(<span class="at">xlim =</span> <span class="fu">range</span>(d<span class="sc">$</span>y)) <span class="sc">+</span></span>
+<span id="cb40-32"><a href="#cb40-32" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span> sim, <span class="at">labeller =</span> label_both, <span class="at">ncol =</span> <span class="dv">2</span>)</span>
+<span id="cb40-33"><a href="#cb40-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-34"><a href="#cb40-34" aria-hidden="true" tabindex="-1"></a><span class="co"># Combine</span></span>
+<span id="cb40-35"><a href="#cb40-35" aria-hidden="true" tabindex="-1"></a>p1 <span class="sc">+</span> p2 <span class="sc">+</span> </span>
+<span id="cb40-36"><a href="#cb40-36" aria-hidden="true" tabindex="-1"></a>  <span class="fu">plot_layout</span>(<span class="at">widths =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>)) <span class="sc">+</span></span>
+<span id="cb40-37"><a href="#cb40-37" aria-hidden="true" tabindex="-1"></a>  <span class="fu">plot_annotation</span>(<span class="at">title =</span> <span class="st">"PP check for the naïve model, fit25.1a"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="25_files/figure-html/unnamed-chunk-25-1.png" class="img-fluid figure-img" width="576"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>On the left column, the have the original uncensored data <code>y</code> and the <code>y_na</code> data where the censored values were removed. The four lighter histograms on the right are individual simulations based on our naïve model, <code>fit25.1a</code>, which only used the <code>y_na</code> data. In all cases, the simulated data are biased to be too small compared with the original data, <code>y</code>. They also have the undesirable quality that they don’t even match up with the <code>y_na</code> data, which drops sharply off at the 106 threshold, whereas the simulated data all contain values exceeding that point (depicted by the dashed vertical lines). Now let’s see what happens when we execute a few posterior predictive checks with our first censored model, <code>fit25.2a</code>.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb41"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb41-1"><a href="#cb41-1" aria-hidden="true" tabindex="-1"></a>p1 <span class="ot">&lt;-</span> d <span class="sc">|&gt;</span> </span>
+<span id="cb41-2"><a href="#cb41-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_longer</span>(<span class="at">cols =</span> <span class="fu">c</span>(y, y1)) <span class="sc">|&gt;</span> </span>
+<span id="cb41-3"><a href="#cb41-3" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb41-4"><a href="#cb41-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> value)) <span class="sc">+</span></span>
+<span id="cb41-5"><a href="#cb41-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_histogram</span>(<span class="at">binwidth =</span> <span class="dv">2</span>, <span class="at">boundary =</span> <span class="dv">106</span>, <span class="at">color =</span> <span class="st">"white"</span>, </span>
+<span id="cb41-6"><a href="#cb41-6" aria-hidden="true" tabindex="-1"></a>                 <span class="at">fill =</span> <span class="st">"skyblue4"</span>, <span class="at">linewidth =</span> <span class="fl">0.25</span>) <span class="sc">+</span></span>
+<span id="cb41-7"><a href="#cb41-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_continuous</span>(<span class="at">breaks =</span> <span class="dv">3</span><span class="sc">:</span><span class="dv">5</span> <span class="sc">*</span> <span class="dv">25</span>) <span class="sc">+</span></span>
+<span id="cb41-8"><a href="#cb41-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_y_continuous</span>(<span class="cn">NULL</span>, <span class="at">breaks =</span> <span class="cn">NULL</span>) <span class="sc">+</span></span>
+<span id="cb41-9"><a href="#cb41-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="cn">NULL</span>,</span>
+<span id="cb41-10"><a href="#cb41-10" aria-hidden="true" tabindex="-1"></a>       <span class="at">subtitle =</span> <span class="st">"Data"</span>) <span class="sc">+</span></span>
+<span id="cb41-11"><a href="#cb41-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span> name, <span class="at">scales =</span> <span class="st">"free_y"</span>, <span class="at">ncol =</span> <span class="dv">1</span>)</span>
+<span id="cb41-12"><a href="#cb41-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb41-13"><a href="#cb41-13" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">25</span>)</span>
+<span id="cb41-14"><a href="#cb41-14" aria-hidden="true" tabindex="-1"></a>p2 <span class="ot">&lt;-</span> <span class="fu">predict</span>(fit25<span class="fl">.2</span>a,</span>
+<span id="cb41-15"><a href="#cb41-15" aria-hidden="true" tabindex="-1"></a>              <span class="at">summary =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb41-16"><a href="#cb41-16" aria-hidden="true" tabindex="-1"></a>              <span class="at">ndraws =</span> <span class="dv">4</span>) <span class="sc">|&gt;</span> </span>
+<span id="cb41-17"><a href="#cb41-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">data.frame</span>() <span class="sc">|&gt;</span> </span>
+<span id="cb41-18"><a href="#cb41-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">sim =</span> <span class="dv">1</span><span class="sc">:</span><span class="fu">n</span>()) <span class="sc">|&gt;</span> </span>
+<span id="cb41-19"><a href="#cb41-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_longer</span>(<span class="at">cols =</span> <span class="sc">-</span>sim)  <span class="sc">|&gt;</span> </span>
+<span id="cb41-20"><a href="#cb41-20" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb41-21"><a href="#cb41-21" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> value)) <span class="sc">+</span></span>
+<span id="cb41-22"><a href="#cb41-22" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_histogram</span>(<span class="at">binwidth =</span> <span class="dv">2</span>, <span class="at">boundary =</span> <span class="dv">106</span>, <span class="at">color =</span> <span class="st">"white"</span>, </span>
+<span id="cb41-23"><a href="#cb41-23" aria-hidden="true" tabindex="-1"></a>                 <span class="at">fill =</span> <span class="st">"skyblue"</span>, <span class="at">linewidth =</span> <span class="fl">0.25</span>) <span class="sc">+</span></span>
+<span id="cb41-24"><a href="#cb41-24" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_continuous</span>(<span class="at">breaks =</span> <span class="dv">3</span><span class="sc">:</span><span class="dv">5</span> <span class="sc">*</span> <span class="dv">25</span>) <span class="sc">+</span></span>
+<span id="cb41-25"><a href="#cb41-25" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_y_continuous</span>(<span class="cn">NULL</span>, <span class="at">breaks =</span> <span class="cn">NULL</span>) <span class="sc">+</span></span>
+<span id="cb41-26"><a href="#cb41-26" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="cn">NULL</span>,</span>
+<span id="cb41-27"><a href="#cb41-27" aria-hidden="true" tabindex="-1"></a>       <span class="at">subtitle =</span> <span class="st">"Simulations"</span>) <span class="sc">+</span></span>
+<span id="cb41-28"><a href="#cb41-28" aria-hidden="true" tabindex="-1"></a>  <span class="fu">coord_cartesian</span>(<span class="at">xlim =</span> <span class="fu">range</span>(d<span class="sc">$</span>y)) <span class="sc">+</span></span>
+<span id="cb41-29"><a href="#cb41-29" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span> sim, <span class="at">labeller =</span> label_both, <span class="at">ncol =</span> <span class="dv">2</span>)</span>
+<span id="cb41-30"><a href="#cb41-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb41-31"><a href="#cb41-31" aria-hidden="true" tabindex="-1"></a><span class="co"># Combine</span></span>
+<span id="cb41-32"><a href="#cb41-32" aria-hidden="true" tabindex="-1"></a>p1 <span class="sc">+</span> p2 <span class="sc">+</span> </span>
+<span id="cb41-33"><a href="#cb41-33" aria-hidden="true" tabindex="-1"></a>  <span class="fu">plot_layout</span>(<span class="at">widths =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>)) <span class="sc">+</span></span>
+<span id="cb41-34"><a href="#cb41-34" aria-hidden="true" tabindex="-1"></a>  <span class="fu">plot_annotation</span>(<span class="at">title =</span> <span class="st">"PP check for the censored model, fit25.2a"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="25_files/figure-html/unnamed-chunk-26-1.png" class="img-fluid figure-img" width="576"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>Now the posterior predictive draws match up nicely from the original uncensored data <code>y</code> in terms of central tendency, dispersion, and their overall shapes. This is the magic of a model that accounts for right (or left) censoring. It can take all those stacked-up 106 values and approximate the underlying distribution, had they been more accurately recorded.</p>
+</section>
+<section id="interval-censoring-when-your-values-are-somewhere-in-the-middle." class="level3" data-number="25.4.2">
+<h3 data-number="25.4.2" class="anchored" data-anchor-id="interval-censoring-when-your-values-are-somewhere-in-the-middle."><span class="header-section-number">25.4.2</span> Interval censoring: When your values are somewhere in the middle.</h3>
+<p>Time to move onto interval censoring. Kruschke’s example in the text included values censored in the interval between 94 and 100. This will require two more thresholds, which we’ll call <code>t2</code> and <code>t3</code>.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb42"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb42-1"><a href="#cb42-1" aria-hidden="true" tabindex="-1"></a>t2 <span class="ot">&lt;-</span> <span class="dv">94</span></span>
+<span id="cb42-2"><a href="#cb42-2" aria-hidden="true" tabindex="-1"></a>t3 <span class="ot">&lt;-</span> <span class="dv">100</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>We should revisit part of the block quote from the <strong>brms</strong> reference manual, above:</p>
+<blockquote class="blockquote">
+<p>For interval censored data, a second variable (let’s call it <code>y2</code>) has to be passed to <code>cens</code>. In this case, the formula has the structure <code>y | cens(censored,y2) ~ predictors</code>. While the lower bounds are given in <code>y</code>, the upper bounds are given in <code>y2</code> for interval censored data. Intervals are assumed to be open on the left and closed on the right: <code>(y,y2]</code></p>
+</blockquote>
+<p>It’s a little unclear, to me, if this is how Kruschke defined his intervals, but since we’re working with <strong>brms</strong> we’ll just use this convention. Thus, we will define “values in the interval between 94 and 100” as <code>y &gt;= t2 &amp; y &lt; t3</code>. Here we’ll follow the <strong>brms</strong> convention and define a new variable <code>y2</code> for our lower bound and <code>y3</code> for our upper bound. Additionally, the new <code>cen2</code> variable will tell us whether a case is interval censored (<code>"interval"</code>) or not (<code>"none"</code>). We have also redefined <code>y_na</code> in terms of our <code>cen2</code> variable.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb43"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb43-1"><a href="#cb43-1" aria-hidden="true" tabindex="-1"></a>d <span class="ot">&lt;-</span> d <span class="sc">|&gt;</span> </span>
+<span id="cb43-2"><a href="#cb43-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">y2   =</span> <span class="fu">if_else</span>(y <span class="sc">&gt;=</span> t2 <span class="sc">&amp;</span> y <span class="sc">&lt;</span> t3, t2, y),</span>
+<span id="cb43-3"><a href="#cb43-3" aria-hidden="true" tabindex="-1"></a>         <span class="at">y3   =</span> <span class="fu">if_else</span>(y <span class="sc">&gt;=</span> t2 <span class="sc">&amp;</span> y <span class="sc">&lt;</span> t3, t3, y),</span>
+<span id="cb43-4"><a href="#cb43-4" aria-hidden="true" tabindex="-1"></a>         <span class="at">cen2 =</span> <span class="fu">if_else</span>(y <span class="sc">&gt;=</span> t2 <span class="sc">&amp;</span> y <span class="sc">&lt;</span> t3, <span class="st">"interval"</span>, <span class="st">"none"</span>)) <span class="sc">|&gt;</span> </span>
+<span id="cb43-5"><a href="#cb43-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">y_na =</span> <span class="fu">ifelse</span>(cen2 <span class="sc">==</span> <span class="st">"none"</span>, y, <span class="cn">NA</span>))</span>
+<span id="cb43-6"><a href="#cb43-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb43-7"><a href="#cb43-7" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(d, <span class="at">n =</span> <span class="dv">10</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 10 × 7
+       y    y1 cen1   y_na    y2    y3 cen2    
+   &lt;dbl&gt; &lt;dbl&gt; &lt;chr&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;chr&gt;   
+ 1  96.8  96.8 none   NA    94   100   interval
+ 2  84.4  84.4 none   84.4  84.4  84.4 none    
+ 3  82.7  82.7 none   82.7  82.7  82.7 none    
+ 4 105.  105.  none  105.  105.  105.  none    
+ 5  77.5  77.5 none   77.5  77.5  77.5 none    
+ 6  93.3  93.3 none   93.3  93.3  93.3 none    
+ 7 126.  106   right 126.  126.  126.  none    
+ 8 108.  106   right 108.  108.  108.  none    
+ 9 101.  101.  none  101.  101.  101.  none    
+10  99.1  99.1 none   NA    94   100   interval</code></pre>
+</div>
+</div>
+<p>Now let’s get a better sense of the new data with a few histograms.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb45"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb45-1"><a href="#cb45-1" aria-hidden="true" tabindex="-1"></a>d <span class="sc">|&gt;</span> </span>
+<span id="cb45-2"><a href="#cb45-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_longer</span>(<span class="at">cols =</span> <span class="fu">c</span>(y, y2, y3, y_na)) <span class="sc">|&gt;</span> </span>
+<span id="cb45-3"><a href="#cb45-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">name =</span> <span class="fu">factor</span>(name, <span class="at">levels =</span> <span class="fu">c</span>(<span class="st">"y"</span>, <span class="st">"y2"</span>, <span class="st">"y3"</span>, <span class="st">"y_na"</span>))) <span class="sc">|&gt;</span> </span>
+<span id="cb45-4"><a href="#cb45-4" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb45-5"><a href="#cb45-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> value)) <span class="sc">+</span></span>
+<span id="cb45-6"><a href="#cb45-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_histogram</span>(<span class="at">binwidth =</span> <span class="dv">2</span>, <span class="at">boundary =</span> <span class="dv">106</span>, <span class="at">color =</span> <span class="st">"white"</span>, </span>
+<span id="cb45-7"><a href="#cb45-7" aria-hidden="true" tabindex="-1"></a>                 <span class="at">fill =</span> <span class="st">"skyblue4"</span>, <span class="at">linewidth =</span> <span class="fl">0.25</span>) <span class="sc">+</span></span>
+<span id="cb45-8"><a href="#cb45-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="cn">NULL</span>,</span>
+<span id="cb45-9"><a href="#cb45-9" aria-hidden="true" tabindex="-1"></a>       <span class="at">subtitle =</span> <span class="st">"Our data have been updated"</span>) <span class="sc">+</span></span>
+<span id="cb45-10"><a href="#cb45-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_y_continuous</span>(<span class="cn">NULL</span>, <span class="at">breaks =</span> <span class="cn">NULL</span>) <span class="sc">+</span></span>
+<span id="cb45-11"><a href="#cb45-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span> name, <span class="at">ncol =</span> <span class="dv">2</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="25_files/figure-html/unnamed-chunk-29-1.png" class="img-fluid figure-img" width="408"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>Now we fit two models. The first, <code>fit25.1b</code>, will only used the values not interval censored, <code>y_na</code>. The second model, <code>fit25.2b</code>, will use the <code>cens()</code> function to fit account for the interval censored data with the <code>y2</code>, <code>y3</code>, and <code>cen2</code> columns. As before, we’ll want to use <code>inits</code> to help the censored model run smoothly.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb46"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb46-1"><a href="#cb46-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Naïve</span></span>
+<span id="cb46-2"><a href="#cb46-2" aria-hidden="true" tabindex="-1"></a>fit25<span class="fl">.1</span>b <span class="ot">&lt;-</span> <span class="fu">brm</span>(</span>
+<span id="cb46-3"><a href="#cb46-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">data =</span> d,</span>
+<span id="cb46-4"><a href="#cb46-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">family =</span> gaussian,</span>
+<span id="cb46-5"><a href="#cb46-5" aria-hidden="true" tabindex="-1"></a>  y_na <span class="sc">~</span> <span class="dv">1</span>,</span>
+<span id="cb46-6"><a href="#cb46-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">prior =</span> <span class="fu">c</span>(<span class="fu">prior</span>(<span class="fu">normal</span>(mean_y, sd_y <span class="sc">*</span> <span class="dv">100</span>), <span class="at">class =</span> Intercept),</span>
+<span id="cb46-7"><a href="#cb46-7" aria-hidden="true" tabindex="-1"></a>            <span class="fu">prior</span>(<span class="fu">normal</span>(<span class="dv">0</span>, sd_y), <span class="at">class =</span> sigma)),</span>
+<span id="cb46-8"><a href="#cb46-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">chains =</span> <span class="dv">4</span>, <span class="at">cores =</span> <span class="dv">4</span>,</span>
+<span id="cb46-9"><a href="#cb46-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">stanvars =</span> stanvars, </span>
+<span id="cb46-10"><a href="#cb46-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">file =</span> <span class="st">"fits/fit25.01b"</span>)</span>
+<span id="cb46-11"><a href="#cb46-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb46-12"><a href="#cb46-12" aria-hidden="true" tabindex="-1"></a><span class="co"># Censored</span></span>
+<span id="cb46-13"><a href="#cb46-13" aria-hidden="true" tabindex="-1"></a>fit25<span class="fl">.2</span>b <span class="ot">&lt;-</span> <span class="fu">brm</span>(</span>
+<span id="cb46-14"><a href="#cb46-14" aria-hidden="true" tabindex="-1"></a>  <span class="at">data =</span> d,</span>
+<span id="cb46-15"><a href="#cb46-15" aria-hidden="true" tabindex="-1"></a>  <span class="at">family =</span> gaussian,</span>
+<span id="cb46-16"><a href="#cb46-16" aria-hidden="true" tabindex="-1"></a>  y2 <span class="sc">|</span> <span class="fu">cens</span>(cen2, y3) <span class="sc">~</span> <span class="dv">1</span>,</span>
+<span id="cb46-17"><a href="#cb46-17" aria-hidden="true" tabindex="-1"></a>  <span class="at">prior =</span> <span class="fu">c</span>(<span class="fu">prior</span>(<span class="fu">normal</span>(mean_y, sd_y <span class="sc">*</span> <span class="dv">100</span>), <span class="at">class =</span> Intercept),</span>
+<span id="cb46-18"><a href="#cb46-18" aria-hidden="true" tabindex="-1"></a>            <span class="fu">prior</span>(<span class="fu">normal</span>(<span class="dv">0</span>, sd_y), <span class="at">class =</span> sigma)),</span>
+<span id="cb46-19"><a href="#cb46-19" aria-hidden="true" tabindex="-1"></a>  <span class="at">chains =</span> <span class="dv">4</span>, <span class="at">cores =</span> <span class="dv">4</span>,</span>
+<span id="cb46-20"><a href="#cb46-20" aria-hidden="true" tabindex="-1"></a>  <span class="at">stanvars =</span> stanvars, </span>
+<span id="cb46-21"><a href="#cb46-21" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Here we insert our start values for the intercept</span></span>
+<span id="cb46-22"><a href="#cb46-22" aria-hidden="true" tabindex="-1"></a>  <span class="at">inits =</span> inits_list, </span>
+<span id="cb46-23"><a href="#cb46-23" aria-hidden="true" tabindex="-1"></a>  <span class="at">file =</span> <span class="st">"fits/fit25.02b"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Review the model summaries.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb47"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb47-1"><a href="#cb47-1" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(fit25<span class="fl">.1</span>b)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code> Family: gaussian 
+  Links: mu = identity; sigma = identity 
+Formula: y_na ~ 1 
+   Data: d (Number of observations: 424) 
+  Draws: 4 chains, each with iter = 2000; warmup = 1000; thin = 1;
+         total post-warmup draws = 4000
+
+Regression Coefficients:
+          Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
+Intercept   100.23      0.78    98.63   101.74 1.00     3625     2428
+
+Further Distributional Parameters:
+      Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
+sigma    15.78      0.53    14.79    16.87 1.00     3565     2805
+
+Draws were sampled using sampling(NUTS). For each parameter, Bulk_ESS
+and Tail_ESS are effective sample size measures, and Rhat is the potential
+scale reduction factor on split chains (at convergence, Rhat = 1).</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb49"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb49-1"><a href="#cb49-1" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(fit25<span class="fl">.2</span>b)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code> Family: gaussian 
+  Links: mu = identity; sigma = identity 
+Formula: y2 | cens(cen2, y3) ~ 1 
+   Data: d (Number of observations: 500) 
+  Draws: 4 chains, each with iter = 2000; warmup = 1000; thin = 1;
+         total post-warmup draws = 4000
+
+Regression Coefficients:
+          Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
+Intercept    99.77      0.65    98.53   101.06 1.00     3345     2254
+
+Further Distributional Parameters:
+      Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
+sigma    14.59      0.46    13.73    15.54 1.00     3230     2336
+
+Draws were sampled using sampling(NUTS). For each parameter, Bulk_ESS
+and Tail_ESS are effective sample size measures, and Rhat is the potential
+scale reduction factor on split chains (at convergence, Rhat = 1).</code></pre>
+</div>
+</div>
+<p>In this case, both models did a reasonable job approximating the original data-generating parameters, <span class="math inline">\(\operatorname{Normal}(100, 15)\)</span>. However, the naïve model <code>fit25.1b</code> did so at a considerable loss of precision, as indicated by the posterior standard deviations. To give a better sense, here are the model parameters in an interval plot.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb51"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb51-1"><a href="#cb51-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bind_rows</span>(<span class="fu">as_draws_df</span>(fit25<span class="fl">.1</span>b),</span>
+<span id="cb51-2"><a href="#cb51-2" aria-hidden="true" tabindex="-1"></a>          <span class="fu">as_draws_df</span>(fit25<span class="fl">.2</span>b)) <span class="sc">|&gt;</span> </span>
+<span id="cb51-3"><a href="#cb51-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">fit =</span> <span class="fu">rep</span>(<span class="fu">c</span>(<span class="st">"fit25.1b"</span>, <span class="st">"fit25.2b"</span>), <span class="at">each =</span> <span class="fu">n</span>() <span class="sc">/</span> <span class="dv">2</span>)) <span class="sc">|&gt;</span> </span>
+<span id="cb51-4"><a href="#cb51-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_longer</span>(<span class="at">cols =</span> b_Intercept<span class="sc">:</span>sigma) <span class="sc">|&gt;</span> </span>
+<span id="cb51-5"><a href="#cb51-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">parameter =</span> <span class="fu">if_else</span>(name <span class="sc">==</span> <span class="st">"b_Intercept"</span>, <span class="st">"mu"</span>, <span class="st">"sigma"</span>)) <span class="sc">|&gt;</span> </span>
+<span id="cb51-6"><a href="#cb51-6" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb51-7"><a href="#cb51-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> value, <span class="at">y =</span> fit)) <span class="sc">+</span></span>
+<span id="cb51-8"><a href="#cb51-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">stat_interval</span>(<span class="at">.width =</span> <span class="fu">c</span>(<span class="fl">0.5</span>, <span class="fl">0.95</span>)) <span class="sc">+</span></span>
+<span id="cb51-9"><a href="#cb51-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_manual</span>(<span class="st">"ETI"</span>, </span>
+<span id="cb51-10"><a href="#cb51-10" aria-hidden="true" tabindex="-1"></a>                     <span class="at">values =</span> <span class="fu">c</span>(<span class="st">"skyblue2"</span>, <span class="st">"skyblue4"</span>),</span>
+<span id="cb51-11"><a href="#cb51-11" aria-hidden="true" tabindex="-1"></a>                     <span class="at">labels =</span> <span class="fu">c</span>(<span class="st">"95%"</span>, <span class="st">"50%"</span>)) <span class="sc">+</span></span>
+<span id="cb51-12"><a href="#cb51-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="st">"marginal posterior"</span>,</span>
+<span id="cb51-13"><a href="#cb51-13" aria-hidden="true" tabindex="-1"></a>       <span class="at">y =</span> <span class="cn">NULL</span>) <span class="sc">+</span></span>
+<span id="cb51-14"><a href="#cb51-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">axis.ticks.y =</span> <span class="fu">element_blank</span>()) <span class="sc">+</span></span>
+<span id="cb51-15"><a href="#cb51-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span> parameter, <span class="at">labeller =</span> label_parsed, <span class="at">scales =</span> <span class="st">"free_x"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="25_files/figure-html/unnamed-chunk-31-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>One could also argue the parameters for the censored model <code>fit25.2b</code> were a little less biased. However, I’d be leery of making that as a general claim based on this example, alone.</p>
+</section>
+<section id="complex-censoring-when-the-going-gets-tough" class="level3" data-number="25.4.3">
+<h3 data-number="25.4.3" class="anchored" data-anchor-id="complex-censoring-when-the-going-gets-tough"><span class="header-section-number">25.4.3</span> Complex censoring: When the going gets tough…</h3>
+<p>Okay, let’s put what we’ve learned together and practice with data that are both right AND interval censored. This is going to require some tricky coding on our part. Since interval censoring is in play, we’ll need two <code>y</code> variables, again. When the data are indeed interval censored, their lower and upper bounds will be depicted by <code>y4</code> and <code>y5</code>, respectively. When the data are right censored, <code>y4</code> will contain the threshold 106 and <code>y5</code> will contain the original value from <code>y</code>. All this tricky information will be indexed in our nominal variable <code>cen3</code>. Once again, we update our <code>y_na</code> variable, too.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb52"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb52-1"><a href="#cb52-1" aria-hidden="true" tabindex="-1"></a>d <span class="ot">&lt;-</span> d <span class="sc">|&gt;</span> </span>
+<span id="cb52-2"><a href="#cb52-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">y4   =</span> <span class="fu">if_else</span>(y <span class="sc">&gt;=</span> t2 <span class="sc">&amp;</span> y <span class="sc">&lt;</span> t3, t2, </span>
+<span id="cb52-3"><a href="#cb52-3" aria-hidden="true" tabindex="-1"></a>                        <span class="fu">if_else</span>(y <span class="sc">&gt;</span> t1, t1, y)),</span>
+<span id="cb52-4"><a href="#cb52-4" aria-hidden="true" tabindex="-1"></a>         <span class="at">y5   =</span> <span class="fu">if_else</span>(y <span class="sc">&gt;=</span> t2 <span class="sc">&amp;</span> y <span class="sc">&lt;</span> t3, t3, y),</span>
+<span id="cb52-5"><a href="#cb52-5" aria-hidden="true" tabindex="-1"></a>         <span class="at">cen3 =</span> <span class="fu">if_else</span>(y <span class="sc">&gt;=</span> t2 <span class="sc">&amp;</span> y <span class="sc">&lt;</span> t3, <span class="st">"interval"</span>,</span>
+<span id="cb52-6"><a href="#cb52-6" aria-hidden="true" tabindex="-1"></a>                       <span class="fu">if_else</span>(y <span class="sc">&gt;</span> t1, <span class="st">"right"</span>, <span class="st">"none"</span>))) <span class="sc">|&gt;</span> </span>
+<span id="cb52-7"><a href="#cb52-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">y_na =</span> <span class="fu">ifelse</span>(cen3 <span class="sc">==</span> <span class="st">"none"</span>, y, <span class="cn">NA</span>))</span>
+<span id="cb52-8"><a href="#cb52-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb52-9"><a href="#cb52-9" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(d, <span class="at">n =</span> <span class="dv">10</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 10 × 10
+       y    y1 cen1   y_na    y2    y3 cen2        y4    y5 cen3    
+   &lt;dbl&gt; &lt;dbl&gt; &lt;chr&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;chr&gt;    &lt;dbl&gt; &lt;dbl&gt; &lt;chr&gt;   
+ 1  96.8  96.8 none   NA    94   100   interval  94   100   interval
+ 2  84.4  84.4 none   84.4  84.4  84.4 none      84.4  84.4 none    
+ 3  82.7  82.7 none   82.7  82.7  82.7 none      82.7  82.7 none    
+ 4 105.  105.  none  105.  105.  105.  none     105.  105.  none    
+ 5  77.5  77.5 none   77.5  77.5  77.5 none      77.5  77.5 none    
+ 6  93.3  93.3 none   93.3  93.3  93.3 none      93.3  93.3 none    
+ 7 126.  106   right  NA   126.  126.  none     106   126.  right   
+ 8 108.  106   right  NA   108.  108.  none     106   108.  right   
+ 9 101.  101.  none  101.  101.  101.  none     101.  101.  none    
+10  99.1  99.1 none   NA    94   100   interval  94   100   interval</code></pre>
+</div>
+</div>
+<p>Explore the new data with histograms.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb54"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb54-1"><a href="#cb54-1" aria-hidden="true" tabindex="-1"></a>d <span class="sc">|&gt;</span> </span>
+<span id="cb54-2"><a href="#cb54-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_longer</span>(<span class="at">cols =</span> <span class="fu">c</span>(y, y4, y5, y_na)) <span class="sc">|&gt;</span> </span>
+<span id="cb54-3"><a href="#cb54-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">name =</span> <span class="fu">factor</span>(name, <span class="at">levels =</span> <span class="fu">c</span>(<span class="st">"y"</span>, <span class="st">"y4"</span>, <span class="st">"y5"</span>, <span class="st">"y_na"</span>))) <span class="sc">|&gt;</span> </span>
+<span id="cb54-4"><a href="#cb54-4" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb54-5"><a href="#cb54-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> value)) <span class="sc">+</span></span>
+<span id="cb54-6"><a href="#cb54-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_histogram</span>(<span class="at">binwidth =</span> <span class="dv">2</span>, <span class="at">boundary =</span> <span class="dv">106</span>, <span class="at">color =</span> <span class="st">"white"</span>, </span>
+<span id="cb54-7"><a href="#cb54-7" aria-hidden="true" tabindex="-1"></a>                 <span class="at">fill =</span> <span class="st">"skyblue4"</span>, <span class="at">linewidth =</span> <span class="fl">0.25</span>) <span class="sc">+</span></span>
+<span id="cb54-8"><a href="#cb54-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">x =</span> <span class="cn">NULL</span>,</span>
+<span id="cb54-9"><a href="#cb54-9" aria-hidden="true" tabindex="-1"></a>       <span class="at">subtitle =</span> <span class="st">"Our data have been updated, again"</span>) <span class="sc">+</span></span>
+<span id="cb54-10"><a href="#cb54-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_y_continuous</span>(<span class="cn">NULL</span>, <span class="at">breaks =</span> <span class="cn">NULL</span>) <span class="sc">+</span></span>
+<span id="cb54-11"><a href="#cb54-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span> name, <span class="at">ncol =</span> <span class="dv">2</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="25_files/figure-html/unnamed-chunk-33-1.png" class="img-fluid figure-img" width="408"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>In the text, Kruschke reported he had 255 uncensored values (p.&nbsp;732). Here’s the breakdown of our data.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb55"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb55-1"><a href="#cb55-1" aria-hidden="true" tabindex="-1"></a>d <span class="sc">|&gt;</span> </span>
+<span id="cb55-2"><a href="#cb55-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">count</span>(cen3)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 3 × 2
+  cen3         n
+  &lt;chr&gt;    &lt;int&gt;
+1 interval    76
+2 none       257
+3 right      167</code></pre>
+</div>
+</div>
+<p>We got really close! Now we fit our two models: <code>fit25.1c</code>, which ignores the censoring problem and just drops those cases, and <code>fit25.2c</code>, which makes slick use of the <code>cens()</code> function.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb57"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb57-1"><a href="#cb57-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Naïve</span></span>
+<span id="cb57-2"><a href="#cb57-2" aria-hidden="true" tabindex="-1"></a>fit25<span class="fl">.1</span>c <span class="ot">&lt;-</span> <span class="fu">brm</span>(</span>
+<span id="cb57-3"><a href="#cb57-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">data =</span> d,</span>
+<span id="cb57-4"><a href="#cb57-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">family =</span> gaussian,</span>
+<span id="cb57-5"><a href="#cb57-5" aria-hidden="true" tabindex="-1"></a>  y_na <span class="sc">~</span> <span class="dv">1</span>,</span>
+<span id="cb57-6"><a href="#cb57-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">prior =</span> <span class="fu">c</span>(<span class="fu">prior</span>(<span class="fu">normal</span>(mean_y, sd_y <span class="sc">*</span> <span class="dv">100</span>), <span class="at">class =</span> Intercept),</span>
+<span id="cb57-7"><a href="#cb57-7" aria-hidden="true" tabindex="-1"></a>            <span class="fu">prior</span>(<span class="fu">normal</span>(<span class="dv">0</span>, sd_y), <span class="at">class =</span> sigma)),</span>
+<span id="cb57-8"><a href="#cb57-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">chains =</span> <span class="dv">4</span>, <span class="at">cores =</span> <span class="dv">4</span>,</span>
+<span id="cb57-9"><a href="#cb57-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">stanvars =</span> stanvars, </span>
+<span id="cb57-10"><a href="#cb57-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">file =</span> <span class="st">"fits/fit25.01c"</span>)</span>
+<span id="cb57-11"><a href="#cb57-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb57-12"><a href="#cb57-12" aria-hidden="true" tabindex="-1"></a><span class="co"># Censored</span></span>
+<span id="cb57-13"><a href="#cb57-13" aria-hidden="true" tabindex="-1"></a>fit25<span class="fl">.2</span>c <span class="ot">&lt;-</span> <span class="fu">brm</span>(</span>
+<span id="cb57-14"><a href="#cb57-14" aria-hidden="true" tabindex="-1"></a>  <span class="at">data =</span> d,</span>
+<span id="cb57-15"><a href="#cb57-15" aria-hidden="true" tabindex="-1"></a>  <span class="at">family =</span> gaussian,</span>
+<span id="cb57-16"><a href="#cb57-16" aria-hidden="true" tabindex="-1"></a>  y4 <span class="sc">|</span> <span class="fu">cens</span>(cen3, y5) <span class="sc">~</span> <span class="dv">1</span>,</span>
+<span id="cb57-17"><a href="#cb57-17" aria-hidden="true" tabindex="-1"></a>  <span class="at">prior =</span> <span class="fu">c</span>(<span class="fu">prior</span>(<span class="fu">normal</span>(mean_y, sd_y <span class="sc">*</span> <span class="dv">100</span>), <span class="at">class =</span> Intercept),</span>
+<span id="cb57-18"><a href="#cb57-18" aria-hidden="true" tabindex="-1"></a>            <span class="fu">prior</span>(<span class="fu">normal</span>(<span class="dv">0</span>, sd_y), <span class="at">class =</span> sigma)),</span>
+<span id="cb57-19"><a href="#cb57-19" aria-hidden="true" tabindex="-1"></a>  <span class="at">chains =</span> <span class="dv">4</span>, <span class="at">cores =</span> <span class="dv">4</span>,</span>
+<span id="cb57-20"><a href="#cb57-20" aria-hidden="true" tabindex="-1"></a>  <span class="at">stanvars =</span> stanvars, </span>
+<span id="cb57-21"><a href="#cb57-21" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Here we insert our start values for the intercept</span></span>
+<span id="cb57-22"><a href="#cb57-22" aria-hidden="true" tabindex="-1"></a>  <span class="at">inits =</span> inits_list, </span>
+<span id="cb57-23"><a href="#cb57-23" aria-hidden="true" tabindex="-1"></a>  <span class="at">file =</span> <span class="st">"fits/fit25.02c"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Compare the model summaries.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb58"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb58-1"><a href="#cb58-1" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(fit25<span class="fl">.1</span>c)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code> Family: gaussian 
+  Links: mu = identity; sigma = identity 
+Formula: y_na ~ 1 
+   Data: d (Number of observations: 257) 
+  Draws: 4 chains, each with iter = 2000; warmup = 1000; thin = 1;
+         total post-warmup draws = 4000
+
+Regression Coefficients:
+          Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
+Intercept    89.88      0.63    88.67    91.14 1.00     3583     2675
+
+Further Distributional Parameters:
+      Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
+sigma    10.12      0.45     9.28    11.06 1.00     3009     2709
+
+Draws were sampled using sampling(NUTS). For each parameter, Bulk_ESS
+and Tail_ESS are effective sample size measures, and Rhat is the potential
+scale reduction factor on split chains (at convergence, Rhat = 1).</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb60"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb60-1"><a href="#cb60-1" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(fit25<span class="fl">.2</span>c)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code> Family: gaussian 
+  Links: mu = identity; sigma = identity 
+Formula: y4 | cens(cen3, y5) ~ 1 
+   Data: d (Number of observations: 500) 
+  Draws: 4 chains, each with iter = 2000; warmup = 1000; thin = 1;
+         total post-warmup draws = 4000
+
+Regression Coefficients:
+          Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
+Intercept    99.47      0.69    98.14   100.89 1.00     2654     2645
+
+Further Distributional Parameters:
+      Estimate Est.Error l-95% CI u-95% CI Rhat Bulk_ESS Tail_ESS
+sigma    14.30      0.63    13.12    15.64 1.00     2843     2112
+
+Draws were sampled using sampling(NUTS). For each parameter, Bulk_ESS
+and Tail_ESS are effective sample size measures, and Rhat is the potential
+scale reduction factor on split chains (at convergence, Rhat = 1).</code></pre>
+</div>
+</div>
+<p>The results for the naïve model are a mess and those from the censored model look great! Also note how the latter used all avaliable cases, whereas the former dropped nearly half of them.</p>
+<p>Before we can make our version of Figure 25.4, we’ll need to extract the posterior draws. We’ll start with <code>fit25.1c</code>.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb62"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb62-1"><a href="#cb62-1" aria-hidden="true" tabindex="-1"></a>draws <span class="ot">&lt;-</span> <span class="fu">as_draws_df</span>(fit25<span class="fl">.1</span>c) <span class="sc">|&gt;</span> </span>
+<span id="cb62-2"><a href="#cb62-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">mu =</span> b_Intercept,</span>
+<span id="cb62-3"><a href="#cb62-3" aria-hidden="true" tabindex="-1"></a>         <span class="st">`</span><span class="at">(mu-100)/sigma</span><span class="st">`</span> <span class="ot">=</span> (b_Intercept <span class="sc">-</span> <span class="dv">100</span>) <span class="sc">/</span> sigma)</span>
+<span id="cb62-4"><a href="#cb62-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb62-5"><a href="#cb62-5" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(draws)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A draws_df: 6 iterations, 1 chains, and 7 variables
+  b_Intercept sigma Intercept lprior lp__ mu (mu-100)/sigma
+1          90   9.7        90    -11 -967 90          -1.00
+2          90  10.5        90    -11 -968 90          -0.99
+3          90   9.8        90    -11 -967 90          -1.00
+4          90   9.4        90    -11 -968 90          -1.06
+5          91  10.9        91    -11 -969 91          -0.87
+6          90  10.6        90    -11 -968 90          -0.91
+# ... hidden reserved variables {'.chain', '.iteration', '.draw'}</code></pre>
+</div>
+</div>
+<p>These subplots look a lot like those from back in <a href="16.html#sec-Outliers-and-robust-estimation-The-t-distribution" class="quarto-xref"><span>Section 16.2</span></a>. Since this is the last plot from the book, it seems like we should go all out. To reduce some of the code redundancy with the six subplots of the marginal posteriors, we’ll make a custom geom, <code>geom_hist()</code>.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb64"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb64-1"><a href="#cb64-1" aria-hidden="true" tabindex="-1"></a>geom_hist <span class="ot">&lt;-</span> <span class="cf">function</span>(<span class="at">xintercept =</span> xintercept, <span class="at">binwidth =</span> binwidth, ...) {</span>
+<span id="cb64-2"><a href="#cb64-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(</span>
+<span id="cb64-3"><a href="#cb64-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_histogram</span>(<span class="at">binwidth =</span> binwidth, <span class="at">boundary =</span> <span class="dv">106</span>, <span class="at">color =</span> <span class="st">"white"</span>,</span>
+<span id="cb64-4"><a href="#cb64-4" aria-hidden="true" tabindex="-1"></a>                   <span class="at">fill =</span> <span class="st">"skyblue"</span>, <span class="at">linewidth =</span> <span class="fl">0.2</span>, ...),</span>
+<span id="cb64-5"><a href="#cb64-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> xintercept, <span class="at">color =</span> <span class="st">"skyblue3"</span>, <span class="at">linetype =</span> <span class="dv">3</span>, <span class="at">linewidth =</span> <span class="dv">1</span><span class="sc">/</span><span class="dv">2</span>),</span>
+<span id="cb64-6"><a href="#cb64-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">stat_pointinterval</span>(<span class="at">point_interval =</span> mode_hdi, <span class="at">.width =</span> <span class="fl">0.95</span>),</span>
+<span id="cb64-7"><a href="#cb64-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">scale_y_continuous</span>(<span class="cn">NULL</span>, <span class="at">breaks =</span> <span class="cn">NULL</span>)</span>
+<span id="cb64-8"><a href="#cb64-8" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb64-9"><a href="#cb64-9" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Now we have our <code>geom_hist()</code>, here are the first three histograms for the marginal posteriors from <code>fit25.1c</code>.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb65"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb65-1"><a href="#cb65-1" aria-hidden="true" tabindex="-1"></a>p1 <span class="ot">&lt;-</span> draws <span class="sc">|&gt;</span> </span>
+<span id="cb65-2"><a href="#cb65-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> mu)) <span class="sc">+</span></span>
+<span id="cb65-3"><a href="#cb65-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_hist</span>(<span class="at">xintercept =</span> <span class="dv">100</span>, <span class="at">binwidth =</span> <span class="fl">0.1</span>) <span class="sc">+</span></span>
+<span id="cb65-4"><a href="#cb65-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">xlab</span>(<span class="fu">expression</span>(mu))</span>
+<span id="cb65-5"><a href="#cb65-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb65-6"><a href="#cb65-6" aria-hidden="true" tabindex="-1"></a>p3 <span class="ot">&lt;-</span> draws <span class="sc">|&gt;</span> </span>
+<span id="cb65-7"><a href="#cb65-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> sigma)) <span class="sc">+</span></span>
+<span id="cb65-8"><a href="#cb65-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_hist</span>(<span class="at">xintercept =</span> <span class="dv">15</span>, <span class="at">binwidth =</span> <span class="fl">0.08</span>) <span class="sc">+</span></span>
+<span id="cb65-9"><a href="#cb65-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">xlab</span>(<span class="fu">expression</span>(sigma))</span>
+<span id="cb65-10"><a href="#cb65-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb65-11"><a href="#cb65-11" aria-hidden="true" tabindex="-1"></a>p4 <span class="ot">&lt;-</span> draws <span class="sc">|&gt;</span> </span>
+<span id="cb65-12"><a href="#cb65-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> <span class="st">`</span><span class="at">(mu-100)/sigma</span><span class="st">`</span>)) <span class="sc">+</span></span>
+<span id="cb65-13"><a href="#cb65-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_hist</span>(<span class="at">xintercept =</span> <span class="dv">0</span>, <span class="at">binwidth =</span> <span class="fl">0.015</span>) <span class="sc">+</span></span>
+<span id="cb65-14"><a href="#cb65-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">xlab</span>(<span class="fu">expression</span>((mu<span class="dv">-100</span>)<span class="sc">/</span>sigma))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>The histogram of the censored data with the posterior predictive density curves superimposed will take a little more work.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb66"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb66-1"><a href="#cb66-1" aria-hidden="true" tabindex="-1"></a>n_lines <span class="ot">&lt;-</span> <span class="dv">50</span></span>
+<span id="cb66-2"><a href="#cb66-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb66-3"><a href="#cb66-3" aria-hidden="true" tabindex="-1"></a>p2 <span class="ot">&lt;-</span> draws <span class="sc">|&gt;</span> </span>
+<span id="cb66-4"><a href="#cb66-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">slice</span>(<span class="dv">1</span><span class="sc">:</span>n_lines) <span class="sc">|&gt;</span> </span>
+<span id="cb66-5"><a href="#cb66-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">expand_grid</span>(<span class="at">y_na =</span> <span class="fu">seq</span>(<span class="at">from =</span> <span class="dv">40</span>, <span class="at">to =</span> <span class="dv">120</span>, <span class="at">by =</span> <span class="dv">1</span>)) <span class="sc">|&gt;</span> </span>
+<span id="cb66-6"><a href="#cb66-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">density =</span> <span class="fu">dnorm</span>(<span class="at">x =</span> y_na, <span class="at">mean =</span> mu, <span class="at">sd =</span> sigma)) <span class="sc">|&gt;</span> </span>
+<span id="cb66-7"><a href="#cb66-7" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb66-8"><a href="#cb66-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> y_na)) <span class="sc">+</span> </span>
+<span id="cb66-9"><a href="#cb66-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_histogram</span>(<span class="at">data =</span> d, </span>
+<span id="cb66-10"><a href="#cb66-10" aria-hidden="true" tabindex="-1"></a>                 <span class="fu">aes</span>(<span class="at">y =</span> <span class="fu">after_stat</span>(density)),</span>
+<span id="cb66-11"><a href="#cb66-11" aria-hidden="true" tabindex="-1"></a>                 <span class="at">binwidth =</span> <span class="dv">2</span>, <span class="at">boundary =</span> <span class="dv">106</span>, <span class="at">color =</span> <span class="st">"white"</span>, </span>
+<span id="cb66-12"><a href="#cb66-12" aria-hidden="true" tabindex="-1"></a>                 <span class="at">fill =</span> <span class="st">"skyblue4"</span>, <span class="at">linewidth =</span> <span class="fl">0.25</span>) <span class="sc">+</span></span>
+<span id="cb66-13"><a href="#cb66-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="fu">aes</span>(<span class="at">y =</span> density, <span class="at">group =</span> .draw),</span>
+<span id="cb66-14"><a href="#cb66-14" aria-hidden="true" tabindex="-1"></a>            <span class="at">alpha =</span> <span class="dv">1</span><span class="sc">/</span><span class="dv">3</span>, <span class="at">color =</span> <span class="st">"skyblue"</span>, <span class="at">size  =</span> <span class="dv">1</span><span class="sc">/</span><span class="dv">4</span>) <span class="sc">+</span></span>
+<span id="cb66-15"><a href="#cb66-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_continuous</span>(<span class="st">"y"</span>, <span class="at">limits =</span> <span class="fu">c</span>(<span class="dv">40</span>, <span class="dv">110</span>)) <span class="sc">+</span></span>
+<span id="cb66-16"><a href="#cb66-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_y_continuous</span>(<span class="cn">NULL</span>, <span class="at">breaks =</span> <span class="cn">NULL</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Now extract the posterior draws from our censored model, <code>fit25.2</code>, and repeat the process.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb67"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb67-1"><a href="#cb67-1" aria-hidden="true" tabindex="-1"></a>draws <span class="ot">&lt;-</span> <span class="fu">as_draws_df</span>(fit25<span class="fl">.2</span>c) <span class="sc">|&gt;</span> </span>
+<span id="cb67-2"><a href="#cb67-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">mu =</span> b_Intercept,</span>
+<span id="cb67-3"><a href="#cb67-3" aria-hidden="true" tabindex="-1"></a>         <span class="st">`</span><span class="at">(mu-100)/sigma</span><span class="st">`</span> <span class="ot">=</span> (b_Intercept <span class="sc">-</span> <span class="dv">100</span>) <span class="sc">/</span> sigma)</span>
+<span id="cb67-4"><a href="#cb67-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb67-5"><a href="#cb67-5" aria-hidden="true" tabindex="-1"></a>p5 <span class="ot">&lt;-</span> draws <span class="sc">|&gt;</span> </span>
+<span id="cb67-6"><a href="#cb67-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> mu)) <span class="sc">+</span></span>
+<span id="cb67-7"><a href="#cb67-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_hist</span>(<span class="at">xintercept =</span> <span class="dv">100</span>, <span class="at">binwidth =</span> <span class="fl">0.1</span>) <span class="sc">+</span></span>
+<span id="cb67-8"><a href="#cb67-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">xlab</span>(<span class="fu">expression</span>(mu))</span>
+<span id="cb67-9"><a href="#cb67-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb67-10"><a href="#cb67-10" aria-hidden="true" tabindex="-1"></a>p7 <span class="ot">&lt;-</span> draws <span class="sc">|&gt;</span> </span>
+<span id="cb67-11"><a href="#cb67-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> sigma)) <span class="sc">+</span></span>
+<span id="cb67-12"><a href="#cb67-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_hist</span>(<span class="at">xintercept =</span> <span class="dv">15</span>, <span class="at">binwidth =</span> <span class="fl">0.1</span>) <span class="sc">+</span></span>
+<span id="cb67-13"><a href="#cb67-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">xlab</span>(<span class="fu">expression</span>(sigma))</span>
+<span id="cb67-14"><a href="#cb67-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb67-15"><a href="#cb67-15" aria-hidden="true" tabindex="-1"></a>p8 <span class="ot">&lt;-</span> draws <span class="sc">|&gt;</span> </span>
+<span id="cb67-16"><a href="#cb67-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> <span class="st">`</span><span class="at">(mu-100)/sigma</span><span class="st">`</span>)) <span class="sc">+</span></span>
+<span id="cb67-17"><a href="#cb67-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_hist</span>(<span class="at">xintercept =</span> <span class="dv">0</span>, <span class="at">binwidth =</span> <span class="fl">0.01</span>) <span class="sc">+</span></span>
+<span id="cb67-18"><a href="#cb67-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">xlab</span>(<span class="fu">expression</span>((mu<span class="dv">-100</span>)<span class="sc">/</span>sigma))</span>
+<span id="cb67-19"><a href="#cb67-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb67-20"><a href="#cb67-20" aria-hidden="true" tabindex="-1"></a>p6 <span class="ot">&lt;-</span> draws <span class="sc">|&gt;</span> </span>
+<span id="cb67-21"><a href="#cb67-21" aria-hidden="true" tabindex="-1"></a>  <span class="fu">slice</span>(<span class="dv">1</span><span class="sc">:</span>n_lines) <span class="sc">|&gt;</span> </span>
+<span id="cb67-22"><a href="#cb67-22" aria-hidden="true" tabindex="-1"></a>  <span class="fu">expand_grid</span>(<span class="at">y_na =</span> <span class="fu">seq</span>(<span class="at">from =</span> <span class="dv">40</span>, <span class="at">to =</span> <span class="dv">120</span>, <span class="at">by =</span> <span class="dv">1</span>)) <span class="sc">|&gt;</span> </span>
+<span id="cb67-23"><a href="#cb67-23" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">density =</span> <span class="fu">dnorm</span>(<span class="at">x =</span> y_na, <span class="at">mean =</span> mu, <span class="at">sd =</span> sigma)) <span class="sc">|&gt;</span> </span>
+<span id="cb67-24"><a href="#cb67-24" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb67-25"><a href="#cb67-25" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> y_na)) <span class="sc">+</span> </span>
+<span id="cb67-26"><a href="#cb67-26" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_histogram</span>(<span class="at">data =</span> d, </span>
+<span id="cb67-27"><a href="#cb67-27" aria-hidden="true" tabindex="-1"></a>                 <span class="fu">aes</span>(<span class="at">y =</span> <span class="fu">after_stat</span>(density)),</span>
+<span id="cb67-28"><a href="#cb67-28" aria-hidden="true" tabindex="-1"></a>                 <span class="at">binwidth =</span> <span class="dv">2</span>, <span class="at">boundary =</span> <span class="dv">106</span>, <span class="at">color =</span> <span class="st">"white"</span>, </span>
+<span id="cb67-29"><a href="#cb67-29" aria-hidden="true" tabindex="-1"></a>                 <span class="at">fill =</span> <span class="st">"skyblue4"</span>, <span class="at">linewidth =</span> <span class="fl">0.25</span>) <span class="sc">+</span></span>
+<span id="cb67-30"><a href="#cb67-30" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="fu">aes</span>(<span class="at">y =</span> density, <span class="at">group =</span> .draw),</span>
+<span id="cb67-31"><a href="#cb67-31" aria-hidden="true" tabindex="-1"></a>            <span class="at">alpha =</span> <span class="dv">1</span><span class="sc">/</span><span class="dv">3</span>, <span class="at">color =</span> <span class="st">"skyblue"</span>, <span class="at">size  =</span> <span class="dv">1</span><span class="sc">/</span><span class="dv">4</span>) <span class="sc">+</span></span>
+<span id="cb67-32"><a href="#cb67-32" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_continuous</span>(<span class="st">"y"</span>, <span class="at">limits =</span> <span class="fu">c</span>(<span class="dv">40</span>, <span class="dv">110</span>)) <span class="sc">+</span></span>
+<span id="cb67-33"><a href="#cb67-33" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_y_continuous</span>(<span class="cn">NULL</span>, <span class="at">breaks =</span> <span class="cn">NULL</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Finally, combine the subplots, and annotate a bit.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb68"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb68-1"><a href="#cb68-1" aria-hidden="true" tabindex="-1"></a>((p1 <span class="sc">|</span> p2) <span class="sc">/</span> (p3 <span class="sc">|</span> p4) <span class="sc">/</span> (p5 <span class="sc">|</span> p6) <span class="sc">/</span> (p7 <span class="sc">|</span> p8)) <span class="sc">+</span></span>
+<span id="cb68-2"><a href="#cb68-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">plot_annotation</span>(<span class="at">title =</span> <span class="st">"This is our final plot, together."</span>,</span>
+<span id="cb68-3"><a href="#cb68-3" aria-hidden="true" tabindex="-1"></a>                  <span class="at">caption =</span> <span class="fu">expression</span>(<span class="fu">atop</span>(<span class="fu">italic</span>(<span class="st">"Upper quartet"</span>)<span class="sc">*</span><span class="st">": Censored data omitted from analysis; parameter estimates are too small.  "</span>, <span class="fu">italic</span>(<span class="st">"Lower quartet"</span>)<span class="sc">*</span><span class="st">": Censored data imputed in known bins; parameter estimates are accurate."</span>))) <span class="sc">&amp;</span></span>
+<span id="cb68-4"><a href="#cb68-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">plot.caption =</span> <span class="fu">element_text</span>(<span class="at">hjust =</span> <span class="dv">0</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="25_files/figure-html/unnamed-chunk-41-1.png" class="img-fluid figure-img" width="576"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>To learn more about censored data, check out the nice lecture by Gordon Fox, <a href="https://www.youtube.com/watch?v=aPN10YYrC1M"><em>Introduction to analysis of censored and truncated data</em></a>.</p>
+</section>
+<section id="sec-Bonus-Truncation" class="level3" data-number="25.4.4">
+<h3 data-number="25.4.4" class="anchored" data-anchor-id="sec-Bonus-Truncation"><span class="header-section-number">25.4.4</span> Bonus: Truncation.</h3>
+<p>Though Kruschke didn’t cover it, truncation is often confused with censoring. When you have actually collected all your values, but some are just less certain than you’d like, you have a censoring issue. That is, you can think of censoring as an issue with <em>measurement precision</em>. Truncation has to do with <em>data collection</em>. When there’s some level in your criterion variable that you haven’t collected data on, that’s a truncation issue. For example, imagine you wanted to predict scores on an IQ test with socioeconomic status (SES). There might be a relation, there. But now imagine you only collected data on people with an IQ above 110. Those IQ data are severely left truncated. If you only care about the relation of SES and IQ for those with high IQ scores, your data are fine. But if you want to make general statements across the full range of IQ values, standard regression methods will likely produce biased results. Happily, <strong>brms</strong> allows users to accommodate truncated criterion variables with the <code>trunc()</code> function, which works in a similar way to the <code>cens()</code> function. For details on fitting truncated regression models with <code>trunc()</code>, check out the <em>Additional response information</em> subsection of the <code>brmsformula</code> section of the <a href="https://CRAN.R-project.org/package=brms/brms.pdf"><strong>brms</strong> reference manual</a>. The <a href="https://youtu.be/aPN10YYrC1M?t=6153">end of the Fox lecture</a>, above, briefly covers truncated regression. You can also find a <a href="https://stats.idre.ucla.edu/r/dae/truncated-regression/">brief vignette on truncation</a> by the good folks at the UCLA Institute for Digital Research and Education.</p>
+</section>
+</section>
+<section id="what-next" class="level2" data-number="25.5">
+<h2 data-number="25.5" class="anchored" data-anchor-id="what-next"><span class="header-section-number">25.5</span> What Next?</h2>
+<p>“If you have made it this far and you are looking for more, you might peruse posts at [Kruschke’s] blog, <a href="https://doingbayesiandataanalysis.blogspot.com/">https://doingbayesiandataanalysis.blogspot.com/</a>, and search there for topics that interest you.” In addition to the other references Kruschke mentioned, you might also check out McElreath’s <a href="https://xcelab.net/rm/statistical-rethinking/"><em>Statistical rethinking</em></a>, both first <span class="citation" data-cites="mcelreathStatisticalRethinkingBayesian2015">(<a href="references.html#ref-mcelreathStatisticalRethinkingBayesian2015" role="doc-biblioref">2015</a>)</span> and second <span class="citation" data-cites="mcelreathStatisticalRethinkingBayesian2020">(<a href="references.html#ref-mcelreathStatisticalRethinkingBayesian2020" role="doc-biblioref">2020</a>)</span> editions. Much like this ebook, I have recoded both editions of <em>Statistical rethinking</em> in a <strong>bookdown</strong> form <span class="citation" data-cites="kurzStatisticalRethinkingBrms2023 kurzStatisticalRethinkingSecondEd2023">(<a href="references.html#ref-kurzStatisticalRethinkingBrms2023" role="doc-biblioref">Kurz, 2023a</a>, <a href="references.html#ref-kurzStatisticalRethinkingSecondEd2023" role="doc-biblioref">2023b</a>)</span>. Click <a href="https://bookdown.org/content/3890/">here</a> for the first and <a href="https://bookdown.org/content/4857/">here</a> for the second. You can find other pedagogical material at my academic blog, <a href="https://solomonkurz.netlify.com/post/">https://solomonkurz.netlify.com/post/</a>. For assistance on <strong>brms</strong>-related issues, check out the <strong>brms</strong> section on the Stan forums at <a href="https://discourse.mc-stan.org/c/interfaces/brms/36">https://discourse.mc-stan.org/c/interfaces/brms/36</a>. Nicenboim, Schad, and Vasishth also have a nice new <span class="citation" data-cites="nicenboim2021introduction">(<a href="references.html#ref-nicenboim2021introduction" role="doc-biblioref">2021</a>)</span> ebook called <a href="https://vasishth.github.io/bayescogsci/book/"><em>An introduction to Bayesian data analysis for cognitive science</em></a>, which highlights <strong>brms</strong> in a way that could compliment the material we have practiced together.</p>
+<p>Happy modeling, friends!</p>
+</section>
+<section id="session-info" class="level2 unnumbered">
+<h2 class="unnumbered anchored" data-anchor-id="session-info">Session info</h2>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb69"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb69-1"><a href="#cb69-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sessionInfo</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>R version 4.4.3 (2025-02-28)
+Platform: aarch64-apple-darwin20
+Running under: macOS Ventura 13.4
+
+Matrix products: default
+BLAS:   /Library/Frameworks/R.framework/Versions/4.4-arm64/Resources/lib/libRblas.0.dylib 
+LAPACK: /Library/Frameworks/R.framework/Versions/4.4-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.0
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+time zone: America/Chicago
+tzcode source: internal
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base     
+
+other attached packages:
+ [1] patchwork_1.3.0 tidybayes_3.0.7 ggthemes_5.1.0  brms_2.22.0    
+ [5] Rcpp_1.0.14     lubridate_1.9.3 forcats_1.0.0   stringr_1.5.1  
+ [9] dplyr_1.1.4     purrr_1.0.4     readr_2.1.5     tidyr_1.3.1    
+[13] tibble_3.2.1    ggplot2_3.5.1   tidyverse_2.0.0
+
+loaded via a namespace (and not attached):
+ [1] tidyselect_1.2.1     svUnit_1.0.6         farver_2.1.2        
+ [4] loo_2.8.0            fastmap_1.1.1        TH.data_1.1-2       
+ [7] tensorA_0.36.2.1     digest_0.6.37        estimability_1.5.1  
+[10] timechange_0.3.0     lifecycle_1.0.4      StanHeaders_2.32.10 
+[13] survival_3.8-3       terra_1.8-42         magrittr_2.0.3      
+[16] posterior_1.6.0      compiler_4.4.3       rlang_1.1.5         
+[19] tools_4.4.3          utf8_1.2.4           yaml_2.3.8          
+[22] knitr_1.49           emo_0.0.0.9000       labeling_0.4.3      
+[25] bridgesampling_1.1-2 htmlwidgets_1.6.4    sp_2.1-4            
+[28] pkgbuild_1.4.4       curl_6.0.1           plyr_1.8.9          
+[31] multcomp_1.4-26      abind_1.4-8          withr_3.0.2         
+[34] grid_4.4.3           stats4_4.4.3         xtable_1.8-4        
+[37] colorspace_2.1-1     inline_0.3.19        emmeans_1.10.3      
+[40] scales_1.3.0         MASS_7.3-64          cli_3.6.4           
+[43] mvtnorm_1.2-5        crayon_1.5.3         rmarkdown_2.29      
+[46] generics_0.1.3       RcppParallel_5.1.7   rstudioapi_0.16.0   
+[49] reshape2_1.4.4       tzdb_0.4.0           rstan_2.32.6        
+[52] splines_4.4.3        assertthat_0.2.1     bayesplot_1.11.1    
+[55] parallel_4.4.3       matrixStats_1.4.1    vctrs_0.6.5         
+[58] V8_4.4.2             Matrix_1.7-2         sandwich_3.1-1      
+[61] jsonlite_1.8.9       hms_1.1.3            arrayhelpers_1.1-0  
+[64] ggdist_3.3.2         glue_1.8.0           codetools_0.2-20    
+[67] distributional_0.5.0 stringi_1.8.4        gtable_0.3.6        
+[70] raster_3.6-32        QuickJSR_1.1.3       munsell_0.5.1       
+[73] pillar_1.10.2        htmltools_0.5.8.1    Brobdingnag_1.2-9   
+[76] R6_2.6.1             evaluate_1.0.1       lattice_0.22-6      
+[79] backports_1.5.0      rstantools_2.4.0     coda_0.19-4.1       
+[82] gridExtra_2.3        nlme_3.1-167         checkmate_2.3.2     
+[85] xfun_0.49            zoo_1.8-12           pkgconfig_2.0.3     </code></pre>
+</div>
+</div>
+
+
+<div id="refs" class="references csl-bib-body hanging-indent" data-entry-spacing="0" data-line-spacing="2" role="list" style="display: none">
+<div id="ref-aczelDiscussionPointsBayesian2020" class="csl-entry" role="listitem">
+Aczel, B., Hoekstra, R., Gelman, A., Wagenmakers, E.-J., Klugkist, I. G., Rouder, J. N., Vandekerckhove, J., Lee, M. D., Morey, R. D., Vanpaemel, W., Dienes, Z., &amp; van Ravenzwaaij, D. (2020). Discussion points for <span>Bayesian</span> inference. <em>Nature Human Behaviour</em>, 1–3. <a href="https://doi.org/10.1038/s41562-019-0807-z">https://doi.org/10.1038/s41562-019-0807-z</a>
+</div>
+<div id="ref-brms2022RM" class="csl-entry" role="listitem">
+Bürkner, P.-C. (2022). <em><span class="nocase">brms</span> reference manual, <span>Version</span> 2.18.0</em>. <a href="https://CRAN.R-project.org/package=brms/brms.pdf">https://CRAN.R-project.org/package=brms/brms.pdf</a>
+</div>
+<div id="ref-chenMonteCarloGap2003" class="csl-entry" role="listitem">
+Chen, M.-H., He, X., Shao, Q.-M., &amp; Xu, H. (2003). A <span>Monte Carlo</span> gap test in computing <span>HPD</span> regions. In <em>Development of <span>Modern Statistics</span> and <span>Related Topics</span>: Vols. Volume 1</em> (pp. 38–52). World Scientific. <a href="https://doi.org/10.1142/9789812796707_0004">https://doi.org/10.1142/9789812796707_0004</a>
+</div>
+<div id="ref-chenMonteCarloEstimation1999" class="csl-entry" role="listitem">
+Chen, M.-H., &amp; Shao, Q.-M. (1999). Monte <span>Carlo</span> estimation of <span>Bayesian</span> credible and <span>HPD</span> intervals. <em>Journal of Computational and Graphical Statistics</em>, <em>8</em>(1), 69–92. <a href="https://doi.org/10.1080/10618600.1999.10474802">https://doi.org/10.1080/10618600.1999.10474802</a>
+</div>
+<div id="ref-gabry2019visualization" class="csl-entry" role="listitem">
+Gabry, J., Simpson, D., Vehtari, A., Betancourt, M., &amp; Gelman, A. (2019). Visualization in <span>Bayesian</span> workflow. <em>Journal of the Royal Statistical Society: Series A (Statistics in Society)</em>, <em>182</em>(2), 389–402. <a href="https://doi.org/10.1111/rssa.12378">https://doi.org/10.1111/rssa.12378</a>
+</div>
+<div id="ref-hyndmanComputingGraphingHighest1996" class="csl-entry" role="listitem">
+Hyndman, R. J. (1996). Computing and graphing highest density regions. <em>The American Statistician</em>, <em>50</em>(2), 120–126. <a href="https://doi.org/10.1080/00031305.1996.10474359">https://doi.org/10.1080/00031305.1996.10474359</a>
+</div>
+<div id="ref-kleinPracticalGuideTransparency2018" class="csl-entry" role="listitem">
+Klein, O., Hardwicke, T. E., Aust, F., Breuer, J., Danielsson, H., Hofelich Mohr, A., IJzerman, H., Nilsonne, G., Vanpaemel, W., &amp; Frank, M. C. (2018). A practical guide for transparency in psychological science. <em>Collabra: Psychology</em>, <em>4</em>(1), 1–15. <a href="https://doi.org/10.1525/collabra.158">https://doi.org/10.1525/collabra.158</a>
+</div>
+<div id="ref-kruschkePosteriorPredictiveChecks2013" class="csl-entry" role="listitem">
+Kruschke, J. K. (2013). Posterior predictive checks can and should be <span>Bayesian</span>: <span>Comment</span> on <span>Gelman</span> and <span>Shalizi</span>, <span>“<span>Philosophy</span> and the practice of <span>Bayesian</span> statistics.”</span> <em>British Journal of Mathematical and Statistical Psychology</em>, <em>66</em>(1), 45–56. <a href="https://doi.org/10.1111/j.2044-8317.2012.02063.x">https://doi.org/10.1111/j.2044-8317.2012.02063.x</a>
+</div>
+<div id="ref-kruschkeDoingBayesianData2015" class="csl-entry" role="listitem">
+Kruschke, J. K. (2015). <em>Doing <span>Bayesian</span> data analysis: <span>A</span> tutorial with <span>R</span>, <span>JAGS</span>, and <span>Stan</span></em>. Academic Press. <a href="https://sites.google.com/site/doingbayesiandataanalysis/">https://sites.google.com/site/doingbayesiandataanalysis/</a>
+</div>
+<div id="ref-kruschke2021BayesianAnalysisReporting" class="csl-entry" role="listitem">
+Kruschke, J. K. (2021). Bayesian analysis reporting guidelines. <em>Nature Human Behaviour</em>, <em>5</em>(10), 1282–1291. <a href="https://doi.org/10.1038/s41562-021-01177-7">https://doi.org/10.1038/s41562-021-01177-7</a>
+</div>
+<div id="ref-kruschkeBayesianNewStatistics2018" class="csl-entry" role="listitem">
+Kruschke, J. K., &amp; Liddell, T. M. (2018). The <span>Bayesian New Statistics</span>: <span>Hypothesis</span> testing, estimation, meta-analysis, and power analysis from a <span>Bayesian</span> perspective. <em>Psychonomic Bulletin &amp; Review</em>, <em>25</em>(1), 178–206. <a href="https://doi.org/10.3758/s13423-016-1221-4">https://doi.org/10.3758/s13423-016-1221-4</a>
+</div>
+<div id="ref-kurzStatisticalRethinkingBrms2023" class="csl-entry" role="listitem">
+Kurz, A. S. (2023a). <em>Statistical <span>Rethinking</span> with <span class="nocase">brms</span>, <span class="nocase">ggplot2</span>, and the <span class="nocase">tidyverse</span></em> (version 1.3.0). <a href="https://bookdown.org/content/3890/">https://bookdown.org/content/3890/</a>
+</div>
+<div id="ref-kurzStatisticalRethinkingSecondEd2023" class="csl-entry" role="listitem">
+Kurz, A. S. (2023b). <em>Statistical <span>Rethinking</span> with brms, <span class="nocase">ggplot2</span>, and the tidyverse: <span>Second Edition</span></em> (version 0.4.0). <a href="https://bookdown.org/content/4857/">https://bookdown.org/content/4857/</a>
+</div>
+<div id="ref-martoneDataSharingPsychology2018" class="csl-entry" role="listitem">
+Martone, M. E., Garcia-Castro, A., &amp; VandenBos, G. R. (2018). Data sharing in psychology. <em>The American Psychologist</em>, <em>73</em>(2), 111–125. <a href="https://doi.org/10.1037/amp0000242">https://doi.org/10.1037/amp0000242</a>
+</div>
+<div id="ref-mcelreathStatisticalRethinkingBayesian2015" class="csl-entry" role="listitem">
+McElreath, R. (2015). <em>Statistical rethinking: <span>A Bayesian</span> course with examples in <span>R</span> and <span>Stan</span></em>. CRC press. <a href="https://xcelab.net/rm/statistical-rethinking/">https://xcelab.net/rm/statistical-rethinking/</a>
+</div>
+<div id="ref-mcelreathStatisticalRethinkingBayesian2020" class="csl-entry" role="listitem">
+McElreath, R. (2020). <em>Statistical rethinking: <span>A Bayesian</span> course with examples in <span>R</span> and <span>Stan</span></em> (Second Edition). CRC Press. <a href="https://xcelab.net/rm/statistical-rethinking/">https://xcelab.net/rm/statistical-rethinking/</a>
+</div>
+<div id="ref-nicenboim2021introduction" class="csl-entry" role="listitem">
+Nicenboim, B., Schad, D., &amp; Vasishth, S. (2021). <em>An introduction to <span>Bayesian</span> data analysis for cognitive science</em>. <a href="https://vasishth.github.io/bayescogsci/book/">https://vasishth.github.io/bayescogsci/book/</a>
+</div>
+<div id="ref-rouderWhatWhyHow2016" class="csl-entry" role="listitem">
+Rouder, J. N. (2016). The what, why, and how of born-open data. <em>Behavior Research Methods</em>, <em>48</em>(3), 1062–1069. <a href="https://doi.org/10.3758/s13428-015-0630-z">https://doi.org/10.3758/s13428-015-0630-z</a>
+</div>
+<div id="ref-xieMarkdownDefinitiveGuide2022" class="csl-entry" role="listitem">
+Xie, Y., Allaire, J. J., &amp; Grolemund, G. (2022). <em>R <span>Markdown</span>: <span>The</span> definitive guide</em>. <span>Chapman and Hall/CRC</span>. <a href="https://bookdown.org/yihui/rmarkdown/">https://bookdown.org/yihui/rmarkdown/</a>
+</div>
+</div>
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const isCodeAnnotation = (el) => {
+    for (const clz of el.classList) {
+      if (clz.startsWith('code-annotation-')) {                     
+        return true;
+      }
+    }
+    return false;
+  }
+  const onCopySuccess = function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  }
+  const getTextToCopy = function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+  }
+  const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+    text: getTextToCopy
+  });
+  clipboard.on('success', onCopySuccess);
+  if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+    // For code content inside modals, clipBoardJS needs to be initialized with a container option
+    // TODO: Check when it could be a function (https://github.com/zenorocha/clipboard.js/issues/860)
+    const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+      text: getTextToCopy,
+      container: window.document.getElementById('quarto-embedded-source-code-modal')
+    });
+    clipboardModal.on('success', onCopySuccess);
+  }
+    var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+    var mailtoRegex = new RegExp(/^mailto:/);
+      var filterRegex = new RegExp('/' + window.location.host + '/');
+    var isInternal = (href) => {
+        return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+    }
+    // Inspect non-navigation links and adorn them if external
+ 	var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+    for (var i=0; i<links.length; i++) {
+      const link = links[i];
+      if (!isInternal(link.href)) {
+        // undo the damage that might have been done by quarto-nav.js in the case of
+        // links that we want to consider external
+        if (link.dataset.originalHref !== undefined) {
+          link.href = link.dataset.originalHref;
+        }
+      }
+    }
+  function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+    const config = {
+      allowHTML: true,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start',
+    };
+    if (contentFn) {
+      config.content = contentFn;
+    }
+    if (onTriggerFn) {
+      config.onTrigger = onTriggerFn;
+    }
+    if (onUntriggerFn) {
+      config.onUntrigger = onUntriggerFn;
+    }
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      if (note) {
+        return note.innerHTML;
+      } else {
+        return "";
+      }
+    });
+  }
+  const xrefs = window.document.querySelectorAll('a.quarto-xref');
+  const processXRef = (id, note) => {
+    // Strip column container classes
+    const stripColumnClz = (el) => {
+      el.classList.remove("page-full", "page-columns");
+      if (el.children) {
+        for (const child of el.children) {
+          stripColumnClz(child);
+        }
+      }
+    }
+    stripColumnClz(note)
+    if (id === null || id.startsWith('sec-')) {
+      // Special case sections, only their first couple elements
+      const container = document.createElement("div");
+      if (note.children && note.children.length > 2) {
+        container.appendChild(note.children[0].cloneNode(true));
+        for (let i = 1; i < note.children.length; i++) {
+          const child = note.children[i];
+          if (child.tagName === "P" && child.innerText === "") {
+            continue;
+          } else {
+            container.appendChild(child.cloneNode(true));
+            break;
+          }
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(container);
+        }
+        return container.innerHTML
+      } else {
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        return note.innerHTML;
+      }
+    } else {
+      // Remove any anchor links if they are present
+      const anchorLink = note.querySelector('a.anchorjs-link');
+      if (anchorLink) {
+        anchorLink.remove();
+      }
+      if (window.Quarto?.typesetMath) {
+        window.Quarto.typesetMath(note);
+      }
+      // TODO in 1.5, we should make sure this works without a callout special case
+      if (note.classList.contains("callout")) {
+        return note.outerHTML;
+      } else {
+        return note.innerHTML;
+      }
+    }
+  }
+  for (var i=0; i<xrefs.length; i++) {
+    const xref = xrefs[i];
+    tippyHover(xref, undefined, function(instance) {
+      instance.disable();
+      let url = xref.getAttribute('href');
+      let hash = undefined; 
+      if (url.startsWith('#')) {
+        hash = url;
+      } else {
+        try { hash = new URL(url).hash; } catch {}
+      }
+      if (hash) {
+        const id = hash.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note !== null) {
+          try {
+            const html = processXRef(id, note.cloneNode(true));
+            instance.setContent(html);
+          } finally {
+            instance.enable();
+            instance.show();
+          }
+        } else {
+          // See if we can fetch this
+          fetch(url.split('#')[0])
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.getElementById(id);
+            if (note !== null) {
+              const html = processXRef(id, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      } else {
+        // See if we can fetch a full url (with no hash to target)
+        // This is a special case and we should probably do some content thinning / targeting
+        fetch(url)
+        .then(res => res.text())
+        .then(html => {
+          const parser = new DOMParser();
+          const htmlDoc = parser.parseFromString(html, "text/html");
+          const note = htmlDoc.querySelector('main.content');
+          if (note !== null) {
+            // This should only happen for chapter cross references
+            // (since there is no id in the URL)
+            // remove the first header
+            if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+              note.children[0].remove();
+            }
+            const html = processXRef(null, note);
+            instance.setContent(html);
+          } 
+        }).finally(() => {
+          instance.enable();
+          instance.show();
+        });
+      }
+    }, function(instance) {
+    });
+  }
+      let selectedAnnoteEl;
+      const selectorForAnnotation = ( cell, annotation) => {
+        let cellAttr = 'data-code-cell="' + cell + '"';
+        let lineAttr = 'data-code-annotation="' +  annotation + '"';
+        const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+        return selector;
+      }
+      const selectCodeLines = (annoteEl) => {
+        const doc = window.document;
+        const targetCell = annoteEl.getAttribute("data-target-cell");
+        const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+        const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+        const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+        const lineIds = lines.map((line) => {
+          return targetCell + "-" + line;
+        })
+        let top = null;
+        let height = null;
+        let parent = null;
+        if (lineIds.length > 0) {
+            //compute the position of the single el (top and bottom and make a div)
+            const el = window.document.getElementById(lineIds[0]);
+            top = el.offsetTop;
+            height = el.offsetHeight;
+            parent = el.parentElement.parentElement;
+          if (lineIds.length > 1) {
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+            height = bottom - top;
+          }
+          if (top !== null && height !== null && parent !== null) {
+            // cook up a div (if necessary) and position it 
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            div.style.top = top - 2 + "px";
+            div.style.height = height + 4 + "px";
+            div.style.left = 0;
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            gutterDiv.style.top = top - 2 + "px";
+            gutterDiv.style.height = height + 4 + "px";
+          }
+          selectedAnnoteEl = annoteEl;
+        }
+      };
+      const unselectCodeLines = () => {
+        const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+        elementsIds.forEach((elId) => {
+          const div = window.document.getElementById(elId);
+          if (div) {
+            div.remove();
+          }
+        });
+        selectedAnnoteEl = undefined;
+      };
+        // Handle positioning of the toggle
+    window.addEventListener(
+      "resize",
+      throttle(() => {
+        elRect = undefined;
+        if (selectedAnnoteEl) {
+          selectCodeLines(selectedAnnoteEl);
+        }
+      }, 10)
+    );
+    function throttle(fn, ms) {
+    let throttle = false;
+    let timer;
+      return (...args) => {
+        if(!throttle) { // first call gets through
+            fn.apply(this, args);
+            throttle = true;
+        } else { // all the others get throttled
+            if(timer) clearTimeout(timer); // cancel #2
+            timer = setTimeout(() => {
+              fn.apply(this, args);
+              timer = throttle = false;
+            }, ms);
+        }
+      };
+    }
+      // Attach click handler to the DT
+      const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+      for (const annoteDlNode of annoteDls) {
+        annoteDlNode.addEventListener('click', (event) => {
+          const clickedEl = event.target;
+          if (clickedEl !== selectedAnnoteEl) {
+            unselectCodeLines();
+            const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+            if (activeEl) {
+              activeEl.classList.remove('code-annotation-active');
+            }
+            selectCodeLines(clickedEl);
+            clickedEl.classList.add('code-annotation-active');
+          } else {
+            // Unselect the line
+            unselectCodeLines();
+            clickedEl.classList.remove('code-annotation-active');
+          }
+        });
+      }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+<nav class="page-navigation">
+  <div class="nav-page nav-page-previous">
+      <a href="./24.html" class="pagination-link" aria-label="Count Predicted Variable">
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-number">24</span>&nbsp; <span class="chapter-title">Count Predicted Variable</span></span>
+      </a>          
+  </div>
+  <div class="nav-page nav-page-next">
+      <a href="./references.html" class="pagination-link" aria-label="References">
+        <span class="nav-page-text">References</span> <i class="bi bi-arrow-right-short"></i>
+      </a>
+  </div>
+</nav>
+</div> <!-- /content -->
+
+
+
+
+</body></html>
