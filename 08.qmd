@@ -1,0 +1,821 @@
+# ~~JAGS~~ brms {#sec-JAGS-brms}
+
+We, of course, will be using **brms** in place of JAGS.
+
+## ~~JAGS~~ brms and its relation to R
+
+In the opening paragraph in his [GitHub repository for **brms**](https://github.com/paul-buerkner/brms), Bürkner explained:
+
+> The **brms** package provides an interface to fit Bayesian generalized (non-)linear multivariate multilevel models using Stan, which is a C++ package for performing full Bayesian inference (see [http://mc-stan.org/](http://mc-stan.org/)). The formula syntax is very similar to that of the package lme4 to provide a familiar and simple interface for performing regression analyses. A wide range of response distributions are supported, allowing users to fit -- among others -- linear, robust linear, count data, survival, response times, ordinal, zero-inflated, and even self-defined mixture models all in a multilevel context. Further modeling options include non-linear and smooth terms, auto-correlation structures, censored data, missing value imputation, and quite a few more. In addition, all parameters of the response distribution can be predicted in order to perform distributional regression. Multivariate models (i.e., models with multiple response variables) can be fit, as well. Prior specifications are flexible and explicitly encourage users to apply prior distributions that actually reflect their beliefs. Model fit can easily be assessed and compared with posterior predictive checks, cross-validation, and Bayes factors. (**emphasis** in the original)
+
+Bürkner's **brms** repository includes many helpful links, such as to where [**brms** lives on CRAN](https://CRAN.R-project.org/package=brms), a [list of blog posts](https://paul-buerkner.github.io/blog/brms-blogposts/) highlighting **brms**, and [a forum](https://discourse.mc-stan.org) where users can ask questions about **brms** in specific or about Stan in general.
+
+You can install the current official version of **brms** in the same way you would any other **R** package (i.e., `install.packages("brms", dependencies = T)`). If you want the current developmental version, you could download it from GitHub by executing the following.
+
+```{r}
+#| eval: false
+
+if (!requireNamespace("devtools")) {
+  install.packages("devtools")
+}
+devtools::install_github("paul-buerkner/brms")
+```
+
+Here we load the primary packages for this chapter.
+
+```{r}
+#| message: false
+#| warning: false
+
+library(tidyverse)
+library(patchwork)
+library(cowplot)
+library(brms)
+library(bayesplot)
+library(tidybayes)
+library(ggthemes)
+```
+
+## A complete example
+
+We express the likelihood for our coin toss example as
+
+$$y_i \sim \operatorname{Bernoulli}(\theta).$$
+
+Our prior will be
+
+$$\theta \sim \operatorname{Beta}(\alpha, \beta).$$
+
+Kruschke pictured the relationships among the data, the likelihood, and the prior in the model diagram in Figure 8.2 (p. 196). If you're tricky, you can make those in **R**. I'm not going to walk my method out in great detail in this ebook. If you want a step-by-step tutorial, check my blog post, [*Make model diagrams, Kruschke style*](https://solomonkurz.netlify.app/blog/2020-03-09-make-model-diagrams-kruschke-style/). Here's the code for our version of Figure 8.2.
+
+```{r}
+# Plot of a beta density
+p1 <- tibble(x = seq(from = 0.01, to = 0.99, by = 0.01),
+             d = (dbeta(x, 2, 2)) / max(dbeta(x, 2, 2))) |> 
+  ggplot(aes(x = x, y = d)) +
+  geom_area(fill = "grey67") +
+  annotate(geom = "text",
+           x = 0.5, y = 0.2,
+           label = "beta",
+           size = 7) +
+  annotate(geom = "text",
+           x = 0.5, y = 0.6,
+           label = "italic(A)*', '*italic(B)", 
+           family = "Times", parse = TRUE, size = 7) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(linewidth = 0.5))
+
+## An annotated arrow
+# Save our custom arrow settings
+my_arrow <- arrow(angle = 20, length = unit(0.35, "cm"), type = "closed")
+p2 <- tibble(x = 0.5,
+             y = 1,
+             xend = 0.5,
+             yend = 0) |>
+  ggplot(aes(x = x, xend = xend,
+             y = y, yend = yend)) +
+  geom_segment(arrow = my_arrow) +
+  annotate(geom = "text",
+           x = 0.375, y = 1/3,
+           label = "'~'",
+           family = "Times", parse = TRUE, size = 10) +
+  xlim(0, 1) +
+  theme_void()
+
+# Bar plot of Bernoulli data
+p3 <- tibble(x = 0:1,
+             d = (dbinom(x, size = 1, prob = 0.6)) / max(dbinom(x, size = 1, prob = 0.6))) |> 
+  ggplot(aes(x = x, y = d)) +
+  geom_col(fill = "grey67", width = 0.4) +
+  annotate(geom = "text",
+           x = 0.5, y = 0.2,
+           label = "Bernoulli",
+           size = 7) +
+  annotate(geom = "text",
+           x = 0.5, y = 0.94,
+           label = "theta", 
+           family = "Times", parse = TRUE, size = 7) +
+  xlim(-0.75, 1.75) +
+  theme_void() +
+  theme(axis.line.x = element_line(linewidth = 0.5))
+
+# Another annotated arrow
+p4 <- tibble(x = c(0.375, 0.625),
+             y = c(1/3, 1/3),
+             label = c("'~'", "italic(i)")) |> 
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(family = "Times", parse = TRUE, size = c(10, 7)) +
+  geom_segment(x = 0.5, xend = 0.5,
+               y = 1, yend = 0,
+               arrow = my_arrow) +
+  xlim(0, 1) +
+  theme_void()
+
+# Some text
+p5 <- tibble(x = 1,
+             y = 0.5,
+             label = "italic(y[i])") |> 
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(family = "Times", parse = TRUE, size = 7) +
+  xlim(0, 2) +
+  theme_void()
+```
+
+```{r}
+#| fig-width: 2
+#| fig-height: 3.5
+
+layout <- c(
+  area(t = 1, b = 2, l = 1, r = 1),
+  area(t = 3, b = 3, l = 1, r = 1),
+  area(t = 4, b = 5, l = 1, r = 1),
+  area(t = 6, b = 6, l = 1, r = 1),
+  area(t = 7, b = 7, l = 1, r = 1))
+
+(p1 + p2 + p3 + p4 + p5) + 
+  plot_layout(design = layout) &
+  ylim(0, 1) &
+  theme(plot.margin = margin(0, 5.5, 0, 5.5))
+```
+
+> Diagrams like Figure 8.2 should be scanned from the bottom up. This is because models of data always start with the data, then conceive of a likelihood function that describes the data values in terms of meaningful parameters, and finally determine a prior distribution over the parameters. (p. 196)
+
+### Load data
+
+"Logically, models of data start with the data. We must know their basic scale and structure to conceive of a descriptive model" (p. 197).
+
+Here we load the data with the `readr::read_csv()` function, the **tidyverse** version of base **R** `read.csv()`.
+
+```{r}
+#| message: false
+
+my_data <- read_csv("data.R/z15N50.csv")
+```
+
+Unlike what Kruschke wrote about JAGS, the **brms** package does not require us to convert the data into a list. It can handle data in lists or data frames, of which [tibbles are a special case](https://cran.r-project.org/web/packages/tibble/vignettes/tibble.html). Here are what the data look like.
+
+```{r}
+glimpse(my_data)
+```
+
+We might visualize them in a bar plot.
+
+```{r}
+#| fig-width: 3
+#| fig-height: 3
+
+my_data |> 
+  mutate(y = y |> as.character()) |> 
+  
+  ggplot(aes(x = y)) +
+  geom_bar() +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.05))) +
+  theme_minimal_hgrid()
+```
+
+For the past couple chapters, we've been using the `cowplot::theme_cowplot()` theme for our plots. The **cowplot** package, however, includes a few more. The `theme_minimal_grid()` is similar, but subtracts the axis lines and adds in minimalistic grid lines. In his [-@Wilke2020Themes] [*Themes* vignette](https://wilkelab.org/cowplot/articles/themes.html), however, Wilke showed vertical grid lines are often unsightly in bar plots. To avoid offending Wilke with our grid lines, we used the `theme_minimal_hgrid()` theme, which only added horizontal grid lines.
+
+Anyway, if you wanted to compute "Ntotal", the number of rows in our tibble, one way is with `count()`.
+
+```{r}
+my_data |> 
+  count()
+```
+
+However, we're not going to do anything with an "Ntotal" value. For **brms**, the data are fine in their current data frame form. No need for a `dataList`.
+
+### Specify model
+
+The **brms** package does not have code blocks following the JAGS format or the sequence in Kruschke's diagrams. Rather, its syntax is modeled in part after the popular frequentist mixed-effects package, [**lme4**](https://cran.r-project.org/web/packages/lme4/index.html). To learn more about how **brms** compares to **lme4**, see Bürkner's [-@burknerBrmsPackageBayesian2017] overview, [*brms: An R package for Bayesian multilevel models
+using Stan*](https://cran.r-project.org/web/packages/brms/vignettes/brms_overview.pdf).
+
+The primary function in **brms** is `brm()`. Into this one function we will specify the data, the model, the likelihood function, the prior(s), and any technical settings such as the number of MCMC chains, iterations, and so forth. You can order the arguments in any way you like. My typical practice is to start with `data`, `family` (i.e., the likelihood function), the model `formula`, and my `prior`s. If there are any technical specifications such as the number of MCMC iterations I'd like to change from their default values, I usually do that last.
+
+Here's how to fit the model.
+
+```{r fit8.1}
+fit8.1 <- brm(
+  data = my_data, 
+  family = bernoulli(link = identity),
+  formula = y ~ 1,
+  prior(beta(2, 2), class = Intercept, lb = 0, ub = 1),
+  iter = 500 + 3334, warmup = 500, chains = 3,
+  seed = 8,
+  file = "fits/fit08.01")
+```
+
+Also note our use of the `file` argument. This automatically saved the fit object as an external file. You don't have to do that and you can avoid doing so by omitting the `file` argument. For a more detailed explanation of the `brms::brm()` function, spend some time with the `brm` section of the [**brms** reference manual](https://CRAN.R-project.org/package=brms) [@R-brms].
+
+### Initialize chains
+
+In Stan, and in **brms** by extension, the initial values have default settings. In the [Initialization section of the Program Execution chapter](https://mc-stan.org/docs/2_29/reference-manual/initialization.html) in the *Stan reference manual, Version 2.29* [@standevelopmentteamStanReferenceManual2022] we read:
+
+> If there are no user-supplied initial values, the default initialization strategy is to initialize the unconstrained parameters directly with values drawn uniformly from the interval $(−2, 2)$. The bounds of this initialization can be changed but it is always symmetric around $0$. The value of $0$ is special in that it represents the median of the initialization. An unconstrained value of $0$ corresponds to different parameter values depending on the constraints declared on the parameters.
+
+In general, I do not recommend setting custom initial values in **brms** or Stan. Under the hood, Stan will transform the parameters to the unconstrained space in models where they are bounded. In our Bernoulli model, $\theta$ is bounded at 0 and 1. A little further down in the same section, we read:
+
+> For parameters bounded above and below, the initial value of $0$ on the unconstrained scale corresponds to a value at the midpoint of the constraint interval. For probability parameters, bounded below by $0$ and above by $1$, the transform is the inverse logit, so that an initial unconstrained value of $0$ corresponds to a constrained value of $0.5$, $-2$ corresponds to $0.12$ and $2$ to $0.88$. Bounds other than $0$ and $1$ are just scaled and translated.
+
+If you want to play around with this, have at it. In my experience, it sometimes helps to set these manually to zero, which you can do that by specifying `inits = 0` within `brm()`. But if you really want to experiment, you might check out my blog post, [*Don't forget your inits*](https://solomonkurz.netlify.app/blog/2021-06-05-don-t-forget-your-inits/).
+
+### Generate chains
+
+By default, **brms** will use 4 chains of 2,000 iterations each. The type of MCMC **brms** uses is Hamiltonian Monte Carlo (HMC). You can learn more about HMC at the Stan website, [https://mc-stan.org](https://mc-stan.org), which includes resources such as the [*Stan user's guide*](https://mc-stan.org/docs/2_29/stan-users-guide/index.html) [@standevelopmentteamStanUserGuide2022], the [*Stan reference manual*](https://mc-stan.org/docs/2_29/reference-manual/) [@standevelopmentteamStanReferenceManual2022], and a list of [tutorials](https://mc-stan.org/users/documentation/tutorials). McElreath has a [nice intro lecture](https://www.youtube.com/watch?v=BWEtS3HuU5A) on MCMC in general and HMC in particular. Michael Bentacourt has some good lectures on Stan and HMC, such as [here](https://youtu.be/pHsuIaPbNbY) and [here](https://www.youtube.com/watch?v=jUSZboSq1zg). And, of course, we will cover HMC with Kruschke in @sec-Stan.
+
+Within each HMC chain, the first $n$ iterations are warmups. Within the Stan-HMC paradigm, [warmups are somewhat analogous to but not synonymous with burn-in iterations](https://andrewgelman.com/2017/12/15/burn-vs-warm-iterative-simulation-algorithms/) as done by the Gibbs sampling in JAGS. But HMC warmups are like Gibbs burn-ins in that both are discarded and not used to describe the posterior. As such, the **brms** default settings yield 1,000 post-warmup iterations for each of the 4 HMC chains. However, we specified `iter = 500 + 3334, warmup = 500, chains = 3`. Thus instead of defaults, we have 3 HMC chains. Each chain has 500 + 3,334 = 3,834 total iterations, of which 500 were discarded `warmup` iterations.
+
+To learn more about the warmup stage in Stan, check out the [HMC Algorithm Parameters section of the MCMC Sampling chapter](https://mc-stan.org/docs/2_26/reference-manual/hmc-algorithm-parameters.html) of the *Stan reference manual*.
+
+### Examine chains
+
+The `brms::plot()` function returns a density and trace plot for each model parameter.
+
+```{r}
+#| fig-width: 10
+#| fig-height: 1.5
+
+plot(fit8.1)
+```
+
+Note how the `brms::plot()` function simply took our model fit object as input. Other post-processing functions will require us to pass the posterior draws in the form of a data frame. To get ready for them, here we'll save them as a data frame with the `as_draws_df()` function.
+
+```{r}
+draws <- as_draws_df(fit8.1) 
+```
+
+If you want to display each chain as its own density, you can use the handy `mcmc_dens_overlay()` function from the [**bayesplot** package](https://CRAN.R-project.org/package=bayesplot) to return the overlaid densities.
+
+```{r}
+#| fig-width: 4
+#| fig-height: 2
+
+draws |> 
+  mutate(chain = .chain) |> 
+  mcmc_dens_overlay(pars = vars(b_Intercept)) +
+  theme_minimal_hgrid()
+```
+
+The `bayesplot::mcmc_acf()` function will give us the autocorrelation plots.
+
+```{r}
+#| fig-width: 4
+#| fig-height: 4
+
+draws |> 
+  mutate(chain = .chain) |> 
+  mcmc_acf(pars = vars(b_Intercept), lags = 35) +
+  theme_minimal_hgrid()
+```
+
+With brms, we can compute the $\widehat R$ value for each parameter with the `rhat()` function. But rather than a running vector, we get a single value per parameter.
+
+```{r}
+brms::rhat(fit8.1, pars = "b_Intercept")
+```
+
+Note the use of the `brms::rhat()` syntax. The brms `rhat()` function is imported from the posterior package, and is designed to work directly with `brm()` models. However, the `rhat()` function from posterior is designed to take objects of class draws as input, not `brm()` models. Thus if you want to use the `brm()` fit objects as input, you're best off using the explicit `brms::rhat()` syntax to clarify which version of the `rhat()` function you're working with. If however you'd like to use a more posterior package based workflow, You might execute something like this.
+
+```{r}
+posterior::extract_variable_matrix(fit8.1, "Intercept") |> 
+  posterior::rhat()
+```
+
+To complicate matters further, the bayesplot package also has an `rhat()` function, which is not currently applicable for objects of class `brmsfit`.
+
+We'll have to employ `brms::as.mcmc()` and `coda::gelman.plot()` to make our running $\widehat R$ plot.
+
+```{r}
+#| warning: false
+#| fig-width: 4
+#| fig-height: 3
+
+fit8.1_c <- as.mcmc(fit8.1)
+
+coda::gelman.plot(fit8.1_c[, "b_Intercept", ])
+```
+
+For whatever reason, many of the package developers within the Stan/**brms** ecosystem don't seem interested in shrink factor plots, like this.
+
+#### ~~The `plotPost` function~~ How to plot your brms posterior distributions
+
+We'll get into plotting in just a moment. But before we do, here's a summary of the model.
+
+```{r}
+print(fit8.1)
+```
+
+To summarize a posterior in terms of central tendency, **brms** defaults to the mean value (i.e., the value in the 'Estimate' column of the `print()` output). In many of the other convenience functions, you can also request the median instead. For example, we can set `robust = TRUE` to get the 'Estimate' in terms of the median.
+
+```{r}
+posterior_summary(fit8.1, robust = TRUE)
+```
+
+Across functions, the intervals default to 95%. With `print()` and `summary()` you can adjust the level with a `prob` argument. For example, here we'll use 50% intervals.
+
+```{r}
+print(fit8.1, prob = 0.5)
+```
+
+But in many other **brms** convenience functions, you can use the `probs` argument to request specific percentile summaries.
+
+```{r}
+posterior_summary(fit8.1, probs = c(0.025, 0.25, 0.75, 0.975))
+```
+
+Regardless of what `prob` or `probs` levels you use, **brms** functions always return percentile-based estimates. All this central tendency and interval talk will be important in a moment...
+
+When plotting the posterior distribution of a parameter estimated with **brms**, you typically do so working with the results of an object returned by one of the `as_draws_` functions. Recall we already saved those results as `draws`. Here's a look at `draws`.
+
+```{r}
+head(draws)
+```
+
+With `draws` in hand, we can use **ggplot2** to do the typical distributional plots, such as with `geom_histogram()`.
+
+```{r}
+#| message: false
+#| fig-width: 4
+#| fig-height: 2.5
+
+draws |> 
+  ggplot(aes(x = b_Intercept)) +
+  geom_histogram(color = "grey92", fill = "grey67",
+                 linewidth = 0.2) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.05))) +
+  labs(x = expression(theta),
+       title = "Theta via ggplot2::geom_histogram()") +
+  theme_minimal_hgrid() +
+  theme(plot.title.position = "plot")
+```
+
+The `bayesplot::mcmc_areas()` function offers a nice way to depict the posterior densities, along with their percentile-based 50% and 95% ranges.
+
+```{r}
+#| message: false
+#| fig-width: 4
+#| fig-height: 2.5
+
+mcmc_areas(
+  draws, 
+  pars = vars(b_Intercept),
+  prob = 0.5,
+  prob_outer = 0.95,
+  point_est = "mean") +
+  scale_y_discrete(expand = expansion(mult = c(0, 0.05))) +
+  labs(x = expression(theta),
+       title = "Theta via bayesplot::mcmc_areas()") +
+  theme_minimal_hgrid() +
+  theme(plot.title.position = "plot")
+```
+
+**brms** doesn't have a convenient way to compute the posterior mode or HDIs. Base **R** is no help, either. But Matthew Kay's **tidybayes** package makes it easy to compute posterior modes and HDIs with handy functions like `stat_halfeye()` and `stat_histinterval()`.
+
+```{r}
+#| warning: false
+#| fig-width: 4
+#| fig-height: 2.5
+
+draws |> 
+  ggplot(aes(x = b_Intercept, y = 0)) +
+  stat_halfeye(point_interval = mode_hdi, .width = c(0.95, 0.5)) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  labs(x = expression(theta),
+       title = expression(theta*" via tidybayes::stat_halfeye()")) +
+  theme_minimal_hgrid()
+
+draws |> 
+  ggplot(aes(x = b_Intercept, y = 0)) +
+  stat_histinterval(point_interval = mode_hdi, .width = c(0.95, 0.5)) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  labs(x = expression(theta),
+       title = expression(theta*" via tidybayes::stat_histinterval()")) +
+  theme_minimal_hgrid()
+```
+
+The `tidybayes::stat_halfeye()` function returns a density with a measure of the posterior's central tendency in a dot and one or multiple interval bands as horizontal lines at the base of the density. The `stat_histinterval()` function returns much the same, but replaces the density with a histogram. For both functions, the `point_interval = mode_hdi` argument allowed us to request the mode to be our measure of central tendency and the highest posterior density intervals to be our type intervals. With `.width = c(0.95, 0.5)`, we requested our HDIs be at both the 95% and 50% levels.
+
+If we wanted to be more congruent with Kruschke's plotting sensibilities, we could further modify `tidybayes::stat_histinterval()`.
+
+```{r}
+#| warning: false
+#| fig-width: 4
+#| fig-height: 2.5
+
+# This is unnecessary, but makes for nicer x-axis breaks
+my_breaks <- mode_hdi(draws$b_Intercept)[, 1:3] |> 
+  pivot_longer(cols = everything(), values_to = "breaks") |> 
+  mutate(labels = breaks |> round(digits = 3))
+
+# Here's the main plot code
+draws |> 
+  ggplot(aes(x = b_Intercept, y = 0)) +
+  stat_histinterval(point_interval = mode_hdi, .width = 0.95,
+                    fill = "steelblue", slab_color = "white",
+                    breaks = 40, outline_bars = TRUE, slab_size = 0.25) +
+  scale_x_continuous(breaks = my_breaks$breaks,
+                     labels = my_breaks$labels) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  labs(x = expression(theta),
+       title = "tidybayes::stat_histinterval() all gussied up") +
+  theme_minimal_hgrid() +
+  theme(title = element_text(size = 10.5))
+```
+
+With the `point_interval` argument within `stat_histinterval()` and related functions, we can request different combinations of measures of central tendency (i.e., mean, median, mode) and interval types (i.e., percentile-based and HDIs). Although all of these are legitimate ways to summarize a posterior, they can yield somewhat different results. For example, here we'll contrast our mode + HDI summary with a median + percentile-based interval summary using `tidybayes::stat_pointinterval()`.
+
+```{r}
+#| fig-width: 4
+#| fig-height: 1.5
+
+draws |> 
+  ggplot(aes(x = b_Intercept)) +
+  stat_pointinterval(aes(y = 1), point_interval = median_qi, .width = c(0.95, 0.5)) +
+  stat_pointinterval(aes(y = 2), point_interval = mode_hdi,  .width = c(0.95, 0.5)) +
+  scale_y_continuous(NULL, breaks = 1:2,
+                     labels = c("median_qi", "mode_hdi")) +
+  coord_cartesian(ylim = c(0, 3)) +
+  labs(x = expression(theta),
+       title = "Theta via tidybayes::stat_pointinterval()") +
+  theme_minimal_vgrid() +
+  theme(axis.line.y.left = element_blank(),
+        axis.text.y = element_text(hjust = 0),
+        axis.ticks.y = element_blank(),
+        plot.title.position = "plot",
+        title = element_text(size = 10.5))
+```
+
+Similar, yet distinct. To get a sense of the full variety of ways **tidybayes** allows users to summarize and plot the results of a Bayesian model, check out Kay's [-@kaySlabIntervalStats2022] vignette, [*Slab + interval stats and geoms*](https://mjskay.github.io/ggdist/articles/slabinterval.html). Also, did you notice how we switched to `theme_minimal_vgrid()`? That's how we added the vertical grid lines in the absence of horizontal grid lines.
+
+## Simplified scripts for frequently used analyses
+
+A lot has happened in **R** for Bayesian analysis since Kruschke wrote his [-@kruschkeDoingBayesianData2015] text. In addition to our use of the **tidyverse**, the **brms**, **bayesplot**, and **tidybayes** packages offer an array of useful convenience functions. We can and occasionally will write our own. But really, the rich **R** ecosystem already has us pretty much covered.
+
+## Example: Difference of biases {#sec-Example-Difference-of-biases}
+
+Here are our new data.
+
+```{r}
+#| message: false
+
+my_data <- read_csv("data.R/z6N8z2N7.csv")
+
+glimpse(my_data)
+```
+
+They look like this.
+
+```{r}
+#| fig-width: 5
+#| fig-height: 3
+
+my_data |> 
+  mutate(y = y |> as.character()) |> 
+  
+  ggplot(aes(x = y, fill = s)) +
+  geom_bar(show.legend = F) +
+  scale_fill_colorblind() +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.05))) +
+  theme_minimal_hgrid() +
+  facet_wrap(~ s)
+```
+
+Note our use of the `scale_fill_colorblind()` function from the [**ggthemes** package](https://CRAN.R-project.org/package=ggthemes) [@R-ggthemes]. When you want to use color to emphasize different factor levels, such as `s`, it's a good idea to make sure those colors can be distinguished by folks who are colorblind. The `scale_fill_colorblind()` function provides a discrete palette of eight colorblind safe colors. If you'd prefer to use a different palette, but wand to make sure its accessible to folks with colorblindness, check out the [**colorblindr** package](https://github.com/clauswilke/colorblindr) [@R-colorblindr].
+
+Here's our **ggplot2** version of the model diagram in Figure 8.5.
+
+```{r}
+#| fig-width: 2
+#| fig-height: 3.5
+
+# Plot of a beta density
+p1 <- tibble(x = seq(from = 0.01, to = 0.99, by = 0.01),
+             d = (dbeta(x, 2, 2)) / max(dbeta(x, 2, 2))) |> 
+  ggplot(aes(x = x, y = d)) +
+  geom_area(fill = "steelblue") +
+  annotate(geom = "text",
+           x = 0.5, y = 0.2,
+           label = "beta",
+           size = 7) +
+  annotate(geom = "text",
+           x = 0.5, y = 0.6,
+           label = "italic(A)*', '*italic(B)", 
+           family = "Times", parse = TRUE, size = 7) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(linewidth = 0.5))
+
+# An annotated arrow
+p2 <- tibble(x = c(0.35, 0.65),
+             y = 1/3,
+             label = c("'~'", "italic(s)")) |> 
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(family = "Times", parse = TRUE, size = c(10, 7)) +
+  geom_segment(x = 0.5, xend = 0.5,
+               y = 1, yend = 0,
+               arrow = my_arrow) +
+  xlim(0, 1) +
+  theme_void()
+
+# Bar plot of Bernoulli data
+p3 <- tibble(x = 0:1,
+             d = (dbinom(x, size = 1, prob = 0.6)) / max(dbinom(x, size = 1, prob = 0.6))) |> 
+  ggplot(aes(x = x, y = d)) +
+  geom_col(fill = "steelblue", width = 0.4) +
+  annotate(geom = "text",
+           x = 0.5, y = 0.2,
+           label = "Bernoulli",
+           size = 7) +
+  annotate(geom = "text",
+           x = 0.5, y = 0.92,
+           label = "theta[italic(s)]", 
+           family = "Times", parse = TRUE, size = 7) +
+  xlim(-0.75, 1.75) +
+  theme_void() +
+  theme(axis.line.x = element_line(linewidth = 0.5))
+
+# Another annotated arrow
+p4 <- tibble(x = c(0.35, 0.65),
+             y = c(1/3, 1/3),
+             label = c("'~'", "italic(i)*'|'*italic(s)")) |> 
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(family = "Times", parse = TRUE, size = c(10, 7)) +
+  geom_segment(x = 0.5, xend = 0.5,
+               y = 1, yend = 0,
+               arrow = my_arrow) +
+  xlim(0, 1) +
+  theme_void()
+
+# Some text
+p5 <- tibble(x = 1,
+             y = 0.5,
+             label = "italic(y)[italic(i)*'|'*italic(s)]") |> 
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(family = "Times", parse = TRUE, size = 7) +
+  xlim(0, 2) +
+  theme_void()
+
+# Define the layout
+layout <- c(
+  area(t = 1, b = 2, l = 1, r = 1),
+  area(t = 3, b = 3, l = 1, r = 1),
+  area(t = 4, b = 5, l = 1, r = 1),
+  area(t = 6, b = 6, l = 1, r = 1),
+  area(t = 7, b = 7, l = 1, r = 1))
+
+# Combine, adjust, and display!
+(p1 + p2 + p3 + p4 + p5) + 
+  plot_layout(design = layout) &
+  ylim(0, 1) &
+  theme(plot.margin = margin(0, 5.5, 0, 5.5))
+```
+
+Here is how we might fit the model with `brms::brm()`.
+
+```{r fit8.2}
+fit8.2 <- brm(
+  data = my_data, 
+  family = bernoulli(identity),
+  y ~ 0 + s,
+  prior(beta(2, 2), class = b, lb = 0, ub = 1),
+  iter = 2000, warmup = 500, cores = 4, chains = 4,
+  seed = 8,
+  file = "fits/fit08.02")
+```
+
+More typically, we'd parameterize the model as `y ~ 1 + s`. This form would yield an intercept and a slope. Behind the scenes, **brms** would treat the nominal `s` variable as an 0-1 coded dummy variable. One of the nominal levels would become the reverence category, depicted by the `Intercept`, and the difference between that and the other category would be the `s` slope. However, with our `y ~ 0 + s` syntax, we've suppressed the typical model intercept. The consequence is that each level of the nominal variable `s` gets its own intercept or [i] index, if you will. This is analogous to Kruschke's `y[i] ∼ dbern(theta[s[i]])` code.
+
+All that aside, here are the chains.
+
+```{r}
+#| fig-width: 10
+#| fig-height: 3
+
+plot(fit8.2, widths = 2:3)
+```
+
+The model `summary()` is as follows:
+
+```{r}
+summary(fit8.2)
+```
+
+The `brms::pairs()` function gets us the bulk of Figure 8.6.
+
+```{r}
+#| fig-width: 4.5
+#| fig-height: 4
+
+pairs(fit8.2,
+      off_diag_args = list(alpha = 1/3, size = 1/3))
+```
+
+But to get at that difference-score distribution, we'll have extract the posterior draws with `as_draws_df()`, make difference score with `mutate()`, and manually plot with **ggplot2**.
+
+```{r}
+draws <- as_draws_df(fit8.2) |> 
+  rename(theta_Reginald = b_sReginald,
+         theta_Tony     = b_sTony) |> 
+  mutate(`theta_Reginald - theta_Tony` = theta_Reginald - theta_Tony)
+
+glimpse(draws)
+```
+
+```{r}
+#| warning: false
+#| fig-width: 10
+#| fig-height: 3
+
+long_draws <- draws |> 
+  select(starts_with("theta")) |> 
+  pivot_longer(cols = everything()) |> 
+  mutate(name = factor(name, levels = c("theta_Reginald", "theta_Tony", "theta_Reginald - theta_Tony"))) 
+  
+long_draws |> 
+  ggplot(aes(x = value, y = 0, fill = name)) +
+  stat_histinterval(point_interval = mode_hdi, .width = 0.95,
+                    slab_color = "white", outline_bars = TRUE,
+                    normalize = "panels") +
+  scale_fill_manual(values = colorblind_pal()(8)[2:4], breaks = NULL) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  theme_minimal_hgrid() +
+  facet_wrap(~ name, scales = "free")
+```
+
+Note how this time we used the `colorblind_pal()` function within `scale_fill_manual()` to manually select three of the of the `scale_fill_colorblind()` colors.
+
+Anyway, here's a way to get the numeric summaries out of `post`.
+
+```{r}
+long_draws |> 
+  group_by(name) |> 
+  mode_hdi()
+```
+
+In this context, the `mode_hdi()` summary yields:
+
+* `name` (i.e., the name we used to denote the parameters)
+* `value` (i.e., the value of the measure of central tendency)
+* `.lower` (i.e., the lower level of the 95% HDI)
+* `.upper` (i.e., the upper level...)
+* `.width` (i.e., what interval we used)
+* `.point` (i.e., the type of measure of central tendency)
+* `.interval` (i.e., the type of interval)
+
+## Sampling from the prior distribution in ~~JAGS~~ brms
+
+There are a few ways to sample from the prior distribution with **brms**. Here we'll practice by setting `sample_prior = "only"`. As a consequence, `brm()` will ignore the likelihood and return draws based solely on the model priors.
+
+```{r fit8.3}
+fit8.3 <- brm(
+  data = my_data, 
+  family = bernoulli(identity),
+  y ~ 0 + s,
+  prior = c(prior(beta(2, 2), class = b, coef = sReginald),
+            prior(beta(2, 2), class = b, coef = sTony),
+            # This just sets the lower and upper bounds
+            prior(beta(2, 2), class = b, lb = 0, ub = 1)),
+  iter = 2000, warmup = 500, cores = 4, chains = 4,
+  sample_prior = "only",
+  seed = 8,
+  file = "fits/fit08.03")
+```
+
+Because we set `sample_prior = "only"`, the `as_draws_df()` function will now return draws from the priors.
+
+```{r}
+#| warning: false
+
+draws <- as_draws_df(fit8.3) |> 
+  select(starts_with("b_"))
+
+head(draws)
+```
+
+With our prior draws in hand, we're almost ready to make the prior histograms of Figure 8.7. But first we'll want to determine the $z/N$ values in order to mark them off in the plots. [You'll note Kruschke did so with gray plus marks in his.]
+
+```{r}
+#| message: false
+
+my_data |> 
+  group_by(s) |> 
+  summarise(z = sum(y),
+            N = n()) |> 
+  mutate(`z/N` = z / N)
+
+levels <- c("theta_Reginald", "theta_Tony", "theta_Reginald - theta_Tony")
+
+d_line <- tibble(
+  value = c(0.75, 0.286, 0.75 - 0.286),
+  name  =  factor(levels, levels = levels))
+```
+
+Behold the histograms of Figure 8.7.
+
+```{r}
+#| warning: false
+#| fig-width: 10
+#| fig-height: 3
+
+draws |> 
+  rename(theta_Reginald = b_sReginald,
+         theta_Tony     = b_sTony) |> 
+  mutate(`theta_Reginald - theta_Tony` = theta_Reginald - theta_Tony) |> 
+  pivot_longer(cols = contains("theta")) |> 
+  mutate(name = factor(name, levels = levels)) |>
+  
+  ggplot(aes(x = value)) +
+  stat_histinterval(point_interval = mode_hdi, .width = 0.95,
+                    fill = colorblind_pal()(8)[5], normalize = "panels") +
+  geom_vline(data = d_line, 
+             aes(xintercept = value), 
+             linetype = 2) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  labs(subtitle = expression("The dashed vertical lines mark off "*italic(z[s])/italic(N[s]))) +
+  theme_cowplot() +
+  facet_wrap(~ name, scales = "free")
+```
+
+Here's how you might make the scatter plot.
+
+```{r}
+#| fig-width: 3
+#| fig-height: 3
+
+draws |> 
+  rename(theta_Reginald = b_sReginald,
+         theta_Tony     = b_sTony) |> 
+  
+  ggplot(aes(x = theta_Reginald, y = theta_Tony)) +
+  geom_point(alpha = 1/4, color = colorblind_pal()(8)[6]) +
+  coord_equal() +
+  theme_minimal_grid()
+```
+
+Or you could always use a two-dimensional density plot with `stat_density_2d()`.
+
+```{r}
+#| warning: false
+#| fig-width: 3
+#| fig-height: 3
+
+
+draws |> 
+  rename(theta_Reginald = b_sReginald,
+         theta_Tony     = b_sTony) |> 
+  
+  ggplot(aes(x = theta_Reginald, y = theta_Tony)) +
+  stat_density_2d(aes(fill = stat(density)), 
+                  geom = "raster", contour = FALSE) +
+  scale_fill_viridis_c(option = "B", breaks = NULL) +
+  scale_x_continuous(expression(theta[1]), 
+                     breaks = 0:4 / 4, expand = c(0, 0),
+                     labels = c("0", ".25", ".5", ".75", "1"), limits = c(0, 1)) +
+  scale_y_continuous(expression(theta[2]), 
+                     breaks = 0:4 / 4, expand = c(0, 0),
+                     labels = c("0", ".25", ".5", ".75", "1"), limits = c(0, 1)) +
+  coord_equal() +
+  theme_minimal_grid()
+```
+
+The **viridis** color palettes in functions like `scale_fill_viridis_c()` and `scale_fill_viridis_d()` are designed to be colorblind safe, too [@R-viridis].
+
+## Probability distributions available in ~~JAGS~~  brms
+
+> [**brms**] has a large collection of frequently used probability distributions that are built-in. These distributions include the beta, gamma, normal, Bernoulli, and binomial along with many others. A complete list of distributions, and their [**brms**] names, can be found in [Bürkner's [-@Bürkner2022Parameterization] vignette [*Parameterization of response distributions in brms*](https://CRAN.R-project.org/package=brms/vignettes/brms_families.html)]. [@kruschkeDoingBayesianData2015, pp. 213--214, **emphasis** added]
+
+### Defining new likelihood functions {#sec-Defining-new-likelihood-functions}
+
+In addition to all the likelihood functions listed in above mentioned vignette, you can also make your own likelihood functions. Bürkner explained the method in his [-@Bürkner2022Define] vignette, [*Define custom response distributions with brms*](https://CRAN.R-project.org/package=brms/vignettes/brms_customfamilies.html).
+
+## Faster sampling with parallel processing in ~~runjags~~ `brms::brm()`
+
+We don't need to open another package to sample in parallel in **brms**. In fact, we've already been doing that. Take another look at the code use used for the last model, `fit8.2`.
+
+```{r}
+#| eval: false
+
+fit8.2 <- brm(
+  data = my_data, 
+  family = bernoulli(identity),
+  y ~ 0 + s,
+  prior(beta(2, 2), class = b, lb = 0, ub = 1),
+  iter = 2000, warmup = 500, cores = 4, chains = 4,
+  seed = 8,
+  file = "fits/fit08.02")
+```
+
+See the `cores = 4, chains = 4` arguments? With that bit of code, we told `brms::brm()` we wanted 4 chains, which we ran in parallel across 4 cores.
+
+## Tips for expanding ~~JAGS~~ brms models
+
+I'm in complete agreement with Kruschke, here:
+
+> Often, the process of programming a model is done is stages, starting with a simple model and then incrementally incorporating complexifications. At each step, the model is checked for accuracy and efficiency. This procedure of incremental building is useful for creating a desired complex model from scratch, for expanding a previously created model for a new application, and for expanding a model that has been found to be inadequate in a posterior predictive check. (p. 218)
+
+## Session info {-}
+
+```{r}
+sessionInfo()
+```
+
