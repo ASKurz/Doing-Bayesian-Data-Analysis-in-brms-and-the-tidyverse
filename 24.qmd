@@ -1,0 +1,1103 @@
+# Count Predicted Variable {#sec-Count-Predicted-Variable}
+
+> Consider a situation in which we observe two nominal values for every item measured.... Across the whole sample, the result is a table of counts for each combination of values of the nominal variables. The counts are what we are trying to predict and the nominal variables are the predictors. This is the type of situation addressed in this chapter....
+>
+> In the context of the generalized linear model (GLM) introduced in Chapter 15, this chapter's situation involves a predicted value that is a count, for which we will use an inverse-link function that is exponential along with a Poisson distribution for describing noise in the data [@kruschkeDoingBayesianData2015, pp. 703--704]
+
+## Poisson exponential model
+
+Following Kruschke, we will "refer to the model that will be explained in this section as Poisson exponential because, as we will see, the noise distribution is a Poisson distribution and the inverse-link function is exponential" (p. 704).
+
+### Data structure
+
+Load the primary packages for the chapter.
+
+```{r}
+#| message: false
+#| warning: false
+
+library(janitor)
+library(ochRe)
+library(tidyverse)
+library(cowplot)
+library(patchwork)
+library(brms)
+library(tidybayes)
+```
+
+Kruschke has the @sneeGraphicalDisplayTwoway1974 data for Table 24.1 saved as the `HairEyeColor.csv` file.
+
+```{r}
+#| message: false
+
+my_data <- read_csv("data.R/HairEyeColor.csv")
+
+glimpse(my_data)
+```
+
+In order to retain some of the ordering in Table 24.1, we'll want to make `Hair` a factor and `recode()` `Brown` as `Brunette`.
+
+```{r}
+my_data <- my_data |> 
+  mutate(Hair = recode(Hair, "Brown" = "Brunette") |> 
+           factor(levels = c("Black", "Brunette", "Red", "Blond")))
+```
+
+Here's a quick way to use `pivot_wider()` to make most of the table.
+
+```{r}
+my_data |> 
+  pivot_wider(names_from = Hair, values_from = Count)
+```
+
+However, that didn't get us the marginal totals. For those, we'll `uncount()` the cells in the data and then make the full table with `janitor::tabyl()` and `janitor::adorn_totals()`.
+
+```{r}
+my_data |>
+  uncount(weights = Count, .remove = FALSE) |> 
+  tabyl(Eye, Hair) |>
+  adorn_totals(c("row", "col")) |> 
+  knitr::kable()
+```
+
+That last `knitr::kable()` line just formatted the output a bit. You'll note that the cell counts from the last two code blocks are a little different from those Kruschke displayed in his Table 24.1. I'm pretty sure Kruschke mislabeled his column names, which it appears he has acknowledged in his [Corrigenda](https://sites.google.com/site/doingbayesiandataanalysis/corrigenda).
+
+### Exponential link function
+
+To analyze data like those above,
+
+> a natural candidate for the needed likelihood distribution is the Poisson (described later), which takes a non-negative value $\lambda$ and gives a probability for each integer from zero to infinity.  But this motivation may seem a bit arbitrary, even if there’s nothing wrong with it in principle.
+>
+> A different motivation starts by treating the cell counts as representative of underlying cell probabilities, and then asking whether the two nominal variables contribute independent influences to the cell probabilities. (p. 705).
+
+The additive model of cell counts of a table of rows $r$ and columns $c$ follows the form
+
+$$\lambda_{r, c} = \exp(\beta_0 + \beta_r + \beta_c),$$
+
+where $\lambda_{r, c}$ is the tendency of counts within row $r$ and column $c$. In the case of an interaction model, the equation expands to
+
+$$\lambda_{r, c} = \exp(\beta_0 + \beta_r + \beta_c + \beta_{r, c}),$$
+
+with the following constraints:
+
+\begin{align*}
+\sum_r \beta_r = 0, && \sum_c \beta_c = 0, && \sum_r \beta_{r, c} = 0 \text{ for all } c, && \text{and} && \sum_c \beta_{r, c} = 0 \text{ for all } r.
+\end{align*}
+
+### Poisson noise distribution
+
+[Simon-Denis Poisson](https://upload.wikimedia.org/wikipedia/commons/e/e8/E._Marcellot_Siméon-Denis_Poisson_1804.jpg)'s distribution follows the form
+
+$$p(y \mid \lambda) = \frac{\lambda^y \exp(-\lambda)}{y!},$$
+
+> where $y$ is a non-negative integer and $\lambda$ is a non-negative real number. The mean of the Poisson distribution is $\lambda$. Importantly, the variance of the Poisson distribution is also $\lambda$ (i.e., the standard deviation is $\sqrt \lambda$). Thus, in the Poisson distribution, the variance is completely yoked to the mean. (p. 707)
+
+We can work with that expression directly in base **R**. Here we use $\lambda = 5.5$ and $y = 2$.
+
+```{r}
+lambda <- 5.5
+y      <- 2
+
+lambda^y * exp(-lambda) / factorial(y)
+```
+
+If we'd like to simulate from the Poisson distribution, we'd use the `rpois()` function. It takes two arguments, `n` and `lambda`. Let's generate 1,000 draws based on $\lambda = 5$.
+
+```{r}
+set.seed(24)
+
+d <- tibble(y = rpois(n = 1000, lambda = 5))
+```
+
+Here are the mean and variance.
+
+```{r}
+d |> 
+  summarise(mean = mean(y),
+            var  = var(y))
+```
+
+They're not exactly the same because of simulation variance, but they get that way real quick with a larger sample.
+
+```{r}
+set.seed(24)
+
+tibble(y = rpois(n = 100000, lambda = 5)) |> 
+  summarise(mean = mean(y),
+            var  = var(y))
+```
+
+Let's put `rpois()` to work and make Figure 24.1.
+
+Before we go any further, let's talk color and theme. For this chapter, we'll take our color palette from the [**ochRe** package](https://github.com/ropenscilabs/ochRe) [@R-ochRe], which provides several color palettes inspired by the art, landscapes, and wildlife of Australia. For the plots to follow, we will use the `"healthy_reef"` palette.
+
+```{r}
+#| fig-height: 3
+
+scales::show_col(ochre_palettes[["healthy_reef"]])
+
+hr <- ochre_palettes[["healthy_reef"]]
+```
+
+Our overall plot theme will be based on `cowplot::theme_minimal_grid()` with a few adjustments.
+
+```{r}
+theme_set(
+  theme_minimal_grid() +
+    theme(legend.key = element_rect(fill = hr[2], color = hr[2]),
+          panel.background = element_rect(fill = hr[2], color = hr[2]),
+          panel.border = element_rect(color = hr[2]),
+          panel.grid = element_blank())
+)
+```
+
+Now we have our palette and theme, we're ready to make our version of the Poisson histograms in Figure 24.1.
+
+```{r}
+#| fig-width: 5
+#| fig-height: 5
+
+crossing(y      = 0:50,
+         lambda = c(1.8, 8.3, 32.1)) |> 
+  mutate(d = dpois(y, lambda = lambda)) |> 
+  
+  ggplot(aes(x = y, y = d)) +
+  geom_col(color = hr[3], fill = hr[3], width = 0.5) +
+  scale_y_continuous("p(y)", expand = expansion(mult = c(0, 0.05))) +
+  facet_wrap(~ lambda, ncol = 1,
+             labeller = label_bquote(dpois(y*"|"*lambda == .(lambda))))
+```
+
+For more on our `labeller = label_bquote` syntax, check out [this](https://ggplot2.tidyverse.org/reference/label_bquote.html). But anyway, given $\lambda$, the Poisson distribution gives the probabilities of specific non-negative integers.
+
+### The complete model and implementation in ~~JAGS~~ brms
+
+To get a sense of Kruschke's hierarchical Bayesian alternative to the conventional ANOVA approach, let's make our version of the model diagram in Figure 24.2.
+
+```{r}
+#| message: false
+#| fig-width: 8
+#| fig-height: 5
+
+# Bracket
+p1 <- tibble(x = 0.95,
+             y = 0.5,
+             label = "{_}") |> 
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(color = hr[4], family = "Times", hjust = 1, size = 10) +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 1)) +
+  ylim(0, 1) +
+  theme_void()
+
+## Plain arrow
+# Save our custom arrow settings
+my_arrow <- arrow(angle = 20, length = unit(0.35, "cm"), type = "closed")
+p2 <- tibble(x = 0.68,
+             y = 1,
+             xend = 0.68,
+             yend = 0.25) |>
+  ggplot(aes(x = x, xend = xend,
+             y = y, yend = yend)) +
+  geom_segment(arrow = my_arrow, color = hr[8]) +
+  xlim(0, 1) +
+  theme_void()
+
+# Normal density
+p3 <- tibble(x = seq(from = -3, to = 3, by = 0.1)) |> 
+  ggplot(aes(x = x, y = (dnorm(x)) / max(dnorm(x)))) +
+  geom_area(fill = hr[2]) +
+  annotate(geom = "text",
+           x = 0, y = 0.2,
+           label = "normal",
+           color = hr[8], size = 7) +
+  annotate(geom = "text",
+           x = c(0, 1.45), y = 0.6,
+           hjust = c(0.5, 0),
+           label = c("italic(M)[0]", "italic(S)[0]"), 
+           color = hr[8], family = "Times", parse = TRUE, size = 7) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(color = hr[8], linewidth = 0.5))
+
+# Second normal density
+p4 <- tibble(x = seq(from = -3, to = 3, by = 0.1)) |> 
+  ggplot(aes(x = x, y = (dnorm(x)) / max(dnorm(x)))) +
+  geom_area(fill = hr[2]) +
+  annotate(geom = "text",
+           x = 0, y = 0.2,
+           label = "normal",
+           color = hr[8], size = 7) +
+  annotate(geom = "text",
+           x = c(0, 1.45), y = 0.6,
+           hjust = c(0.5, 0),
+           label = c("0", "sigma[beta][1]"), 
+           color = hr[8], family = "Times", parse = TRUE, size = 7) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(color = hr[8], linewidth = 0.5))
+
+# Third normal density
+p5 <- tibble(x = seq(from = -3, to = 3, by = 0.1)) |> 
+  ggplot(aes(x = x, y = (dnorm(x)) / max(dnorm(x)))) +
+  geom_area(fill = hr[2]) +
+  annotate(geom = "text",
+           x = 0, y = 0.2,
+           label = "normal",
+           color = hr[8], size = 7) +
+  annotate(geom = "text",
+           x = c(0, 1.45), y = 0.6,
+           hjust = c(0.5, 0),
+           label = c("0", "sigma[beta][2]"), 
+           color = hr[8], family = "Times", parse = TRUE, size = 7) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(color = hr[8], linewidth = 0.5))
+
+# Fourth normal density
+p6 <- tibble(x = seq(from = -3, to = 3, by = 0.1)) |> 
+  ggplot(aes(x = x, y = (dnorm(x)) / max(dnorm(x)))) +
+  geom_area(fill = hr[2]) +
+  annotate(geom = "text",
+           x = 0, y = 0.2,
+           label = "normal",
+           color = hr[8], size = 7) +
+  annotate(geom = "text",
+           x = 0, y = 0.6,
+           hjust = 0.5,
+           label = "0", 
+           color = hr[8], family = "Times", parse = TRUE, size = 7) +
+  scale_x_continuous(expand = c(0, 0)) +
+  theme_void() +
+  theme(axis.line.x = element_line(color = hr[8], linewidth = 0.5))
+
+# Likelihood formula
+p7 <- tibble(x = 0.5,
+             y = 0.25,
+             label = "exp(beta[0]+sum()[italic(j)]*beta[1]['['*italic(j)*']']*italic(x)[1]['['*italic(j)*']'](italic(i))+sum()[italic(k)]*beta[2]['['*italic(k)*']']*italic(x)[2]['['*italic(k)*']'](italic(i))+sum()[italic(jk)]*beta[1%*%2]['['*italic(jk)*']']*italic(x)[1%*%2]['['*italic(jk)*']'](italic(i)))") |> 
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(color = hr[8], family = "Times", parse = TRUE, size = 6.75) +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 1)) +
+  ylim(0, 1) +
+  theme_void()
+
+# Sigma
+p8 <- tibble(x = 0.13,
+             y = 0.6,
+             label = "sigma[beta][1%*%2]") |> 
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(color = hr[8], hjust = 0, family = "Times", parse = TRUE, size = 7) +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 2)) +
+  ylim(0, 1) +
+  theme_void()
+
+# Four annotated arrows
+p9 <- tibble(x = c(0.05, 0.34, 0.64, 0.945),
+             y = 1,
+             xend = c(0.06, 0.2, 0.47, 0.77),
+             yend = 0) |>
+  ggplot(aes(x = x, xend = xend,
+             y = y, yend = yend)) +
+  geom_segment(arrow = my_arrow, color = hr[8]) +
+  annotate(geom = "text",
+           x = c(0.025, 0.24, 0.30, 0.53, 0.60, 0.83, 0.91), y = 0.5,
+           label = c("'~'", "'~'", "italic(j)", "'~'", "italic(k)", "'~'", "italic(jk)"),
+           size = c(10, 10, 7, 10, 7, 10, 7), 
+           color = hr[8], family = "Times", parse = TRUE) +
+  xlim(0, 1) +
+  theme_void()
+
+# Poisson density
+p10 <- tibble(x = 0:9) |> 
+  ggplot(aes(x = x, y = 0.87 * (dpois(x, lambda = 3.5)) / max(dpois(x, lambda = 3.5))) ) +
+  geom_col(color = hr[2], fill = hr[2], width = 0.45) +
+  annotate(geom = "text",
+           x = 4.5, y = 0.2,
+           label = "Poisson",
+           color = hr[8], size = 7) +
+  annotate(geom = "text",
+           x = 4.5, y = 0.89,
+           label = "lambda[italic(i)]",
+           color = hr[8], family = "Times", parse = TRUE, size = 7) +
+  theme_void() +
+  theme(axis.line.x = element_line(color = hr[8], linewidth = 0.5))
+
+# One annotated arrow
+p11 <- tibble(x = 0.5,
+              y = 1,
+              xend = 0.5,
+              yend = 0.35) |>
+  ggplot(aes(x = x, xend = xend,
+             y = y, yend = yend)) +
+  geom_segment(arrow = my_arrow, color = hr[8]) +
+  annotate(geom = "text",
+           x = 0.4, y = 0.725,
+           label = "'='",
+           color = hr[8], family = "Times", parse = TRUE, size = 10) +
+  xlim(0, 1) +
+  theme_void()
+
+# The final annotated arrow
+p12 <- tibble(x = c(0.375, 0.625),
+              y = c(1/3, 1/3),
+              label = c("'~'", "italic(i)")) |>
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(color = hr[8], family = "Times", parse = TRUE, size = c(10, 7)) +
+  geom_segment(x = 0.5, xend = 0.5,
+               y = 1, yend = 0,
+               arrow = my_arrow, color = hr[8]) +
+  xlim(0, 1) +
+  theme_void()
+
+# Some text
+p13 <- tibble(x = 0.5,
+              y = 0.5,
+              label = "italic(y[i])") |>
+  ggplot(aes(x = x, y = y, label = label)) +
+  geom_text(color = hr[8], family = "Times", parse = TRUE, size = 7) +
+  xlim(0, 1) +
+  theme_void()
+
+# Define the layout
+layout <- c(
+  area(t = 1, b = 1, l = 6, r = 7),
+  area(t = 1, b = 1, l = 10, r = 11),
+  area(t = 1, b = 1, l = 14, r = 15),
+  area(t = 2, b = 3, l = 6, r = 7),
+  area(t = 2, b = 3, l = 10, r = 11),
+  area(t = 2, b = 3, l = 14, r = 15),
+  area(t = 3, b = 4, l = 1, r = 3),
+  area(t = 3, b = 4, l = 5, r = 7),
+  area(t = 3, b = 4, l = 9, r = 11),
+  area(t = 3, b = 4, l = 13, r = 15),
+  area(t = 6, b = 7, l = 1, r = 15),
+  area(t = 3, b = 4, l = 15, r = 16),
+  area(t = 5, b = 6, l = 1, r = 15),
+  area(t = 10, b = 11, l = 7, r = 9),
+  area(t = 8, b = 10, l = 7, r = 9),
+  area(t = 12, b = 12, l = 7, r = 9),
+  area(t = 13, b = 13, l = 7, r = 9))
+
+# Combine, adjust, and display
+(p1 + p1 + p1 + p2 + p2 + p2 + p3 + p4 + p5 + p6 + p7 + p8 + p9 + p10 + p11 + p12 + p13) + 
+  plot_layout(design = layout) &
+  ylim(0, 1) &
+  theme(plot.margin = margin(0, 5.5, 0, 5.5))
+```
+
+Using Kruschke's method,
+
+> the prior is supposed to be broad on the scale of the data, but we must be careful about what scale is being modeled by the baseline and deflections. *The counts are being directly described by* $\lambda$*, but it is* $\log (\lambda)$ *being described by the baseline and deflections*. Thus, the prior on the baseline and deflections should be broad on the scale of the logarithm of the data. To establish a generic baseline, consider that if the data points were distributed equally among the cells, the mean count would be the total count divided by the number of cells. The biggest possible standard deviation across cells would occur when all the counts were loaded into a single cell and all the other cells were zero. (pp. 709--710, *emphasis* added)
+
+Before we show how to fit the model, we need the old `gamma_a_b_from_omega_sigma()` function.
+
+```{r}
+gamma_a_b_from_omega_sigma <- function(mode, sd) {
+  if (mode <= 0) stop("`mode` must be > 0")
+  if (sd   <= 0) stop("`sd` must be > 0")
+  rate <- (mode + sqrt(mode^2 + 4 * sd^2)) / (2 * sd^2)
+  shape <- 1 + mode * rate
+  list(shape = shape, rate = rate)
+}
+```
+
+Here are a few intermediate values before we set the `stanvars`.
+
+```{r}
+#| eval: false
+
+n_x1_level <- length(unique(my_data$x1))
+n_x2_level <- length(unique(my_data$x2))
+n_cell     <- nrow(my_data)
+```
+
+Now we're ready to define the `stanvars`.
+
+```{r}
+#| eval: false
+
+y_log_mean <- log(sum(my_data$y) / (n_x1_level * n_x2_level))
+
+y_log_sd <- c(rep(0, n_cell - 1), sum(my_data$y)) |> 
+  sd() |> 
+  log()
+
+s_r <- gamma_a_b_from_omega_sigma(mode = y_log_sd, sd = 2 * y_log_sd)
+
+stanvars <- stanvar(y_log_mean, name = "y_log_mean") + 
+  stanvar(y_log_sd,  name = "y_log_sd") + 
+  stanvar(s_r$shape, name = "alpha") +
+  stanvar(s_r$rate,  name = "beta")
+```
+
+You'd then fit a Poisson model with two nominal predictors using Kruschke's hierarchical-shrinkage method like this.
+
+```{r}
+#| eval: false
+
+fit <- brm(
+  data = my_data,
+  family = poisson,
+  y ~ 1 + (1 | x1) + (1 | x2) + (1 | x1:x2),
+  prior = c(prior(normal(y_log_mean, y_log_sd * 2), class = Intercept),
+            prior(gamma(alpha, beta), class = sd)),
+  stanvars = stanvars)
+```
+
+By **brms** default, `family = poisson` uses the log link. Thus `family = poisson(link = "log")` should return the same results. Notice the right-hand side of the model `formula`. We have three hierarchical variance parameters. This hierarchical-shrinkage approach to frequency-table data has its origins in @gelmanAnalysisVarianceWhy2005, [*Analysis of variance--why it is more important than ever*](https://projecteuclid.org/download/pdfview_1/euclid.aos/1112967698).
+
+## Example: Hair eye go again
+
+We'll be using the same data, from above. As an alternative to Table 24.1, it might be handy to take a more colorful approach to wading into the data.
+
+```{r}
+#| fig-width: 6
+#| fig-height: 2
+
+my_data |>
+  uncount(weights = Count, .remove = FALSE) |> 
+  tabyl(Eye, Hair) |>
+  adorn_totals(c("row", "col")) |> 
+  data.frame() |> 
+  pivot_longer(cols = -Eye, names_to = "Hair") |> 
+  mutate(Eye = fct_rev(Eye)) |> 
+  
+  ggplot(aes(x = Hair, y = Eye, label = value)) +
+  geom_raster(aes(fill = value)) +
+  geom_text(aes(color = value < 250)) +
+  geom_hline(yintercept = 1.5, color = hr[8], linewidth = 1/2) +
+  geom_vline(xintercept = 4.5, color = hr[8], linewidth = 1/2) +
+  scale_x_discrete(expand = c(0, 0), position = "top") +
+  scale_y_discrete(expand = c(0, 0)) +
+  scale_fill_gradient(low = hr[9], high = hr[2]) +
+  scale_color_manual(values = hr[c(9, 2)]) +
+  theme(axis.text.y = element_text(hjust = 0),
+        axis.ticks = element_blank(),
+        legend.position = "none")
+```
+
+Now we'll save the preparatory values necessary for the `stanvars`.
+
+```{r}
+n_x1_level <- length(unique(my_data$Hair))
+n_x2_level <- length(unique(my_data$Eye))
+n_cell     <- nrow(my_data)
+
+n_x1_level; n_x2_level; n_cell
+```
+
+Here are the values we'll save as `stanvars`.
+
+```{r}
+y_log_mean <- log(sum(my_data$Count) / (n_x1_level * n_x2_level))
+
+y_log_sd <- c(rep(0, n_cell - 1), sum(my_data$Count)) |> 
+  sd() |> 
+  log()
+
+s_r <- gamma_a_b_from_omega_sigma(mode = y_log_sd, sd = 2 * y_log_sd)
+
+y_log_mean; y_log_sd; s_r$shape; s_r$rate
+```
+
+As a quick detour, it might be interesting to see what the kind of gamma distribution is entailed by those last two values.
+
+```{r}
+#| fig-width: 4
+#| fig-height: 2
+
+tibble(x = seq(from = 0, to = 70, length.out = 1e3)) |> 
+  mutate(density = dgamma(x, shape = s_r$shape, rate = s_r$rate)) |> 
+  
+  ggplot(aes(x = x, y = density)) +
+  geom_area(fill = hr[4]) +
+  scale_x_continuous(NULL, expand = expansion(mult = c(0, -0.05))) +
+  scale_y_continuous(NULL, breaks = NULL, expand = expansion(mult = c(0, 0.05))) +
+  ggtitle(expression("Kruschke's wide prior for "*sigma[beta*x]))
+```
+
+Save the `stanvars`.
+
+```{r}
+stanvars <- stanvar(y_log_mean, name = "y_log_mean") + 
+  stanvar(y_log_sd,  name = "y_log_sd") + 
+  stanvar(s_r$shape, name = "alpha") +
+  stanvar(s_r$rate,  name = "beta")
+```
+
+Fit Kruschke's model with **brms**.
+
+```{r}
+#| eval: false
+
+fit24.1 <- brm(
+  data = my_data,
+  family = poisson,
+  Count ~ 1 + (1 | Hair) + (1 | Eye) + (1 | Hair:Eye),
+  prior = c(prior(normal(y_log_mean, y_log_sd * 2), class = Intercept),
+            prior(gamma(alpha, beta), class = sd)),
+  iter = 3000, warmup = 1000, chains = 4, cores = 4,
+  seed = 24,
+  stanvars = stanvars,
+  file = "fits/fit24.01")
+```
+
+```{r}
+#| echo: false
+#| eval: false
+
+np <- nuts_params(fit24.1)
+
+plot(fit24.1)
+pairs(fit24.1, off_diag_args = list(alpha = 1/4, size = 1/4), np = np)
+```
+
+As it turns out, if you try to fit Kruschke's model with **brms** as is, you'll run into difficulties with divergent transitions and the like. One approach is to try tuning the `adapt_delta` and `max_treedepth` parameters. I had no luck with that approach. E.g., cranking `adapt_delta` up past `0.9999` still returned a divergent transition or two.
+
+Another approach is to step back and assess the model. We're trying to fit a multilevel model with two grouping variables and their interaction with a total of 16 data points. That's not a lot of data for fitting such a model. If you take a close look at our priors, you'll notice they're really quite weak. If you're willing to tighten them up just a bit, the model can fit more smoothly. That will be our approach.
+
+For the $\sigma$ hyperparameter of the overall intercept's Gaussian prior, Kruschke would have us multiply `y_log_sd` by 2. Here we'll tighten up that $\sigma$ hyperparameter by simply setting it to `y_log_sd`. The gamma priors for the upper-level variance parameters were based on a mode of `y_log_sd` and a standard deviation of the same but multiplied by 2 (i.e., `2 * y_log_sd`). We'll tighten that up a bit by simply defining those gammas by a standard deviation of `y_log_sd`. When you make those adjustments, the model fits with less fuss. In case you're curious, here is what those priors look like.
+
+```{r}
+#| fig-width: 6
+#| fig-height: 2
+
+# Redifine our shape and rate
+s_r <- gamma_a_b_from_omega_sigma(mode = y_log_sd, sd = y_log_sd)
+
+# Wrangle
+bind_rows(
+  # Define beta[0]
+  tibble(x = seq(from = y_log_mean - (4 * y_log_sd), to = y_log_mean + (4 * y_log_sd), length.out = 1e3)) |>
+    mutate(density = dnorm(x, mean = y_log_mean, sd = y_log_sd)),
+  # Define sigma[beta[x]]
+  tibble(x = seq(from = 0, to = 40, length.out = 1e3)) |> 
+    mutate(density = dgamma(x, shape = s_r$shape, rate = s_r$rate))) |>
+  mutate(prior = rep(c("beta[0]", "sigma[beta*x]"), each = n() / 2)) |> 
+  
+  # Plot
+  ggplot(aes(x = x, y = density)) +
+  geom_area(fill = hr[6]) +
+  scale_y_continuous(NULL, breaks = NULL, expand = expansion(mult = c(0, 0.05))) +
+  labs(title = "Priors",
+       x = NULL) +
+  facet_wrap(~ prior, scales = "free", labeller = label_parsed)
+```
+
+Update the `stanvars`.
+
+```{r}
+stanvars <- stanvar(y_log_mean, name = "y_log_mean") + 
+  stanvar(y_log_sd,  name = "y_log_sd") + 
+  stanvar(s_r$shape, name = "alpha") +
+  stanvar(s_r$rate,  name = "beta")
+```
+
+Now we've updated our `stanvars`, we'll fit the modified model. We should note that even this version required some adjustment to the `adapt_delta` and `max_treedepth` parameters. But it wasn't nearly the exercise in frustration entailed in the version, above.
+
+```{r fit24.1}
+fit24.1 <- brm(
+  data = my_data,
+  family = poisson,
+  Count ~ 1 + (1 | Hair) + (1 | Eye) + (1 | Hair:Eye),
+  prior = c(prior(normal(y_log_mean, y_log_sd), class = Intercept),
+            prior(gamma(alpha, beta), class = sd)),
+  iter = 3000, warmup = 1000, chains = 4, cores = 4,
+  control = list(adapt_delta = 0.999, max_treedepth = 12),
+  stanvars = stanvars,
+  seed = 24,
+  file = "fits/fit24.01")
+```
+
+Take a look at the parameter summary.
+
+```{r}
+print(fit24.1)
+```
+
+You'll notice that even though we tightened up the priors, the parameter estimates are still quite small relative to the values they allowed for. So even our tightened priors were quite permissive.
+
+Let's post process in preparation for Figure 24.3.
+
+```{r}
+nd <- my_data |> 
+  arrange(Eye, Hair) |> 
+  # Make the titles for the facet strips
+  mutate(strip = str_c("E:", Eye, " H:", Hair, "\nN = ", Count))
+
+f <- fitted(fit24.1,
+            newdata = nd,
+            summary = FALSE) |> 
+  data.frame() |>
+  set_names(pull(nd, strip))
+
+glimpse(f)
+```
+
+Notice that when working with a Poisson model, `fitted()` defaults to returning estimates in the $\lambda$ metric. If we want proportions/probabilities, we'll have to compute them by dividing by the total $N$. In this case $N = 592$, which we get with `sum(my_data$Count)`. Here we convert the data to the long format, compute the proportions, and plot to make the top portion of Figure 24.3.
+
+```{r}
+#| fig-width: 8
+#| fig-height: 6
+
+f |> 
+  pivot_longer(cols = everything(), values_to = "count") |> 
+  mutate(proportion = count / 592) |> 
+  
+  ggplot(aes(x = proportion)) +
+  stat_histinterval(point_interval = mode_hdi, .width = 0.95,
+                    color = hr[5], fill = hr[9], normalize = "panels") +
+  scale_x_continuous(breaks = c(0, 0.1, 0.2)) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  coord_cartesian(xlim = c(0, 0.25)) +
+  facet_wrap(~ name, scales = "free_y")
+```
+
+We'll have to work a bit to get the deflection differences. If this was a simple multilevel model with a single random grouping variable, we could just use the `ranef()` function to return the deflections. Like `fitted()`, it'll return summaries by default. But you can get the posterior draws with the `summary = FALSE` argument. But since we used two grouping variables and their interaction, it'd be a bit of a pain to work that way. Happily, we do have a handy alternative. First, if we use the `scale = "linear"` argument, `fitted()` will return the draws in the $\lambda$ scale rather than the original count metric. With the group-level draws in the $\lambda$ metric, all we need to do is subtract the fixed effect (i.e., the grand mean, the population estimate) from each to convert them to the deflection metric. So below, we'll
+
+a) make a custom `make_deflection()` function to do the conversions,
+b) redefine our `nd` data to make our naming conventions a little more streamlined,
+c) use `fitted()` and its `scale = "linear"` argument to get the draws in the $\lambda$ metric, 
+d) wrangle a touch, and 
+e) use our handy `make_deflection()` function to convert the results to the deflection metric.
+
+I know; that's a lot. If you get lost, just go step by step and examine the results along the way.
+
+```{r}
+# A. make a custom function
+make_deflection <- function(x) {
+  x - as_draws_df(fit24.1)$b_Intercept
+}
+
+# B. streamline `nd`
+nd <- my_data |> 
+  arrange(Eye, Hair) |> 
+  mutate(strip = str_c("E:", Eye, " H:", Hair))
+
+# C. use `fitted()`
+deflections <- fitted(fit24.1,
+               newdata = nd,
+               summary = FALSE,
+               scale = "linear") |> 
+  # D. wrangle
+  data.frame() |>
+  set_names(pull(nd, strip)) |> 
+  # E. use the `make_deflection()` function
+  mutate_all(.funs = make_deflection)
+
+# What have we done?
+glimpse(deflections)
+```
+
+Now we're ready to define our difference columns and plot our version of the lower panels in Figure 24.3.
+
+```{r}
+#| fig-width: 8
+#| fig-height: 2.5
+
+deflections |> 
+  transmute(`Blue − Brown @ Black` = `E:Blue H:Black` - `E:Brown H:Black`,
+            `Blue − Brown @ Blond` = `E:Blue H:Blond` - `E:Brown H:Blond`) |> 
+  mutate(`Blue.v.Brown\n(x)\nBlack.v.Blond` = `Blue − Brown @ Black` - `Blue − Brown @ Blond`) |> 
+  pivot_longer(cols = everything(), values_to = "difference") |> 
+
+  ggplot(aes(x = difference)) +
+  stat_histinterval(point_interval = mode_hdi, .width = 0.95,
+                    color = hr[5], fill = hr[9], normalize = "panels") +
+  scale_y_continuous(NULL, breaks = NULL) +
+  theme(panel.grid = element_blank()) +
+  facet_wrap(~ name, scales = "free")
+```
+
+If you're curious, here are the precise summary values.
+
+```{r}
+deflections |> 
+  mutate(`Blue − Brown @ Black` = `E:Blue H:Black` - `E:Brown H:Black`,
+         `Blue − Brown @ Blond` = `E:Blue H:Blond` - `E:Brown H:Blond`) |> 
+  mutate(`Blue.v.Brown\n(x)\nBlack.v.Blond` = `Blue − Brown @ Black` - `Blue − Brown @ Blond`) |> 
+  pivot_longer(cols = `Blue − Brown @ Black`:`Blue.v.Brown\n(x)\nBlack.v.Blond`) |> 
+  group_by(name) |> 
+  mode_hdi(value)
+```
+
+## Example: Interaction contrasts, shrinkage, and omnibus test
+
+"In this section, we consider some contrived data to illustrate aspects of interaction contrasts. Like the eye and hair data, the fictitious data have two attributes with four levels each" (p. 713). Let's make the data.
+
+```{r}
+my_data <- crossing(a = str_c("a", 1:4),
+                    b = str_c("b", 1:4)) |> 
+  mutate(count = c(rep(c(22, 11), each = 2) |> rep(times = 2),
+                   rep(c(11, 22), each = 2) |> rep(times = 2)))
+
+head(my_data)
+```
+
+In the last section, we covered how Kruschke's broad priors can make fitting these kinds of models difficult when using HMC, particularly with so few cells. Our solution was to reign in the $\sigma$ hyperparameter for the level-one intercept and to compute the gamma prior for the hierarchical deflections based on a standard deviation of the log of the maximum standard deviation for the data rather than two times that value. Let's explore more options.
+
+This data set has 16 cells. With so few cells, one might argue for a more conservative prior on the hierarchical deflections. Why not ditch the gamma altogether for a half normal centered on zero and with a $\sigma$ hyperparameter of 1? Even though this is much tighter than Kruschke's gamma prior approach, it's still permissive on the $\log$ scale. As for our intercept, we'll continue with the same approach from last time.
+
+With that in mind, make the `stanvars`.
+
+```{r}
+n_x1_level <- length(unique(my_data$a))
+n_x2_level <- length(unique(my_data$b))
+n_cell     <- nrow(my_data)
+
+y_log_mean <- log(sum(my_data$count) / (n_x1_level * n_x2_level))
+
+y_log_sd <- c(rep(0, n_cell - 1), sum(my_data$count)) |> 
+  sd() |> 
+  log()
+
+stanvars <-  stanvar(y_log_mean, name = "y_log_mean") + 
+  stanvar(y_log_sd, name = "y_log_sd")
+```
+
+Just for kicks, let's take a quick look at our priors.
+
+```{r}
+#| fig-width: 6
+#| fig-height: 2
+
+bind_rows(
+  # Define beta[0]
+  tibble(x = seq(from = y_log_mean - (4 * y_log_sd), to = y_log_mean + (4 * y_log_sd), length.out = 1e3)) |>
+    mutate(density = dnorm(x, mean = y_log_mean, sd = y_log_sd)),
+  # Define sigma[beta[x]]
+  tibble(x = seq(from = 0, to = 5, length.out = 1e3)) |> 
+    mutate(density = dnorm(x, mean = 0, sd = 1))) |>
+  mutate(prior = rep(c("beta[0]", "sigma[beta*x]"), each = n() / 2)) |> 
+  
+  ggplot(aes(x = x, y = density)) +
+  geom_area(fill = hr[6]) +
+  scale_y_continuous(NULL, breaks = NULL, expand = expansion(mult = c(0, 0.05))) +
+  labs(x = NULL,
+       title = "Priors") +
+  facet_wrap(~ prior, labeller = label_parsed, scales = "free")
+```
+
+Fit the model.
+
+```{r fit24.2}
+fit24.2 <- brm(
+  data = my_data,
+  family = poisson,
+  count ~ 1 + (1 | a) + (1 | b) + (1 | a:b),
+  prior = c(prior(normal(y_log_mean, y_log_sd), class = Intercept),
+            prior(normal(0, 1), class = sd)),
+  iter = 3000, warmup = 1000, chains = 4, cores = 4,
+  control = list(adapt_delta = 0.999),
+  stanvars = stanvars,
+  seed = 24,
+  file = "fits/fit24.02")
+```
+
+Review the summary.
+
+```{r}
+print(fit24.2)
+```
+
+We might plot our $\sigma_\text{<group>}$ posteriors against our prior to get a sense of how strong it was.
+
+```{r}
+#| warning: false
+#| fig-width: 7
+#| fig-height: 3
+
+as_draws_df(fit24.2) |> 
+  pivot_longer(cols = starts_with("sd"), names_to = "sd") |> 
+  
+  ggplot(aes(x = value)) +
+  # Prior
+  geom_area(data = tibble(value = seq(from = 0, to = 3, by = 0.01)),
+            aes(y = dnorm(value, 0, 1)),
+            fill = hr[8]) +
+  # Posterior
+  geom_density(aes(fill = sd),
+               alpha = 2/3, linewidth = 0) +
+  scale_x_continuous(NULL, expand = expansion(mult = c(0, 0.05))) +
+  scale_y_continuous(NULL, breaks = NULL, expand = expansion(mult = c(0, 0.05))) +
+  scale_fill_manual(values = hr[c(4, 6, 3)],
+                    guide = guide_legend(label.hjust = 0),
+                    labels = c(expression(sigma[a]),
+                                  expression(sigma[ab]),
+                                  expression(sigma[b]))) +
+  theme(legend.background = element_rect(fill = "transparent"),
+        legend.position = c(0.9, 0.8))
+```
+
+Our $\operatorname{Normal}^+ (0, 1)$ prior is that short dark shape in the background. The posteriors are the taller and more colorful mounds in the foreground. Here's the top part of Figure 24.4.
+
+```{r}
+#| fig-width: 8
+#| fig-height: 6
+
+nd <- my_data |> 
+  mutate(strip = str_c("a:", a, " b:", b, "\nN = ", count))
+
+fitted(fit24.2,
+       newdata = nd,
+       summary = FALSE) |> 
+  data.frame() |>
+  set_names(pull(nd, strip)) |> 
+  pivot_longer(cols = everything(), values_to = "count") |> 
+  mutate(proportion = count / sum(my_data$count)) |> 
+  
+  ggplot(aes(x = proportion)) +
+  stat_histinterval(point_interval = mode_hdi, .width = 0.95,
+                    color = hr[6], fill = hr[7], normalize = "panels") +
+  scale_x_continuous(breaks = c(0.05, 0.1, 0.15)) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  coord_cartesian(xlim = c(0, 0.15)) +
+  theme(panel.grid = element_blank()) +
+  facet_wrap(~ name, scales = "free_y")
+```
+
+Like before, we'll have to work a bit to get the deflection differences.
+
+```{r}
+# Streamline `nd`
+nd <- my_data |> 
+  mutate(strip = str_c("a:", a, " b:", b))
+
+# Use `fitted()`
+deflections <- fitted(
+  fit24.2,
+  newdata = nd,
+  summary = FALSE,
+  scale = "linear") |> 
+  # Wrangle
+  data.frame() |>
+  set_names(pull(nd, strip)) |> 
+  # Use the `make_deflection()` function
+  mutate_all(.funs = make_deflection)
+
+# What have we done?
+glimpse(deflections)
+```
+
+Now we're ready to define some of the difference columns and plot our version of the leftmost lower panel in Figure 24.4.
+
+```{r}
+#| fig-width: 3.25
+#| fig-height: 2.75
+
+deflections |> 
+  transmute(`a2 - a3 @ b2` = `a:a2 b:b2` - `a:a3 b:b2`,
+            `a2 - a3 @ b3` = `a:a2 b:b3` - `a:a3 b:b3`) |> 
+  mutate(`a2.v.a3\n(x)\nb2.v.b3` = `a2 - a3 @ b2` - `a2 - a3 @ b3`) |> 
+  pivot_longer(cols = `a2.v.a3\n(x)\nb2.v.b3`, values_to = "difference") |> 
+
+  ggplot(aes(x = difference)) +
+  stat_histinterval(point_interval = mode_hdi, .width = 0.95,
+                    color = hr[6], fill = hr[7]) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  coord_cartesian(xlim = c(-0.5, 2.5)) +
+  theme(panel.grid = element_blank()) +
+  facet_wrap(~ name, scales = "free")
+```
+
+For Figure 24.4, bottom right, we average across the four cells in each quadrant and then compute the contrast.
+
+```{r}
+#| fig-width: 3.25
+#| fig-height: 2.75
+
+deflections |> 
+  # In this intermediate step, we compute the quadrant averages
+  # `tl` = top left, `br` = bottom right, and so on
+  transmute(tl = (`a:a1 b:b1` + `a:a1 b:b2` + `a:a2 b:b1` + `a:a2 b:b2`) / 4,
+            tr = (`a:a1 b:b3` + `a:a1 b:b4` + `a:a2 b:b3` + `a:a2 b:b4`) / 4,
+            bl = (`a:a3 b:b1` + `a:a3 b:b2` + `a:a4 b:b1` + `a:a4 b:b2`) / 4,
+            br = (`a:a3 b:b3` + `a:a3 b:b4` + `a:a4 b:b3` + `a:a4 b:b4`) / 4) |>
+  # Compute the contrast of interest
+  mutate(`A1.A2.v.A3.A4\n(x)\nB1.B2.v.B3.B4` = (tl - bl) - (tr - br)) |> 
+  pivot_longer(cols = `A1.A2.v.A3.A4\n(x)\nB1.B2.v.B3.B4`, values_to = "difference") |>
+  
+  # Plot
+  ggplot(aes(x = difference)) +
+  stat_histinterval(point_interval = mode_hdi, .width = 0.95,
+                    color = hr[6], fill = hr[7]) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  coord_cartesian(xlim = c(-0.5, 2.5)) +
+  theme(panel.grid = element_blank()) +
+  facet_wrap(~ name, scales = "free")
+```
+
+> The model presented here has no way to conduct an "ominbus" test of interaction. However, like the ANOVA-style models presented in Chapters 19 and 20, it is easy to extend the model so it has an inclusion coefficient on the interaction deflections. The inclusion coefficient can have values of $0$ or $1$, and is given a Bernoulli prior. (p. 716)
+
+Like we discussed in earlier chapters, this isn't a feasible approach for **brms**. However, we can compare this model with a simpler one that omits the interaction. First, fit the model.
+
+```{r fit24.3}
+fit24.3 <- brm(
+  data = my_data,
+  family = poisson,
+  count ~ 1 + (1 | a) + (1 | b),
+  prior = c(prior(normal(y_log_mean, y_log_sd), class = Intercept),
+            prior(normal(0, 1), class = sd)),
+  iter = 3000, warmup = 1000, chains = 4, cores = 4,
+  control = list(adapt_delta = 0.999),
+  stanvars = stanvars,
+  seed = 24,
+  file = "fits/fit24.03")
+```
+
+Now we can compare them by their stacking weights.
+
+```{r}
+#| warning: false
+
+model_weights(fit24.2, fit24.3) |> 
+  round(digits = 3)
+```
+
+Virtually all the weight went to the interaction model. Also, if we step back and ask ourselves what the purpose of an omnibus text of an interaction is for in this context, we'd conclude such a test is asking the question *Is* $\sigma_{a \times b}$ *the same as zero?* Let's look again at that posterior from `fit24.2`.
+
+```{r}
+#| fig-width: 5
+#| fig-height: 3
+
+as_draws_df(fit24.2) |> 
+  ggplot(aes(x = `sd_a:b__Intercept`)) +
+  stat_halfeye(.width = 0.95, color = hr[6], fill = hr[7]) +
+  scale_x_continuous(expression(sigma[a%*%b]), 
+                     expand = expansion(mult = c(0, 0.05)), limits = c(0, NA)) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  labs(subtitle = "Does this look the same as zero, to you?")
+```
+
+Sure, there's some uncertainty in that posterior. But that is not zero. We didn't need an omnibus test or even model comparison via stacking weights to figure that one out.
+
+If you wanted to get fancy with it, we might even do a hierarchical variance decomposition. Here the question is what percentage of the hierarchical variance is attributed to `a`, `b` and their interaction? Recall that **brms** returns those variance parameters in the $\sigma$ metric. So before we can compare them in terms of percentages of the total variance, we have to first have to square them.
+
+```{r}
+#| warning: false
+
+draws <- as_draws_df(fit24.2) |> 
+  transmute(`sigma[a]^2`  = sd_a__Intercept^2,
+            `sigma[b]^2`  = sd_b__Intercept^2,
+            `sigma[ab]^2` = `sd_a:b__Intercept`^2) |> 
+  mutate(`sigma[total]^2` = `sigma[a]^2` + `sigma[b]^2` + `sigma[ab]^2`)
+
+head(draws)
+```
+
+Now we just need to divide the individual variance parameters by their total and multiply by 100 to get the percent of variance for each. We'll look at the results in a plot.
+
+```{r}
+#| fig-width: 4
+#| fig-height: 2.75
+
+draws |> 
+  pivot_longer(cols = -`sigma[total]^2`) |> 
+  mutate(`% hierarchical variance` = 100 * value / `sigma[total]^2`) |> 
+  
+  ggplot(aes(x = `% hierarchical variance`, y = name)) +
+  stat_halfeye(.width = 0.95, color = hr[6], fill = hr[7]) +
+  scale_x_continuous(limits = c(0, 100), expand = c(0, 0)) +
+  scale_y_discrete(NULL, labels = ggplot2:::parse_safe) +
+  coord_cartesian(ylim = c(1.5, 3.5)) +
+  theme(plot.margin = margin(5.5, 10, 5.5, 5.5))
+```
+
+Just as each of the variance parameters was estimated with uncertainty, all that uncertainty got propagated into their transformations. Even in the midst of all this uncertainty, it's clear that a good healthy portion of the hierarchical variance is from the interaction. Again, whatever you might think about $a \times b$, it's definitely not zero.
+
+## ~~Log-linear models for contingency tables~~ Bonus: Alternative parameterization
+
+The Poisson distribution is widely used for count data. But notice how in our figures, we converted the results to the proportion metric. Once you're talking about proportions, it's not hard to further adjust your approach to thinking in terms of probabilities. So instead of thinking about the $n$ within each cell of our contingency table, we might also think about the probability of a given condition. To approach the data this way, we could use a multilevel aggregated binomial model. McElreath covered this in Chapter 10 of his [*Statistical rethinking*](https://xcelab.net/rm/statistical-rethinking/). See my [-@kurzStatisticalRethinkingBrms2023] [translation of the text into brms code](https://bookdown.org/content/3890/counting-and-classification.html#aggregated-binomial-chimpanzees-again-condensed.), too.
+
+Here's how to fit that model.
+
+```{r fit24.4}
+fit24.4 <- brm(
+  data = my_data,
+  family = binomial,
+  count | trials(264) ~ 1 + (1 | a) + (1 | b) + (1 | a:b),
+  prior = c(prior(normal(0, 2), class = Intercept),
+            prior(normal(0, 1), class = sd)),
+  iter = 3000, warmup = 1000, chains = 4, cores = 4,
+  control = list(adapt_delta = 0.999),
+  seed = 24,
+  file = "fits/fit24.04")
+```
+
+A few things about the syntax: The aggregated binomial model uses the logit link, just like with typical logistic regression. So when you specify `family = binomial`, you're requesting the logit link. The left side of the `formula` argument, `count | trials(264)` indicates a few things. First, our criterion is `count`. The bar `|` that follows on its right indicates we'd like add additional information about the criterion. In the case of binomial regression, **brms** requires we specify how many trials the value in each cell of the data is referring to. When we coded `trials(264)`, we indicated each cell was a total count of 264 trials. In case it isn't clear, here is where the value 264 came from.
+
+```{r}
+my_data |> 
+  summarise(total_trials = sum(count))
+```
+
+Now look over the summary.
+
+```{r}
+print(fit24.4)
+```
+
+See that `mu = logit` part in the second line of the summary? Yep, that's our link function. Since we used a different likelihood and link function from earlier models, it shouldn't be surprising the parameters look different. But notice how the aggregated binomial model yields virtually the same results for the top portion of Figure 24.4.
+
+```{r}
+#| fig-width: 8
+#| fig-height: 6
+
+nd <- my_data |> 
+  mutate(strip = str_c("a:", a, " b:", b, "\nN = ", count))
+
+fitted(fit24.4,
+       newdata = nd,
+       summary = FALSE) |> 
+  data.frame() |>
+  set_names(pull(nd, strip)) |> 
+  pivot_longer(cols = everything(), values_to = "count") |> 
+  mutate(proportion = count / sum(my_data$count)) |> 
+  
+  ggplot(aes(x = proportion)) +
+  stat_histinterval(point_interval = mode_hdi, .width = 0.95,
+                    color = hr[3], fill = hr[5]) +
+  scale_x_continuous(breaks = c(0.05, 0.1, 0.15)) +
+  scale_y_continuous(NULL, breaks = NULL) +
+  coord_cartesian(xlim = c(0, 0.15)) +
+  theme(panel.grid = element_blank()) +
+  facet_wrap(~ name, scales = "free_y")
+```
+
+To further demonstrate the similarity of this approach to Kruschke's multilevel Poisson approach, let's compare the model-based cell estimates for each of the combinations of `a` and `b`, by both `fit24.2` and `fit24.4`.
+
+```{r}
+#| fig-width: 8
+#| fig-height: 3
+
+# Compute the fitted summary statistics
+rbind(fitted(fit24.2),
+      fitted(fit24.4)) |> 
+  data.frame() |> 
+  # Add an augmented version of the data
+  bind_cols(my_data |> 
+              expand_grid(fit = c("fit2 (Poisson likelihood)", "fit4 (binomial likelihood)")) |>
+              arrange(fit, a, b, count)) |> 
+  mutate(cell = str_c(a, "\n", b)) |> 
+  
+  # Plot
+  ggplot(aes(x = cell)) +
+  geom_hline(yintercept = c(11, 22), color = hr[3], linetype = 2) +
+  geom_pointrange(aes(y = Estimate, ymin = Q2.5, ymax = Q97.5, color = fit),
+                  fatten = 1.5, position = position_dodge(width = 0.5)) +
+  geom_point(aes(y = count),
+             color = hr[9], size = 2) +
+  scale_color_manual(NULL, values = hr[c(7, 5)]) +
+  scale_y_continuous("count", breaks = c(0, 11, 22, 33), limits = c(0, 33)) +
+  theme(legend.position = "top")
+```
+
+The black points are the raw data. The colored point-ranges to the left and right of each data point are the posterior means and percentile-based 95% intervals for each of the cells. The results are virtually the same between the two models. Also note how both models partially pooled towards the grand mean. That's one of the distinctive features of using the hierarchical approach.
+
+Wrapping up, this chapter focused on how one might use the Poisson likelihood to model contingency-table data from a multilevel modeling framework. The Poisson likelihood is also handy for count data within a single-level structure, with metric predictors, and with various combinations of metric and nominal predictors. For more practice along those lines, check out [Section 10.2](https://bookdown.org/content/3890/counting-and-classification.html#poisson-regression) in my ebook recoding McElreath's [*Statistical rethinking*](https://xcelab.net/rm/statistical-rethinking/).
+
+## Session info {-}
+
+```{r}
+sessionInfo()
+```
+
