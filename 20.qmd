@@ -1466,7 +1466,7 @@ Recall that to fit a robust hierarchical variances model, we need to wrap our tw
 #| echo: false
 #| eval: false
 
-# Heads up: this took 1.549387 hours to fit (4-4-2025)
+# Heads up: this took 1.658 hours to fit (1-2-2026)
 ```
 
 ```{r fit20.2}
@@ -2076,25 +2076,54 @@ fit20.4 <- add_criterion(fit20.4, criterion = "loo")
 
 Executing that yielded the following warning message:
 
-> Found 4 observations with a pareto_k > 0.7 in model 'fit20.3'. It is recommended to set 'moment_match = TRUE' in order to perform moment matching for problematic observations. 
+> Found 3 observations with a pareto_k > 0.7 in model 'fit20.3'. We recommend to set 'moment_match = TRUE' in order to perform moment matching for problematic observations. 
+
+```{r fit20.3mm}
+#| echo: false
+#| eval: false
+
+fit20.3mm <- brm(
+  data = my_data,
+  family = gaussian,
+  Yield ~ 1 + (1 | Till) + (1 | Fert) + (1 | Field) + (1 | Till:Fert),
+  prior = c(prior(normal(mean_y, sd_y * 5), class = Intercept),
+            prior(gamma(alpha, beta), class = sd),
+            prior(cauchy(0, sd_y), class = sigma)),
+  iter = 4000, warmup = 2000, chains = 4, cores = 4,
+  seed = 20,
+  control = list(adapt_delta = 0.9999, max_treedepth = 12),
+  stanvars = stanvars,
+  save_pars = save_pars(all = TRUE),
+  file = "fits/fit20.03mm")
+
+fit20.3mm <- add_criterion(fit20.3mm, criterion = "loo")
+
+fit20.3mm_mm <- loo_moment_match(fit20.3mm)
+# Warning :Some Pareto k diagnostic values are too high. See help('pareto-k-diagnostic') for details.
+``` 
 
 To use the `moment_match` approach, the model in question must have been fit with the setting `save_pars = save_pars(all = TRUE)` within the `brm()` call. The default is `save_pars = NULL` and we used the default settings, above. If you go through the trouble of refitting the model with those updated settings, you'll find that the `moment_match` approach didn't help in this case. For the sake of reducing clutter, I'm not going to show the code for refitting the model. However, the next warning message I got after executing `fit20.3 <- add_criterion(fit20.3, criterion = "loo", moment_match = TRUE)` was:
 
+> Warning :Some Pareto k diagnostic values are too high. See help('pareto-k-diagnostic') for details
+
 > Warning: Found 1 observations with a pareto_k > 0.7 in model 'fit20.3'. It is recommended to set 'reloo = TRUE' in order to calculate the ELPD without the assumption that these observations are negligible. This will refit the model 1 times to compute the ELPDs for the problematic observations directly.
 
-So it's time to bring in the big guns. Let's use `reloo`. Be warned that, because this requires refitting the model multiple times, this will take a few minutes.
+It's not a bad idea to execute `help('pareto-k-diagnostic')` and browse though the options that pop up from the documentation, but I didn't find them particularly helpful in this case. So it's time to bring in the big guns. Let's use `reloo`. Be warned that, because this requires refitting the model multiple times, this will take a few minutes.^[To learn more about this method, read through the `reloo` section of the [brms reference manual](https://cran.r-project.org/web/packages/brms/brms.pdf).]
 
 ```{r}
 #| echo: false
 #| eval: false
 
-# This took 7.296974 mins (4-4-2025)
+# This took 8.768727 mins (1-2-2026)
+fit20.3 <- add_criterion(fit20.3, criterion = "loo", reloo = TRUE, overwrite = TRUE)
+t1 <- Sys.time()
+t1 - t0
 ```
 
 ```{r}
 #| eval: false
 
-fit20.3 <- add_criterion(fit20.3, criterion = "loo", reloo = TRUE)
+fit20.3 <- add_criterion(fit20.3, criterion = "loo", reloo = TRUE, overwrite = TRUE)
 ```
 
 Okay, we're *finally* ready for the LOO comparison.
