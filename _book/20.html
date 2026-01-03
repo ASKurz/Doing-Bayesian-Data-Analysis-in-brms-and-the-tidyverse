@@ -2791,15 +2791,18 @@ scale reduction factor on split chains (at convergence, Rhat = 1).</code></pre>
 </div>
 <p>Executing that yielded the following warning message:</p>
 <blockquote class="blockquote">
-<p>Found 4 observations with a pareto_k &gt; 0.7 in model ‘fit20.3’. It is recommended to set ‘moment_match = TRUE’ in order to perform moment matching for problematic observations.</p>
+<p>Found 3 observations with a pareto_k &gt; 0.7 in model ‘fit20.3’. We recommend to set ‘moment_match = TRUE’ in order to perform moment matching for problematic observations.</p>
 </blockquote>
 <p>To use the <code>moment_match</code> approach, the model in question must have been fit with the setting <code>save_pars = save_pars(all = TRUE)</code> within the <code>brm()</code> call. The default is <code>save_pars = NULL</code> and we used the default settings, above. If you go through the trouble of refitting the model with those updated settings, you’ll find that the <code>moment_match</code> approach didn’t help in this case. For the sake of reducing clutter, I’m not going to show the code for refitting the model. However, the next warning message I got after executing <code>fit20.3 &lt;- add_criterion(fit20.3, criterion = "loo", moment_match = TRUE)</code> was:</p>
 <blockquote class="blockquote">
+<p>Warning :Some Pareto k diagnostic values are too high. See help(‘pareto-k-diagnostic’) for details</p>
+</blockquote>
+<blockquote class="blockquote">
 <p>Warning: Found 1 observations with a pareto_k &gt; 0.7 in model ‘fit20.3’. It is recommended to set ‘reloo = TRUE’ in order to calculate the ELPD without the assumption that these observations are negligible. This will refit the model 1 times to compute the ELPDs for the problematic observations directly.</p>
 </blockquote>
-<p>So it’s time to bring in the big guns. Let’s use <code>reloo</code>. Be warned that, because this requires refitting the model multiple times, this will take a few minutes.</p>
+<p>It’s not a bad idea to execute <code>help('pareto-k-diagnostic')</code> and browse though the options that pop up from the documentation, but I didn’t find them particularly helpful in this case. So it’s time to bring in the big guns. Let’s use <code>reloo</code>. Be warned that, because this requires refitting the model multiple times, this will take a few minutes.<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a></p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb103"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb103-1"><a href="#cb103-1" aria-hidden="true" tabindex="-1"></a>fit20<span class="fl">.3</span> <span class="ot">&lt;-</span> <span class="fu">add_criterion</span>(fit20<span class="fl">.3</span>, <span class="at">criterion =</span> <span class="st">"loo"</span>, <span class="at">reloo =</span> <span class="cn">TRUE</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb103"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb103-1"><a href="#cb103-1" aria-hidden="true" tabindex="-1"></a>fit20<span class="fl">.3</span> <span class="ot">&lt;-</span> <span class="fu">add_criterion</span>(fit20<span class="fl">.3</span>, <span class="at">criterion =</span> <span class="st">"loo"</span>, <span class="at">reloo =</span> <span class="cn">TRUE</span>, <span class="at">overwrite =</span> <span class="cn">TRUE</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>Okay, we’re <em>finally</em> ready for the LOO comparison.</p>
 <div class="cell">
@@ -2807,7 +2810,7 @@ scale reduction factor on split chains (at convergence, Rhat = 1).</code></pre>
 <span id="cb104-2"><a href="#cb104-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">print</span>(<span class="at">simplify =</span> <span class="cn">FALSE</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>        elpd_diff se_diff elpd_loo se_elpd_loo p_loo  se_p_loo looic  se_looic
-fit20.3    0.0       0.0  -334.9      8.1        34.6    4.5    669.9   16.3  
+fit20.3    0.0       0.0  -335.0      8.1        34.6    4.5    669.9   16.3  
 fit20.4  -61.7       8.0  -396.6      5.7         8.9    1.0    793.2   11.5  </code></pre>
 </div>
 </div>
@@ -2915,6 +2918,7 @@ Wetzels, R., Grasman, R. P. P. P., &amp; Wagenmakers, E.-J. (2012). A default <s
 <hr>
 <ol>
 <li id="fn1"><p>It’s not quite clear where these data come from. At the top of page 591, Kruschke wrote “in this section, we will be looking at some real-world salaries.” Further down on the same page, Kruschke added: “The data are annual salaries of 1,080 tenure-track professors at a large-enrollment, small-city, Midwestern-American, research-oriented, state university. (Salaries at big- city and private universities tend to be higher, while salaries at liberal-arts colleges and teaching-oriented state universities tend to be lower.) The data span 60 academic departments that had at least seven members. The data also include the professor’s seniority.” He did not provide a reference.<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn2"><p>To learn more about this method, read through the <code>reloo</code> section of the <a href="https://cran.r-project.org/web/packages/brms/brms.pdf">brms reference manual</a>.<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
 </ol>
 </section>
 
@@ -3318,6 +3322,35 @@ Wetzels, R., Grasman, R. P. P. P., &amp; Wagenmakers, E.-J. (2012). A default <s
     }
   });
   </script>
+<input type="hidden" id="giscus-base-theme" value="light">
+<input type="hidden" id="giscus-alt-theme" value="dark">
+<script>
+  function loadGiscus() {
+    // Function to get the theme based on body class
+    const getTheme = () => {
+      let baseTheme = document.getElementById('giscus-base-theme').value;
+      let altTheme = document.getElementById('giscus-alt-theme').value;
+      return document.body.classList.contains('quarto-dark') ? altTheme : baseTheme;
+    };
+    const script = document.createElement("script");
+    script.src = "https://giscus.app/client.js";
+    script.async = true;
+    script.dataset.repo = "ASKurz/Doing-Bayesian-Data-Analysis-in-brms-and-the-tidyverse";
+    script.dataset.repoId = "MDEwOlJlcG9zaXRvcnkxNDI5Mzc3ODc=";
+    script.dataset.category = "General";
+    script.dataset.categoryId = "DIC_kwDOCIUOu84C0ftZ";
+    script.dataset.mapping = "title";
+    script.dataset.reactionsEnabled = "1";
+    script.dataset.emitMetadata = "0";
+    script.dataset.inputPosition = "top";
+    script.dataset.theme = getTheme();
+    script.dataset.lang = "en";
+    script.crossOrigin = "anonymous";
+    // Append the script to the desired div instead of at the end of the body
+    document.getElementById("quarto-content").appendChild(script);
+  }
+  loadGiscus();
+</script>
 <nav class="page-navigation">
   <div class="nav-page nav-page-previous">
       <a href="./19.html" class="pagination-link" aria-label="Metric Predicted Variable with One Nominal Predictor">
